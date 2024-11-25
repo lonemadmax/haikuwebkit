@@ -45,7 +45,9 @@
 
 #if USE(SKIA)
 IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <skia/core/SkPixmap.h>
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 IGNORE_CLANG_WARNINGS_END
 #endif
 
@@ -129,8 +131,7 @@ ViewPlatform::ViewPlatform(WPEDisplay* display, const API::PageConfiguration& co
     m_backingStore = AcceleratedBackingStoreDMABuf::create(*m_pageProxy, m_wpeView.get());
 
     auto& pageConfiguration = m_pageProxy->configuration();
-    auto& openerInfo = pageConfiguration.openerInfo();
-    m_pageProxy->initializeWebPage(openerInfo ? openerInfo->site : WebCore::Site(aboutBlankURL()), pageConfiguration.initialSandboxFlags());
+    m_pageProxy->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags());
 }
 
 ViewPlatform::~ViewPlatform()
@@ -253,6 +254,8 @@ bool ViewPlatform::activityStateChanged(WebCore::ActivityState state, bool value
 void ViewPlatform::toplevelStateChanged(WPEToplevelState previousState, WPEToplevelState state)
 {
     uint32_t changedMask = state ^ previousState;
+
+#if ENABLE(FULLSCREEN_API)
     if (changedMask & WPE_TOPLEVEL_STATE_FULLSCREEN) {
         switch (m_fullscreenState) {
         case WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen:
@@ -271,6 +274,7 @@ void ViewPlatform::toplevelStateChanged(WPEToplevelState previousState, WPETople
             break;
         }
     }
+#endif
 
     if (changedMask & WPE_TOPLEVEL_STATE_ACTIVE)
         activityStateChanged(WebCore::ActivityState::WindowIsActive, state & WPE_TOPLEVEL_STATE_ACTIVE);

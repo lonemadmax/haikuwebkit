@@ -78,6 +78,9 @@ imported/w3c/web-platform-tests/payment-request/payment-request-hasenrolledinstr
 imported/w3c/web-platform-tests/css/css-pseudo/selection-over-highlight-001.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-pseudo/highlight-custom-properties-dynamic-001.html [ Pass ]
 
+# Tests that require wheel events
+compositing/repaint/sticky-repaint-on-scroll.html [ Pass ]
+
 # These tests are checking that WebContent is terminated when performing an invalid IPC operation for WK2.
 # They crash in debug (as expected) so we skip them there. <rdar://problem/117742950>
 [ Debug ] ipc/restrictedendpoints/mac/deny-access-modelElement.html [ Skip ]
@@ -574,12 +577,6 @@ imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-001.ht
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-element.html [ Failure ]
 
 webkit.org/b/260640 [ Release arm64 ] editing/execCommand/apply-inline-style-to-element-with-no-renderer-crash.html [ Pass Failure ]
-
-# webkit.org/b/278928 AX: AXTextOperation over multiple ranges is entirely broken
-[ Debug ] accessibility/mac/text-operation/text-operation-capitalize.html [ Crash ]
-[ Debug ] accessibility/mac/text-operation/text-operation-lowercase.html [ Crash ]
-[ Debug ] accessibility/mac/text-operation/text-operation-smart-replace.html [ Crash ]
-[ Debug ] accessibility/mac/text-operation/text-operation-uppercase.html [ Crash ]
 
 ### END OF (1) Classified failures with bug reports
 ########################################
@@ -1595,8 +1592,9 @@ http/tests/contentextensions/block-everything-unless-domain-redirect.py [ Pass F
 
 webkit.org/b/262411 [ Sonoma+ ] fast/scrolling/scroll-to-anchor-zoomed-header.html [ Pass Crash ]
 
-[ Ventura ] media/media-vp8-webm.html [ ImageOnlyFailure ] # Missing AVSampleBufferDisplayLayer's ReadyForDisplayDidChangeNotification
-[ Ventura ] media/media-vp8-webm-seek-to-start.html [ ImageOnlyFailure ] # Missing AVSampleBufferDisplayLayer's ReadyForDisplayDidChangeNotification
+# webkit.org/b/280991 NEW TEST(280648@main ):[ macOS wk2 ] media/media-vp8-webm-seek-to-start.html is a flaky ImageOnly failure. 
+media/media-vp8-webm.html [ Pass ImageOnlyFailure ] # Missing AVSampleBufferDisplayLayer's ReadyForDisplayDidChangeNotification
+media/media-vp8-webm-seek-to-start.html [ Pass ImageOnlyFailure ] # Missing AVSampleBufferDisplayLayer's ReadyForDisplayDidChangeNotification
 
 webkit.org/b/261356 [ Debug ] fast/mediastream/device-change-event-2.html [ Pass Timeout ] # CHANGE TO [ Pass Timeout ] WITHOUT DEBUG AFTER FIX ACCORDING TO webkit.org/b/188924
 
@@ -1630,6 +1628,10 @@ http/tests/webgpu/webgpu/api/operation/buffers/threading.html [ Pass ]
 http/tests/webgpu/webgpu/api/validation/buffer/create.html [ Pass ]
 http/tests/webgpu/webgpu/api/validation/buffer/destroy.html [ Pass ]
 http/tests/webgpu/webgpu/api/validation/buffer/mapping.html [ Pass ]
+
+# skipped debug due to test taking too long even with Slow
+[ Release Sequoia+ ] http/tests/webgpu/webgpu/api/validation/compute_pipeline.html [ Pass Slow ]
+[ Release Sequoia+ ] http/tests/webgpu/webgpu/api/validation/render_pipeline/resource_compatibility.html [ Pass Slow ]
 
 http/tests/webgpu/webgpu/api/validation/queue/submit.html [ Pass ]
 http/tests/webgpu/webgpu/api/validation/queue/destroyed [ Pass ]
@@ -1808,9 +1810,6 @@ imported/w3c/web-platform-tests/webrtc/simulcast/setParameters-active.https.html
 # add test expectation as flaky because we have no VM modifier for VM only failures
 [ Sequoia+ ] http/tests/media/fairplay/fps-mse-unmuxed-key-rotation.html [ Pass Timeout Failure ]
 
-# webkit.org/b/278659 [ Sonoma Debug arm64]: ASSERTION FAILED: m_clients.contains(client) in imported/w3c/web-platform-tests/media-source/URL-createObjectURL-null.html
-[ Sonoma Debug arm64 ] imported/w3c/web-platform-tests/media-source/URL-createObjectURL-null.html [ Pass Crash ]
-
 # webkit.org/b/278683 [macOS wk2] imported/w3c/web-platform-tests/navigation-api/navigate-event/signal-abort-window-stop-in-onnavigate.html is a flaky failure
 imported/w3c/web-platform-tests/navigation-api/navigate-event/signal-abort-window-stop-in-onnavigate.html [ Pass Failure ]
 
@@ -1855,7 +1854,7 @@ editing/input/scroll-viewport-page-up-down.html [ Pass Failure ]
 [ Ventura ] imported/w3c/web-platform-tests/pointerevents/pointerevent_lostpointercapture_remove_setcapture_node.html [ Pass Failure ]
 
 # webkit.org/b/280378 [ Sequoia arm64 ] 14x http/tests/media/fairplay/* are constant failures
-[ Sequoia arm64 Release ] http/tests/media/fairplay/legacy-fairplay-hls.html [ Failure ] 
+[ Sequoia arm64 ] http/tests/media/fairplay/legacy-fairplay-hls.html [ Failure ] 
 
 # webkit.org/b/280413 [ macOS wk2 arm64 ] fast/forms/password-scrolled-after-caps-lock-toggled.html is a flaky failure 
 [ arm64 ] fast/forms/password-scrolled-after-caps-lock-toggled.html  [ Pass Failure ]
@@ -1866,11 +1865,6 @@ editing/input/scroll-viewport-page-up-down.html [ Pass Failure ]
 
 # webkit.org/b/280418 [ Sequoia wk2 ] fast/speechsynthesis/mac/samantha-voice-available.html is a constant failure. 
 [ Sequoia+ ] fast/speechsynthesis/mac/samantha-voice-available.html [ Pass Failure ]
-
-# webkit.org/b/280425 [macOS EWS] ASSERTION FAILED in void WebCore::VideoTrack::clearClient(VideoTrackClient in imported/w3c/web-platform-tests/media-source tests
-[ Sonoma+ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-activesourcebuffers.html [ Skip ]
-[ Sonoma+ Debug ] imported/w3c/web-platform-tests/media-source/SourceBuffer-abort-updating.html [ Skip ]
-[ Sonoma+ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-addsourcebuffer-mode.html [ Skip ]
 
 # webkit.org/b/280553 [ Sequoia+ iOS wk2 release ] 2x http/tests/resourceLoadStatistics/* are flaky failures.
 [ Sequoia+ arm64 Release ] http/tests/resourceLoadStatistics/prune-statistics.html [ Pass Failure ] 
@@ -1888,3 +1882,24 @@ editing/input/scroll-viewport-page-up-down.html [ Pass Failure ]
 # webkit.org/b/280922 REGRESSION(284532@main): [ macOS wk2 ] 2x tiled-drawing/* test are flaky failing. (280922)
 tiled-drawing/scrolling/fixed-background/fixed-body-background-zoomed.html [ Pass Failure ]
 tiled-drawing/tile-size-slow-zoomed.html [ Pass Failure ]
+
+# webkit.org/b/280989 [ Sequoia wk2 x86_64 ] webanimations/frame-rate/document-timeline-maximum-frame-rate.html is a constant failure 
+[ Sequoia x86_64 ] webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Failure ]
+
+# webkit.org/b/281090 REGRESSION(284131@main?):[ macOS wk2 x86_64  ] http/tests/site-isolation/selection-focus.html is a constant ImageOnlyFailure 
+[ x86_64 ] http/tests/site-isolation/selection-focus.html [ ImageOnlyFailure ]
+
+# webkit.org/b/281089 REGRESSION(284750@main): [macOS iOS Debug] ASSERTION FAILED: !child->frameID() in http/tests/site-isolation/draw-after-cross-origin-navigation-between-two-remote-frames.html
+[ Debug ] http/tests/site-isolation/draw-after-cross-origin-navigation-between-two-remote-frames.html [ Pass Timeout ImageOnlyFailure ]
+
+# webkit.org/b/281267 [ macOS wk2 ] imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html is a flaky failure.
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html [ Pass Failure ]
+
+# webkit.org/b/277908 [ iOS macOS Debug wk2 ] imported/w3c/web-platform-tests/mediacapture-insertable-streams/VideoTrackGenerator-with-window-tracks.https.html is a flaky text failure
+[ Debug ] imported/w3c/web-platform-tests/mediacapture-insertable-streams/VideoTrackGenerator-with-window-tracks.https.html [ Pass Failure ]
+
+webkit.org/b/281531 [ Sequoia+ ] accessibility/mac/basic-embed-pdf-accessibility.html [ Timeout ]
+webkit.org/b/281531 [ Sequoia+ ] accessibility/mac/iframe-pdf.html [ Timeout ]
+
+# webkit.org/b/277908 NEW TEST (284866@main): [ macOS iOS ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html is a flaky failure.
+imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html [ Pass Failure ]

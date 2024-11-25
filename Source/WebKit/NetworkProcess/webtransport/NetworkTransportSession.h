@@ -44,11 +44,12 @@ class NetworkTransportBidirectionalStream;
 class NetworkTransportReceiveStream;
 class NetworkTransportSendStream;
 
+struct SharedPreferencesForWebProcess;
 struct WebTransportSessionIdentifierType;
 struct WebTransportStreamIdentifierType;
 
-using WebTransportSessionIdentifier = LegacyNullableObjectIdentifier<WebTransportSessionIdentifierType>;
-using WebTransportStreamIdentifier = LegacyNullableObjectIdentifier<WebTransportStreamIdentifierType>;
+using WebTransportSessionIdentifier = ObjectIdentifier<WebTransportSessionIdentifierType>;
+using WebTransportStreamIdentifier = ObjectIdentifier<WebTransportStreamIdentifierType>;
 
 class NetworkTransportSession : public RefCounted<NetworkTransportSession>, public IPC::MessageReceiver, public IPC::MessageSender, public Identified<WebTransportSessionIdentifier> {
     WTF_MAKE_TZONE_ALLOCATED(NetworkTransportSession);
@@ -72,6 +73,7 @@ public:
     void receiveBidirectionalStream();
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 private:
     template<typename... Args> static Ref<NetworkTransportSession> create(Args&&... args) { return adoptRef(*new NetworkTransportSession(std::forward<Args>(args)...)); }
 #if PLATFORM(COCOA)
@@ -81,9 +83,9 @@ private:
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final;
 
-    HashMap<WebTransportStreamIdentifier, Ref<NetworkTransportBidirectionalStream>> m_bidirectionalStreams;
-    HashMap<WebTransportStreamIdentifier, Ref<NetworkTransportReceiveStream>> m_receiveStreams;
-    HashMap<WebTransportStreamIdentifier, UniqueRef<NetworkTransportSendStream>> m_sendStreams;
+    UncheckedKeyHashMap<WebTransportStreamIdentifier, Ref<NetworkTransportBidirectionalStream>> m_bidirectionalStreams;
+    UncheckedKeyHashMap<WebTransportStreamIdentifier, Ref<NetworkTransportReceiveStream>> m_receiveStreams;
+    UncheckedKeyHashMap<WebTransportStreamIdentifier, UniqueRef<NetworkTransportSendStream>> m_sendStreams;
     WeakPtr<NetworkConnectionToWebProcess> m_connectionToWebProcess;
 
 #if PLATFORM(COCOA)

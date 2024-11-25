@@ -82,7 +82,6 @@ class JSGlobalObject;
     v(repeatCharacter, nullptr) \
     v(isArray, nullptr) \
     v(isArraySlow, nullptr) \
-    v(concatMemcpy, nullptr) \
     v(appendMemcpy, nullptr) \
     v(hostPromiseRejectionTracker, nullptr) \
     v(Set, nullptr) \
@@ -134,7 +133,6 @@ class JSGlobalObject;
     v(isRemoteFunction, nullptr) \
     v(arrayFromFastFillWithUndefined, nullptr) \
     v(arrayFromFastFillWithEmpty, nullptr) \
-    v(arraySpeciesWatchpointIsValid, nullptr) \
     v(arraySort, nullptr) \
     v(jsonParse, nullptr) \
     v(jsonStringify, nullptr) \

@@ -139,7 +139,7 @@ public:
 
 private:
     ListHashSet<AtomString> m_keys;
-    HashMap<AtomString, UniqueRef<CapturedElement>> m_map;
+    UncheckedKeyHashMap<AtomString, UniqueRef<CapturedElement>> m_map;
 };
 
 struct ViewTransitionParams {
@@ -155,7 +155,8 @@ public:
 class ViewTransition : public RefCounted<ViewTransition>, public VisibilityChangeClient, public ActiveDOMObject {
     WTF_MAKE_TZONE_ALLOCATED(ViewTransition);
 public:
-    DEFINE_VIRTUAL_REFCOUNTED;
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     static Ref<ViewTransition> createSamePage(Document&, RefPtr<ViewTransitionUpdateCallback>&&, Vector<AtomString>&&);
     static RefPtr<ViewTransition> resolveInboundCrossDocumentViewTransition(Document&, std::unique_ptr<ViewTransitionParams>);
@@ -215,13 +216,15 @@ private:
     // ActiveDOMObject.
     void stop() final;
 
+    bool isCrossDocument() { return m_isCrossDocument; }
+
     OrderedNamedElementsMap m_namedElements;
     ViewTransitionPhase m_phase { ViewTransitionPhase::PendingCapture };
     FloatSize m_initialLargeViewportSize;
     float m_initialPageZoom;
 
     RefPtr<ViewTransitionUpdateCallback>  m_updateCallback;
-    bool m_shouldCallUpdateCallback { false };
+    bool m_isCrossDocument { false };
 
     using PromiseAndWrapper = std::pair<Ref<DOMPromise>, Ref<DeferredPromise>>;
     PromiseAndWrapper m_ready;

@@ -25,25 +25,18 @@
 
 #pragma once
 
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/URL.h>
 #include <wtf/WeakHashSet.h>
-
-namespace WebKit {
-class FrameLoadStateObserver;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::FrameLoadStateObserver> : std::true_type { };
-}
 
 namespace WebKit {
 
 enum class IsMainFrame : bool;
 
-class FrameLoadStateObserver : public CanMakeWeakPtr<FrameLoadStateObserver> {
+class FrameLoadStateObserver : public AbstractRefCountedAndCanMakeWeakPtr<FrameLoadStateObserver> {
 public:
     virtual ~FrameLoadStateObserver() = default;
+
     virtual void didReceiveProvisionalURL(const URL&) { }
     virtual void didStartProvisionalLoad(const URL&) { }
     virtual void didFailProvisionalLoad(const URL&) { }
@@ -91,7 +84,10 @@ public:
     const URL& unreachableURL() const { return m_unreachableURL; }
 
     IsMainFrame isMainFrame() const { return m_isMainFrame; }
+
 private:
+    void forEachObserver(const Function<void(FrameLoadStateObserver&)>&);
+
     const IsMainFrame m_isMainFrame;
     State m_state { State::Finished };
     URL m_url;

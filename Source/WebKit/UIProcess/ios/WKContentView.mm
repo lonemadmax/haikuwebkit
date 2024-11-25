@@ -67,7 +67,6 @@
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/Quirks.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/Site.h>
 #import <WebCore/VelocityData.h>
 #import <objc/message.h>
@@ -75,6 +74,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/Condition.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/UUID.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SpanCocoa.h>
@@ -265,8 +265,7 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
 
     _page = processPool.createWebPage(*_pageClient, WTFMove(configuration));
     auto& pageConfiguration = _page->configuration();
-    auto& openerInfo = pageConfiguration.openerInfo();
-    _page->initializeWebPage(openerInfo ? openerInfo->site : WebCore::Site(aboutBlankURL()), pageConfiguration.initialSandboxFlags());
+    _page->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags());
 
     [self _updateRuntimeProtocolConformanceIfNeeded];
 
@@ -333,7 +332,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_screenCapturedDidChange:) name:UIScreenCapturedDidChangeNotification object:[UIScreen mainScreen]];
 ALLOW_DEPRECATED_DECLARATIONS_END
 
-    if (WebCore::IOSApplication::isEvernote() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::WKContentViewDoesNotOverrideKeyCommands))
+    if (WTF::IOSApplication::isEvernote() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::WKContentViewDoesNotOverrideKeyCommands))
         class_addMethod(self.class, @selector(keyCommands), reinterpret_cast<IMP>(&keyCommandsPlaceholderHackForEvernote), method_getTypeEncoding(class_getInstanceMethod(self.class, @selector(keyCommands))));
 
     return self;
@@ -816,14 +815,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             [self _becomeFirstResponderWithSelectionMovingForward:NO completionHandler:nil];
     }
 }
-
-// FIXME: <rdar://136769319> Adopt this in visionOS too.
-#if HAVE(UI_FOCUS_ITEM_DEFERRAL_MODE) && !PLATFORM(VISION)
-- (UIFocusItemDeferralMode)focusItemDeferralMode
-{
-    return UIFocusItemDeferralModeNever;
-}
-#endif
 
 #pragma mark Internal
 

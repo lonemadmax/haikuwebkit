@@ -138,6 +138,7 @@ std::optional<NavigationActionData> WebFrameLoaderClient::navigationActionData(c
         navigationAction.openedByDOMWithOpener(),
         hasOpener,
         isPerformingHTTPFallback == IsPerformingHTTPFallback::Yes,
+        { },
         requester.securityOrigin->data(),
         requester.topOrigin->data(),
         navigationAction.targetBackForwardItemIdentifier(),
@@ -211,6 +212,12 @@ void WebFrameLoaderClient::updateSandboxFlags(SandboxFlags sandboxFlags)
 {
     if (RefPtr webPage = m_frame->page())
         webPage->send(Messages::WebPageProxy::UpdateSandboxFlags(m_frame->frameID(), sandboxFlags));
+}
+
+void WebFrameLoaderClient::updateOpener(const WebCore::Frame& newOpener)
+{
+    if (RefPtr webPage = m_frame->page())
+        webPage->send(Messages::WebPageProxy::UpdateOpener(m_frame->frameID(), newOpener.frameID()));
 }
 
 }

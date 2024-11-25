@@ -47,7 +47,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-typedef HashMap<BackForwardItemIdentifier, RefPtr<HistoryItem>> IDToHistoryItemMap; // "ID" here is the item ID.
+typedef UncheckedKeyHashMap<BackForwardItemIdentifier, RefPtr<HistoryItem>> IDToHistoryItemMap; // "ID" here is the item ID.
 static IDToHistoryItemMap& idToHistoryItemMap()
 {
     static NeverDestroyed<IDToHistoryItemMap> map;
@@ -110,6 +110,23 @@ void WebBackForwardListProxy::goToItem(HistoryItem& item)
     auto sendResult = m_page->sendSync(Messages::WebPageProxy::BackForwardGoToItem(item.identifier()));
     auto [backForwardListCounts] = sendResult.takeReplyOr(WebBackForwardListCounts { });
     m_cachedBackForwardListCounts = backForwardListCounts;
+}
+
+void WebBackForwardListProxy::goToProvisionalItem(const HistoryItem& item)
+{
+    RefPtr page = m_page.get();
+    if (!page)
+        return;
+
+    auto sendResult = page->sendSync(Messages::WebPageProxy::BackForwardGoToProvisionalItem(item.identifier()));
+    auto [backForwardListCounts] = sendResult.takeReplyOr(WebBackForwardListCounts { });
+    m_cachedBackForwardListCounts = backForwardListCounts;
+}
+
+void WebBackForwardListProxy::clearProvisionalItem(const HistoryItem& item)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::WebPageProxy::BackForwardClearProvisionalItem(item.identifier()));
 }
 
 RefPtr<HistoryItem> WebBackForwardListProxy::itemAtIndex(int itemIndex, FrameIdentifier frameID)

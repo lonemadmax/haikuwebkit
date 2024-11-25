@@ -70,6 +70,8 @@
 #import <WebKitAdditions/DyldCallbackAdditions.h>
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 SOFT_LINK_SYSTEM_LIBRARY(libsystem_info)
 SOFT_LINK_OPTIONAL(libsystem_info, mbr_close_connections, int, (), ());
 SOFT_LINK_OPTIONAL(libsystem_info, lookup_close_connections, int, (), ());
@@ -128,7 +130,7 @@ struct CachedSandboxHeader {
 // byte N
 
 struct SandboxInfo {
-    SandboxInfo(const String& parentDirectoryPath, const String& directoryPath, const String& filePath, const SandboxParametersPtr& sandboxParameters, const CString& header, const WebCore::AuxiliaryProcessType& processType, const SandboxInitializationParameters& initializationParameters, const String& profileOrProfilePath, bool isProfilePath)
+    SandboxInfo(const String& parentDirectoryPath, const String& directoryPath, const String& filePath, const SandboxParametersPtr& sandboxParameters, const CString& header, const WTF::AuxiliaryProcessType& processType, const SandboxInitializationParameters& initializationParameters, const String& profileOrProfilePath, bool isProfilePath)
         : parentDirectoryPath { parentDirectoryPath }
         , directoryPath { directoryPath }
         , filePath { filePath }
@@ -146,7 +148,7 @@ struct SandboxInfo {
     const String& filePath;
     const SandboxParametersPtr& sandboxParameters;
     const CString& header;
-    const WebCore::AuxiliaryProcessType& processType;
+    const WTF::AuxiliaryProcessType& processType;
     const SandboxInitializationParameters& initializationParameters;
     const String& profileOrProfilePath;
     const bool isProfilePath;
@@ -213,17 +215,17 @@ static std::optional<Vector<char>> fileContents(const String& path, bool shouldL
 #if USE(APPLE_INTERNAL_SDK)
 // These strings must match the last segment of the "com.apple.rootless.storage.<this part must match>" entry in each
 // process's restricted entitlements file (ex. Configurations/Networking-OSX-restricted.entitlements).
-constexpr ASCIILiteral processStorageClass(WebCore::AuxiliaryProcessType type)
+constexpr ASCIILiteral processStorageClass(WTF::AuxiliaryProcessType type)
 {
     switch (type) {
-    case WebCore::AuxiliaryProcessType::WebContent:
+    case WTF::AuxiliaryProcessType::WebContent:
         return "WebKitWebContentSandbox"_s;
-    case WebCore::AuxiliaryProcessType::Network:
+    case WTF::AuxiliaryProcessType::Network:
         return "WebKitNetworkingSandbox"_s;
-    case WebCore::AuxiliaryProcessType::Plugin:
+    case WTF::AuxiliaryProcessType::Plugin:
         return "WebKitPluginSandbox"_s;
 #if ENABLE(GPU_PROCESS)
-    case WebCore::AuxiliaryProcessType::GPU:
+    case WTF::AuxiliaryProcessType::GPU:
         return "WebKitGPUSandbox"_s;
 #endif
     }
@@ -269,23 +271,23 @@ static String sandboxDataVaultParentDirectory()
     return String::fromUTF8(resolvedPath);
 }
 
-static String sandboxDirectory(WebCore::AuxiliaryProcessType processType, const String& parentDirectory)
+static String sandboxDirectory(WTF::AuxiliaryProcessType processType, const String& parentDirectory)
 {
     StringBuilder directory;
     directory.append(parentDirectory);
     switch (processType) {
-    case WebCore::AuxiliaryProcessType::WebContent:
+    case WTF::AuxiliaryProcessType::WebContent:
         directory.append("/com.apple.WebKit.WebContent.Sandbox"_s);
         break;
-    case WebCore::AuxiliaryProcessType::Network:
+    case WTF::AuxiliaryProcessType::Network:
         directory.append("/com.apple.WebKit.Networking.Sandbox"_s);
         break;
-    case WebCore::AuxiliaryProcessType::Plugin:
+    case WTF::AuxiliaryProcessType::Plugin:
         WTFLogAlways("sandboxDirectory: Unexpected Plugin process initialization.");
         CRASH();
         break;
 #if ENABLE(GPU_PROCESS)
-    case WebCore::AuxiliaryProcessType::GPU:
+    case WTF::AuxiliaryProcessType::GPU:
         directory.append("/com.apple.WebKit.GPU.Sandbox"_s);
         break;
 #endif
@@ -570,7 +572,7 @@ static bool applySandbox(const AuxiliaryProcessInitializationParameters& paramet
 #if USE(CACHE_COMPILED_SANDBOX)
     // The plugin process's DARWIN_USER_TEMP_DIR and DARWIN_USER_CACHE_DIR sandbox parameters are randomized so
     // so the compiled sandbox should not be cached because it won't be reused.
-    if (parameters.processType == WebCore::AuxiliaryProcessType::Plugin) {
+    if (parameters.processType == WTF::AuxiliaryProcessType::Plugin) {
         WTFLogAlways("applySandbox: Unexpected Plugin process initialization.");
         CRASH();
     }
@@ -830,5 +832,7 @@ void AuxiliaryProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& 
 #endif // PLATFORM(MAC)
 
 } // namespace WebKit
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif

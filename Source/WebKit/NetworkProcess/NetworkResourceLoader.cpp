@@ -496,6 +496,8 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
             return ResourceLoadInfo::Type::Document;
         case WebCore::FetchOptions::Destination::Embed:
             return ResourceLoadInfo::Type::Object;
+        case WebCore::FetchOptions::Destination::Environmentmap:
+            return ResourceLoadInfo::Type::Media;
         case WebCore::FetchOptions::Destination::Font:
             return ResourceLoadInfo::Type::Font;
         case WebCore::FetchOptions::Destination::Image:
@@ -1602,7 +1604,7 @@ void NetworkResourceLoader::didReceiveMainResourceResponse(const WebCore::Resour
 {
     LOADER_RELEASE_LOG("didReceiveMainResourceResponse:");
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    if (auto* speculativeLoadManager = m_cache ? m_cache->speculativeLoadManager() : nullptr)
+    if (CheckedPtr speculativeLoadManager = m_cache ? m_cache->speculativeLoadManager() : nullptr)
         speculativeLoadManager->registerMainResourceLoadResponse(globalFrameID(), originalRequest(), response);
 #endif
 #if ENABLE(WEB_ARCHIVE)
@@ -1828,14 +1830,14 @@ static String escapeForJSON(const String& s)
     return makeStringByReplacingAll(makeStringByReplacingAll(s, '\\', "\\\\"_s), '"', "\\\""_s);
 }
 
-template<typename IdentifierType, typename ThreadSafety, typename RawValue, SupportsObjectIdentifierNullState supportsNullState>
-static String escapeIDForJSON(const std::optional<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue, supportsNullState>>& value)
+template<typename IdentifierType, typename ThreadSafety, typename RawValue>
+static String escapeIDForJSON(const std::optional<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue>>& value)
 {
     return value ? String::number(value->toUInt64()) : "None"_str;
 }
 
-template<typename IdentifierType, typename ThreadSafety, typename RawValue, SupportsObjectIdentifierNullState supportsNullState>
-static String escapeIDForJSON(const std::optional<ProcessQualified<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue, supportsNullState>>>& value)
+template<typename IdentifierType, typename ThreadSafety, typename RawValue>
+static String escapeIDForJSON(const std::optional<ProcessQualified<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue>>>& value)
 {
     return value ? String::number(value->object().toUInt64()) : "None"_str;
 }

@@ -48,24 +48,6 @@ OBJC_CLASS NSURLCredentialStorage;
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
 
-namespace WebKit {
-struct SessionWrapper;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::SessionWrapper> : std::true_type { };
-}
-
-namespace WebCore {
-class SessionWrapper;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::SessionWrapper> : std::true_type { };
-}
-
 namespace WebCore {
 enum class AdvancedPrivacyProtections : uint16_t;
 }
@@ -76,21 +58,26 @@ enum class NegotiatedLegacyTLS : bool;
 class LegacyCustomProtocolManager;
 class NetworkSessionCocoa;
 
-struct SessionWrapper : public CanMakeWeakPtr<SessionWrapper> {
-    void initialize(NSURLSessionConfiguration *, NetworkSessionCocoa&, WebCore::StoredCredentialsPolicy, NavigatingToAppBoundDomain);
+struct SessionWrapper : public CanMakeWeakPtr<SessionWrapper>, public CanMakeCheckedPtr<SessionWrapper> {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_STRUCT_OVERRIDE_DELETE_FOR_CHECKED_PTR(SessionWrapper);
+
+    void initialize(NSURLSessionConfiguration*, NetworkSessionCocoa&, WebCore::StoredCredentialsPolicy, NavigatingToAppBoundDomain);
 
     void recreateSessionWithUpdatedProxyConfigurations(NetworkSessionCocoa&);
 
     RetainPtr<NSURLSession> session;
     RetainPtr<WKNetworkSessionDelegate> delegate;
-    HashMap<NetworkDataTaskCocoa::TaskIdentifier, ThreadSafeWeakPtr<NetworkDataTaskCocoa>> dataTaskMap;
-    HashMap<NetworkDataTaskCocoa::TaskIdentifier, DownloadID> downloadMap;
-    HashMap<NetworkDataTaskCocoa::TaskIdentifier, WeakPtr<WebSocketTask>> webSocketDataTaskMap;
+    UncheckedKeyHashMap<NetworkDataTaskCocoa::TaskIdentifier, ThreadSafeWeakPtr<NetworkDataTaskCocoa>> dataTaskMap;
+    UncheckedKeyHashMap<NetworkDataTaskCocoa::TaskIdentifier, DownloadID> downloadMap;
+    UncheckedKeyHashMap<NetworkDataTaskCocoa::TaskIdentifier, WeakPtr<WebSocketTask>> webSocketDataTaskMap;
 };
 
 struct IsolatedSession {
     WTF_MAKE_TZONE_ALLOCATED(IsolatedSession);
 public:
+    CheckedRef<SessionWrapper> checkedSessionWithCredentialStorage() { return sessionWithCredentialStorage; }
+
     SessionWrapper sessionWithCredentialStorage;
     WallTime lastUsed;
 };
@@ -105,9 +92,12 @@ public:
     SessionWrapper& initializeEphemeralStatelessSessionIfNeeded(NavigatingToAppBoundDomain, NetworkSessionCocoa&);
 
     SessionWrapper& isolatedSession(WebCore::StoredCredentialsPolicy, const WebCore::RegistrableDomain&, NavigatingToAppBoundDomain, NetworkSessionCocoa&);
-    HashMap<WebCore::RegistrableDomain, std::unique_ptr<IsolatedSession>> isolatedSessions;
+    UncheckedKeyHashMap<WebCore::RegistrableDomain, std::unique_ptr<IsolatedSession>> isolatedSessions;
 
     std::unique_ptr<IsolatedSession> appBoundSession;
+
+    CheckedRef<SessionWrapper> checkedSessionWithCredentialStorage() { return sessionWithCredentialStorage; }
+    CheckedRef<SessionWrapper> checkedEphemeralStatelessSession() { return ephemeralStatelessSession; }
 
     SessionWrapper sessionWithCredentialStorage;
     SessionWrapper ephemeralStatelessSession;
@@ -210,8 +200,8 @@ private:
     void forEachSessionWrapper(Function<void(SessionWrapper&)>&&);
 
     Ref<SessionSet> m_defaultSessionSet;
-    HashMap<WebPageProxyIdentifier, Ref<SessionSet>> m_perPageSessionSets;
-    HashMap<WebPageNetworkParameters, WeakPtr<SessionSet>> m_perParametersSessionSets;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, Ref<SessionSet>> m_perPageSessionSets;
+    UncheckedKeyHashMap<WebPageNetworkParameters, WeakPtr<SessionSet>> m_perParametersSessionSets;
 
     void initializeNSURLSessionsInSet(SessionSet&, NSURLSessionConfiguration *);
     SessionSet& sessionSetForPage(std::optional<WebPageProxyIdentifier>);
@@ -234,8 +224,8 @@ private:
     bool m_preventsSystemHTTPProxyAuthentication { false };
 
     class BlobDataTaskClient;
-    HashMap<DataTaskIdentifier, Ref<BlobDataTaskClient>> m_blobDataTasksForAPI;
-    HashMap<DataTaskIdentifier, RetainPtr<NSURLSessionDataTask>> m_dataTasksForAPI;
+    UncheckedKeyHashMap<DataTaskIdentifier, Ref<BlobDataTaskClient>> m_blobDataTasksForAPI;
+    UncheckedKeyHashMap<DataTaskIdentifier, RetainPtr<NSURLSessionDataTask>> m_dataTasksForAPI;
 };
 
 } // namespace WebKit

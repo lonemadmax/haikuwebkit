@@ -889,8 +889,8 @@ enum class PointerEvents : uint8_t {
 enum class TransformStyle3D : uint8_t {
     Flat,
     Preserve3D,
-#if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
-    Optimized3D
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    Separated
 #endif
 };
 
@@ -989,16 +989,6 @@ enum class ImageRendering : uint8_t {
     OptimizeQuality,
     CrispEdges,
     Pixelated
-};
-
-enum class ImageResolutionSource : bool {
-    Specified,
-    FromImage
-};
-
-enum class ImageResolutionSnap : bool {
-    None,
-    Pixels
 };
 
 enum class Order : bool {

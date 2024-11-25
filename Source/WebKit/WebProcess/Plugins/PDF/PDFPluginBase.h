@@ -29,7 +29,6 @@
 
 #include "FrameInfoData.h"
 #include "PDFPluginIdentifier.h"
-#include "PDFScriptEvaluator.h"
 #include "WebFoundTextRange.h"
 #include "WebMouseEvent.h"
 #include <WebCore/AffineTransform.h>
@@ -85,11 +84,11 @@ class WebWheelEvent;
 struct WebHitTestResultData;
 
 enum class ByteRangeRequestIdentifierType;
-using ByteRangeRequestIdentifier = LegacyNullableObjectIdentifier<ByteRangeRequestIdentifierType>;
+using ByteRangeRequestIdentifier = ObjectIdentifier<ByteRangeRequestIdentifierType>;
 
 enum class CheckValidRanges : bool { No, Yes };
 
-class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public CanMakeThreadSafeCheckedPtr<PDFPluginBase>, public WebCore::ScrollableArea, public PDFScriptEvaluatorClient, public Identified<PDFPluginIdentifier> {
+class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public CanMakeThreadSafeCheckedPtr<PDFPluginBase>, public WebCore::ScrollableArea, public Identified<PDFPluginIdentifier> {
     WTF_MAKE_NONCOPYABLE(PDFPluginBase);
     WTF_MAKE_TZONE_ALLOCATED(PDFPluginBase);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PDFPluginBase);
@@ -106,8 +105,6 @@ public:
     uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeThreadSafeCheckedPtr::ptrCountWithoutThreadCheck(); }
     void incrementPtrCount() const final { CanMakeThreadSafeCheckedPtr::incrementPtrCount(); }
     void decrementPtrCount() const final { CanMakeThreadSafeCheckedPtr::decrementPtrCount(); }
-
-    USING_CAN_MAKE_WEAKPTR(WebKit::PDFScriptEvaluatorClient);
 
     void startLoading();
     void destroy();
@@ -250,6 +247,7 @@ public:
     virtual void focusPreviousAnnotation() = 0;
 
     virtual Vector<WebCore::FloatRect> annotationRectsForTesting() const { return { }; }
+    virtual void setTextAnnotationValueForTesting(unsigned pageIndex, unsigned annotationIndex, const String& value) { }
     virtual void setPDFDisplayModeForTesting(const String&) { }
     void registerPDFTest(RefPtr<WebCore::VoidCallback>&&);
 
@@ -321,7 +319,7 @@ protected:
 
     void invalidateRect(const WebCore::IntRect&);
 
-    void print() override;
+    void print();
 
     // ScrollableArea functions.
     WebCore::IntRect scrollCornerRect() const final;
@@ -379,6 +377,8 @@ protected:
 #if !LOG_DISABLED
     void incrementalLoaderLog(const String&);
 #endif
+
+    virtual void teardownPasswordEntryForm() = 0;
 
     SingleThreadWeakPtr<PluginView> m_view;
     WeakPtr<WebFrame> m_frame;

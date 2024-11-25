@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,10 +79,12 @@ public:
     const BitVector& tailCallSuccessors() const { return m_tailCallSuccessors; }
     bool tailCallClobbersInstance() const { return m_tailCallClobbersInstance ; }
 
+    FixedBitVector&& takeCallees() { return WTFMove(m_callees); }
+
     const uint8_t* getBytecode() const { return m_bytecode.data(); }
     const uint8_t* getMetadata() const { return m_metadata.data(); }
 
-    HashMap<IPIntPC, IPIntTierUpCounter::OSREntryData>& tierUpCounter() { return m_tierUpCounter; }
+    UncheckedKeyHashMap<IPIntPC, IPIntTierUpCounter::OSREntryData>& tierUpCounter() { return m_tierUpCounter; }
 
     unsigned addSignature(const TypeDefinition&);
 
@@ -106,6 +108,7 @@ private:
 
     FunctionCodeIndex m_functionIndex;
     bool m_tailCallClobbersInstance { false };
+    FixedBitVector m_callees;
     BitVector m_tailCallSuccessors;
 
     std::span<const uint8_t> m_bytecode;
@@ -123,7 +126,7 @@ private:
     Vector<uint8_t, 16> m_argumINTBytecode { };
 
     Vector<const TypeDefinition*> m_signatures;
-    HashMap<IPIntPC, IPIntTierUpCounter::OSREntryData> m_tierUpCounter;
+    UncheckedKeyHashMap<IPIntPC, IPIntTierUpCounter::OSREntryData> m_tierUpCounter;
     Vector<UnlinkedHandlerInfo> m_exceptionHandlers;
 };
 

@@ -667,7 +667,8 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     style.adjustViewTimelines();
 
 #if PLATFORM(COCOA)
-    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DoesNotAddIntrinsicMarginsToFormControls)) {
+    static const bool shouldAddIntrinsicMarginToFormControls = !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DoesNotAddIntrinsicMarginsToFormControls);
+    if (shouldAddIntrinsicMarginToFormControls) {
         // Important: Intrinsic margins get added to controls before the theme has adjusted the style, since the theme will
         // alter fonts and heights/widths.
         if (is<HTMLFormControlElement>(m_element) && style.computedFontSize() >= 11) {
@@ -699,7 +700,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
             || style.hasMask()
             || style.hasBackdropFilter()
             || style.hasBlendMode()
-            || style.viewTransitionName();
+            || !style.viewTransitionName().isNone();
         if (RefPtr element = m_element) {
             auto styleable = Styleable::fromElement(*element);
             forceToFlat |= styleable.capturedInViewTransition();
@@ -961,6 +962,12 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
             && const_cast<Element*>(m_element.get())->classList().contains(class2))
             style.setMinHeight(WebCore::Length(0, LengthType::Fixed));
     }
+    if (m_document->quirks().needsPrimeVideoUserSelectNoneQuirk()) {
+        static MainThreadNeverDestroyed<const AtomString> className("webPlayerSDKUiContainer"_s);
+        if (m_element->hasClassName(className))
+            style.setUserSelect(UserSelect::None);
+    }
+
 #if ENABLE(VIDEO)
     if (m_document->quirks().needsFullscreenDisplayNoneQuirk()) {
         if (RefPtr div = dynamicDowncast<HTMLDivElement>(m_element); div && style.display() == DisplayType::None) {
@@ -983,17 +990,6 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
             style.setObjectFit(ObjectFit::Contain);
     }
 #endif
-#endif
-
-#if ENABLE(DARK_MODE_CSS)
-    if (m_document->quirks().needsYouTubeDarkModeQuirk()) {
-        // Sets color-scheme to dark if dark attribute is applied to root element.
-        if (m_element && m_element == m_document->documentElement()) {
-            static MainThreadNeverDestroyed<const AtomString> darkMode("dark"_s);
-            if (m_element->hasAttribute(darkMode))
-                style.setColorScheme(StyleColorScheme(ColorScheme::Dark, true));
-        }
-    }
 #endif
 }
 

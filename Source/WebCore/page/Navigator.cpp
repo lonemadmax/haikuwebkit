@@ -387,6 +387,17 @@ GPU* Navigator::gpu()
     return m_gpuForWebGPU.get();
 }
 
+Page* Navigator::page()
+{
+    auto* frame = this->frame();
+    return frame ? frame->page() : nullptr;
+}
+
+RefPtr<Page> Navigator::protectedPage()
+{
+    return page();
+}
+
 Document* Navigator::document()
 {
     auto* frame = this->frame();
@@ -481,7 +492,7 @@ void Navigator::subscribeToPushService(const Vector<uint8_t>& applicationServerK
     });
 }
 
-void Navigator::unsubscribeFromPushService(PushSubscriptionIdentifier subscriptionIdentifier, DOMPromiseDeferred<IDLBoolean>&& promise)
+void Navigator::unsubscribeFromPushService(std::optional<PushSubscriptionIdentifier> subscriptionIdentifier, DOMPromiseDeferred<IDLBoolean>&& promise)
 {
     LOG(Push, "Navigator::unsubscribeFromPushService");
 

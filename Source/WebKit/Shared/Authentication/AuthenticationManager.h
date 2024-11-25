@@ -40,15 +40,6 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
-namespace WebKit {
-class AuthenticationManager;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::AuthenticationManager> : std::true_type { };
-}
-
 namespace IPC {
 class MessageSender;
 }
@@ -79,6 +70,9 @@ class AuthenticationManager : public NetworkProcessSupplement, public IPC::Messa
 public:
     explicit AuthenticationManager(NetworkProcess&);
     ~AuthenticationManager();
+
+    void ref() const;
+    void deref() const;
 
     static ASCIILiteral supplementName();
 
@@ -118,7 +112,7 @@ private:
 
     WeakRef<NetworkProcess> m_process;
 
-    HashMap<AuthenticationChallengeIdentifier, UniqueRef<Challenge>> m_challenges;
+    UncheckedKeyHashMap<AuthenticationChallengeIdentifier, UniqueRef<Challenge>> m_challenges;
 };
 
 } // namespace WebKit

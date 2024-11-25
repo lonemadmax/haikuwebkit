@@ -70,7 +70,6 @@
 #import <WebCore/IOSurfacePool.h>
 #import <WebCore/LocalCurrentTraitCollection.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/UserInterfaceLayoutDirection.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
@@ -80,6 +79,7 @@
 #import <wtf/FixedVector.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RefCounted.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SystemTracing.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cocoa/Entitlements.h>
@@ -2072,8 +2072,10 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (scrollView.pinchGestureRecognizer.state == UIGestureRecognizerStateBegan) {
         _page->willStartUserTriggeredZooming();
 
+#if ENABLE(PDF_PLUGIN)
         if (_page->mainFramePluginHandlesPageScaleGesture())
             return;
+#endif
 
         [_contentView scrollViewWillStartPanOrPinchGesture];
     }
@@ -2281,8 +2283,13 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (![self usesStandardContentView] && [_customContentView respondsToSelector:@selector(web_scrollViewDidZoom:)])
         [_customContentView web_scrollViewDidZoom:scrollView];
 
-    if (_page->mainFramePluginHandlesPageScaleGesture())
+#if ENABLE(PDF_PLUGIN)
+    if (_page->mainFramePluginHandlesPageScaleGesture()) {
+        auto gestureOrigin = WebCore::IntPoint([scrollView.pinchGestureRecognizer locationInView:self]);
+        _page->setPluginScaleFactor(contentZoomScale(self), gestureOrigin);
         return;
+    }
+#endif
 
     [self _updateScrollViewBackground];
     [self _scheduleVisibleContentRectUpdateAfterScrollInView:scrollView];
@@ -2295,11 +2302,12 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
     ASSERT(scrollView == _scrollView);
 
+#if ENABLE(PDF_PLUGIN)
     if (_page->mainFramePluginHandlesPageScaleGesture()) {
         _page->didEndUserTriggeredZooming();
-        [self _scheduleVisibleContentRectUpdateAfterScrollInView:scrollView];
         return;
     }
+#endif
 
     // FIXME: remove when rdar://problem/36065495 is fixed.
     // When rotating with two fingers down, UIScrollView can set a bogus content view position.
@@ -3631,7 +3639,7 @@ static bool isLockdownModeWarningNeeded()
 {
     // Only present the alert if the app is not Safari
     // and we've never presented the alert before
-    if (WebCore::IOSApplication::isMobileSafari())
+    if (WTF::IOSApplication::isMobileSafari())
         return false;
 
     if (![WKProcessPool _lockdownModeEnabledGloballyForTesting] || [[NSUserDefaults standardUserDefaults] boolForKey:WebKitLockdownModeAlertShownKey])
@@ -3841,6 +3849,13 @@ static bool isLockdownModeWarningNeeded()
     _overriddenZoomScaleParameters = std::nullopt;
 }
 
+#if ENABLE(PDF_PLUGIN)
+- (void)_pluginDidInstallPDFDocument:(double)initialScale
+{
+    [_scrollView setZoomScale:initialScale];
+}
+#endif
+
 #if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKWebViewIOSInternalAdditionsAfter.mm>)
 #import <WebKitAdditions/WKWebViewIOSInternalAdditionsAfter.mm>
 #endif
@@ -3858,7 +3873,7 @@ static bool isLockdownModeWarningNeeded()
             WebCore::PrivateClickMeasurement::SourceID(attribution.sourceIdentifier),
             WebCore::PCM::SourceSite(attribution.reportEndpoint),
             WebCore::PCM::AttributionDestinationSite(attribution.destinationURL),
-            WebCore::applicationBundleIdentifier(),
+            applicationBundleIdentifier(),
             WallTime::now(),
             WebCore::PCM::AttributionEphemeral::No
         );

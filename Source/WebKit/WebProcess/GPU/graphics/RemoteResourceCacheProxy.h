@@ -29,6 +29,7 @@
 
 #include "RenderingUpdateID.h"
 #include <WebCore/RenderingResource.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -76,9 +77,9 @@ public:
     void clear();
 
 private:
-    using ImageBufferHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<RemoteImageBufferProxy>>;
-    using RenderingResourceHashMap = HashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::RenderingResource>>;
-    using FontHashMap = HashMap<WebCore::RenderingResourceIdentifier, uint64_t>;
+    using ImageBufferHashMap = UncheckedKeyHashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<RemoteImageBufferProxy>>;
+    using RenderingResourceHashMap = UncheckedKeyHashMap<WebCore::RenderingResourceIdentifier, ThreadSafeWeakPtr<WebCore::RenderingResource>>;
+    using FontHashMap = UncheckedKeyHashMap<WebCore::RenderingResourceIdentifier, uint64_t>;
 
     void releaseRenderingResource(WebCore::RenderingResourceIdentifier) override;
     void clearRenderingResourceMap();
@@ -98,7 +99,7 @@ private:
     unsigned m_numberOfFontsUsedInCurrentRenderingUpdate { 0 };
     unsigned m_numberOfFontCustomPlatformDatasUsedInCurrentRenderingUpdate { 0 };
 
-    RemoteRenderingBackendProxy& m_remoteRenderingBackendProxy;
+    CheckedRef<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
     uint64_t m_renderingUpdateID;
 };
 

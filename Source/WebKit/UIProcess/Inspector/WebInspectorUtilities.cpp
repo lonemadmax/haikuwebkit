@@ -31,15 +31,18 @@
 #include "WebPageProxy.h"
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
-#include <WebCore/RuntimeApplicationChecks.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/MakeString.h>
 
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
+
 namespace WebKit {
 
-typedef HashMap<WebPageProxy*, unsigned> PageLevelMap;
+typedef UncheckedKeyHashMap<WebPageProxy*, unsigned> PageLevelMap;
 
 static PageLevelMap& pageLevelMap()
 {
@@ -113,9 +116,9 @@ bool isInspectorPage(WebPageProxy& webPage)
 #if PLATFORM(COCOA)
 CFStringRef bundleIdentifierForSandboxBroker()
 {
-    if (WebCore::applicationBundleIdentifier() == "com.apple.SafariTechnologyPreview"_s)
+    if (applicationBundleIdentifier() == "com.apple.SafariTechnologyPreview"_s)
         return CFSTR("com.apple.SafariTechnologyPreview.SandboxBroker");
-    if (WebCore::applicationBundleIdentifier() == "com.apple.Safari.automation"_s)
+    if (applicationBundleIdentifier() == "com.apple.Safari.automation"_s)
         return CFSTR("com.apple.Safari.automation.SandboxBroker");
 
     return CFSTR("com.apple.Safari.SandboxBroker");

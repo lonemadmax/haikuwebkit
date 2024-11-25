@@ -32,6 +32,7 @@
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/Site.h>
+#include <WebCore/WindowFeatures.h>
 #include <WebCore/WritingToolsTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
@@ -110,15 +111,23 @@ public:
 
     struct OpenerInfo {
         Ref<WebKit::WebProcessProxy> process;
-        WebCore::Site site;
         WebCore::FrameIdentifier frameID;
         bool operator==(const OpenerInfo&) const;
     };
     const std::optional<OpenerInfo>& openerInfo() const;
     void setOpenerInfo(std::optional<OpenerInfo>&&);
 
+    const WebCore::Site& openedSite() const;
+    void setOpenedSite(const WebCore::Site&);
+
+    const WTF::String& openedMainFrameName() const;
+    void setOpenedMainFrameName(const WTF::String&);
+
     WebCore::SandboxFlags initialSandboxFlags() const;
     void setInitialSandboxFlags(WebCore::SandboxFlags);
+
+    const std::optional<WebCore::WindowFeatures>& windowFeatures() const;
+    void setWindowFeatures(WebCore::WindowFeatures&&);
 
     WebKit::WebProcessPool& processPool() const;
     void setProcessPool(RefPtr<WebKit::WebProcessPool>&&);
@@ -144,7 +153,7 @@ public:
     void setPreferences(RefPtr<WebKit::WebPreferences>&&);
 
     WebKit::WebPageProxy* relatedPage() const;
-    void setRelatedPage(WeakPtr<WebKit::WebPageProxy>&&);
+    void setRelatedPage(WeakPtr<WebKit::WebPageProxy>&& relatedPage) { m_data.relatedPage = WTFMove(relatedPage); }
 
     WebKit::WebPageProxy* pageToCloneSessionStorageFrom() const;
     void setPageToCloneSessionStorageFrom(WeakPtr<WebKit::WebPageProxy>&&);
@@ -251,7 +260,7 @@ public:
 
     RefPtr<WebKit::WebURLSchemeHandler> urlSchemeHandlerForURLScheme(const WTF::String&);
     void setURLSchemeHandlerForURLScheme(Ref<WebKit::WebURLSchemeHandler>&&, const WTF::String&);
-    const HashMap<WTF::String, Ref<WebKit::WebURLSchemeHandler>>& urlSchemeHandlers() { return m_data.urlSchemeHandlers; }
+    const UncheckedKeyHashMap<WTF::String, Ref<WebKit::WebURLSchemeHandler>>& urlSchemeHandlers() { return m_data.urlSchemeHandlers; }
 
     const Vector<WTF::String>& corsDisablingPatterns() const { return m_data.corsDisablingPatterns; }
     void setCORSDisablingPatterns(Vector<WTF::String>&& patterns) { m_data.corsDisablingPatterns = WTFMove(patterns); }
@@ -315,8 +324,8 @@ public:
 #endif
 
 #if ENABLE(APPLE_PAY)
-    bool applePayEnabled() const { return m_data.applePayEnabled; }
-    void setApplePayEnabled(bool enabled) { m_data.applePayEnabled = enabled; }
+    bool applePayEnabled() const;
+    void setApplePayEnabled(bool);
 #endif
 
 #if ENABLE(APP_HIGHLIGHTS)
@@ -446,18 +455,17 @@ public:
     bool overlayRegionsEnabled() const { return m_data.overlayRegionsEnabled; }
     void setOverlayRegionsEnabled(bool value) { m_data.overlayRegionsEnabled = value; }
 #endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    bool cssTransformStyleSeparatedEnabled() const { return m_data.cssTransformStyleSeparatedEnabled; }
+    void setCSSTransformStyleSeparatedEnabled(bool value) { m_data.cssTransformStyleSeparatedEnabled = value; }
+#endif
 
 #endif // PLATFORM(VISION)
 
-#if PLATFORM(MAC)
-    static constexpr Seconds defaultWebProcessSuspensionDelay { 8_min };
-
-    Seconds webProcessSuspensionDelay() const { return m_data.webProcessSuspensionDelay; }
-    void setWebProcessSuspensionDelay(Seconds delay) { m_data.webProcessSuspensionDelay = delay; }
-#endif
-
 private:
     struct Data {
+        Data();
+
         template<typename T, Ref<T>(*initializer)()> class LazyInitializedRef {
         public:
             LazyInitializedRef() = default;
@@ -503,6 +511,9 @@ private:
         RefPtr<WebKit::WebPageGroup> pageGroup;
         WeakPtr<WebKit::WebPageProxy> relatedPage;
         std::optional<OpenerInfo> openerInfo;
+        WebCore::Site openedSite;
+        WTF::String openedMainFrameName;
+        std::optional<WebCore::WindowFeatures> windowFeatures;
         WebCore::SandboxFlags initialSandboxFlags;
         WeakPtr<WebKit::WebPageProxy> pageToCloneSessionStorageFrom;
         WeakPtr<WebKit::WebPageProxy> alternateWebViewForNavigationGestures;
@@ -556,7 +567,7 @@ private:
         RefPtr<ApplicationManifest> applicationManifest;
 #endif
 
-        HashMap<WTF::String, Ref<WebKit::WebURLSchemeHandler>> urlSchemeHandlers;
+        UncheckedKeyHashMap<WTF::String, Ref<WebKit::WebURLSchemeHandler>> urlSchemeHandlers;
         Vector<WTF::String> corsDisablingPatterns;
         HashSet<WTF::String> maskedURLSchemes;
         bool maskedURLSchemesWasSet { false };
@@ -585,7 +596,7 @@ private:
         WebCore::UserInterfaceDirectionPolicy userInterfaceDirectionPolicy { WebCore::UserInterfaceDirectionPolicy::Content };
 #endif
 #if ENABLE(APPLE_PAY)
-        bool applePayEnabled { DEFAULT_VALUE_FOR_ApplePayEnabled };
+        std::optional<bool> applePayEnabledOverride;
 #endif
 #if ENABLE(APP_HIGHLIGHTS)
         bool appHighlightsEnabled { DEFAULT_VALUE_FOR_AppHighlightsEnabled };
@@ -627,6 +638,9 @@ private:
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
         bool overlayRegionsEnabled { false };
 #endif
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+        bool cssTransformStyleSeparatedEnabled { false };
+#endif
 
 #endif // PLATFORM(VISION)
 
@@ -642,10 +656,6 @@ private:
 #endif
 
         WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
-
-#if PLATFORM(MAC)
-        Seconds webProcessSuspensionDelay { defaultWebProcessSuspensionDelay };
-#endif
     };
 
     // All data members should be added to the Data structure to avoid breaking PageConfiguration::copy().

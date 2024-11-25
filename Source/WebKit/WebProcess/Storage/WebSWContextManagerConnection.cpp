@@ -179,7 +179,7 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
 
         pageConfiguration.mainFrameCreationParameters = PageConfiguration::LocalMainFrameCreationParameters {
             CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> { [webPageProxyID = m_webPageProxyID, pageID = m_pageID, effectiveUserAgent, serviceWorkerPageIdentifier = contextData.serviceWorkerPageIdentifier] (auto&, auto& frameLoader) mutable {
-                auto client = makeUniqueRef<RemoteWorkerFrameLoaderClient>(frameLoader, webPageProxyID, pageID, effectiveUserAgent);
+                auto client = makeUniqueRefWithoutRefCountedCheck<RemoteWorkerFrameLoaderClient>(frameLoader, webPageProxyID, pageID, effectiveUserAgent);
                 if (serviceWorkerPageIdentifier)
                     client->setServiceWorkerPageIdentifier(*serviceWorkerPageIdentifier);
                 return client;
@@ -379,7 +379,7 @@ void WebSWContextManagerConnection::terminateWorker(ServiceWorkerIdentifier iden
 }
 
 #if ENABLE(SHAREABLE_RESOURCE) && PLATFORM(COCOA)
-void WebSWContextManagerConnection::didSaveScriptsToDisk(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, ScriptBuffer&& script, HashMap<URL, ScriptBuffer>&& importedScripts)
+void WebSWContextManagerConnection::didSaveScriptsToDisk(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, ScriptBuffer&& script, UncheckedKeyHashMap<URL, ScriptBuffer>&& importedScripts)
 {
     assertIsCurrent(m_queue.get());
 

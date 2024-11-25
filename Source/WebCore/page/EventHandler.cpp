@@ -106,7 +106,6 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "ResourceLoadObserver.h"
-#include "RuntimeApplicationChecks.h"
 #include "SVGDocument.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
@@ -133,6 +132,7 @@
 #include "WindowsKeyboardCodes.h"
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
@@ -486,6 +486,9 @@ void EventHandler::nodeWillBeRemoved(Node& nodeToBeRemoved)
 {
     if (nodeToBeRemoved.containsIncludingShadowDOM(RefPtr { m_clickNode }.get()))
         m_clickNode = nullptr;
+
+    if (nodeToBeRemoved.containsIncludingShadowDOM(RefPtr { m_lastElementUnderMouse }.get()))
+        m_lastElementUnderMouse = nullptr;
 }
 
 static void setSelectionIfNeeded(FrameSelection& selection, const VisibleSelection& newSelection)
@@ -4941,7 +4944,7 @@ HandleUserInputEventResult EventHandler::handleTouchEvent(const PlatformTouchEve
 
     // A different view on the 'touches' list above, filtered and grouped by event target. Used for the
     // 'targetTouches' list in the JS event.
-    typedef HashMap<EventTarget*, RefPtr<TouchList>> TargetTouchesMap;
+    typedef UncheckedKeyHashMap<EventTarget*, RefPtr<TouchList>> TargetTouchesMap;
     TargetTouchesMap touchesByTarget;
 
     // Array of touches per state, used to assemble the 'changedTouches' list in the JS event.

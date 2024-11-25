@@ -35,15 +35,6 @@
 #include <wtf/WeakRef.h>
 
 namespace WebKit {
-class UserMediaPermissionRequestManager;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::UserMediaPermissionRequestManager> : std::true_type { };
-}
-
-namespace WebKit {
 
 class WebPage;
 
@@ -58,6 +49,9 @@ public:
 
     explicit UserMediaPermissionRequestManager(WebPage&);
     ~UserMediaPermissionRequestManager() = default;
+
+    void ref() const final;
+    void deref() const final;
 
     void startUserMediaRequest(WebCore::UserMediaRequest&);
     void cancelUserMediaRequest(WebCore::UserMediaRequest&);
@@ -88,10 +82,10 @@ private:
 
     WeakRef<WebPage> m_page;
 
-    HashMap<WebCore::UserMediaRequestIdentifier, Ref<WebCore::UserMediaRequest>> m_ongoingUserMediaRequests;
-    HashMap<RefPtr<WebCore::Document>, Vector<Ref<WebCore::UserMediaRequest>>> m_pendingUserMediaRequests;
+    UncheckedKeyHashMap<WebCore::UserMediaRequestIdentifier, Ref<WebCore::UserMediaRequest>> m_ongoingUserMediaRequests;
+    UncheckedKeyHashMap<RefPtr<WebCore::Document>, Vector<Ref<WebCore::UserMediaRequest>>> m_pendingUserMediaRequests;
 
-    HashMap<WebCore::UserMediaClient::DeviceChangeObserverToken, Function<void()>> m_deviceChangeObserverMap;
+    UncheckedKeyHashMap<WebCore::UserMediaClient::DeviceChangeObserverToken, Function<void()>> m_deviceChangeObserverMap;
     bool m_monitoringDeviceChange { false };
 
 #if USE(GSTREAMER)

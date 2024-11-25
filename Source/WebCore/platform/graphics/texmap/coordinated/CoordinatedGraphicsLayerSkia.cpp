@@ -27,20 +27,19 @@
 #include "CoordinatedGraphicsLayer.h"
 
 #if USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#include "CoordinatedTileBuffer.h"
 #include "DisplayListDrawingContext.h"
 #include "GLContext.h"
 #include "GraphicsContextSkia.h"
-#include "NicosiaBuffer.h"
 #include "PlatformDisplay.h"
 #include "SkiaThreadedPaintingPool.h"
 #include <skia/core/SkCanvas.h>
 #include <skia/core/SkColorSpace.h>
-#include <skia/gpu/GrBackendSurface.h>
+#include <skia/gpu/ganesh/GrBackendSurface.h>
 #include <skia/gpu/ganesh/SkSurfaceGanesh.h>
 #include <skia/gpu/ganesh/gl/GrGLBackendSurface.h>
 #include <skia/gpu/ganesh/gl/GrGLDirectContext.h>
-#include <skia/gpu/gl/GrGLInterface.h>
-#include <skia/gpu/gl/GrGLTypes.h>
+#include <skia/gpu/ganesh/gl/GrGLInterface.h>
 #include <wtf/RunLoop.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/Vector.h>
@@ -67,9 +66,9 @@ void CoordinatedGraphicsLayer::paintIntoGraphicsContext(GraphicsContext& context
     paintGraphicsLayerContents(context, clipRect);
 }
 
-Ref<Nicosia::Buffer> CoordinatedGraphicsLayer::paintTile(const IntRect& dirtyRect)
+Ref<CoordinatedTileBuffer> CoordinatedGraphicsLayer::paintTile(const IntRect& dirtyRect)
 {
-    auto paintBuffer = [&](Nicosia::Buffer& buffer) {
+    auto paintBuffer = [&](CoordinatedTileBuffer& buffer) {
         buffer.beginPainting();
 
         if (auto* canvas = buffer.canvas()) {
@@ -92,7 +91,7 @@ Ref<Nicosia::Buffer> CoordinatedGraphicsLayer::paintTile(const IntRect& dirtyRec
         if (!contentsOpaque())
             textureFlags.add(BitmapTexture::Flags::SupportsAlpha);
 
-        auto buffer = Nicosia::AcceleratedBuffer::create(acceleratedBitmapTexturePool->acquireTexture(dirtyRect.size(), textureFlags));
+        auto buffer = CoordinatedAcceleratedTileBuffer::create(acceleratedBitmapTexturePool->acquireTexture(dirtyRect.size(), textureFlags));
         WTFBeginSignpost(this, PaintTile, "Skia accelerated, dirty region %ix%i+%i+%i", dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
         paintBuffer(buffer.get());
         WTFEndSignpost(this, PaintTile);
@@ -100,7 +99,7 @@ Ref<Nicosia::Buffer> CoordinatedGraphicsLayer::paintTile(const IntRect& dirtyRec
         return buffer;
     }
 
-    auto buffer = Nicosia::UnacceleratedBuffer::create(dirtyRect.size(), contentsOpaque() ? Nicosia::Buffer::NoFlags : Nicosia::Buffer::SupportsAlpha);
+    auto buffer = CoordinatedUnacceleratedTileBuffer::create(dirtyRect.size(), contentsOpaque() ? CoordinatedTileBuffer::NoFlags : CoordinatedTileBuffer::SupportsAlpha);
 
     // Skia/CPU - threaded unaccelerated rendering.
     if (auto* workerPool = m_coordinator->skiaThreadedPaintingPool()) {

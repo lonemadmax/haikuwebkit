@@ -87,7 +87,6 @@
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotificationData.h>
 #include <WebCore/ResourceRequest.h>
-#include <WebCore/RuntimeApplicationChecks.h>
 #include <WebCore/SQLiteDatabase.h>
 #include <WebCore/SWServer.h>
 #include <WebCore/SecurityOrigin.h>
@@ -100,6 +99,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/UUID.h>
 #include <wtf/UniqueRef.h>
@@ -156,12 +156,15 @@ NetworkProcess::NetworkProcess(AuxiliaryProcessInitializationParameters&& parame
     , m_networkContentRuleListManager(*this)
 #endif
 #if USE(RUNNINGBOARD)
-    , m_webSQLiteDatabaseTracker([this](bool isHoldingLockedFiles) { setIsHoldingLockedFiles(isHoldingLockedFiles); })
+    , m_webSQLiteDatabaseTracker(WebSQLiteDatabaseTracker::create([weakThis = WeakPtr { *this }](bool isHoldingLockedFiles) {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->setIsHoldingLockedFiles(isHoldingLockedFiles);
+    }))
 #endif
 {
     NetworkProcessPlatformStrategies::initialize();
 
-    addSupplement<AuthenticationManager>();
+    addSupplementWithoutRefCountedCheck<AuthenticationManager>();
     addSupplement<WebCookieManager>();
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
     addSupplement<LegacyCustomProtocolManager>();
@@ -188,6 +191,11 @@ NetworkProcess::~NetworkProcess() = default;
 AuthenticationManager& NetworkProcess::authenticationManager()
 {
     return *supplement<AuthenticationManager>();
+}
+
+Ref<AuthenticationManager> NetworkProcess::protectedAuthenticationManager()
+{
+    return authenticationManager();
 }
 
 DownloadManager& NetworkProcess::downloadManager()
@@ -338,7 +346,7 @@ void NetworkProcess::initializeNetworkProcess(NetworkProcessCreationParameters&&
 
     updateStorageAccessPromptQuirks(WTFMove(parameters.storageAccessPromptQuirksData));
 
-    RELEASE_LOG(Process, "%p - NetworkProcess::initializeNetworkProcess: Presenting processPID=%d", this, WebCore::presentingApplicationPID());
+    RELEASE_LOG(Process, "%p - NetworkProcess::initializeNetworkProcess: Presenting processPID=%d", this, presentingApplicationPID());
 }
 
 void NetworkProcess::initializeConnection(IPC::Connection* connection)
@@ -616,7 +624,7 @@ void NetworkProcess::destroySession(PAL::SessionID sessionID, CompletionHandler<
         completionHandler();
 }
 
-void NetworkProcess::registrableDomainsWithLastAccessedTime(PAL::SessionID sessionID, CompletionHandler<void(std::optional<HashMap<RegistrableDomain, WallTime>>)>&& completionHandler)
+void NetworkProcess::registrableDomainsWithLastAccessedTime(PAL::SessionID sessionID, CompletionHandler<void(std::optional<UncheckedKeyHashMap<RegistrableDomain, WallTime>>)>&& completionHandler)
 {
     if (auto* session = networkSession(sessionID)) {
         if (auto* resourceLoadStatistics = session->resourceLoadStatistics()) {
@@ -2913,8 +2921,8 @@ void NetworkProcess::broadcastConsoleMessage(PAL::SessionID sessionID, JSC::Mess
 void NetworkProcess::updateBundleIdentifier(String&& bundleIdentifier, CompletionHandler<void()>&& completionHandler)
 {
 #if PLATFORM(COCOA)
-    WebCore::clearApplicationBundleIdentifierTestingOverride();
-    WebCore::setApplicationBundleIdentifierOverride(bundleIdentifier);
+    clearApplicationBundleIdentifierTestingOverride();
+    setApplicationBundleIdentifierOverride(bundleIdentifier);
 #endif
     completionHandler();
 }
@@ -2922,7 +2930,7 @@ void NetworkProcess::updateBundleIdentifier(String&& bundleIdentifier, Completio
 void NetworkProcess::clearBundleIdentifier(CompletionHandler<void()>&& completionHandler)
 {
 #if PLATFORM(COCOA)
-    WebCore::clearApplicationBundleIdentifierTestingOverride();
+    clearApplicationBundleIdentifierTestingOverride();
 #endif
     completionHandler();
 }

@@ -47,6 +47,9 @@ public:
     explicit MediaKeySystemPermissionRequestManager(WebPage&);
     ~MediaKeySystemPermissionRequestManager() = default;
 
+    void ref() const final;
+    void deref() const final;
+
     void startMediaKeySystemRequest(WebCore::MediaKeySystemRequest&);
     void cancelMediaKeySystemRequest(WebCore::MediaKeySystemRequest&);
     void mediaKeySystemWasGranted(WebCore::MediaKeySystemRequestIdentifier);
@@ -60,8 +63,8 @@ private:
 
     WeakRef<WebPage> m_page;
 
-    HashMap<WebCore::MediaKeySystemRequestIdentifier, Ref<WebCore::MediaKeySystemRequest>> m_ongoingMediaKeySystemRequests;
-    HashMap<RefPtr<WebCore::Document>, Vector<Ref<WebCore::MediaKeySystemRequest>>> m_pendingMediaKeySystemRequests;
+    UncheckedKeyHashMap<WebCore::MediaKeySystemRequestIdentifier, Ref<WebCore::MediaKeySystemRequest>> m_ongoingMediaKeySystemRequests;
+    UncheckedKeyHashMap<RefPtr<WebCore::Document>, Vector<Ref<WebCore::MediaKeySystemRequest>>> m_pendingMediaKeySystemRequests;
 };
 
 } // namespace WebKit

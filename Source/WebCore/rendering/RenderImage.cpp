@@ -83,6 +83,10 @@
 #include "Settings.h"
 #endif
 
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+#include "SpatialImageControls.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderImage);
@@ -162,6 +166,10 @@ RenderImage::RenderImage(Type type, Element& element, RenderStyle&& style, Optio
 #if ENABLE(SERVICE_CONTROLS)
     if (RefPtr image = dynamicDowncast<HTMLImageElement>(element))
         m_hasShadowControls = image->isImageMenuEnabled();
+#endif
+#if ENABLE(SPATIAL_IMAGE_CONTROLS)
+    if (RefPtr image = dynamicDowncast<HTMLElement>(element))
+        m_hasShadowControls = SpatialImageControls::hasSpatialImageControls(*image);
 #endif
 }
 
@@ -407,7 +415,7 @@ void RenderImage::repaintOrMarkForLayout(ImageSizeChangeType imageSizeChange, co
     }
 
     // Tell any potential compositing layers that the image needs updating.
-    contentChanged(ImageChanged);
+    contentChanged(ContentChangeType::Image);
 }
 
 void RenderImage::notifyFinished(CachedResource& newImage, const NetworkLoadMetrics& metrics, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
@@ -420,7 +428,7 @@ void RenderImage::notifyFinished(CachedResource& newImage, const NetworkLoadMetr
     if (&newImage == cachedImage()) {
         // tell any potential compositing layers
         // that the image is done and they can reference it directly.
-        contentChanged(ImageChanged);
+        contentChanged(ContentChangeType::Image);
     }
 
     if (RefPtr image = dynamicDowncast<HTMLImageElement>(element()))

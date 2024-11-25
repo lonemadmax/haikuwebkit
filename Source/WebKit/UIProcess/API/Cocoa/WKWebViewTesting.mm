@@ -48,10 +48,11 @@
 #import "_WKFrameHandleInternal.h"
 #import "_WKInspectorInternal.h"
 #import <WebCore/NowPlayingInfo.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScrollingNodeID.h>
 #import <WebCore/ValidationBubble.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/MakeString.h>
 
@@ -135,6 +136,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
     if (layer.anchorPointZ)
         ts.dumpProperty("layer anchorPointZ", makeString(layer.anchorPointZ));
+
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    if (layer.separated)
+        ts.dumpProperty("separated", true);
+#endif
 
     if (layer.opacity != 1.0)
         ts.dumpProperty("layer opacity", makeString(layer.opacity));
@@ -227,7 +233,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     }
 
     _page->requestActiveNowPlayingSessionInfo([handler = makeBlockPtr(callback)] (bool registeredAsNowPlayingApplication, WebCore::NowPlayingInfo&& nowPlayingInfo) {
-        handler(nowPlayingInfo.allowsNowPlayingControlsVisibility, registeredAsNowPlayingApplication, nowPlayingInfo.metadata.title, nowPlayingInfo.duration, nowPlayingInfo.currentTime, nowPlayingInfo.uniqueIdentifier.toUInt64());
+        handler(nowPlayingInfo.allowsNowPlayingControlsVisibility, registeredAsNowPlayingApplication, nowPlayingInfo.metadata.title, nowPlayingInfo.duration, nowPlayingInfo.currentTime, nowPlayingInfo.uniqueIdentifier ? nowPlayingInfo.uniqueIdentifier->toUInt64() : 0);
     });
 }
 
@@ -444,12 +450,12 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 + (void)_setApplicationBundleIdentifier:(NSString *)bundleIdentifier
 {
-    WebCore::setApplicationBundleIdentifierOverride(String(bundleIdentifier));
+    setApplicationBundleIdentifierOverride(String(bundleIdentifier));
 }
 
 + (void)_clearApplicationBundleIdentifierTestingOverride
 {
-    WebCore::clearApplicationBundleIdentifierTestingOverride();
+    clearApplicationBundleIdentifierTestingOverride();
 }
 
 - (BOOL)_hasSleepDisabler
@@ -459,15 +465,19 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID processID:(uint64_t)processID isVertical:(bool)isVertical
 {
-    if (!_page || !ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(processID))
+    if (!_page || !ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(processID) || !ObjectIdentifier<WebCore::ScrollingNodeIDType>::isValidIdentifier(scrollingNodeID))
         return @"";
-    return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), ObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
+    return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(ObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), ObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
 }
 
 - (WKWebViewAudioRoutingArbitrationStatus)_audioRoutingArbitrationStatus
 {
 #if ENABLE(ROUTING_ARBITRATION)
-    switch (_page->legacyMainFrameProcess().audioSessionRoutingArbitrator().arbitrationStatus()) {
+    WeakPtr arbitrator = _page->legacyMainFrameProcess().audioSessionRoutingArbitrator();
+    if (!arbitrator)
+        return WKWebViewAudioRoutingArbitrationStatusNone;
+
+    switch (arbitrator->arbitrationStatus()) {
     case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::None: return WKWebViewAudioRoutingArbitrationStatusNone;
     case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::Pending: return WKWebViewAudioRoutingArbitrationStatusPending;
     case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::Active: return WKWebViewAudioRoutingArbitrationStatusActive;
@@ -481,7 +491,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 - (double)_audioRoutingArbitrationUpdateTime
 {
 #if ENABLE(ROUTING_ARBITRATION)
-    return _page->legacyMainFrameProcess().audioSessionRoutingArbitrator().arbitrationUpdateTime().secondsSinceEpoch().seconds();
+    WeakPtr arbitrator = _page->legacyMainFrameProcess().audioSessionRoutingArbitrator();
+    if (!arbitrator)
+        return 0;
+
+    return arbitrator->arbitrationUpdateTime().secondsSinceEpoch().seconds();
 #else
     return 0;
 #endif

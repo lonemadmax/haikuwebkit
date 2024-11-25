@@ -144,6 +144,7 @@ public:
     void repaintAnnotationsForFormField(NSString *fieldName);
 
     Vector<WebCore::FloatRect> annotationRectsForTesting() const final;
+    void setTextAnnotationValueForTesting(unsigned pageIndex, unsigned annotationIndex, const String& value) final;
 
     void attemptToUnlockPDF(const String& password) final;
     void windowActivityDidChange() final;
@@ -560,6 +561,7 @@ private:
     float scaleForPagePreviews() const;
 
     void createPasswordEntryForm();
+    void teardownPasswordEntryForm() override;
 
     bool isInDiscreteDisplayMode() const;
     bool isShowingTwoPages() const;

@@ -35,6 +35,7 @@
 #import "APIArray.h"
 #import "APIContentRuleList.h"
 #import "APIContentRuleListStore.h"
+#import "APIData.h"
 #import "APIPageConfiguration.h"
 #import "CocoaHelpers.h"
 #import "ContextMenuContextData.h"
@@ -43,6 +44,8 @@
 #import "PageLoadStateObserver.h"
 #import "ResourceLoadInfo.h"
 #import "WKNSArray.h"
+#import "WKNSData.h"
+#import "WKNSError.h"
 #import "WKNavigationActionPrivate.h"
 #import "WKNavigationDelegatePrivate.h"
 #import "WKOpenPanelParametersPrivate.h"
@@ -309,7 +312,10 @@ void WebExtensionContext::clearError(Error error)
 
 NSArray *WebExtensionContext::errors()
 {
-    return [protectedExtension()->errors() arrayByAddingObjectsFromArray:m_errors.get()];
+    auto array = createNSArray(protectedExtension()->errors(), [](Ref<API::Error> error) {
+        return ::WebKit::wrapper(error);
+    });
+    return [array.get() arrayByAddingObjectsFromArray:m_errors.get()];
 }
 
 bool WebExtensionContext::load(WebExtensionController& controller, String storageDirectory, NSError **outError)
@@ -329,7 +335,7 @@ bool WebExtensionContext::load(WebExtensionController& controller, String storag
     if (extension->backgroundContentIsPersistent()) {
         RELEASE_LOG_ERROR(Extensions, "Cannot load persistent background content on this platform");
         if (outError)
-            *outError = extension->createError(WebExtension::Error::InvalidBackgroundPersistence);
+            *outError = ::WebKit::wrapper(extension->createError(WebExtension::Error::InvalidBackgroundPersistence)).get();
         return false;
     }
 #endif
@@ -2334,7 +2340,7 @@ void WebExtensionContext::didActivateTab(const WebExtensionTab& tab, const WebEx
 
 void WebExtensionContext::didSelectOrDeselectTabs(const TabSet& tabs)
 {
-    HashMap<WebExtensionWindowIdentifier, Vector<WebExtensionTabIdentifier>> windowToTabs;
+    UncheckedKeyHashMap<WebExtensionWindowIdentifier, Vector<WebExtensionTabIdentifier>> windowToTabs;
 
     for (Ref tab : tabs) {
         ASSERT(isValidTab(tab));
@@ -3516,7 +3522,7 @@ void WebExtensionContext::setBackgroundWebViewInspectionName(const String& name)
 
 static inline bool isNotRunningInTestRunner()
 {
-    return WebCore::applicationBundleIdentifier() != "com.apple.WebKit.TestWebKitAPI"_s;
+    return applicationBundleIdentifier() != "com.apple.WebKit.TestWebKitAPI"_s;
 }
 
 void WebExtensionContext::scheduleBackgroundContentToUnload()
@@ -4347,14 +4353,14 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
         RefPtr extension = m_extension;
 
         for (NSString *scriptPath : injectedContentData.scriptPaths) {
-            NSError *error;
-            auto *scriptString = extension->resourceStringForPath(scriptPath, &error, WebExtension::CacheResult::Yes);
+            RefPtr<API::Error> error;
+            auto scriptString = extension->resourceStringForPath(scriptPath, error, WebExtension::CacheResult::Yes);
             if (!scriptString) {
-                recordError(error);
+                recordError(::WebKit::wrapper(error));
                 continue;
             }
 
-            auto userScript = API::UserScript::create(WebCore::UserScript { scriptString, URL { m_baseURL, scriptPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectionTime, injectedFrames, waitForNotification }, executionWorld);
+            Ref userScript = API::UserScript::create(WebCore::UserScript { WTFMove(scriptString), URL { m_baseURL, scriptPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectionTime, injectedFrames, waitForNotification }, executionWorld);
             originInjectedScripts.append(userScript);
 
             for (auto& userContentController : userContentControllers)
@@ -4371,14 +4377,14 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
         }
 
         for (NSString *styleSheetPath : injectedContentData.styleSheetPaths) {
-            NSError *error;
-            auto *styleSheetString = extension->resourceStringForPath(styleSheetPath, &error, WebExtension::CacheResult::Yes);
+            RefPtr<API::Error> error;
+            auto styleSheetString = extension->resourceStringForPath(styleSheetPath, error, WebExtension::CacheResult::Yes);
             if (!styleSheetString) {
-                recordError(error);
+                recordError(::WebKit::wrapper(error));
                 continue;
             }
 
-            auto userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { styleSheetString, URL { m_baseURL, styleSheetPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectedFrames, styleLevel, std::nullopt }, executionWorld);
+            Ref userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { WTFMove(styleSheetString), URL { m_baseURL, styleSheetPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectedFrames, styleLevel, std::nullopt }, executionWorld);
             originInjectedStyleSheets.append(userStyleSheet);
 
             for (auto& userContentController : userContentControllers)
@@ -4640,14 +4646,14 @@ void WebExtensionContext::loadDeclarativeNetRequestRules(CompletionHandler<void(
             if (!m_enabledStaticRulesetIDs.contains(ruleset.rulesetID))
                 continue;
 
-            NSError *error;
-            auto *jsonData = extension->resourceDataForPath(ruleset.jsonPath, &error);
-            if (!jsonData) {
-                recordError(error);
+            RefPtr<API::Error> error;
+            RefPtr jsonData = extension->resourceDataForPath(ruleset.jsonPath, error);
+            if (!jsonData || error) {
+                recordError(::WebKit::wrapper(*error));
                 continue;
             }
 
-            [allJSONData addObject:jsonData];
+            [allJSONData addObject:jsonData->wrapper()];
         }
 
         applyDeclarativeNetRequestRules();

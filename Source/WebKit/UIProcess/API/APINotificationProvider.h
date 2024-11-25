@@ -36,7 +36,7 @@ class WebNotificationManagerProxy;
 class WebPageProxy;
 
 enum class WebNotificationIdentifierType;
-using WebNotificationIdentifier = LegacyNullableObjectIdentifier<WebNotificationIdentifierType>;
+using WebNotificationIdentifier = ObjectIdentifier<WebNotificationIdentifierType>;
 }
 
 namespace WebCore {
@@ -58,7 +58,7 @@ public:
     virtual void addNotificationManager(WebKit::WebNotificationManagerProxy&) { }
     virtual void removeNotificationManager(WebKit::WebNotificationManagerProxy&) { }
 
-    virtual HashMap<WTF::String, bool> notificationPermissions() { return HashMap<WTF::String, bool>(); };
+    virtual UncheckedKeyHashMap<WTF::String, bool> notificationPermissions() { return UncheckedKeyHashMap<WTF::String, bool>(); };
 };
 
 } // namespace API

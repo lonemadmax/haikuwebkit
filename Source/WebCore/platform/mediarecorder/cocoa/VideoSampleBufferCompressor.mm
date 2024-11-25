@@ -32,7 +32,7 @@
 #import <CoreMedia/CoreMedia.h>
 #import <Foundation/Foundation.h>
 #import <wtf/EnumTraits.h>
-#import <wtf/TZoneMallocInlines.h>
+#import <wtf/NativePromise.h>
 #import <wtf/SoftLinking.h>
 
 #import "VideoToolboxSoftLink.h"
@@ -41,9 +41,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(VideoSampleBufferCompressor);
-
-std::unique_ptr<VideoSampleBufferCompressor> VideoSampleBufferCompressor::create(String mimeType, CMBufferQueueTriggerCallback callback, void* callbackObject)
+RefPtr<VideoSampleBufferCompressor> VideoSampleBufferCompressor::create(String mimeType, CMBufferQueueTriggerCallback callback, void* callbackObject)
 {
     auto profile = Profile::Baseline;
     for (auto codec : ContentType(mimeType).codecs()) {
@@ -56,7 +54,7 @@ std::unique_ptr<VideoSampleBufferCompressor> VideoSampleBufferCompressor::create
         }
     }
 
-    auto compressor = std::unique_ptr<VideoSampleBufferCompressor>(new VideoSampleBufferCompressor(kCMVideoCodecType_H264, profile));
+    Ref compressor = adoptRef(*new VideoSampleBufferCompressor(kCMVideoCodecType_H264, profile));
     if (!compressor->initialize(callback, callbackObject))
         return nullptr;
     return compressor;
@@ -99,21 +97,26 @@ void VideoSampleBufferCompressor::setBitsPerSecond(unsigned bitRate)
     m_outputBitRate = bitRate;
 }
 
-void VideoSampleBufferCompressor::flushInternal(bool isFinished)
+Ref<GenericPromise> VideoSampleBufferCompressor::flushInternal(bool isFinished)
 {
-    m_serialDispatchQueue->dispatchSync([this, isFinished] {
+    return invokeAsync(m_serialDispatchQueue, [weakThis = ThreadSafeWeakPtr { *this }, this, isFinished] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return GenericPromise::createAndReject();
+
         auto error = PAL::VTCompressionSessionCompleteFrames(m_vtSession.get(), PAL::kCMTimeInvalid);
         RELEASE_LOG_ERROR_IF(error, MediaStream, "VideoSampleBufferCompressor VTCompressionSessionCompleteFrames failed with %d", error);
 
         if (!isFinished) {
             m_needsKeyframe = true;
-            return;
+            return GenericPromise::createAndResolve();
         }
 
         error = PAL::CMBufferQueueMarkEndOfData(m_outputBufferQueue.get());
         RELEASE_LOG_ERROR_IF(error, MediaStream, "VideoSampleBufferCompressor CMBufferQueueMarkEndOfData failed with %d", error);
 
         m_isEncoding = false;
+        return GenericPromise::createAndResolve();
     });
 }
 
@@ -226,11 +229,12 @@ void VideoSampleBufferCompressor::processSampleBuffer(CMSampleBufferRef buffer)
 
 void VideoSampleBufferCompressor::addSampleBuffer(CMSampleBufferRef buffer)
 {
-    m_serialDispatchQueue->dispatchSync([this, buffer] {
-        if (!m_isEncoding)
+    m_serialDispatchQueue->dispatch([weakThis = ThreadSafeWeakPtr { *this }, buffer = RetainPtr { buffer }] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !protectedThis->m_isEncoding)
             return;
 
-        processSampleBuffer(buffer);
+        protectedThis->processSampleBuffer(buffer.get());
     });
 }
 

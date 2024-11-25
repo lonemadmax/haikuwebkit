@@ -51,8 +51,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeContext);
 
 RemoteLayerTreeContext::RemoteLayerTreeContext(WebPage& webPage)
     : m_webPage(webPage)
+    , m_backingStoreCollection(makeUniqueRefWithoutRefCountedCheck<RemoteLayerBackingStoreCollection>(*this))
 {
-    m_backingStoreCollection = makeUnique<RemoteLayerBackingStoreCollection>(*this);
 }
 
 RemoteLayerTreeContext::~RemoteLayerTreeContext()
@@ -84,10 +84,10 @@ LayerHostingMode RemoteLayerTreeContext::layerHostingMode() const
     return m_webPage->layerHostingMode();
 }
 
-DrawingAreaIdentifier RemoteLayerTreeContext::drawingAreaIdentifier() const
+std::optional<DrawingAreaIdentifier> RemoteLayerTreeContext::drawingAreaIdentifier() const
 {
     if (!m_webPage->drawingArea())
-        return DrawingAreaIdentifier();
+        return std::nullopt;
     return m_webPage->drawingArea()->identifier();
 }
 

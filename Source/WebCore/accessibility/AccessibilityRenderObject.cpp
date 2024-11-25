@@ -1134,7 +1134,7 @@ bool AccessibilityRenderObject::computeIsIgnored() const
         // text APIs off the main-thread because this allows them to be part of the AX tree, which is
         // traversed to compute text markers.
         auto* node = this->node();
-        return !node || !node->hasEditableStyle();
+        return !node;
 #else
         return true;
 #endif
@@ -1448,6 +1448,12 @@ AXTextRuns AccessibilityRenderObject::textRuns()
             return containingBlock ? AXTextRuns(containingBlock, { AXTextRun(0, inputElement->value().isolatedCopy()) }) : AXTextRuns();
         }
         return { };
+    }
+
+    if (is<HTMLImageElement>(node()) || is<HTMLMediaElement>(node())) {
+        auto* renderer = this->renderer();
+        auto* containingBlock = renderer ? renderer->containingBlock() : nullptr;
+        return containingBlock ? AXTextRuns(containingBlock, { AXTextRun(0, String(span(objectReplacementCharacter))) }) : AXTextRuns();
     }
 
     WeakPtr renderText = dynamicDowncast<RenderText>(renderer());
@@ -2157,16 +2163,14 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (m_renderer->isRenderOrLegacyRenderSVGRoot())
         return AccessibilityRole::SVGRoot;
     
-    // Check for Ruby elements
     switch (m_renderer->style().display()) {
     case DisplayType::Ruby:
         return AccessibilityRole::RubyInline;
-    case DisplayType::RubyBlock:
-        return AccessibilityRole::RubyBlock;
     case DisplayType::RubyAnnotation:
         return AccessibilityRole::RubyText;
+    case DisplayType::RubyBlock:
     case DisplayType::RubyBase:
-        return AccessibilityRole::RubyBase;
+        return AccessibilityRole::Group;
     default:
         break;
     }
@@ -2404,7 +2408,7 @@ void AccessibilityRenderObject::updateAttachmentViewParents()
 #endif
 
 // Some elements don't have an associated render object, meaning they won't be picked up by a walk of the render tree.
-// For example, nodes that are `aria-hidden="false"` and `hidden`, or elements with `display: contents`.
+// For example, elements with `display: contents`, or aria-hidden=true elements that are focused.
 // This function will find and add these elements to the AX tree.
 void AccessibilityRenderObject::addNodeOnlyChildren()
 {
@@ -2423,7 +2427,7 @@ void AccessibilityRenderObject::addNodeOnlyChildren()
         if (child->renderer())
             continue;
 
-        if (nodeHasDisplayContents(*child) || isNodeAriaVisible(*child)) {
+        if (nodeHasDisplayContents(*child) || isNodeFocused(*child)) {
             hasNodeOnlyChildren = true;
             break;
         }
@@ -2456,7 +2460,7 @@ void AccessibilityRenderObject::addNodeOnlyChildren()
             continue;
         }
 
-        if (!nodeHasDisplayContents(*child) && !isNodeAriaVisible(*child))
+        if (!nodeHasDisplayContents(*child))
             continue;
 
         unsigned previousSize = m_children.size();

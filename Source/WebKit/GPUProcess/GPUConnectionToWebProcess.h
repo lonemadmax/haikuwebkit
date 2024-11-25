@@ -242,7 +242,7 @@ public:
 
     static uint64_t objectCountForTesting() { return gObjectCountForTesting; }
 
-    using RemoteRenderingBackendMap = HashMap<RenderingBackendIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteRenderingBackend>>;
+    using RemoteRenderingBackendMap = UncheckedKeyHashMap<RenderingBackendIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteRenderingBackend>>;
     const RemoteRenderingBackendMap& remoteRenderingBackendMap() const { return m_remoteRenderingBackendMap; }
 
     RemoteRenderingBackend* remoteRenderingBackend(RenderingBackendIdentifier);
@@ -267,8 +267,6 @@ public:
 
 private:
     GPUConnectionToWebProcess(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
-
-    Ref<IPC::Connection> protectedConnection() const { return m_connection.copyRef(); }
 
 #if PLATFORM(COCOA) && USE(LIBWEBRTC)
     Ref<LibWebRTCCodecsProxy> protectedLibWebRTCCodecsProxy() const;
@@ -351,6 +349,7 @@ private:
 #if PLATFORM(MAC) && ENABLE(WEBGL)
     void dispatchDisplayWasReconfigured();
 #endif
+    void enableMediaPlaybackIfNecessary();
 
     static uint64_t gObjectCountForTesting;
 
@@ -399,10 +398,10 @@ private:
 
     RemoteRenderingBackendMap m_remoteRenderingBackendMap;
 #if ENABLE(WEBGL)
-    using RemoteGraphicsContextGLMap = HashMap<GraphicsContextGLIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGraphicsContextGL>>;
+    using RemoteGraphicsContextGLMap = UncheckedKeyHashMap<GraphicsContextGLIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGraphicsContextGL>>;
     RemoteGraphicsContextGLMap m_remoteGraphicsContextGLMap;
 #endif
-    using RemoteGPUMap = HashMap<WebGPUIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGPU>>;
+    using RemoteGPUMap = UncheckedKeyHashMap<WebGPUIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGPU>>;
     RemoteGPUMap m_remoteGPUMap;
 #if ENABLE(ENCRYPTED_MEDIA)
     RefPtr<RemoteCDMFactoryProxy> m_cdmFactoryProxy;
@@ -423,14 +422,14 @@ private:
     std::unique_ptr<RemoteMediaEngineConfigurationFactoryProxy> m_mediaEngineConfigurationFactoryProxy;
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
-    HashMap<std::pair<WebPageProxyIdentifier, WebCore::PageIdentifier>, std::unique_ptr<LayerHostingContext>> m_visibilityPropagationContexts;
+    UncheckedKeyHashMap<std::pair<WebPageProxyIdentifier, WebCore::PageIdentifier>, std::unique_ptr<LayerHostingContext>> m_visibilityPropagationContexts;
 #endif
 
-    using RemoteAudioHardwareListenerMap = HashMap<RemoteAudioHardwareListenerIdentifier, std::unique_ptr<RemoteAudioHardwareListenerProxy>>;
+    using RemoteAudioHardwareListenerMap = UncheckedKeyHashMap<RemoteAudioHardwareListenerIdentifier, std::unique_ptr<RemoteAudioHardwareListenerProxy>>;
     RemoteAudioHardwareListenerMap m_remoteAudioHardwareListenerMap;
 
 #if USE(GRAPHICS_LAYER_WC)
-    using RemoteWCLayerTreeHostMap = HashMap<WCLayerTreeHostIdentifier, std::unique_ptr<RemoteWCLayerTreeHost>>;
+    using RemoteWCLayerTreeHostMap = UncheckedKeyHashMap<WCLayerTreeHostIdentifier, std::unique_ptr<RemoteWCLayerTreeHost>>;
     RemoteWCLayerTreeHostMap m_remoteWCLayerTreeHostMap;
 #endif
 
@@ -442,11 +441,11 @@ private:
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    HashMap<WebCore::PageIdentifier, String> m_mediaEnvironments;
+    UncheckedKeyHashMap<WebCore::PageIdentifier, String> m_mediaEnvironments;
 #endif
 
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
-    UniqueRef<LocalAudioSessionRoutingArbitrator> m_routingArbitrator;
+    std::unique_ptr<LocalAudioSessionRoutingArbitrator> m_routingArbitrator;
 #endif
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;

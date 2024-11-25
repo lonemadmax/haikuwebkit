@@ -380,6 +380,8 @@ static NSString * firstUTIThatConformsTo(NSArray<NSString *> *typeIdentifiers, U
     RetainPtr<NSSet<NSString *>> _acceptedUTIs;
     OptionSet<WKFileUploadPanelImagePickerType> _allowedImagePickerTypes;
     CGPoint _interactionPoint;
+    CGPoint _interactionPointInWindow;
+    BOOL _isMenuPreviouslyRepositioned;
     BOOL _allowDirectories;
     BOOL _allowMultipleFiles;
     BOOL _usingCamera;
@@ -496,7 +498,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _listener = listener;
     _allowDirectories = parameters->allowDirectories();
     _allowMultipleFiles = parameters->allowMultipleFiles();
+    _isMenuPreviouslyRepositioned = NO;
     _interactionPoint = [_view lastInteractionLocation];
+    _interactionPointInWindow = [_view convertPoint:_interactionPoint toView:[_view webView].window];
 
     Ref<API::Array> acceptMimeTypes = parameters->acceptMIMETypes();
     NSMutableArray *mimeTypes = [NSMutableArray arrayWithCapacity:acceptMimeTypes->size()];
@@ -790,7 +794,7 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     return *_menuPresenter;
 }
 
-- (void)repositionContextMenuIfNeeded
+- (void)repositionContextMenuIfNeeded:(WebKit::KeyboardIsDismissing)isKeyboardBeingDismissed
 {
     if (!_menuPresenter)
         return;
@@ -799,15 +803,20 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     if (!webView)
         return;
 
+    if (!_isMenuPreviouslyRepositioned && isKeyboardBeingDismissed == WebKit::KeyboardIsDismissing::Yes)
+        return;
+
     auto inputViewBoundsInWindow = webView->_inputViewBoundsInWindow;
-    if (CGRectIsEmpty(inputViewBoundsInWindow))
+    if (!_isMenuPreviouslyRepositioned && CGRectIsEmpty(inputViewBoundsInWindow))
         return;
 
     // The exact bounds of the context menu container itself isn't exposed through any UIKit API or SPI,
     // and would require traversing the view hierarchy in search of internal UIKit views. For now, just
     // reposition the context menu if its presentation location is covered by the input view.
-    if (!CGRectContainsPoint(inputViewBoundsInWindow, [_view convertPoint:_interactionPoint toView:webView.window]))
+    if (!_isMenuPreviouslyRepositioned && !CGRectContainsPoint(inputViewBoundsInWindow, _interactionPointInWindow))
         return;
+
+    _isMenuPreviouslyRepositioned = !_isMenuPreviouslyRepositioned;
 
     SetForScope repositioningContextMenuScope { _isRepositioningContextMenu, YES };
     [UIView performWithoutAnimation:^{
@@ -974,7 +983,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
             // If the file hasn't already been imported by UIKit, we must import it into a new temporary directory ourselves
             // and leave the original intact. If it has been imported by UIKit, we must move the imported file into a new temporary
             // directory as a workaround for rdar://136776473.
-            auto [maybeMovedURL, temporaryURL] = [WKFileUploadPanel _copyToNewTemporaryDirectory:url fileCoordinator:retainedSelf->_uploadFileCoordinator.get() fileManager:retainedSelf->_uploadFileManager.get()];
+            auto [operationResult, maybeMovedURL, temporaryURL] = [WKFileUploadPanel _moveToNewTemporaryDirectory:url fileCoordinator:retainedSelf->_uploadFileCoordinator.get() fileManager:retainedSelf->_uploadFileManager.get() asCopy:!filesImportedByUIKit];
 
             if (!filesImportedByUIKit)
                 [url stopAccessingSecurityScopedResource];
@@ -982,9 +991,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
             // If the selected item was initially imported by UIKit, we have some copy of it to try to upload regardless
             // of whether or not the move operation succeeded. If the file hadn't already been imported and doing so
             // ourselves was unsuccessful, we have no copy to upload.
-            if (maybeMovedURL && filesImportedByUIKit) {
-                [maybeMovedURLs addObject:maybeMovedURL.get()];
-            } else if (maybeMovedURL && ![maybeMovedURL isEqual:url])
+            if (maybeMovedURL && (filesImportedByUIKit || operationResult == WebKit::MovedSuccessfully::Yes))
                 [maybeMovedURLs addObject:maybeMovedURL.get()];
 
             if (temporaryURL)
@@ -1144,7 +1151,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
                 return;
             }
 
-            auto [maybeMovedURL, temporaryURL] = [WKFileUploadPanel _copyToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get()];
+            auto [operationResult, maybeMovedURL, temporaryURL] = [WKFileUploadPanel _moveToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get() asCopy:NO];
             self->_temporaryUploadedFileURLs.append(WTFMove(temporaryURL));
 
             successBlock(adoptNS([[_WKVideoFileUploadItem alloc] initWithFileURL:maybeMovedURL.get()]).get());
@@ -1175,7 +1182,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
             return;
         }
 
-        auto [maybeMovedURL, temporaryURL] = [WKFileUploadPanel _copyToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get()];
+        auto [operationResult, maybeMovedURL, temporaryURL] = [WKFileUploadPanel _moveToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get() asCopy:NO];
         self->_temporaryUploadedFileURLs.append(WTFMove(temporaryURL));
 
         successBlock(adoptNS([[_WKImageFileUploadItem alloc] initWithFileURL:maybeMovedURL.get()]).get());
@@ -1334,33 +1341,40 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 
 #endif
 
-+ (std::pair<RetainPtr<NSURL>, RetainPtr<NSURL>>)_copyToNewTemporaryDirectory:(NSURL *)originalURL fileCoordinator:(NSFileCoordinator *)fileCoordinator fileManager:(NSFileManager *)fileManager
++ (WebKit::TemporaryFileMoveResults)_moveToNewTemporaryDirectory:(NSURL *)originalURL fileCoordinator:(NSFileCoordinator *)fileCoordinator fileManager:(NSFileManager *)fileManager asCopy:(BOOL)asCopy
 {
     NSError *error = nil;
     NSString *temporaryDirectory = FileSystem::createTemporaryDirectory(@"WKFileUploadPanel");
     if (!temporaryDirectory) {
         LOG_ERROR("WKFileUploadPanel: Failed to make temporary directory");
-        return { originalURL, nil };
+        return { WebKit::MovedSuccessfully::No, originalURL, nil };
     }
     NSString *filePath = [temporaryDirectory stringByAppendingPathComponent:originalURL.lastPathComponent];
     auto destinationFileURL = adoptNS([[NSURL alloc] initFileURLWithPath:filePath isDirectory:NO]);
 
-    __block std::pair<RetainPtr<NSURL>, RetainPtr<NSURL>> result;
+    __block WebKit::TemporaryFileMoveResults results;
     [fileCoordinator coordinateWritingItemAtURL:originalURL options:NSFileCoordinatorWritingForMoving error:&error byAccessor:^(NSURL *coordinatedOriginalURL) {
         NSError *error = nil;
-        if (![fileManager moveItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error] || error) {
-            // If moving fails, keep the original URL and our 60 second time limit before it is deleted. We tried our best to extend it.
-            result = { coordinatedOriginalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
+        BOOL didMoveOrCopy;
+
+        if (asCopy)
+            didMoveOrCopy = [fileManager copyItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error];
+        else
+            didMoveOrCopy = [fileManager moveItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error];
+
+        if (!didMoveOrCopy || error) {
+            // If moving/copying fails, keep the original URL and our 60 second time limit for file URLs from UIKit before it is deleted. We tried our best to extend it.
+            results = { WebKit::MovedSuccessfully::No, coordinatedOriginalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
         } else
-            result = { destinationFileURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
+            results = { WebKit::MovedSuccessfully::Yes, destinationFileURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
     }];
     if (error) {
         LOG_ERROR("WKFileUploadPanel: Failed to coordinate moving file with error %@", error);
         // If moving fails, keep the original URL and our 60 second time limit before it is deleted. We tried our best to extend it.
-        return { originalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
+        return { WebKit::MovedSuccessfully::No, originalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
     }
 
-    return result;
+    return results;
 }
 
 - (BOOL)platformSupportsPickerViewController

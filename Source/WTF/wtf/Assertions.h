@@ -785,6 +785,11 @@ static constexpr bool unreachableForValue = false;
         CRASH_UNDER_CONSTEXPR_CONTEXT(); \
     } \
 } while (0)
+#define RELEASE_ASSERT_IMPLIES(condition, assertion) do { \
+    if (UNLIKELY((condition) && !(assertion))) { \
+        CRASH(); \
+    } \
+} while (0)
 
 #else /* ASSERT_ENABLED */
 
@@ -794,6 +799,7 @@ static constexpr bool unreachableForValue = false;
 #define RELEASE_ASSERT_NOT_REACHED(...) ASSERT_NOT_REACHED(__VA_ARGS__)
 #define RELEASE_ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT() ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT()
 #define RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion) ASSERT_UNDER_CONSTEXPR_CONTEXT(assertion)
+#define RELEASE_ASSERT_IMPLIES(condition, assertion) ASSERT_IMPLIES(condition, assertion)
 
 #endif /* ASSERT_ENABLED */
 
@@ -821,8 +827,13 @@ static constexpr bool unreachableForValue = false;
         if (UNLIKELY(wtfConjectureAssertIsEnabled && !(assertion))) \
             WTFCrashDueToConjectureAssert(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion); \
     } while (false)
+#define CONJECTURE_ASSERT_IMPLIES(condition, assertion)  do { \
+        if (UNLIKELY(wtfConjectureAssertIsEnabled && (condition) && !(assertion))) \
+            WTFCrashDueToConjectureAssert(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion); \
+    } while (false)
 #else
 #define CONJECTURE_ASSERT(assertion, ...)
+#define CONJECTURE_ASSERT_IMPLIES(condition, assertion)
 #endif
 
 #ifdef __cplusplus

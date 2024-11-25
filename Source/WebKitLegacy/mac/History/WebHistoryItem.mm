@@ -98,7 +98,7 @@ using namespace WebCore;
 
 @end
 
-using HistoryItemMap = HashMap<WeakRef<HistoryItem>, WebHistoryItem*>;
+using HistoryItemMap = UncheckedKeyHashMap<WeakRef<HistoryItem>, WebHistoryItem*>;
 
 static inline WebCoreHistoryItem* core(WebHistoryItemPrivate* itemPrivate)
 {
@@ -232,9 +232,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!coreItem->target().isEmpty()) {
         NSString *target = coreItem->target();
         [result appendFormat:@" in \"%@\"", target];
-    }
-    if (coreItem->isTargetItem()) {
-        [result appendString:@" *target*"];
     }
     if (coreItem->formData()) {
         [result appendString:@" *POST*"];
@@ -448,11 +445,6 @@ WebHistoryItem *kit(HistoryItem* item)
 - (NSString *)target
 {
     return nsStringNilIfEmpty(core(_private)->target());
-}
-
-- (BOOL)isTargetItem
-{
-    return core(_private)->isTargetItem();
 }
 
 - (NSString *)RSSFeedReferrer

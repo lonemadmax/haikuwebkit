@@ -68,10 +68,10 @@ using namespace WebCore;
 
 class WebPageProxy;
 
-static HashMap<FrameIdentifier, WeakRef<WebFrameProxy>>& allFrames()
+static UncheckedKeyHashMap<FrameIdentifier, WeakRef<WebFrameProxy>>& allFrames()
 {
     ASSERT(RunLoop::isMain());
-    static NeverDestroyed<HashMap<FrameIdentifier, WeakRef<WebFrameProxy>>> map;
+    static NeverDestroyed<UncheckedKeyHashMap<FrameIdentifier, WeakRef<WebFrameProxy>>> map;
     return map.get();
 }
 
@@ -88,7 +88,7 @@ bool WebFrameProxy::canCreateFrame(FrameIdentifier frameID)
         && !allFrames().contains(frameID);
 }
 
-WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIdentifier frameID, SandboxFlags effectiveSandboxFlags, WebFrameProxy* opener, IsMainFrame isMainFrame)
+WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIdentifier frameID, SandboxFlags effectiveSandboxFlags, WebCore::ScrollbarMode scrollingMode, WebFrameProxy* opener, IsMainFrame isMainFrame)
     : m_page(page)
     , m_frameProcess(process)
     , m_opener(opener)
@@ -96,6 +96,7 @@ WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIde
     , m_frameID(frameID)
     , m_layerHostingContextIdentifier(LayerHostingContextIdentifier::generate())
     , m_effectiveSandboxFlags(effectiveSandboxFlags)
+    , m_scrollingMode(scrollingMode)
 {
     ASSERT(!allFrames().contains(frameID));
     allFrames().set(frameID, *this);
@@ -399,7 +400,7 @@ void WebFrameProxy::disconnect()
         parentFrame->m_childFrames.remove(*this);
 }
 
-void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, const String& frameName, SandboxFlags effectiveSandboxFlags)
+void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, const String& frameName, SandboxFlags effectiveSandboxFlags, WebCore::ScrollbarMode scrollingMode)
 {
     // The DecidePolicyForNavigationActionSync IPC is synchronous and may therefore get processed before the DidCreateSubframe one.
     // When this happens, decidePolicyForNavigationActionSync() calls didCreateSubframe() and we need to ignore the DidCreateSubframe
@@ -412,7 +413,7 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, const St
     MESSAGE_CHECK(WebFrameProxy::canCreateFrame(frameID));
     MESSAGE_CHECK(frameID.processIdentifier() == process().coreProcessIdentifier());
 
-    Ref child = WebFrameProxy::create(*page, m_frameProcess, frameID, effectiveSandboxFlags, nullptr, IsMainFrame::No);
+    Ref child = WebFrameProxy::create(*page, m_frameProcess, frameID, effectiveSandboxFlags, scrollingMode, nullptr, IsMainFrame::No);
     child->m_parentFrame = *this;
     child->m_frameName = frameName;
     page->observeAndCreateRemoteSubframesInOtherProcesses(child, frameName);
@@ -507,6 +508,7 @@ FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
 {
     return {
         m_frameID,
+        m_opener ? std::optional(m_opener->frameID()) : std::nullopt,
         m_frameName,
         WTF::map(m_childFrames, [] (auto& frame) {
             return frame->frameTreeCreationParameters();
@@ -664,6 +666,11 @@ WebFrameProxy* WebFrameProxy::previousSibling() const
     return (--it)->ptr();
 }
 
+void WebFrameProxy::updateOpener(WebCore::FrameIdentifier newOpener)
+{
+    m_opener = WebFrameProxy::webFrame(newOpener);
+}
+
 WebFrameProxy& WebFrameProxy::rootFrame()
 {
     Ref rootFrame = *this;
@@ -685,6 +692,13 @@ void WebFrameProxy::setPendingChildBackForwardItem(WebBackForwardListFrameItem* 
 WebBackForwardListFrameItem* WebFrameProxy::takePendingChildBackForwardItem()
 {
     return std::exchange(m_pendingChildBackForwardItem, nullptr).get();
+}
+
+void WebFrameProxy::updateScrollingMode(WebCore::ScrollbarMode scrollingMode)
+{
+    m_scrollingMode = scrollingMode;
+    if (RefPtr page = m_page.get())
+        page->sendToProcessContainingFrame(m_frameID, Messages::WebPage::UpdateFrameScrollingMode(m_frameID, scrollingMode));
 }
 
 } // namespace WebKit

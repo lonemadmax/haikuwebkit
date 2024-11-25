@@ -34,14 +34,14 @@ namespace Style {
 // MARK: - Conversion Data specialization
 
 template<typename T> struct ConversionDataSpecializer {
-    static CSSToLengthConversionData conversionData(BuilderState& state)
+    static CSSToLengthConversionData conversionData(const BuilderState& state)
     {
         return state.cssToLengthConversionData();
     }
 };
 
-template<> struct ConversionDataSpecializer<CSS::LengthRaw> {
-    static CSSToLengthConversionData conversionData(BuilderState& state)
+template<auto R> struct ConversionDataSpecializer<CSS::LengthRaw<R>> {
+    static CSSToLengthConversionData conversionData(const BuilderState& state)
     {
         return state.useSVGZoomRulesForLength()
              ? state.cssToLengthConversionData().copyWithAdjustedZoom(1.0f)
@@ -49,96 +49,237 @@ template<> struct ConversionDataSpecializer<CSS::LengthRaw> {
     }
 };
 
-template<typename T> CSSToLengthConversionData conversionData(BuilderState& state)
+template<typename T> CSSToLengthConversionData conversionData(const BuilderState& state)
 {
     return ConversionDataSpecializer<T>::conversionData(state);
 }
 
 // MARK: - Conversion from "Style to "CSS"
 
-template<StyleNumeric StylePrimitive> auto toCSS(const StylePrimitive& style, const RenderStyle&) -> typename StylePrimitive::CSS
-{
-    return typename StylePrimitive::Raw { style.unit, style.value };
-}
+// AnglePercentage / LengthPercentage require specialized implementations due to additional `calc` field.
+template<auto R> struct ToCSS<AnglePercentage<R>> {
+    auto operator()(const AnglePercentage<R>& value, const RenderStyle& style) -> CSS::AnglePercentage<R>
+    {
+        return value.value.switchOn(
+            [&](Angle<R> angle) -> CSS::AnglePercentage<R> {
+                return CSS::AnglePercentageRaw<R> { angle.unit, angle.value };
+            },
+            [&](Percentage<R> percentage) -> CSS::AnglePercentage<R> {
+                return CSS::AnglePercentageRaw<R> { percentage.unit, percentage.value };
+            },
+            [&](const CalculationValue& calculation) -> CSS::AnglePercentage<R> {
+                return CSS::UnevaluatedCalc<CSS::AnglePercentageRaw<R>> { CSSCalcValue::create(calculation, style) };
+            }
+        );
+    }
+};
 
-inline auto toCSS(const Number& style, const RenderStyle&) -> CSS::Number
-{
-    return CSS::NumberRaw { style.value };
-}
+template<auto R> struct ToCSS<LengthPercentage<R>> {
+    auto operator()(const LengthPercentage<R>& value, const RenderStyle& style) -> CSS::LengthPercentage<R>
+    {
+        return value.value.switchOn(
+            [&](Length<R> length) -> CSS::LengthPercentage<R> {
+                return CSS::LengthPercentageRaw<R> { length.unit, adjustFloatForAbsoluteZoom(length.value, style) };
+            },
+            [&](Percentage<R> percentage) -> CSS::LengthPercentage<R> {
+                return CSS::LengthPercentageRaw<R> { percentage.unit, percentage.value };
+            },
+            [&](const CalculationValue& calculation) -> CSS::LengthPercentage<R> {
+                return CSS::UnevaluatedCalc<CSS::LengthPercentageRaw<R>> { CSSCalcValue::create(calculation, style) };
+            }
+        );
+    }
+};
 
-inline auto toCSS(const Percentage& style, const RenderStyle&) -> CSS::Percentage
-{
-    return CSS::PercentageRaw { style.value };
-}
+// Partial specialization for remaining numeric types.
+template<StyleNumeric StylePrimitive> struct ToCSS<StylePrimitive> {
+    auto operator()(const StylePrimitive& value, const RenderStyle&) -> typename StylePrimitive::CSS
+    {
+        return { typename StylePrimitive::Raw { value.unit, value.value } };
+    }
+};
 
-auto toCSS(const LengthPercentage&, const RenderStyle&) -> CSS::LengthPercentage;
-auto toCSS(const AnglePercentage&, const RenderStyle&) -> CSS::AnglePercentage;
-auto toCSS(const PercentageOrNumber&, const RenderStyle&) -> CSS::PercentageOrNumber;
-
-} // namespace Style
-
-namespace CSS {
+// None just needs its trivial implementation.
+template<> struct ToCSS<None> { constexpr auto operator()(const None&, const RenderStyle&) -> CSS::None { return { }; } };
 
 // MARK: - Conversion from CSS -> Style
 
-// AnglePercentage / LengthPercentage require specialized implementations for calc().
-Style::AnglePercentage toStyle(const UnevaluatedCalc<AnglePercentageRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
-Style::AnglePercentage toStyle(const UnevaluatedCalc<AnglePercentageRaw>&, Style::BuilderState&, const CSSCalcSymbolTable&);
-Style::AnglePercentage toStyleNoConversionDataRequired(const UnevaluatedCalc<AnglePercentageRaw>&, const CSSCalcSymbolTable&);
+// Define the CSS (a.k.a. primitive) type the primary representation of `Raw` and `UnevaluatedCalc` types.
+template<CSS::RawNumeric RawType> struct ToPrimaryCSSTypeMapping<RawType> { using type = CSS::PrimitiveNumeric<RawType>; };
+template<CSS::RawNumeric RawType> struct ToPrimaryCSSTypeMapping<CSS::UnevaluatedCalc<RawType>> { using type = CSS::PrimitiveNumeric<RawType>; };
+template<> struct ToPrimaryCSSTypeMapping<CSS::NoneRaw> { using type = CSS::None; };
 
-Style::LengthPercentage toStyle(const UnevaluatedCalc<LengthPercentageRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
-Style::LengthPercentage toStyle(const UnevaluatedCalc<LengthPercentageRaw>&, Style::BuilderState&, const CSSCalcSymbolTable&);
-Style::LengthPercentage toStyleNoConversionDataRequired(const UnevaluatedCalc<LengthPercentageRaw>&, const CSSCalcSymbolTable&);
+// AnglePercentage / LengthPercentage require specialized implementations due to additional `calc` field.
+template<auto R> struct ToStyle<CSS::AnglePercentage<R>> {
+    using From = CSS::AnglePercentage<R>;
+    using To = AnglePercentage<R>;
+
+    auto operator()(const typename From::Raw& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable&) -> To
+    {
+        return { canonicalize(value, conversionData) };
+    }
+    auto operator()(const typename From::Calc& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        Ref calc = value.protectedCalc();
+
+        ASSERT(calc->tree().category == Calculation::Category::AnglePercentage);
+
+        if (!calc->tree().type.percentHint)
+            return { Style::Angle<R> { narrowPrecisionToFloat(calc->doubleValue(conversionData, symbolTable)) } };
+        if (std::holds_alternative<CSSCalc::Percentage>(calc->tree().root))
+            return { Style::Percentage<R> { narrowPrecisionToFloat(calc->doubleValue(conversionData, symbolTable)) } };
+        return { calc->createCalculationValue(conversionData, symbolTable) };
+    }
+    auto operator()(const From& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return WTF::switchOn(value.value, [&](const auto& value) { return (*this)(value, conversionData, symbolTable); });
+    }
+
+    auto operator()(const typename From::Raw& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<typename From::Raw>(state), symbolTable);
+    }
+    auto operator()(const typename From::Calc& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<typename From::Raw>(state), symbolTable);
+    }
+    auto operator()(const From& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<typename From::Raw>(state), symbolTable);
+    }
+
+    auto operator()(const typename From::Raw& value, NoConversionDataRequiredToken, const CSSCalcSymbolTable&) -> To
+    {
+        return { canonicalizeNoConversionDataRequired(value) };
+    }
+    auto operator()(const typename From::Calc& value, NoConversionDataRequiredToken, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        Ref calc = value.protectedCalc();
+
+        ASSERT(calc->tree().category == Calculation::Category::AnglePercentage);
+
+        if (!calc->tree().type.percentHint)
+            return { Style::Angle<R> { narrowPrecisionToFloat(calc->doubleValueNoConversionDataRequired(symbolTable)) } };
+        if (std::holds_alternative<CSSCalc::Percentage>(calc->tree().root))
+            return { Style::Percentage<R> { narrowPrecisionToFloat(calc->doubleValueNoConversionDataRequired(symbolTable)) } };
+        return { calc->createCalculationValueNoConversionDataRequired(symbolTable) };
+    }
+    auto operator()(const From& value, NoConversionDataRequiredToken token, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return WTF::switchOn(value.value, [&](const auto& value) { return (*this)(value, token, symbolTable); });
+    }
+};
+template<auto R> struct ToStyle<CSS::LengthPercentage<R>> {
+    using From = CSS::LengthPercentage<R>;
+    using To = LengthPercentage<R>;
+
+    auto operator()(const typename From::Raw& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable&) -> To
+    {
+        return { canonicalize(value, conversionData) };
+    }
+    auto operator()(const typename From::Calc& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        Ref calc = value.protectedCalc();
+
+        ASSERT(calc->tree().category == Calculation::Category::LengthPercentage);
+
+        if (!calc->tree().type.percentHint)
+            return { Style::Length<R> { narrowPrecisionToFloat(calc->doubleValue(conversionData, symbolTable)) } };
+        if (std::holds_alternative<CSSCalc::Percentage>(calc->tree().root))
+            return { Style::Percentage<R> { narrowPrecisionToFloat(calc->doubleValue(conversionData, symbolTable)) } };
+        return { calc->createCalculationValue(conversionData, symbolTable) };
+    }
+    auto operator()(const From& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return WTF::switchOn(value.value, [&](const auto& value) { return (*this)(value, conversionData, symbolTable); });
+    }
+
+    auto operator()(const typename From::Raw& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<typename From::Raw>(state), symbolTable);
+    }
+    auto operator()(const typename From::Calc& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<typename From::Raw>(state), symbolTable);
+    }
+    auto operator()(const From& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<typename From::Raw>(state), symbolTable);
+    }
+
+    auto operator()(const typename From::Raw& value, NoConversionDataRequiredToken, const CSSCalcSymbolTable&) -> To
+    {
+        return { canonicalizeNoConversionDataRequired(value) };
+    }
+    auto operator()(const typename From::Calc& value, NoConversionDataRequiredToken, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+            Ref calc = value.protectedCalc();
+
+        ASSERT(calc->tree().category == Calculation::Category::LengthPercentage);
+
+        if (!calc->tree().type.percentHint)
+            return { Style::Length<R> { narrowPrecisionToFloat(calc->doubleValueNoConversionDataRequired(symbolTable)) } };
+        if (std::holds_alternative<CSSCalc::Percentage>(calc->tree().root))
+            return { Style::Percentage<R> { narrowPrecisionToFloat(calc->doubleValueNoConversionDataRequired(symbolTable)) } };
+        return { calc->createCalculationValueNoConversionDataRequired(symbolTable) };
+    }
+    auto operator()(const From& value, NoConversionDataRequiredToken token, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return WTF::switchOn(value.value, [&](const auto& value) { return (*this)(value, token, symbolTable); });
+    }
+};
+
+// Partial specialization for remaining numeric types.
+template<CSS::RawNumeric RawType> struct ToStyle<CSS::PrimitiveNumeric<RawType>> {
+    using From = CSS::PrimitiveNumeric<RawType>;
+    using To = CSS::TypeTransform::Type::RawToStyle<RawType>;
+
+    auto operator()(const typename From::Raw& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable&) -> To
+    {
+        return { canonicalize(value, conversionData) };
+    }
+    auto operator()(const typename From::Calc& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return { CSS::unevaluatedCalcEvaluate(value.calc, conversionData, symbolTable, RawType::category) };
+    }
+    auto operator()(const From& value, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return WTF::switchOn(value.value, [&](const auto& value) { return (*this)(value, conversionData, symbolTable); });
+    }
+
+    auto operator()(const typename From::Raw& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<RawType>(state), symbolTable);
+    }
+    auto operator()(const typename From::Calc& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<RawType>(state), symbolTable);
+    }
+    auto operator()(const CSS::PrimitiveNumeric<RawType>& value, const BuilderState& state, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return (*this)(value, conversionData<RawType>(state), symbolTable);
+    }
+
+    auto operator()(const typename From::Raw& value, NoConversionDataRequiredToken, const CSSCalcSymbolTable&) -> To
+    {
+        return { canonicalizeNoConversionDataRequired(value) };
+    }
+    auto operator()(const typename From::Calc& value, NoConversionDataRequiredToken, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return { CSS::unevaluatedCalcEvaluateNoConversionDataRequired(value.calc, symbolTable, RawType::category) };
+    }
+    auto operator()(const From& value, NoConversionDataRequiredToken token, const CSSCalcSymbolTable& symbolTable) -> To
+    {
+        return WTF::switchOn(value.value, [&](const auto& value) { return (*this)(value, token, symbolTable); });
+    }
+};
 
 // None just needs its trivial implementation.
-constexpr Style::None toStyle(CSS::None, const CSSToLengthConversionData&, const CSSCalcSymbolTable&) { return { }; }
-constexpr Style::None toStyle(CSS::None, Style::BuilderState&, const CSSCalcSymbolTable&) { return { }; }
-constexpr Style::None toStyleNoConversionDataRequired(CSS::None, const CSSCalcSymbolTable&) { return { }; }
+template<> struct ToStyle<CSS::None> {
+    auto operator()(const CSS::None&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&) -> None { return { }; }
+    auto operator()(const CSS::None&, const BuilderState&, const CSSCalcSymbolTable&) -> None { return { }; }
+    auto operator()(const CSS::None&, NoConversionDataRequiredToken, const CSSCalcSymbolTable&) -> None { return { }; }
+};
 
-template<RawNumeric RawType> decltype(auto) toStyle(const UnevaluatedCalc<RawType>& calc, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable)
-{
-    return TypeTransform::Type::RawToStyle<RawType> { unevaluatedCalcEvaluate(calc.calc, conversionData, symbolTable, RawType::category) };
-}
-
-template<RawNumeric RawType> decltype(auto) toStyle(const UnevaluatedCalc<RawType>& calc, Style::BuilderState& state, const CSSCalcSymbolTable& symbolTable)
-{
-    return toStyle(calc, Style::conversionData<RawType>(state), symbolTable);
-}
-
-template<RawNumeric RawType> decltype(auto) toStyle(const RawType& css, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable&)
-{
-    return TypeTransform::Type::RawToStyle<RawType> { Style::canonicalize(css, conversionData) };
-}
-
-template<RawNumeric RawType> decltype(auto) toStyle(const RawType& css, Style::BuilderState& state, const CSSCalcSymbolTable& symbolTable)
-{
-    return toStyle(css, Style::conversionData<RawType>(state), symbolTable);
-}
-
-template<RawNumeric RawType> decltype(auto) toStyle(const PrimitiveNumeric<RawType>& css, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable)
-{
-    return WTF::switchOn(css.value, [&](const auto& alternative) { return toStyle(alternative, conversionData, symbolTable); });
-}
-
-template<RawNumeric RawType> decltype(auto) toStyle(const PrimitiveNumeric<RawType>& css, Style::BuilderState& state, const CSSCalcSymbolTable& symbolTable)
-{
-    return WTF::switchOn(css.value, [&](const auto& alternative) { return toStyle(alternative, state, symbolTable); });
-}
-
-template<RawNumeric Raw> decltype(auto) toStyleNoConversionDataRequired(const UnevaluatedCalc<Raw>& calc, const CSSCalcSymbolTable& symbolTable)
-{
-    return TypeTransform::Type::RawToStyle<Raw> { unevaluatedCalcEvaluateNoConversionDataRequired(calc.calc, symbolTable, Raw::category) };
-}
-
-template<RawNumeric Raw> decltype(auto) toStyleNoConversionDataRequired(const Raw& css, const CSSCalcSymbolTable&)
-{
-    return TypeTransform::Type::RawToStyle<Raw> { Style::canonicalizeNoConversionDataRequired(css) };
-}
-
-template<RawNumeric Raw> decltype(auto) toStyleNoConversionDataRequired(const PrimitiveNumeric<Raw>& css, const CSSCalcSymbolTable& symbolTable)
-{
-    return WTF::switchOn(css.value, [&](const auto& alternative) { return toStyleNoConversionDataRequired(alternative, symbolTable); });
-}
-
-} // namespace CSS
+} // namespace Style
 } // namespace WebCore

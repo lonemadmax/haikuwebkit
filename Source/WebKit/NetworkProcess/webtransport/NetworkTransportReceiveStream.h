@@ -37,7 +37,7 @@
 
 namespace WebKit {
 struct WebTransportStreamIdentifierType;
-using WebTransportStreamIdentifier = LegacyNullableObjectIdentifier<WebTransportStreamIdentifierType>;
+using WebTransportStreamIdentifier = ObjectIdentifier<WebTransportStreamIdentifierType>;
 }
 
 namespace WebKit {
@@ -56,6 +56,8 @@ public:
 protected:
 #if PLATFORM(COCOA)
     NetworkTransportReceiveStream(NetworkTransportSession&, nw_connection_t);
+#else
+    NetworkTransportReceiveStream();
 #endif
 
 private:

@@ -1132,7 +1132,9 @@ private:
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FixedVMPoolExecutableAllocator);
+#if ENABLE(JUMP_ISLANDS)
 WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(FixedVMPoolExecutableAllocatorIslands, FixedVMPoolExecutableAllocator::Islands);
+#endif // ENABLE(JUMP_ISLANDS)
 
 // Keep this pointer in a mutable global variable to help Leaks find it.
 // But we do not use this pointer.
@@ -1424,6 +1426,11 @@ ExecutableMemoryHandle::~ExecutableMemoryHandle()
     AssemblyCommentRegistry::singleton().unregisterCodeRange(start().untaggedPtr(), end().untaggedPtr());
     FixedVMPoolExecutableAllocator* allocator = g_jscConfig.fixedVMPoolExecutableAllocator;
     allocator->handleWillBeReleased(*this, sizeInBytes());
+    if (UNLIKELY(Options::zeroExecutableMemoryOnFree())) {
+        // We don't have a performJITMemset so just use a zeroed buffer.
+        auto zeros = MallocPtr<uint8_t>::zeroedMalloc(sizeInBytes());
+        performJITMemcpy(start().untaggedPtr(), zeros.get(), sizeInBytes());
+    }
     jit_heap_deallocate(key());
 }
 

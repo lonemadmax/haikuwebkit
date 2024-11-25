@@ -105,8 +105,10 @@ Modules/cache/DOMCache.cpp
 Modules/cache/DOMCacheEngine.cpp
 Modules/cache/DOMCacheStorage.cpp
 Modules/cache/WindowOrWorkerGlobalScopeCaches.cpp
+Modules/compression/CompressionStream.cpp
 Modules/compression/CompressionStreamEncoder.cpp
 Modules/compression/DecompressionStreamDecoder.cpp
+Modules/compression/ZStream.cpp
 Modules/contact-picker/ContactsManager.cpp
 Modules/contact-picker/NavigatorContacts.cpp
 Modules/cookie-consent/NavigatorCookieConsent.cpp
@@ -591,7 +593,6 @@ animation/AnimationTimeline.cpp
 animation/BlendingKeyframes.cpp
 animation/CSSAnimation.cpp
 animation/CSSAnimationEvent.cpp
-animation/CSSNumberishTime.cpp
 animation/CSSPropertyAnimation.cpp
 animation/CSSTransition.cpp
 animation/CSSTransitionEvent.cpp
@@ -608,8 +609,10 @@ animation/ScrollAxis.cpp
 animation/ScrollTimeline.cpp
 animation/StyleOriginatedAnimation.cpp
 animation/StyleOriginatedAnimationEvent.cpp
+animation/TimelineRange.cpp
 animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
+animation/WebAnimationTime.cpp
 animation/WebAnimationUtilities.cpp
 bindings/js/CachedModuleScriptLoader.cpp
 bindings/js/CachedScriptFetcher.cpp
@@ -1117,10 +1120,12 @@ css/typedom/transform/CSSSkewY.cpp
 css/typedom/transform/CSSTransformComponent.cpp
 css/typedom/transform/CSSTransformValue.cpp
 css/typedom/transform/CSSTranslate.cpp
+css/values/CSSGradient.cpp
 css/values/CSSPosition.cpp
 css/values/CSSPrimitiveNumericTypes+ComputedStyleDependencies.cpp
 css/values/CSSPrimitiveNumericTypes+Serialization.cpp
 css/values/CSSPrimitiveNumericTypes+SymbolReplacement.cpp
+css/values/CSSPrimitiveNumericTypes.cpp
 css/values/CSSUnevaluatedCalc.cpp
 cssjit/SelectorCompiler.cpp
 dom/AbortController.cpp
@@ -2242,7 +2247,6 @@ platform/PublicSuffixStore.cpp
 platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
 platform/RunLoopObserver.cpp
-platform/RuntimeApplicationChecks.cpp
 platform/ScreenOrientationManager.cpp
 platform/ScrollAlignment.cpp
 platform/ScrollAnimation.cpp
@@ -3053,8 +3057,8 @@ style/StyleUpdate.cpp
 style/Styleable.cpp
 style/TransformOperationsBuilder.cpp
 style/UserAgentStyle.cpp
+style/values/StyleGradient.cpp
 style/values/StylePosition.cpp
-style/values/StylePrimitiveNumericTypes.cpp
 style/values/StylePrimitiveNumericTypes+Conversions.cpp
 svg/DocumentSVG.cpp
 svg/SVGAElement.cpp

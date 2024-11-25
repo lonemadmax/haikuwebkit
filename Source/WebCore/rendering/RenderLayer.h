@@ -63,6 +63,8 @@ namespace WTF {
 class TextStream;
 }
 
+void outputLayerPositionTreeRecursive(TextStream&, const WebCore::RenderLayer&, unsigned);
+
 namespace WebCore {
 
 class CSSFilter;
@@ -160,6 +162,7 @@ public:
     friend class RenderLayerBacking;
     friend class RenderLayerCompositor;
     friend class RenderLayerScrollableArea;
+    friend void ::outputLayerPositionTreeRecursive(TextStream&, const WebCore::RenderLayer&, unsigned);
 
     explicit RenderLayer(RenderLayerModelObject&);
     ~RenderLayer();
@@ -179,7 +182,7 @@ public:
     RenderLayer* firstChild() const { return m_first; }
     RenderLayer* lastChild() const { return m_last; }
     bool isDescendantOf(const RenderLayer&) const;
-    RenderLayer* commonAncestorWithLayer(const RenderLayer&) const;
+    WEBCORE_EXPORT RenderLayer* commonAncestorWithLayer(const RenderLayer&) const;
 
     // This does an ancestor tree walk. Avoid it!
     const RenderLayer* root() const
@@ -193,12 +196,8 @@ public:
     void addChild(RenderLayer& newChild, RenderLayer* beforeChild = nullptr);
     void removeChild(RenderLayer&);
 
-    enum class LayerChangeTiming {
-        StyleChange,
-        RenderTreeConstruction,
-    };
-    void insertOnlyThisLayer(LayerChangeTiming);
-    void removeOnlyThisLayer(LayerChangeTiming);
+    void insertOnlyThisLayer();
+    void removeOnlyThisLayer();
 
     bool isNormalFlowOnly() const { return m_isNormalFlowOnly; }
 
@@ -241,6 +240,23 @@ public:
 
     // Convert a point in absolute coords into layer coords, taking transforms into account
     LayoutPoint absoluteToContents(const LayoutPoint&) const;
+
+    void setNeedsPositionUpdate();
+    void setSelfAndChildrenNeedPositionUpdate();
+    void setSelfAndDescendantsNeedPositionUpdate();
+
+private:
+    enum class LayerPositionUpdates {
+        NeedsPositionUpdate  = 1 << 0,
+        DescendantNeedsPositionUpdate = 1 << 1,
+        AllChildrenNeedPositionUpdate = 1 << 2,
+        AllDescendantsNeedPositionUpdate = 1 << 3,
+    };
+
+    bool needsPositionUpdate() const;
+    void clearLayerPositionDirtyBits() { m_layerPositionDirtyBits = { }; }
+
+    OptionSet<LayerPositionUpdates> m_layerPositionDirtyBits;
 
 protected:
     void destroy();
@@ -500,7 +516,7 @@ public:
 
     void updateLayerPositionsAfterStyleChange();
     enum class CanUseSimplifiedRepaintPass : uint8_t { No, Yes };
-    void updateLayerPositionsAfterLayout(RenderElement::LayoutIdentifier, bool isRelayoutingSubtree, bool didFullRepaint, CanUseSimplifiedRepaintPass);
+    void updateLayerPositionsAfterLayout(RenderElement::LayoutIdentifier, bool didFullRepaint, CanUseSimplifiedRepaintPass);
     void updateLayerPositionsAfterOverflowScroll();
     void updateLayerPositionsAfterDocumentScroll();
 
@@ -559,6 +575,8 @@ public:
         RequestState hasPaintedContent { RequestState::Unknown };
     };
 
+    bool isVisibilityHiddenOrOpacityZero() const;
+
     // Returns true if this layer has visible content (ignoring any child layers).
     bool isVisuallyNonEmpty(PaintedContentRequest* = nullptr) const;
     // True if this layer container renderers that paint.
@@ -575,7 +593,7 @@ public:
     RenderLayer* enclosingAncestorForPosition(PositionType) const;
     
     RenderLayer* enclosingLayerInContainingBlockOrder() const;
-    RenderLayer* enclosingContainingBlockLayer(CrossFrameBoundaries) const;
+    WEBCORE_EXPORT RenderLayer* enclosingContainingBlockLayer(CrossFrameBoundaries) const;
     RenderLayer* enclosingFrameRenderLayer() const;
 
     // The layer relative to which clipping rects for this layer are computed.
@@ -646,7 +664,7 @@ public:
         IncludeOverlayScrollbarSize = 1 << 1,
     };
 
-    static constexpr OptionSet<ClipRectsOption> clipRectOptionsForPaintingOverflowControls = { };
+    static constexpr OptionSet<ClipRectsOption> clipRectOptionsForPaintingOverflowContents = { };
     static constexpr OptionSet<ClipRectsOption> clipRectDefaultOptions = { ClipRectsOption::RespectOverflowClip };
 
     struct ClipRectsContext {
@@ -654,11 +672,14 @@ public:
             : rootLayer(inRootLayer)
             , clipRectsType(inClipRectsType)
             , options(inOptions)
-        { }
+        {
+            if (inClipRectsType == RootRelativeClipRects)
+                options.add(ClipRectsOption::IncludeOverlayScrollbarSize);
+        }
         const RenderLayer* rootLayer;
         ClipRectsType clipRectsType;
         OptionSet<ClipRectsOption> options;
-        
+
         bool respectOverflowClip() const { return options.contains(ClipRectsOption::RespectOverflowClip); }
         OverlayScrollbarSizeRelevancy overlayScrollbarSizeRelevancy() const { return options.contains(ClipRectsOption::IncludeOverlayScrollbarSize) ? IncludeOverlayScrollbarSize : IgnoreOverlayScrollbarSize; }
     };
@@ -765,6 +786,10 @@ public:
     bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
     bool hasTransformedAncestor() const { return m_hasTransformedAncestor; }
     bool participatesInPreserve3D() const;
+
+    std::optional<LayoutSize> snapshottedScrollOffsetForAnchorPositioning() const { return m_snapshottedScrollOffsetForAnchorPositioning; };
+    void setSnapshottedScrollOffsetForAnchorPositioning(LayoutSize);
+    void clearSnapshottedScrollOffsetForAnchorPositioning();
 
     bool hasFixedContainingBlockAncestor() const { return m_hasFixedContainingBlockAncestor; }
 
@@ -977,6 +1002,8 @@ private:
     void computeRepaintRects(const RenderLayerModelObject* repaintContainer);
     void computeRepaintRectsIncludingDescendants();
 
+    void compositingStatusChanged(LayoutUpToDate);
+
     void setRepaintRects(const RenderObject::RepaintRects&);
     void clearRepaintRects();
 
@@ -1000,13 +1027,31 @@ private:
         SeenTransformedLayer                = 1 << 6,
         Seen3DTransformedLayer              = 1 << 7,
         SeenCompositedScrollingLayer        = 1 << 8,
+        SubtreeNeedsUpdate                  = 1 << 9,
     };
     static OptionSet<UpdateLayerPositionsFlag> flagsForUpdateLayerPositions(RenderLayer& startingLayer);
 
-    // Returns true if the position changed.
-    bool updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* = nullptr);
+    // UpdateLayerPositionsFlags that describe changes to the layer tree
+    static constexpr OptionSet<UpdateLayerPositionsFlag> invalidationLayerPositionsFlags()
+    {
+        return {
+            UpdateLayerPositionsFlag::NeedsFullRepaintInBacking,
+            UpdateLayerPositionsFlag::ContainingClippingLayerChangedSize,
+            UpdateLayerPositionsFlag::SubtreeNeedsUpdate,
+        };
+    }
 
+    enum UpdateLayerPositionsMode {
+        Write,
+        Verify,
+    };
+
+    // Returns true if the position changed.
+    bool updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* = nullptr, UpdateLayerPositionsMode = Write);
+
+    template<UpdateLayerPositionsMode = Write>
     void recursiveUpdateLayerPositions(RenderElement::LayoutIdentifier, OptionSet<UpdateLayerPositionsFlag>, CanUseSimplifiedRepaintPass = CanUseSimplifiedRepaintPass::No);
+    bool ancestorLayerPositionStateChanged(OptionSet<UpdateLayerPositionsFlag>);
 
     enum UpdateLayerPositionsAfterScrollFlag {
         IsOverflowScroll                        = 1 << 0,
@@ -1157,10 +1202,13 @@ private:
     bool has3DTransformedDescendant() const { return m_has3DTransformedDescendant; }
     bool has3DTransformedAncestor() const { return m_has3DTransformedAncestor; }
 
+    bool hasFixedAncestor() const { return m_hasFixedAncestor; }
+    bool hasPaginatedAncestor() const { return m_hasPaginatedAncestor; }
+
     void dirty3DTransformedDescendantStatus();
     // Both updates the status, and returns true if descendants of this have 3d.
     bool update3DTransformedDescendantStatus();
-    
+
     bool isInsideSVGForeignObject() const { return m_insideSVGForeignObject; }
 
     void createReflection();
@@ -1196,6 +1244,9 @@ private:
     void setWasIncludedInZOrderTree() { m_wasOmittedFromZOrderTree = false; }
     void removeSelfFromCompositor();
     void removeDescendantsFromCompositor();
+
+    void verifyClipRects();
+    void verifyClipRect(const ClipRectsContext&);
 
     void setHasCompositingDescendant(bool b)  { m_hasCompositingDescendant = b; }
     void setHasCompositedNonContainedDescendants(bool value) { m_hasCompositedNonContainedDescendants = value; }
@@ -1267,6 +1318,9 @@ private:
     bool m_hasTransformedAncestor : 1;
     bool m_has3DTransformedAncestor : 1;
 
+    bool m_hasFixedAncestor : 1 { false };
+    bool m_hasPaginatedAncestor : 1 { false };
+
     bool m_insideSVGForeignObject : 1;
     bool m_isHiddenByOverflowTruncation : 1 { false };
     bool m_isPaintingSVGResourceLayer : 1 { false };
@@ -1302,6 +1356,10 @@ private:
 
     SingleThreadWeakPtr<RenderLayer> m_backingProviderLayer;
 
+#if ASSERT_ENABLED || ENABLE(CONJECTURE_ASSERT)
+    SingleThreadWeakPtr<RenderObject> m_repaintContainer;
+#endif
+
     // For layers that establish stacking contexts, m_posZOrderList holds a sorted list of all the
     // descendant layers within the stacking context that have z-indices of 0 or greater
     // (auto will count as 0). m_negZOrderList holds descendants within our stacking context with negative
@@ -1330,7 +1388,9 @@ private:
     Markable<ScrollingScope, IntegralMarkableTraits<ScrollingScope, 0>> m_contentsScrollingScope;
 
     std::unique_ptr<TransformationMatrix> m_transform;
-    
+
+    std::optional<LayoutSize> m_snapshottedScrollOffsetForAnchorPositioning;
+
     // May ultimately be extended to many replicas (with their own paint order).
     RenderPtr<RenderReplica> m_reflection;
 
@@ -1383,6 +1443,7 @@ inline void RenderLayer::setIsHiddenByOverflowTruncation(bool isHidden)
         return;
     m_isHiddenByOverflowTruncation = isHidden;
     m_visibleContentStatusDirty = true;
+    setNeedsPositionUpdate();
 }
 
 #if ASSERT_ENABLED
@@ -1424,5 +1485,6 @@ void showLayerTree(const WebCore::RenderLayer*);
 void showLayerTree(const WebCore::RenderObject*);
 void showPaintOrderTree(const WebCore::RenderLayer*);
 void showPaintOrderTree(const WebCore::RenderObject*);
+void showLayerPositionTree(const WebCore::RenderLayer*);
 #endif
 

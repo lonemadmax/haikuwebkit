@@ -42,8 +42,8 @@ class WebTransportSendStream;
 struct WebTransportStreamIdentifierType { };
 struct WebTransportSessionIdentifierType { };
 
-using WebTransportStreamIdentifier = LegacyNullableObjectIdentifier<WebTransportStreamIdentifierType>;
-using WebTransportSessionIdentifier = LegacyNullableObjectIdentifier<WebTransportSessionIdentifierType>;
+using WebTransportStreamIdentifier = ObjectIdentifier<WebTransportStreamIdentifierType>;
+using WebTransportSessionIdentifier = ObjectIdentifier<WebTransportSessionIdentifierType>;
 
 class WebTransportSession : public WebCore::WebTransportSession, public IPC::MessageReceiver, public IPC::MessageSender, public ThreadSafeRefCounted<WebTransportSession, WTF::DestructionThread::MainRunLoop> {
 public:
@@ -76,7 +76,7 @@ private:
     uint64_t messageSenderDestinationID() const final;
 
     WebTransportSessionIdentifier m_identifier;
-    HashMap<WebTransportStreamIdentifier, Ref<WebTransportReceiveStreamSource>> m_readStreamSources;
+    UncheckedKeyHashMap<WebTransportStreamIdentifier, Ref<WebTransportReceiveStreamSource>> m_readStreamSources;
 };
 
 }

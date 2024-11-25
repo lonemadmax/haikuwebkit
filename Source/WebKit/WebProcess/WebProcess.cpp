@@ -131,7 +131,6 @@
 #include <WebCore/RemoteCommandListener.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/ResourceLoadStatistics.h>
-#include <WebCore/RuntimeApplicationChecks.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/ScriptExecutionContext.h>
 #include <WebCore/SecurityOrigin.h>
@@ -147,6 +146,7 @@
 #include <wtf/Language.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URLParser.h>
@@ -328,15 +328,11 @@ WebProcess::WebProcess()
 #endif
 
 #if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
-    addSupplement<RemoteCDMFactory>();
+    addSupplementWithoutRefCountedCheck<RemoteCDMFactory>();
 #endif
 
 #if ENABLE(GPU_PROCESS) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    addSupplement<RemoteLegacyCDMFactory>();
-#endif
-
-#if ENABLE(ROUTING_ARBITRATION)
-    addSupplement<AudioSessionRoutingArbitrator>();
+    addSupplementWithoutRefCountedCheck<RemoteLegacyCDMFactory>();
 #endif
 
 #if ENABLE(GPU_PROCESS)
@@ -426,7 +422,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
     if (parameters.websiteDataStoreParameters)
         setWebsiteDataStoreParameters(WTFMove(*parameters.websiteDataStoreParameters));
 
-    WebCore::setPresentingApplicationPID(parameters.presentingApplicationPID);
+    setPresentingApplicationPID(parameters.presentingApplicationPID);
 
 #if OS(LINUX)
     MemoryPressureHandler::ReliefLogger::setLoggingEnabled(parameters.shouldEnableMemoryPressureReliefLogging);
@@ -446,6 +442,9 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
             // amount of memory released for foreground apps to use.
             if (m_pagesInWindows.isEmpty() && critical == Critical::No)
                 critical = Critical::Yes;
+
+            if (UNLIKELY(Options::dumpHeapOnLowMemory()))
+                GCController::singleton().dumpHeap();
 
 #if PLATFORM(COCOA)
             // If this is a process we keep around for performance, kill it on memory pressure instead of trying to free up its memory.
@@ -470,7 +469,11 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 #if ENABLE(PERIODIC_MEMORY_MONITOR)
         if (auto pollInterval = parameters.memoryFootprintPollIntervalForTesting)
             memoryPressureHandler.setMemoryFootprintPollIntervalForTesting(pollInterval);
-        memoryPressureHandler.setShouldUsePeriodicMemoryMonitor(true);
+#if !USE(SYSTEM_MALLOC)
+        // If we're running with FastMalloc disabled, some kind of testing or debugging is probably happening.
+        // Let's be nice and not enable the memory kill mechanism.
+        memoryPressureHandler.setShouldUsePeriodicMemoryMonitor(isFastMallocEnabled() || JSC::Options::enableStrongRefTracker() || JSC::Options::dumpHeapOnLowMemory());
+#endif
         memoryPressureHandler.setMemoryKillCallback([this] () {
             WebCore::logMemoryStatistics(LogMemoryStatisticsReason::OutOfMemoryDeath);
             if (MemoryPressureHandler::singleton().processState() == WebsamProcessState::Active)
@@ -484,7 +487,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 #endif
         memoryPressureHandler.setMemoryPressureStatusChangedCallback([this]() {
             if (parentProcessConnection())
-                parentProcessConnection()->send(Messages::WebProcessProxy::MemoryPressureStatusChanged(MemoryPressureHandler::singleton().isUnderMemoryPressure()), 0);
+                parentProcessConnection()->send(Messages::WebProcessProxy::MemoryPressureStatusChanged(MemoryPressureHandler::singleton().memoryPressureStatus()), 0);
         });
         memoryPressureHandler.setDidExceedProcessMemoryLimitCallback([this](WTF::ProcessMemoryLimit limit) {
             if (limit == WTF::ProcessMemoryLimit::Warning && !m_loggedProcessLimitWarningMemoryStatistics) {
@@ -614,7 +617,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
     if (std::optional<audit_token_t> auditToken = parentProcessConnection()->getAuditToken()) {
         RetainPtr<CFDataRef> auditData = adoptCF(CFDataCreate(nullptr, (const UInt8*)&*auditToken, sizeof(*auditToken)));
-        Inspector::RemoteInspector::singleton().setParentProcessInformation(WebCore::presentingApplicationPID(), auditData);
+        Inspector::RemoteInspector::singleton().setParentProcessInformation(presentingApplicationPID(), auditData);
     }
     // We need to connect to webinspectord before the first page load for the XPC connection to be successfully opened.
     // This is because we block launchd before the first page load, and launchd is required to establish the connection.
@@ -651,7 +654,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
     WebCore::NavigatorGamepad::setGamepadsRecentlyAccessedThreshold(WebPageProxy::gamepadsRecentlyAccessedThreshold / 3);
 #endif
 
-    WEBPROCESS_RELEASE_LOG(Process, "initializeWebProcess: Presenting processPID=%d", WebCore::presentingApplicationPID());
+    WEBPROCESS_RELEASE_LOG(Process, "initializeWebProcess: Presenting processPID=%d", presentingApplicationPID());
 }
 
 void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& parameters)
@@ -880,7 +883,7 @@ WebPage* WebProcess::focusedWebPage() const
     return 0;
 }
 
-void WebProcess::updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&& userAgentStringQuirk)
+void WebProcess::updateStorageAccessUserAgentStringQuirks(UncheckedKeyHashMap<RegistrableDomain, String>&& userAgentStringQuirk)
 {
     Quirks::updateStorageAccessUserAgentStringQuirks(WTFMove(userAgentStringQuirk));
 }
@@ -1040,21 +1043,17 @@ WebPageGroupProxy* WebProcess::webPageGroup(const WebPageGroupData& pageGroupDat
     return result.iterator->value.get();
 }
 
-static uint64_t nextUserGestureTokenIdentifier()
-{
-    static uint64_t identifier = 1;
-    return identifier++;
-}
-
-uint64_t WebProcess::userGestureTokenIdentifier(std::optional<PageIdentifier> pageID, RefPtr<UserGestureToken> token)
+std::optional<WebCore::UserGestureTokenIdentifier> WebProcess::userGestureTokenIdentifier(std::optional<PageIdentifier> pageID, RefPtr<UserGestureToken> token)
 {
     if (!pageID)
-        return 0;
+        return std::nullopt;
 
     if (!token || !token->processingUserGesture())
-        return 0;
+        return std::nullopt;
 
-    auto result = m_userGestureTokens.ensure(*token, [] { return nextUserGestureTokenIdentifier(); });
+    auto result = m_userGestureTokens.ensure(*token, [] {
+        return UserGestureTokenIdentifier::generate();
+    });
     if (result.isNewEntry) {
         result.iterator->key.addDestructionObserver([pageID] (UserGestureToken& tokenBeingDestroyed) {
             WebProcess::singleton().userGestureTokenDestroyed(*pageID, tokenBeingDestroyed);
@@ -1470,10 +1469,10 @@ void WebProcess::stopMemorySampler()
 #endif
 }
 
-void WebProcess::setTextCheckerState(const TextCheckerState& textCheckerState)
+void WebProcess::setTextCheckerState(OptionSet<TextCheckerState> textCheckerState)
 {
-    bool continuousSpellCheckingTurnedOff = !textCheckerState.isContinuousSpellCheckingEnabled && m_textCheckerState.isContinuousSpellCheckingEnabled;
-    bool grammarCheckingTurnedOff = !textCheckerState.isGrammarCheckingEnabled && m_textCheckerState.isGrammarCheckingEnabled;
+    bool continuousSpellCheckingTurnedOff = !textCheckerState.contains(TextCheckerState::ContinuousSpellCheckingEnabled) && m_textCheckerState.contains(TextCheckerState::ContinuousSpellCheckingEnabled);
+    bool grammarCheckingTurnedOff = !textCheckerState.contains(TextCheckerState::GrammarCheckingEnabled) && m_textCheckerState.contains(TextCheckerState::GrammarCheckingEnabled);
 
     m_textCheckerState = textCheckerState;
 
@@ -2183,7 +2182,7 @@ void WebProcess::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomai
     ResourceLoadObserver::shared().setDomainsWithUserInteraction(WTFMove(domains));
 }
 
-void WebProcess::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
+void WebProcess::setDomainsWithCrossPageStorageAccess(UncheckedKeyHashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {
     for (auto& [domain, subResourceDomains] : domains) {
         for (auto& subResourceDomain : subResourceDomains) {
@@ -2246,7 +2245,7 @@ void WebProcess::setUseGPUProcessForMedia(bool useGPUProcessForMedia)
     auto& cdmFactories = CDMFactory::registeredFactories();
     cdmFactories.clear();
     if (useGPUProcessForMedia)
-        cdmFactory().registerFactory(cdmFactories);
+        protectedCDMFactory()->registerFactory(cdmFactories);
     else
         CDMFactory::platformRegisterFactories(cdmFactories);
 #endif
@@ -2267,13 +2266,13 @@ void WebProcess::setUseGPUProcessForMedia(bool useGPUProcessForMedia)
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     if (useGPUProcessForMedia)
-        legacyCDMFactory().registerFactory();
+        protectedLegacyCDMFactory()->registerFactory();
     else
         LegacyCDM::resetFactories();
 #endif
 
     if (useGPUProcessForMedia)
-        mediaEngineConfigurationFactory().registerFactory();
+        Ref { mediaEngineConfigurationFactory() }->registerFactory();
     else
         MediaEngineConfigurationFactory::resetFactories();
 
@@ -2359,12 +2358,22 @@ RemoteLegacyCDMFactory& WebProcess::legacyCDMFactory()
 {
     return *supplement<RemoteLegacyCDMFactory>();
 }
+
+Ref<RemoteLegacyCDMFactory> WebProcess::protectedLegacyCDMFactory()
+{
+    return legacyCDMFactory();
+}
 #endif
 
 #if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
 RemoteCDMFactory& WebProcess::cdmFactory()
 {
     return *supplement<RemoteCDMFactory>();
+}
+
+Ref<RemoteCDMFactory> WebProcess::protectedCDMFactory()
+{
+    return cdmFactory();
 }
 #endif
 
@@ -2403,12 +2412,29 @@ bool WebProcess::requiresScriptTelemetryForURL(const URL& url, const WebCore::Se
     return m_scriptTelemetryFilter && m_scriptTelemetryFilter->matches(url, topOrigin);
 }
 
+void WebProcess::enableMediaPlayback()
+{
+#if USE(AUDIO_SESSION)
+    if (!WebCore::AudioSession::enableMediaPlayback())
+        return;
+#endif
+
+#if ENABLE(ROUTING_ARBITRATION)
+    m_routingArbitrator = makeUnique<AudioSessionRoutingArbitrator>(*this);
+#endif
+}
+
 #if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 Ref<RemoteMediaPlayerManager> WebProcess::protectedRemoteMediaPlayerManager()
 {
     return m_remoteMediaPlayerManager;
 }
 #endif
+
+Ref<WebCookieJar> WebProcess::protectedCookieJar()
+{
+    return m_cookieJar;
+}
 
 } // namespace WebKit
 

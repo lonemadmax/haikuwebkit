@@ -452,7 +452,7 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
         if (status != kCVReturnSuccess)
             return { };
 
-        id<MTLTexture> mtlTextures[2];
+        std::array<id<MTLTexture>, 2> mtlTextures { };
 
         for (size_t plane = 0; plane < planeCount; ++plane) {
             int width = CVPixelBufferGetWidthOfPlane(pixelBuffer, plane);
@@ -523,15 +523,15 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
             status2 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, format1, CVPixelBufferGetWidthOfPlane(pixelBuffer, 1), CVPixelBufferGetHeightOfPlane(pixelBuffer, 1), 1, &plane1);
     }
 
-    float lowerLeft[2];
-    float lowerRight[2];
-    float upperRight[2];
-    float upperLeft[2];
+    std::array<float, 2> lowerLeft;
+    std::array<float, 2> lowerRight;
+    std::array<float, 2> upperRight;
+    std::array<float, 2> upperLeft;
 
     if (status1 == kCVReturnSuccess) {
         baseTexture = mtlTexture0 = CVMetalTextureGetTexture(plane0);
         setOwnerWithIdentity(mtlTexture0);
-        CVMetalTextureGetCleanTexCoords(plane0, lowerLeft, lowerRight, upperRight, upperLeft);
+        CVMetalTextureGetCleanTexCoords(plane0, lowerLeft.begin(), lowerRight.begin(), upperRight.begin(), upperLeft.begin());
         if (firstPlaneSwizzle)
             mtlTexture0 = [mtlTexture0 newTextureViewWithPixelFormat:mtlTexture0.pixelFormat textureType:mtlTexture0.textureType levels:NSMakeRange(0, mtlTexture0.mipmapLevelCount) slices:NSMakeRange(0, mtlTexture0.arrayLength) swizzle:*firstPlaneSwizzle];
     } else {
@@ -907,9 +907,9 @@ static BindGroupEntryUsage usageForBuffer(WGPUBufferBindingType bufferBindingTyp
     return BindGroupEntryUsage::Undefined;
 }
 
-static BindGroupEntryUsageData makeBindGroupEntryUsageData(BindGroupEntryUsage usage, uint32_t bindingIndex, auto& resource, uint64_t entryOffset = 0)
+static BindGroupEntryUsageData makeBindGroupEntryUsageData(BindGroupEntryUsage usage, uint32_t bindingIndex, auto& resource, uint64_t entryOffset = 0, uint64_t entrySize = 0)
 {
-    return BindGroupEntryUsageData { .usage = usage, .binding = bindingIndex, .resource = &resource, .entryOffset = entryOffset };
+    return BindGroupEntryUsageData { .usage = usage, .binding = bindingIndex, .resource = &resource, .entryOffset = entryOffset, .entrySize = entrySize };
 }
 
 constexpr ShaderStage stages[] = { ShaderStage::Vertex, ShaderStage::Fragment, ShaderStage::Compute };
@@ -933,27 +933,23 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
     BindGroup::ShaderStageArray<id<MTLArgumentEncoder>> argumentEncoder = std::array<id<MTLArgumentEncoder>, stageCount>({ bindGroupLayout.vertexArgumentEncoder(), bindGroupLayout.fragmentArgumentEncoder(), bindGroupLayout.computeArgumentEncoder() });
     BindGroup::ShaderStageArray<ExternalTextureIndices> externalTextureIndices = std::array<ExternalTextureIndices, stageCount>({ ExternalTextureIndices(), ExternalTextureIndices(), ExternalTextureIndices() });
     BindGroup::ShaderStageArray<id<MTLBuffer>> argumentBuffer;
+    BindGroup::ShaderStageArray<BindGroupLayout::ArgumentIndices> argumentIndices;
     for (ShaderStage stage : stages) {
         auto encodedLength = bindGroupLayout.encodedLength(stage);
         argumentBuffer[stage] = encodedLength ? safeCreateBuffer(encodedLength, MTLStorageModeShared) : nil;
         [argumentEncoder[stage] setArgumentBuffer:argumentBuffer[stage] offset:0];
+        argumentIndices[stage] = bindGroupLayout.argumentIndices(stage);
     }
 
     constexpr auto maxResourceUsageValue = MTLResourceUsageRead | MTLResourceUsageWrite;
     static_assert(maxResourceUsageValue == 3, "Code path assumes MTLResourceUsageRead | MTLResourceUsageWrite == 3");
-    Vector<id<MTLResource>> stageResources[stagesPlusUndefinedCount][maxResourceUsageValue];
-    Vector<BindGroupEntryUsageData> stageResourceUsages[stagesPlusUndefinedCount][maxResourceUsageValue];
+    std::array<std::array<Vector<id<MTLResource>>, maxResourceUsageValue>, stagesPlusUndefinedCount> stageResources { };
+    std::array<std::array<Vector<BindGroupEntryUsageData>, maxResourceUsageValue>, stagesPlusUndefinedCount> stageResourceUsages { };
     auto& bindGroupLayoutEntries = bindGroupLayout.entries();
-    Vector<WGPUBindGroupEntry> descriptorEntries(std::span { descriptor.entries, descriptor.entryCount });
-    std::sort(descriptorEntries.begin(), descriptorEntries.end(), [](const WGPUBindGroupEntry& a, const WGPUBindGroupEntry& b) {
-        return a.binding < b.binding;
-    });
     BindGroup::DynamicBuffersContainer dynamicBuffers;
     BindGroup::SamplersContainer samplersSet;
 
-    for (uint32_t i = 0, entryCount = descriptor.entryCount; i < entryCount; ++i) {
-        const WGPUBindGroupEntry& entry = descriptor.entries[i];
-
+    for (const WGPUBindGroupEntry& entry : descriptor.entriesSpan()) {
         WGPUExternalTexture wgpuExternalTexture = nullptr;
         if (entry.nextInChain) {
             if (entry.nextInChain->sType != static_cast<WGPUSType>(WGPUSTypeExtended_BindGroupEntryExternalTexture)) {
@@ -1047,13 +1043,16 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
                 }
 
                 if (stage != ShaderStage::Undefined && buffer.length) {
+                    argumentIndices[stage].remove(index);
                     [argumentEncoder[stage] setBuffer:buffer offset:entryOffset atIndex:index];
-                    if (bufferSizeArgumentBufferIndex)
+                    if (bufferSizeArgumentBufferIndex) {
+                        argumentIndices[stage].remove(*bufferSizeArgumentBufferIndex);
                         *(uint32_t*)[argumentEncoder[stage] constantDataAtIndex:*bufferSizeArgumentBufferIndex] = std::min<uint32_t>(entrySize, buffer.length);
+                    }
                 }
                 if (buffer) {
                     stageResources[metalRenderStage(stage)][resourceUsage - 1].append(buffer);
-                    stageResourceUsages[metalRenderStage(stage)][resourceUsage - 1].append(makeBindGroupEntryUsageData(usageForBuffer(layoutBinding->type), entry.binding, apiBuffer, entryOffset));
+                    stageResourceUsages[metalRenderStage(stage)][resourceUsage - 1].append(makeBindGroupEntryUsageData(usageForBuffer(layoutBinding->type), entry.binding, apiBuffer, entryOffset, entrySize));
                 }
             } else if (samplerIsPresent) {
                 auto* layoutBinding = hasBinding<WGPUSamplerBindingLayout>(bindGroupLayoutEntries, bindingIndex);
@@ -1074,6 +1073,7 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
 
                 id<MTLSamplerState> sampler = apiSampler.samplerState();
                 if (stage != ShaderStage::Undefined) {
+                    argumentIndices[stage].remove(index);
                     [argumentEncoder[stage] setSamplerState:sampler atIndex:index];
                     samplersSet.add(&apiSampler, BindGroup::ShaderStageArray<std::optional<uint32_t>> { }).iterator->value[stage] = index;
                 }
@@ -1132,8 +1132,10 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
                     }
                 }
 
-                if (stage != ShaderStage::Undefined)
+                if (stage != ShaderStage::Undefined) {
+                    argumentIndices[stage].remove(index);
                     [argumentEncoder[stage] setTexture:texture atIndex:index];
+                }
                 if (texture) {
                     stageResources[metalRenderStage(stage)][resourceUsage - 1].append(texture);
                     ASSERT(apiTextureView.isDestroyed() || texture.parentRelativeLevel == apiTextureView.baseMipLevel());
@@ -1164,12 +1166,17 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
                 }
 
                 if (stage != ShaderStage::Undefined) {
+                    argumentIndices[stage].remove(index);
                     [argumentEncoder[stage] setTexture:texture0 atIndex:index++];
+
+                    argumentIndices[stage].remove(index);
                     [argumentEncoder[stage] setTexture:texture1 atIndex:index++];
 
+                    argumentIndices[stage].remove(index);
                     auto* uvRemapAddress = static_cast<simd::float3x2*>([argumentEncoder[stage] constantDataAtIndex:index++]);
                     *uvRemapAddress = textureData.uvRemappingMatrix;
 
+                    argumentIndices[stage].remove(index);
                     auto* cscMatrixAddress = static_cast<simd::float4x3*>([argumentEncoder[stage] constantDataAtIndex:index++]);
                     *cscMatrixAddress = textureData.colorSpaceConversionMatrix;
                 }
@@ -1180,6 +1187,11 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
             VALIDATION_ERROR([NSString stringWithFormat:@"Binding %d was not contained in the bind group", entry.binding]);
             return BindGroup::createInvalid(*this);
         }
+    }
+
+    for (auto& indices : argumentIndices) {
+        if (indices.size())
+            return BindGroup::createInvalid(*this);
     }
 
     Vector<BindableResources> resources;

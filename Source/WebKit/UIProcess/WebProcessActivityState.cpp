@@ -33,13 +33,20 @@
 
 namespace WebKit {
 
-#if PLATFORM(MAC)
-static Seconds webProcessSuspensionDelay(WebPageProxy* page)
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+
+static Seconds webProcessSuspensionDelay(const WebPageProxy* page)
 {
     if (!page)
-        return API::PageConfiguration::defaultWebProcessSuspensionDelay;
-    return page->configuration().webProcessSuspensionDelay();
+        return WebProcessPool::defaultWebProcessSuspensionDelay();
+
+    RefPtr processPool = page->protectedLegacyMainFrameProcess()->processPoolIfExists();
+    if (!processPool)
+        return WebProcessPool::defaultWebProcessSuspensionDelay();
+
+    return processPool->webProcessSuspensionDelay();
 }
+
 #endif
 
 WebProcessActivityState::WebProcessActivityState(WebPageProxy& page)
@@ -60,7 +67,7 @@ WebProcessActivityState::WebProcessActivityState(RemotePageProxy& page)
 
 void WebProcessActivityState::takeVisibleActivity()
 {
-    m_isVisibleActivity = process().throttler().foregroundActivity("View is visible"_s).moveToUniquePtr();
+    m_isVisibleActivity = process().throttler().foregroundActivity("View is visible"_s);
 #if PLATFORM(MAC)
     *m_wasRecentlyVisibleActivity = nullptr;
 #endif
@@ -68,12 +75,12 @@ void WebProcessActivityState::takeVisibleActivity()
 
 void WebProcessActivityState::takeAudibleActivity()
 {
-    m_isAudibleActivity = process().throttler().foregroundActivity("View is playing audio"_s).moveToUniquePtr();
+    m_isAudibleActivity = process().throttler().foregroundActivity("View is playing audio"_s);
 }
 
 void WebProcessActivityState::takeCapturingActivity()
 {
-    m_isCapturingActivity = process().throttler().foregroundActivity("View is capturing media"_s).moveToUniquePtr();
+    m_isCapturingActivity = process().throttler().foregroundActivity("View is capturing media"_s);
 }
 
 void WebProcessActivityState::takeMutedCaptureAssertion()
@@ -158,7 +165,7 @@ bool WebProcessActivityState::hasValidMutedCaptureAssertion() const
 #if PLATFORM(IOS_FAMILY)
 void WebProcessActivityState::takeOpeningAppLinkActivity()
 {
-    m_openingAppLinkActivity = process().throttler().backgroundActivity("Opening AppLink"_s).moveToUniquePtr();
+    m_openingAppLinkActivity = process().throttler().backgroundActivity("Opening AppLink"_s);
 }
 
 void WebProcessActivityState::dropOpeningAppLinkActivity()
@@ -170,6 +177,20 @@ bool WebProcessActivityState::hasValidOpeningAppLinkActivity() const
 {
     return m_openingAppLinkActivity && m_openingAppLinkActivity->isValid();
 }
+#endif
+
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+
+void WebProcessActivityState::updateWebProcessSuspensionDelay()
+{
+    Seconds timeout = std::visit(WTF::makeVisitor([&](const WeakRef<WebPageProxy>& page) {
+        return webProcessSuspensionDelay(page.ptr());
+    }, [&] (const WeakRef<RemotePageProxy>& page) {
+        return webProcessSuspensionDelay(page->protectedPage().get());
+    }), m_page);
+    m_wasRecentlyVisibleActivity->setTimeout(timeout);
+}
+
 #endif
 
 WebProcessProxy& WebProcessActivityState::process() const

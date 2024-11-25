@@ -37,6 +37,11 @@
 
 namespace WebGPU {
 
+static inline auto span(id<MTLBuffer> buffer)
+{
+    return unsafeForgeSpan(static_cast<uint8_t*>(buffer.contents), static_cast<size_t>(buffer.length));
+}
+
 static bool validateDescriptor(const Device& device, const WGPUBufferDescriptor& descriptor)
 {
     UNUSED_PARAM(device);
@@ -211,11 +216,6 @@ void Buffer::destroy()
     m_buffer = m_device->placeholderBuffer();
 }
 
-const void* Buffer::getConstMappedRange(size_t offset, size_t size)
-{
-    return getMappedRange(offset, size);
-}
-
 bool Buffer::validateGetMappedRange(size_t offset, size_t rangeSize) const
 {
     if (m_state == State::Destroyed)
@@ -245,36 +245,36 @@ bool Buffer::validateGetMappedRange(size_t offset, size_t rangeSize) const
 
 static size_t computeRangeSize(uint64_t size, size_t offset)
 {
-    auto result = checkedDifference<size_t>(size, offset);
+    auto result = checkedDifference<uint64_t>(size, offset);
     if (result.hasOverflowed())
         return 0;
     return result.value();
 }
   
-void* Buffer::getMappedRange(size_t offset, size_t size)
+std::span<uint8_t> Buffer::getMappedRange(size_t offset, size_t size)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpubuffer-getmappedrange
     if (!isValid())
-        return nullptr;
+        return std::span<uint8_t> { };
 
     auto rangeSize = size;
     if (size == WGPU_WHOLE_MAP_SIZE)
         rangeSize = computeRangeSize(this->currentSize(), offset);
 
     if (!validateGetMappedRange(offset, rangeSize))
-        return nullptr;
+        return std::span<uint8_t> { };
 
     m_mappedRanges.add({ offset, offset + rangeSize });
     m_mappedRanges.compact();
 
     if (!m_buffer.contents)
-        return nullptr;
-    return static_cast<char*>(m_buffer.contents) + offset;
+        return { };
+    return getBufferContents().subspan(offset);
 }
 
-uint8_t* Buffer::getBufferContents()
+std::span<uint8_t> Buffer::getBufferContents()
 {
-    return static_cast<uint8_t*>(m_buffer.contents);
+    return span(m_buffer);
 }
 
 NSString* Buffer::errorValidatingMapAsync(WGPUMapModeFlags mode, size_t offset, size_t rangeSize) const
@@ -515,11 +515,6 @@ void wgpuBufferDestroy(WGPUBuffer buffer)
     WebGPU::fromAPI(buffer).destroy();
 }
 
-const void* wgpuBufferGetConstMappedRange(WGPUBuffer buffer, size_t offset, size_t size)
-{
-    return WebGPU::fromAPI(buffer).getConstMappedRange(offset, size);
-}
-
 WGPUBufferMapState wgpuBufferGetMapState(WGPUBuffer buffer)
 {
     switch (WebGPU::fromAPI(buffer).state()) {
@@ -536,12 +531,12 @@ WGPUBufferMapState wgpuBufferGetMapState(WGPUBuffer buffer)
     }
 }
 
-void* wgpuBufferGetMappedRange(WGPUBuffer buffer, size_t offset, size_t size)
+std::span<uint8_t> wgpuBufferGetMappedRange(WGPUBuffer buffer, size_t offset, size_t size)
 {
     return WebGPU::fromAPI(buffer).getMappedRange(offset, size);
 }
 
-void* wgpuBufferGetBufferContents(WGPUBuffer buffer)
+std::span<uint8_t> wgpuBufferGetBufferContents(WGPUBuffer buffer)
 {
     return WebGPU::fromAPI(buffer).getBufferContents();
 }

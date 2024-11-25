@@ -34,28 +34,22 @@ namespace WebCore {
 enum LinePositionMode { PositionOnContainingLine, PositionOfInteriorLineBoxes };
 enum LineDirectionMode { HorizontalLine, VerticalLine };
 
-enum BackgroundBleedAvoidance {
-    BackgroundBleedNone,
-    BackgroundBleedShrinkBackground,
-    BackgroundBleedUseTransparencyLayer,
-    BackgroundBleedBackgroundOverBorder
+enum class BleedAvoidance : uint8_t {
+    None,
+    ShrinkBackground,
+    UseTransparencyLayer,
+    BackgroundOverBorder
 };
 
-enum BaseBackgroundColorUsage {
-    BaseBackgroundColorUse,
-    BaseBackgroundColorOnly,
-    BaseBackgroundColorSkip
-};
-
-enum ContentChangeType {
-    ImageChanged,
-    MaskImageChanged,
-    BackgroundImageChanged,
-    CanvasChanged,
-    CanvasPixelsChanged,
-    VideoChanged,
-    FullScreenChanged,
-    ModelChanged
+enum class ContentChangeType : uint8_t {
+    Image,
+    MaskImage,
+    BackgroundIImage,
+    Canvas,
+    CanvasPixels,
+    Video,
+    FullScreen,
+    Model
 };
 
 class BorderEdge;
@@ -222,6 +216,8 @@ protected:
     RenderBoxModelObject(Type, Document&, RenderStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
 
     void willBeDestroyed() override;
+
+    void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
 
     LayoutPoint adjustedPositionRelativeToOffsetParent(const LayoutPoint&) const;
 

@@ -38,6 +38,7 @@
 #include "TextIterator.h"
 #include "VisibleUnits.h"
 #include <gio/gio.h>
+#include <wtf/Assertions.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
@@ -274,13 +275,11 @@ String AccessibilityObjectAtspi::text() const
 
     m_hasListMarkerAtStart = false;
 
-#if ENABLE(INPUT_TYPE_COLOR)
     if (m_coreObject->roleValue() == AccessibilityRole::ColorWell) {
         auto color = convertColor<SRGBA<float>>(m_coreObject->colorValue()).resolved();
         GUniquePtr<char> colorString(g_strdup_printf("rgb %7.5f %7.5f %7.5f 1", color.red, color.green, color.blue));
         return String::fromUTF8(colorString.get());
     }
-#endif
 
     if (m_coreObject->isTextControl())
         return m_coreObject->doAXStringForRange({ 0, String::MaxLength });
@@ -763,9 +762,9 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
     if (!m_coreObject || !m_coreObject->renderer())
         return { };
 
-    auto accessibilityTextAttributes = [this](AXCoreObject* axObject, const HashMap<String, String>& defaultAttributes) -> HashMap<String, String> {
-        HashMap<String, String> attributes;
-        auto& style = axObject->renderer()->style();
+    auto accessibilityTextAttributes = [this](AXCoreObject& axObject, const UncheckedKeyHashMap<String, String>& defaultAttributes) -> UncheckedKeyHashMap<String, String> {
+        UncheckedKeyHashMap<String, String> attributes;
+        auto& style = axObject.renderer()->style();
 
         auto addAttributeIfNeeded = [&](const String& name, const String& value) {
             if (defaultAttributes.isEmpty() || defaultAttributes.get(name) != value)
@@ -829,7 +828,7 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         return attributes;
     };
 
-    auto defaultAttributes = accessibilityTextAttributes(m_coreObject.get(), { });
+    auto defaultAttributes = accessibilityTextAttributes(*m_coreObject.get(), { });
     if (!utf16Offset)
         return { WTFMove(defaultAttributes), -1, -1 };
 
@@ -840,8 +839,11 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         return { WTFMove(defaultAttributes), -1, -1 };
 
     if (!*utf16Offset && m_hasListMarkerAtStart) {
+        auto* axObject = m_coreObject->children()[0].get();
+        RELEASE_ASSERT(axObject);
+
         // Always consider list marker an independent run.
-        auto attributes = accessibilityTextAttributes(m_coreObject->children()[0].get(), defaultAttributes);
+        auto attributes = accessibilityTextAttributes(*axObject, defaultAttributes);
         if (!includeDefault)
             return { WTFMove(attributes), 0, 1 };
 
@@ -863,7 +865,7 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
     if (!childAxObject || childAxObject == m_coreObject)
         return { WTFMove(defaultAttributes), -1, -1 };
 
-    auto attributes = accessibilityTextAttributes(childAxObject, defaultAttributes);
+    auto attributes = accessibilityTextAttributes(*childAxObject, defaultAttributes);
     auto firstValidPosition = firstPositionInOrBeforeNode(m_coreObject->node()->firstDescendant());
     auto lastValidPosition = lastPositionInOrAfterNode(m_coreObject->node()->lastDescendant());
 
@@ -873,7 +875,11 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         if (r->firstChildSlow())
             continue;
 
-        auto childAttributes = accessibilityTextAttributes(r->document().axObjectCache()->get(r), defaultAttributes);
+        auto* axObject = r->document().axObjectCache()->get(r);
+        if (!axObject)
+            continue;
+
+        auto childAttributes = accessibilityTextAttributes(*axObject, defaultAttributes);
         if (childAttributes != attributes)
             break;
 
@@ -887,7 +893,11 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         if (r->firstChildSlow())
             continue;
 
-        auto childAttributes = accessibilityTextAttributes(r->document().axObjectCache()->get(r), defaultAttributes);
+        auto* axObject = r->document().axObjectCache()->get(r);
+        if (!axObject)
+            continue;
+
+        auto childAttributes = accessibilityTextAttributes(*axObject, defaultAttributes);
         if (childAttributes != attributes)
             break;
 

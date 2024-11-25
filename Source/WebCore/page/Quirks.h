@@ -78,6 +78,7 @@ public:
 
     bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscape() const;
     bool shouldFlipScreenDimensions() const;
+    bool shouldAllowDownloadsInSpiteOfCSP() const;
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
     WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreas() const;
@@ -95,7 +96,7 @@ public:
 
     WEBCORE_EXPORT bool shouldDisableWritingSuggestionsByDefault() const;
 
-    WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&&);
+    WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(UncheckedKeyHashMap<RegistrableDomain, String>&&);
     WEBCORE_EXPORT String storageAccessUserAgentStringQuirkForDomain(const URL&);
     WEBCORE_EXPORT static bool needsIPadMiniUserAgent(const URL&);
     WEBCORE_EXPORT static bool needsIPhoneUserAgent(const URL&);
@@ -110,7 +111,9 @@ public:
     bool needsFullscreenObjectFitQuirk() const;
     bool needsWeChatScrollingQuirk() const;
 
-    bool needsYouTubeDarkModeQuirk() const;
+    bool needsPrimeVideoUserSelectNoneQuirk() const;
+
+    bool needsScrollbarWidthThinDisabledQuirk() const;
 
     bool shouldOpenAsAboutBlank(const String&) const;
 
@@ -201,14 +204,16 @@ public:
 
     String scriptToEvaluateBeforeRunningScriptFromURL(const URL&);
 
+    bool shouldHideCoarsePointerCharacteristics() const;
+
 private:
     bool needsQuirks() const;
     bool isDomain(const String&) const;
     bool isEmbedDomain(const String&) const;
     bool isYoutubeEmbedDomain() const;
 
-#if ENABLE(TOUCH_EVENTS)
     bool isAmazon() const;
+#if ENABLE(TOUCH_EVENTS)
     bool isGoogleMaps() const;
 #endif
 
@@ -271,7 +276,8 @@ private:
     mutable std::optional<bool> m_shouldDisableElementFullscreen;
     mutable std::optional<bool> m_shouldIgnorePlaysInlineRequirementQuirk;
     mutable std::optional<bool> m_needsRelaxedCorsMixedContentCheckQuirk;
-    mutable std::optional<bool> m_needsYouTubeDarkModeQuirk;
+    mutable std::optional<bool> m_needsScrollbarWidthThinDisabledQuirk;
+    mutable std::optional<bool> m_needsPrimeVideoUserSelectNoneQuirk;
 
     Vector<RegistrableDomain> m_subFrameDomainsForStorageAccessQuirk;
 };

@@ -365,7 +365,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::createContext2d(const String& type,
     invalidateStyleAndLayerComposition();
 #endif
 
-    return static_cast<CanvasRenderingContext2D*>(m_context.get());
+    return downcast<CanvasRenderingContext2D>(m_context.get());
 }
 
 CanvasRenderingContext2D* HTMLCanvasElement::getContext2d(const String& type, CanvasRenderingContext2DSettings&& settings)
@@ -377,7 +377,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::getContext2d(const String& type, Ca
 
     if (!m_context)
         return createContext2d(type, WTFMove(settings));
-    return static_cast<CanvasRenderingContext2D*>(m_context.get());
+    return downcast<CanvasRenderingContext2D>(m_context.get());
 }
 
 #if ENABLE(WEBGL)
@@ -452,7 +452,7 @@ WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(WebGLVersion ty
         // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
         invalidateStyleAndLayerComposition();
         if (CheckedPtr box = renderBox())
-            box->contentChanged(CanvasChanged);
+            box->contentChanged(ContentChangeType::Canvas);
 #if ENABLE(WEBXR)
         ASSERT(!attrs.xrCompatible || weakContext->isXRCompatible());
 #endif
@@ -510,7 +510,7 @@ ImageBitmapRenderingContext* HTMLCanvasElement::getContextBitmapRenderer(const S
     ASSERT_UNUSED(type, HTMLCanvasElement::isBitmapRendererType(type));
     if (!m_context)
         return createContextBitmapRenderer(type, WTFMove(settings));
-    return static_cast<ImageBitmapRenderingContext*>(m_context.get());
+    return downcast<ImageBitmapRenderingContext>(m_context.get());
 }
 
 bool HTMLCanvasElement::isWebGPUType(const String& type)
@@ -533,7 +533,7 @@ GPUCanvasContext* HTMLCanvasElement::createContextWebGPU(const String& type, GPU
         invalidateStyleAndLayerComposition();
     }
 
-    return static_cast<GPUCanvasContext*>(m_context.get());
+    return downcast<GPUCanvasContext>(m_context.get());
 }
 
 GPUCanvasContext* HTMLCanvasElement::getContextWebGPU(const String& type, GPU* gpu)
@@ -549,7 +549,7 @@ GPUCanvasContext* HTMLCanvasElement::getContextWebGPU(const String& type, GPU* g
     if (!m_context)
         return createContextWebGPU(type, gpu);
 
-    return static_cast<GPUCanvasContext*>(m_context.get());
+    return downcast<GPUCanvasContext>(m_context.get());
 }
 
 void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
@@ -557,7 +557,7 @@ void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldAppl
     clearCopiedImage();
     if (CheckedPtr renderer = renderBox()) {
         if (usesContentsAsLayerContents())
-            renderer->contentChanged(CanvasPixelsChanged);
+            renderer->contentChanged(ContentChangeType::CanvasPixels);
         else if (rect) {
             FloatRect destRect;
             if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
@@ -611,7 +611,7 @@ void HTMLCanvasElement::reset()
         if (oldSize != size()) {
             canvasRenderer->canvasSizeChanged();
             if (canvasRenderer->hasAcceleratedCompositing())
-                canvasRenderer->contentChanged(CanvasChanged);
+                canvasRenderer->contentChanged(ContentChangeType::Canvas);
         }
         if (hadImageBuffer)
             canvasRenderer->repaint();
@@ -895,7 +895,7 @@ void HTMLCanvasElement::setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&& buffer)
 
         if (CheckedPtr canvasRenderer = dynamicDowncast<RenderHTMLCanvas>(renderer())) {
             canvasRenderer->canvasSizeChanged();
-            canvasRenderer->contentChanged(CanvasChanged);
+            canvasRenderer->contentChanged(ContentChangeType::Canvas);
         }
 
         notifyObserversCanvasResized();

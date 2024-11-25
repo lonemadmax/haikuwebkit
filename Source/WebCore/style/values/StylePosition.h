@@ -28,58 +28,39 @@
 #include "StylePrimitiveNumericTypes.h"
 
 namespace WebCore {
-
-class CSSCalcSymbolTable;
-
 namespace Style {
 
+using Left   = CSS::Left;
+using Right  = CSS::Right;
+using Top    = CSS::Top;
+using Bottom = CSS::Bottom;
+using Center = CSS::Center;
+
 struct Position  {
-    Position(LengthPercentage&& horizontal, LengthPercentage&& vertical)
-        : value { std::make_tuple(WTFMove(horizontal), WTFMove(vertical)) }
+    Position(LengthPercentage<>&& horizontal, LengthPercentage<>&& vertical)
+        : value { WTFMove(horizontal), WTFMove(vertical) }
     {
     }
 
-    Position(const LengthPercentage& horizontal, const LengthPercentage& vertical)
-        : value { std::make_tuple(horizontal, vertical) }
-    {
-    }
-
-    Position(SpaceSeparatedTuple<LengthPercentage, LengthPercentage>&& tuple)
-        : value { WTFMove(tuple) }
+    Position(SpaceSeparatedArray<LengthPercentage<>, 2>&& array)
+        : value { WTFMove(array) }
     {
     }
 
     bool operator==(const Position&) const = default;
 
-    SpaceSeparatedTuple<LengthPercentage, LengthPercentage> value;
+    SpaceSeparatedArray<LengthPercentage<>, 2> value;
 };
 
-// MARK: Support for treating Position types as Tuple-like
-
-template<size_t I> decltype(auto) get(const Position& position)
+template<size_t I> const auto& get(const Position& position)
 {
     return get<I>(position.value);
 }
 
-// Custom `toCSS()` needed to implement simplification rules.
-CSS::Position toCSS(const Position&, const RenderStyle&);
+template<> struct ToCSS<Position> { auto operator()(const Position&, const RenderStyle&) -> CSS::Position; };
+template<> struct ToStyle<CSS::Position> { auto operator()(const CSS::Position&, const BuilderState&, const CSSCalcSymbolTable&) -> Position; };
 
 } // namespace Style
-
-namespace CSS {
-
-// Custom `toStyle()` needed to implement simplification rules.
-Style::Position toStyle(const Position&, Style::BuilderState&, const CSSCalcSymbolTable&);
-
-}
 } // namespace WebCore
 
-namespace std {
-
-template<> class tuple_size<WebCore::Style::Position> : public std::integral_constant<size_t, 2> { };
-template<size_t I> class tuple_element<I, WebCore::Style::Position> {
-public:
-    using type = WebCore::Style::LengthPercentage;
-};
-
-}
+STYLE_TUPLE_LIKE_CONFORMANCE(Position, 2)

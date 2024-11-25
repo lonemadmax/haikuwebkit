@@ -39,15 +39,6 @@
 @class WKWebView;
 @protocol WKUIDelegate;
 
-namespace WebKit {
-class UIDelegate;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::UIDelegate> : std::true_type { };
-}
-
 namespace API {
 class FrameInfo;
 class SecurityOrigin;
@@ -67,6 +58,9 @@ class UIDelegate : public CanMakeWeakPtr<UIDelegate> {
 public:
     explicit UIDelegate(WKWebView *);
     ~UIDelegate();
+
+    void ref() const;
+    void deref() const;
 
 #if ENABLE(CONTEXT_MENUS)
     std::unique_ptr<API::ContextMenuClient> createContextMenuClient();
@@ -99,7 +93,7 @@ private:
 
     private:
         // API::UIClient
-        void createNewPage(WebKit::WebPageProxy&, Ref<API::PageConfiguration>&&, WebCore::WindowFeatures&&, Ref<API::NavigationAction>&&, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&&) final;
+        void createNewPage(WebKit::WebPageProxy&, Ref<API::PageConfiguration>&&, Ref<API::NavigationAction>&&, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&&) final;
         void close(WebPageProxy*) final;
         void fullscreenMayReturnToInline(WebPageProxy*) final;
         void didEnterFullscreen(WebPageProxy*) final;
@@ -158,6 +152,7 @@ private:
         bool needsFontAttributes() const final { return m_uiDelegate ? m_uiDelegate->m_delegateMethods.webViewDidChangeFontAttributes : false; }
         void didChangeFontAttributes(const WebCore::FontAttributes&) final;
         void decidePolicyForUserMediaPermissionRequest(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionRequestProxy&) final;
+        void decidePolicyForScreenCaptureUnmuting(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, CompletionHandler<void(bool isAllowed)>&&) final;
         void checkUserMediaPermissionForOrigin(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionCheckProxy&) final;
         void mediaCaptureStateDidChange(WebCore::MediaProducerMediaStateFlags) final;
         void callDisplayCapturePermissionDelegate(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionRequestProxy&);

@@ -42,8 +42,25 @@ FlexFormattingUtils::FlexFormattingUtils(const FlexFormattingContext& flexFormat
 bool FlexFormattingUtils::isMainAxisParallelWithInlineAxis(const ElementBox& flexContainer)
 {
     ASSERT(flexContainer.isFlexBox());
+    auto& flexContainerStyle = flexContainer.style();
+    auto isHorizontalWritingMode = flexContainerStyle.isHorizontalWritingMode();
+    auto flexDirection = flexContainerStyle.flexDirection();
+    return (isHorizontalWritingMode && (flexDirection == FlexDirection::Row || flexDirection == FlexDirection::RowReverse)) || (!isHorizontalWritingMode && (flexDirection == FlexDirection::Column || flexDirection == FlexDirection::ColumnReverse));
+}
+
+bool FlexFormattingUtils::isMainAxisParallelWithLeftRightAxis(const ElementBox& flexContainer)
+{
+    // Currently, the only case where the property’s axis is not parallel with either left↔right axis is in a column flexbox.
+    // https://drafts.csswg.org/css-align/#positional-values
+    ASSERT(flexContainer.isFlexBox());
     auto flexDirection = flexContainer.style().flexDirection();
-    return flexDirection == FlexDirection::Row || flexContainer.style().flexDirection() == FlexDirection::RowReverse;
+    return flexDirection == FlexDirection::Row || flexDirection == FlexDirection::RowReverse;
+}
+
+bool FlexFormattingUtils::isInlineDirectionRTL(const ElementBox& flexContainer)
+{
+    ASSERT(flexContainer.isFlexBox());
+    return !flexContainer.style().isLeftToRightDirection();
 }
 
 bool FlexFormattingUtils::isMainReversedToContentDirection(const ElementBox& flexContainer)
@@ -59,35 +76,107 @@ bool FlexFormattingUtils::areFlexLinesReversedInCrossAxis(const ElementBox& flex
     return flexContainer.style().flexWrap() == FlexWrap::Reverse;
 }
 
-LayoutUnit FlexFormattingUtils::rowGapValue(const ElementBox& flexContainer, LayoutUnit flexContainercCntentBoxHeight)
+// The column-gap property specifies spacing between "columns", separating boxes in the container's inline axis similar to inline-axis margin;
+// while row-gap indicates spacing between "rows". separating boxes in the container's block axis.
+// horizontal row    : column gap
+// vertical   row    : column gap
+// horizontal column : row gap
+// vertical   column : row gap
+LayoutUnit FlexFormattingUtils::mainAxisGapValue(const ElementBox& flexContainer, LayoutUnit flexContainerContentBoxWidth)
 {
     ASSERT(flexContainer.isFlexBox());
-    auto& rowGap = flexContainer.style().rowGap();
-    if (rowGap.isNormal())
+    auto flexDirection = flexContainer.style().flexDirection();
+    auto isMainAxisInlineAxis = flexDirection == FlexDirection::Row || flexDirection == FlexDirection::RowReverse;
+    auto& gapValue = isMainAxisInlineAxis ? flexContainer.style().columnGap() : flexContainer.style().rowGap();
+    if (gapValue.isNormal())
         return { };
-    return valueForLength(rowGap.length(), flexContainercCntentBoxHeight);
+    return valueForLength(gapValue.length(), flexContainerContentBoxWidth);
 }
 
-LayoutUnit FlexFormattingUtils::columnGapValue(const ElementBox& flexContainer, LayoutUnit flexContainercCntentBoxWidth)
+LayoutUnit FlexFormattingUtils::crossAxisGapValue(const ElementBox& flexContainer, LayoutUnit flexContainerContentBoxHeight)
 {
     ASSERT(flexContainer.isFlexBox());
-    auto& columnGap = flexContainer.style().columnGap();
-    if (columnGap.isNormal())
+    auto flexDirection = flexContainer.style().flexDirection();
+    auto isMainAxisInlineAxis = flexDirection == FlexDirection::Row || flexDirection == FlexDirection::RowReverse;
+    auto& gapValue = isMainAxisInlineAxis ? flexContainer.style().rowGap() : flexContainer.style().columnGap();
+    if (gapValue.isNormal())
         return { };
-    return valueForLength(columnGap.length(), flexContainercCntentBoxWidth);
+    return valueForLength(gapValue.length(), flexContainerContentBoxHeight);
 }
 
-LayoutUnit FlexFormattingUtils::usedMinimumMainSize(const LogicalFlexItem& flexItem) const
+// flex container  direction  flex item    main axis size
+// horizontal      row        horizontal : width
+// vertical        column     horizontal : width
+// vertical        row        vertical   : width
+// horizontal      column     vertical   : width
+//
+// horizontal      row        vertical   : height
+// horizontal      column     horizontal : height
+// vertical        row        horizontal : height
+// vertical        column     vertical   : height
+LayoutUnit FlexFormattingUtils::usedMinimumSizeInMainAxis(const LogicalFlexItem& flexItem) const
 {
-    if (auto minimumSize = flexItem.mainAxis().minimumSize)
-        return *minimumSize;
-    return formattingContext().integrationUtils().minContentLogicalWidth(downcast<ElementBox>(flexItem.layoutBox()));
+    if (auto mainAxisMinimumWidth = flexItem.mainAxis().minimumSize)
+        return *mainAxisMinimumWidth;
+
+    auto& flexContainer = formattingContext().root();
+    auto& flexItemBox = downcast<ElementBox>(flexItem.layoutBox());
+    auto isMainAxisParallelWithInlineAxis = this->isMainAxisParallelWithInlineAxis(flexContainer);
+    auto isFlexItemHorizontalWritingMode = flexItem.style().isHorizontalWritingMode();
+
+    auto minimumContentSize = LayoutUnit { };
+    auto shouldUseFlexItemContentWidth = (isMainAxisParallelWithInlineAxis && isFlexItemHorizontalWritingMode) || (!isMainAxisParallelWithInlineAxis && !isFlexItemHorizontalWritingMode);
+    minimumContentSize = shouldUseFlexItemContentWidth ? formattingContext().integrationUtils().minContentWidth(flexItemBox) : formattingContext().integrationUtils().minContentHeight(flexItemBox);
+    if (auto mainAxisWidth = flexItem.mainAxis().size)
+        minimumContentSize = std::min(*mainAxisWidth, minimumContentSize);
+    return minimumContentSize;
 }
 
-std::optional<LayoutUnit> FlexFormattingUtils::usedMaxiumMainSize(const LogicalFlexItem& flexItem) const
+std::optional<LayoutUnit> FlexFormattingUtils::usedMaximumSizeInMainAxis(const LogicalFlexItem& flexItem) const
 {
     // Initial value of 'max-width: none' computes to used 'infinite'
     return flexItem.mainAxis().maximumSize;
+}
+
+LayoutUnit FlexFormattingUtils::usedMaxContentSizeInMainAxis(const LogicalFlexItem& flexItem) const
+{
+    auto& flexContainer = formattingContext().root();
+    auto& flexItemBox = downcast<ElementBox>(flexItem.layoutBox());
+    auto isMainAxisParallelWithInlineAxis = this->isMainAxisParallelWithInlineAxis(flexContainer);
+    auto isFlexItemHorizontalWritingMode = flexItem.style().isHorizontalWritingMode();
+
+    auto contentSize = LayoutUnit { };
+    auto shouldUseFlexItemContentWidth = (isMainAxisParallelWithInlineAxis && isFlexItemHorizontalWritingMode) || (!isMainAxisParallelWithInlineAxis && !isFlexItemHorizontalWritingMode);
+    if (shouldUseFlexItemContentWidth)
+        contentSize = formattingContext().integrationUtils().maxContentWidth(flexItemBox);
+    else {
+        formattingContext().integrationUtils().layoutWithFormattingContextForBox(flexItemBox);
+        auto isOrthogonal = flexContainer.style().isHorizontalWritingMode() != flexItem.style().isHorizontalWritingMode();
+        contentSize = !isOrthogonal ? formattingContext().geometryForFlexItem(flexItemBox).contentBoxHeight() : formattingContext().geometryForFlexItem(flexItemBox).contentBoxWidth();
+    }
+
+    if (!flexItem.isContentBoxBased())
+        contentSize += flexItem.mainAxis().borderAndPadding;
+    return contentSize;
+}
+
+LayoutUnit FlexFormattingUtils::usedSizeInCrossAxis(const LogicalFlexItem& flexItem, LayoutUnit maxAxisConstraint) const
+{
+    if (auto definiteSize = flexItem.crossAxis().definiteSize)
+        return *definiteSize;
+
+    auto& flexContainer = formattingContext().root();
+    auto& flexItemBox = flexItem.layoutBox();
+    auto isMainAxisParallelWithInlineAxis = this->isMainAxisParallelWithInlineAxis(flexContainer);
+    auto isFlexItemHorizontalWritingMode = flexItem.style().isHorizontalWritingMode();
+
+    auto widtConstraintForLayout = isMainAxisParallelWithInlineAxis ? std::make_optional(maxAxisConstraint) : std::nullopt;
+    auto shouldUseFlexItemContentHeight = (isMainAxisParallelWithInlineAxis && isFlexItemHorizontalWritingMode) || (!isMainAxisParallelWithInlineAxis && !isFlexItemHorizontalWritingMode);
+    formattingContext().integrationUtils().layoutWithFormattingContextForBox(downcast<ElementBox>(flexItemBox), widtConstraintForLayout);
+    auto crossSize = shouldUseFlexItemContentHeight ? formattingContext().geometryForFlexItem(flexItemBox).contentBoxHeight() : formattingContext().geometryForFlexItem(flexItemBox).contentBoxWidth();
+    if (!flexItem.isContentBoxBased())
+        crossSize += flexItem.crossAxis().borderAndPadding;
+    return crossSize;
 }
 
 }

@@ -34,8 +34,10 @@
 #include "LLIntExceptions.h"
 #include "LLIntThunks.h"
 #include "NativeCalleeRegistry.h"
+#include "VMInspector.h"
 #include "WasmCallingConvention.h"
 #include "WasmModuleInformation.h"
+
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
@@ -48,7 +50,7 @@ WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(WasmToJSCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(JSToWasmICCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OptimizingJITCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OMGCallee);
-WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OSREntryCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OMGOSREntryCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(BBQCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(IPIntCallee);
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(LLIntCallee);
@@ -68,6 +70,16 @@ Callee::Callee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, 
 {
 }
 
+void Callee::reportToVMsForDestruction()
+{
+    // We don't know which VMs a Module has ever run on so we just report to all of them.
+    Locker locker(VMInspector::singleton().getLock());
+    VMInspector::singleton().iterate([&] (VM& vm) {
+        vm.heap.reportWasmCalleePendingDestruction(Ref(*this));
+        return IterationStatus::Continue;
+    });
+}
+
 template<typename Func>
 inline void Callee::runWithDowncast(const Func& func)
 {
@@ -85,12 +97,8 @@ inline void Callee::runWithDowncast(const Func& func)
     case CompilationMode::BBQMode:
         func(static_cast<BBQCallee*>(this));
         break;
-    case CompilationMode::BBQForOSREntryMode:
-        func(static_cast<OSREntryCallee*>(this));
-        break;
 #else
     case CompilationMode::BBQMode:
-    case CompilationMode::BBQForOSREntryMode:
         break;
 #endif
 #if ENABLE(WEBASSEMBLY_OMGJIT)
@@ -98,7 +106,7 @@ inline void Callee::runWithDowncast(const Func& func)
         func(static_cast<OMGCallee*>(this));
         break;
     case CompilationMode::OMGForOSREntryMode:
-        func(static_cast<OSREntryCallee*>(this));
+        func(static_cast<OMGOSREntryCallee*>(this));
         break;
 #else
     case CompilationMode::OMGMode:
@@ -512,6 +520,14 @@ void OptimizingJITCallee::linkExceptionHandlers(Vector<UnlinkedHandlerInfo> unli
         const UnlinkedHandlerInfo& unlinkedHandler = unlinkedExceptionHandlers[i];
         CodeLocationLabel<ExceptionHandlerPtrTag> location = exceptionHandlerLocations[i];
         handler.initialize(unlinkedHandler, location);
+    }
+}
+
+BBQCallee::~BBQCallee()
+{
+    if (m_osrEntryCallee) {
+        ASSERT(m_osrEntryCallee->hasOneRef());
+        m_osrEntryCallee->reportToVMsForDestruction();
     }
 }
 

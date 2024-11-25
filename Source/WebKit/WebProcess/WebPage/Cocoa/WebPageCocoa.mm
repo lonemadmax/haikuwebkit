@@ -78,6 +78,7 @@
 #import <WebCore/TextIterator.h>
 #import <WebCore/UTIRegistry.h>
 #import <WebCore/UTIUtilities.h>
+#import <WebCore/markup.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -490,8 +491,8 @@ WebPaymentCoordinator* WebPage::paymentCoordinator()
 
 void WebPage::getContentsAsAttributedString(CompletionHandler<void(const WebCore::AttributedString&)>&& completionHandler)
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
-    completionHandler(localFrame ? attributedString(makeRangeSelectingNodeContents(Ref { *localFrame->document() })) : AttributedString());
+    RefPtr localFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    completionHandler(localFrame ? attributedString(makeRangeSelectingNodeContents(Ref { *localFrame->document() }), IgnoreUserSelectNone::No) : AttributedString { });
 }
 
 void WebPage::setRemoteObjectRegistry(WebRemoteObjectRegistry* registry)
@@ -665,7 +666,8 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
         }();
     }
 
-    if (RefPtr editableRootOrFormControl = enclosingTextFormControl(selection.start()) ?: selection.rootEditableElement()) {
+    RefPtr enclosingFormControl = enclosingTextFormControl(selection.start());
+    if (RefPtr editableRootOrFormControl = enclosingFormControl.get() ?: selection.rootEditableElement()) {
         postLayoutData.editableRootIsTransparentOrFullyClipped = result.isContentEditable && isTransparentOrFullyClipped(*editableRootOrFormControl);
 #if PLATFORM(IOS_FAMILY)
         result.visualData->editableRootBounds = rootViewInteractionBounds(Ref { *editableRootOrFormControl });
@@ -673,8 +675,13 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
     }
 
 #if PLATFORM(IOS_FAMILY)
-    computeSelectionClipRectAndEnclosingScroller(result, selection, result.visualData->editableRootBounds);
-#endif
+    bool honorOverflowScrolling = m_page->settings().selectionHonorsOverflowScrolling();
+    if (enclosingFormControl || !honorOverflowScrolling)
+        result.visualData->selectionClipRect = result.visualData->editableRootBounds;
+
+    if (honorOverflowScrolling)
+        computeEnclosingLayerID(result, selection);
+#endif // PLATFORM(IOS_FAMILY)
 }
 
 void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHandler<void(WebCore::FloatSize)>&& completionHandler)
@@ -1046,6 +1053,82 @@ void WebPage::didEndPartialIntelligenceTextAnimation()
 }
 
 #endif
+
+static std::optional<bool> elementHasHiddenVisibility(StyledElement* styledElement)
+{
+    auto* inlineStyle = styledElement->inlineStyle();
+    if (!inlineStyle)
+        return std::nullopt;
+
+    RefPtr value = inlineStyle->getPropertyCSSValue(CSSPropertyVisibility);
+    if (!value)
+        return false;
+
+    return value->valueID() == CSSValueHidden;
+}
+
+void WebPage::createTextIndicatorForElementWithID(const String& elementID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+{
+    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+    if (!frame) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    RefPtr document = frame->document();
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    RefPtr element = document->getElementById(elementID);
+    if (!element) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    RefPtr styledElement = dynamicDowncast<StyledElement>(element.get());
+    if (!styledElement) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    // Temporarily force the content to be visible so that it can be snapshotted.
+
+    auto isHiddenInitially = elementHasHiddenVisibility(styledElement.get());
+
+    styledElement->setInlineStyleProperty(CSSPropertyVisibility, CSSValueVisible, IsImportant::Yes);
+
+    auto elementRange = WebCore::makeRangeSelectingNodeContents(*styledElement);
+
+    std::optional<WebCore::TextIndicatorData> textIndicatorData;
+    constexpr OptionSet textIndicatorOptions {
+        WebCore::TextIndicatorOption::IncludeSnapshotOfAllVisibleContentWithoutSelection,
+        WebCore::TextIndicatorOption::ExpandClipBeyondVisibleRect,
+        WebCore::TextIndicatorOption::SkipReplacedContent,
+        WebCore::TextIndicatorOption::RespectTextColor
+    };
+
+    RefPtr textIndicator = WebCore::TextIndicator::createWithRange(elementRange, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { });
+    if (!textIndicator) {
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    // If `initialVisibility` is an empty optional, this means there was no initial inline style.
+    // Ensure the state is idempotent after by removing the inline style if this is the case.
+
+    if (isHiddenInitially.has_value())
+        styledElement->setInlineStyleProperty(CSSPropertyVisibility, *isHiddenInitially ? CSSValueHidden : CSSValueVisible, IsImportant::Yes);
+    else
+        styledElement->removeInlineStyleProperty(CSSPropertyVisibility);
+
+    completionHandler(textIndicator->data());
+}
 
 } // namespace WebKit
 

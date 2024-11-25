@@ -37,7 +37,7 @@ namespace JSC { namespace Wasm {
 
 struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
 
-    using BranchHints = HashMap<uint32_t, BranchHintMap, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
+    using BranchHints = UncheckedKeyHashMap<uint32_t, BranchHintMap, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
 
     ModuleInformation();
     ModuleInformation(const ModuleInformation&) = delete;
@@ -165,6 +165,7 @@ struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
     bool callCanClobberInstance(FunctionSpaceIndex functionIndexSpace) const { return m_clobberingTailCalls.test(functionIndexSpace); }
     void addClobberingTailCall(FunctionSpaceIndex functionIndexSpace) { m_clobberingTailCalls.concurrentTestAndSet(functionIndexSpace); }
 
+    // FIXME: These should probably be FixedVectors.
     Vector<Import> imports;
     Vector<TypeIndex> importFunctionTypeIndices;
     Vector<TypeIndex> internalFunctionTypeIndices;

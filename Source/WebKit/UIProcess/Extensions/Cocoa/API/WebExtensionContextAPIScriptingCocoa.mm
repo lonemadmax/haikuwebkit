@@ -32,8 +32,10 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#import "APIError.h"
 #import "CocoaHelpers.h"
 #import "WKFrameInfoPrivate.h"
+#import "WKNSError.h"
 #import "WKWebViewInternal.h"
 #import "WKWebViewPrivate.h"
 #import "WebExtensionAPIScripting.h"
@@ -306,7 +308,10 @@ void WebExtensionContext::loadRegisteredContentScripts()
         }
 
         Vector<WebExtensionRegisteredScriptParameters> parametersVector;
-        WebExtensionAPIScripting::parseRegisteredContentScripts(scripts, FirstTimeRegistration::Yes, parametersVector);
+        if (!WebExtensionAPIScripting::parseRegisteredContentScripts(scripts, FirstTimeRegistration::Yes, parametersVector, &errorMessage)) {
+            RELEASE_LOG_ERROR(Extensions, "Failed to parse injected content data for extension %{private}@. Error: %{public}@", (NSString *)m_uniqueIdentifier, errorMessage);
+            return;
+        }
 
         DynamicInjectedContentsMap injectedContentsMap;
         createInjectedContentForScripts(parametersVector, FirstTimeRegistration::Yes, injectedContentsMap, nil, &errorMessage);
@@ -361,9 +366,9 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
 
         RefPtr extension = m_extension;
         for (NSString *scriptPath in scriptPaths) {
-            NSError *error;
-            if (!extension->resourceStringForPath(scriptPath, &error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)) {
-                recordError(error);
+            RefPtr<API::Error> error;
+            if (!extension->resourceStringForPath(scriptPath, error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)) {
+                recordError(::WebKit::wrapper(*error));
                 *errorMessage = toErrorString(callingAPIName, nil, @"invalid resource '%@'", scriptPath);
                 return false;
             }
@@ -376,9 +381,9 @@ bool WebExtensionContext::createInjectedContentForScripts(const Vector<WebExtens
         });
 
         for (NSString *styleSheetPath in styleSheetPaths) {
-            NSError *error;
-            if (!extension->resourceStringForPath(styleSheetPath, &error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)) {
-                recordError(error);
+            RefPtr<API::Error> error;
+            if (!extension->resourceStringForPath(styleSheetPath, error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)) {
+                recordError(::WebKit::wrapper(*error));
                 *errorMessage = toErrorString(callingAPIName, nil, @"invalid resource '%@'", styleSheetPath);
                 return false;
             }

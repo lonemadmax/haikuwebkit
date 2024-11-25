@@ -32,13 +32,21 @@
 #include <wtf/JSONValues.h>
 #include <wtf/text/StringHash.h>
 
+#if ENABLE(WEBDRIVER_BIDI)
+#include "WebSocketServer.h"
+#endif
+
 namespace WebDriver {
 
 struct Capabilities;
 class CommandResult;
 class Session;
 
-class WebDriverService final : public HTTPRequestHandler {
+class WebDriverService final : public HTTPRequestHandler
+#if ENABLE(WEBDRIVER_BIDI)
+    , public WebSocketMessageHandler
+#endif
+{
 public:
     WebDriverService();
     ~WebDriverService() = default;
@@ -47,6 +55,8 @@ public:
 
     static void platformInit();
     static bool platformCompareBrowserVersions(const String&, const String&);
+
+    RefPtr<Session> session() const { return m_session; }
 
 private:
     enum class HTTPMethod { Get, Post, Delete };
@@ -59,7 +69,7 @@ private:
     static const Command s_commands[];
 
     static std::optional<HTTPMethod> toCommandHTTPMethod(const String& method);
-    static bool findCommand(HTTPMethod, const String& path, CommandHandler*, HashMap<String, String>& parameters);
+    static bool findCommand(HTTPMethod, const String& path, CommandHandler*, UncheckedKeyHashMap<String, String>& parameters);
 
     void newSession(RefPtr<JSON::Object>&&, Function<void (CommandResult&&)>&&);
     void deleteSession(RefPtr<JSON::Object>&&, Function<void (CommandResult&&)>&&);
@@ -141,7 +151,19 @@ private:
     void handleRequest(HTTPRequestHandler::Request&&, Function<void (HTTPRequestHandler::Response&&)>&& replyHandler) override;
     void sendResponse(Function<void (HTTPRequestHandler::Response&&)>&& replyHandler, CommandResult&&) const;
 
+#if ENABLE(WEBDRIVER_BIDI)
+    bool acceptHandshake(HTTPRequestHandler::Request&&) override;
+    void handleMessage(WebSocketMessageHandler::Message&&, Function<void (WebSocketMessageHandler::Message&&)>&& replyHandler) override;
+    void clientDisconnected(const WebSocketMessageHandler::Connection&) override;
+
+    void onBrowserTerminated(const String& sessionId);
+#endif // ENABLE(WEBDRIVER_BIDI)
+
     HTTPServer m_server;
+#if ENABLE(WEBDRIVER_BIDI)
+    WebSocketServer m_bidiServer;
+    SessionHost::BrowserTerminatedObserver m_browserTerminatedObserver;
+#endif
     RefPtr<Session> m_session;
 
     String m_targetAddress;

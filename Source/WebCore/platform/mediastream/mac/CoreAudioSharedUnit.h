@@ -85,6 +85,7 @@ public:
         virtual void delaySamples(Seconds) { }
         virtual Seconds verifyCaptureInterval(bool isProducingSamples) const { return isProducingSamples ? 20_s : 2_s; }
         virtual bool setVoiceActivityDetection(bool) = 0;
+        virtual bool canRenderAudio() const { return true; }
     };
 
     WEBCORE_EXPORT static CoreAudioSharedUnit& singleton();
@@ -105,7 +106,7 @@ public:
     void setStatusBarWasTappedCallback(Function<void(CompletionHandler<void()>&&)>&& callback) { m_statusBarWasTappedCallback = WTFMove(callback); }
 #endif
 
-    bool isUsingVPIO() const { return m_shouldUseVPIO; }
+    bool canRenderAudio() const { return m_canRenderAudio; }
 
     struct AudioUnitDeallocator {
         void operator()(AudioUnit) const;
@@ -159,6 +160,8 @@ private:
     int actualSampleRate() const final;
     void resetSampleRate();
 
+    void willChangeCaptureDevice() final;
+
     OSStatus configureSpeakerProc(int sampleRate);
     OSStatus configureMicrophoneProc(int sampleRate);
 
@@ -172,10 +175,11 @@ private:
 
     void verifyIsCapturing();
 
-    void updateVoiceActiveDetection();
+    void updateVoiceActivityDetection(bool shouldDisableVoiceActivityDetection = false);
     bool shouldEnableVoiceActivityDetection() const;
     RetainPtr<WebCoreAudioInputMuteChangeListener> createAudioInputMuteChangeListener();
     void setMutedState(bool isMuted);
+    void updateMutedState();
 
     CreationCallback m_creationCallback;
     GetSampleRateCallback m_getSampleRateCallback;
@@ -223,6 +227,7 @@ private:
 #endif
 
     bool m_shouldUseVPIO { true };
+    bool m_canRenderAudio { true };
     bool m_shouldSetVoiceActivityListener { false };
     bool m_voiceActivityDetectionEnabled { false };
 #if PLATFORM(MAC)

@@ -230,7 +230,7 @@ CoreAudioSharedUnit::CoreAudioSharedUnit()
 
 CoreAudioSharedUnit::~CoreAudioSharedUnit()
 {
-    updateVoiceActiveDetection();
+    updateVoiceActivityDetection();
     setMuteStatusChangedCallback({ });
 }
 
@@ -265,6 +265,7 @@ void CoreAudioSharedUnit::captureDeviceChanged()
 #else
     AVAudioSessionCaptureDeviceManager::singleton().setPreferredAudioSessionDeviceUID(persistentID());
 #endif
+    updateVoiceActivityDetection();
 }
 
 size_t CoreAudioSharedUnit::preferredIOBufferSize()
@@ -289,6 +290,7 @@ OSStatus CoreAudioSharedUnit::setupAudioUnit()
         return result.error();
 
     m_ioUnit = WTFMove(result.value()).moveToUniquePtr();
+    m_canRenderAudio = m_ioUnit->canRenderAudio();
 
 #if HAVE(VPIO_DUCKING_LEVEL_API)
     if (m_shouldUseVPIO) {
@@ -565,7 +567,7 @@ void CoreAudioSharedUnit::cleanupAudioUnit()
         m_ioUnitInitialized = false;
     }
 
-    updateVoiceActiveDetection();
+    updateVoiceActivityDetection();
     m_ioUnit = nullptr;
 
     m_microphoneSampleBuffer = nullptr;
@@ -651,25 +653,30 @@ OSStatus CoreAudioSharedUnit::startInternal()
     m_microphoneProcsCalled = 0;
     m_microphoneProcsCalledLastTime = 0;
 
-    updateVoiceActiveDetection();
+    updateVoiceActivityDetection();
+    updateMutedState();
 
     return noErr;
 }
 
 void CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged()
 {
-    if (m_ioUnit) {
-        UInt32 muteUplinkOutput = !isProducingMicrophoneSamples();
-        auto error = m_ioUnit->set(kAUVoiceIOProperty_MuteOutput, kAudioUnitScope_Global, outputBus, &muteUplinkOutput, sizeof(muteUplinkOutput));
-        RELEASE_LOG_ERROR_IF(error, WebRTC, "CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged(%p) unable to set kAUVoiceIOProperty_MuteOutput, error %d (%.4s)", this, (int)error, (char*)&error);
-
-        setMutedState(muteUplinkOutput);
-    }
-    updateVoiceActiveDetection();
+    updateMutedState();
+    updateVoiceActivityDetection();
 
     if (!isProducingData())
         return;
     m_verifyCapturingTimer.startRepeating(m_ioUnit->verifyCaptureInterval(isProducingMicrophoneSamples()));
+}
+
+void CoreAudioSharedUnit::updateMutedState()
+{
+    UInt32 muteUplinkOutput = !isProducingMicrophoneSamples();
+    if (m_ioUnit) {
+        auto error = m_ioUnit->set(kAUVoiceIOProperty_MuteOutput, kAudioUnitScope_Global, outputBus, &muteUplinkOutput, sizeof(muteUplinkOutput));
+        RELEASE_LOG_ERROR_IF(error, WebRTC, "CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged(%p) unable to set kAUVoiceIOProperty_MuteOutput, error %d (%.4s)", this, (int)error, (char*)&error);
+    }
+    setMutedState(muteUplinkOutput);
 }
 
 void CoreAudioSharedUnit::validateOutputDevice(uint32_t currentOutputDeviceID)
@@ -773,7 +780,7 @@ void CoreAudioSharedUnit::stopInternal()
 #if PLATFORM(IOS_FAMILY)
     setIsInBackground(false);
 #endif
-    updateVoiceActiveDetection();
+    updateVoiceActivityDetection();
 }
 
 void CoreAudioSharedUnit::registerSpeakerSamplesProducer(CoreAudioSpeakerSamplesProducer& producer)
@@ -818,13 +825,13 @@ bool CoreAudioSharedUnit::shouldEnableVoiceActivityDetection() const
         && m_ioUnitStarted;
 }
 
-void CoreAudioSharedUnit::updateVoiceActiveDetection()
+void CoreAudioSharedUnit::updateVoiceActivityDetection(bool shouldDisableVoiceActivityDetection)
 {
     if (!m_ioUnit)
         return;
 
     if (m_voiceActivityDetectionEnabled) {
-        if (shouldEnableVoiceActivityDetection())
+        if (shouldEnableVoiceActivityDetection() && !shouldDisableVoiceActivityDetection)
             return;
         if (m_ioUnit->setVoiceActivityDetection(false))
             m_voiceActivityDetectionEnabled = false;
@@ -840,19 +847,28 @@ void CoreAudioSharedUnit::updateVoiceActiveDetection()
 void CoreAudioSharedUnit::enableMutedSpeechActivityEventListener(Function<void()>&& callback)
 {
     setVoiceActivityListenerCallback(WTFMove(callback));
-    updateVoiceActiveDetection();
+    updateVoiceActivityDetection();
 }
 
 void CoreAudioSharedUnit::disableMutedSpeechActivityEventListener()
 {
     setVoiceActivityListenerCallback({ });
-    updateVoiceActiveDetection();
+    updateVoiceActivityDetection();
 }
 
 void CoreAudioSharedUnit::handleMuteStatusChangedNotification(bool isMuting)
 {
     if (m_muteStatusChangedCallback && isMuting == isProducingMicrophoneSamples())
         m_muteStatusChangedCallback(isMuting);
+}
+
+void CoreAudioSharedUnit::willChangeCaptureDevice()
+{
+    if (!m_voiceActivityDetectionEnabled)
+        return;
+
+    bool shouldDisableVoiceActivityDetection = true;
+    updateVoiceActivityDetection(shouldDisableVoiceActivityDetection);
 }
 
 #if PLATFORM(IOS_FAMILY)

@@ -211,6 +211,7 @@ struct AttributedString;
 struct CharacterRange;
 struct SimpleRange;
 struct TextRecognitionResult;
+struct WindowFeatures;
 
 using PlatformDisplayID = uint32_t;
 using SharedStringHash = uint32_t;
@@ -280,6 +281,7 @@ enum class RenderingUpdateStep : uint32_t {
 #endif
     RestoreScrollPositionAndViewState = 1 << 24,
     AdjustVisibility                  = 1 << 25,
+    SnapshottedScrollOffsets          = 1 << 26,
 
 };
 
@@ -470,6 +472,8 @@ public:
     const ProgressTracker& progress() const { return m_progress.get(); }
     CheckedRef<ProgressTracker> checkedProgress();
     CheckedRef<const ProgressTracker> checkedProgress() const;
+
+    WEBCORE_EXPORT void applyWindowFeatures(const WindowFeatures&);
 
     void progressEstimateChanged(LocalFrame&) const;
     void progressFinished(LocalFrame&) const;
@@ -672,7 +676,7 @@ public:
 
 #if ENABLE(APPLE_PAY)
     PaymentCoordinator& paymentCoordinator() const { return *m_paymentCoordinator; }
-    WEBCORE_EXPORT void setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&&);
+    WEBCORE_EXPORT void setPaymentCoordinator(Ref<PaymentCoordinator>&&);
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
@@ -944,7 +948,7 @@ public:
     WEBCORE_EXPORT void voiceActivityDetected();
 #endif
 
-    MediaSessionGroupIdentifier mediaSessionGroupIdentifier() const;
+    std::optional<MediaSessionGroupIdentifier> mediaSessionGroupIdentifier() const;
     WEBCORE_EXPORT bool mediaPlaybackExists();
     WEBCORE_EXPORT bool mediaPlaybackIsPaused();
     WEBCORE_EXPORT void pauseAllMediaPlayback();
@@ -1433,7 +1437,7 @@ private:
     UniqueRef<PageConsoleClient> m_consoleClient;
 
 #if ENABLE(REMOTE_INSPECTOR)
-    UniqueRef<PageDebuggable> m_inspectorDebuggable;
+    Ref<PageDebuggable> m_inspectorDebuggable;
 #endif
 
     RefPtr<IDBClient::IDBConnectionToServer> m_idbConnectionToServer;
@@ -1532,7 +1536,7 @@ private:
     std::unique_ptr<PageOverlayController> m_pageOverlayController;
 
 #if ENABLE(APPLE_PAY)
-    std::unique_ptr<PaymentCoordinator> m_paymentCoordinator;
+    RefPtr<PaymentCoordinator> m_paymentCoordinator;
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
@@ -1579,7 +1583,7 @@ private:
     std::optional<Color> m_sampledPageTopColor;
 
     const bool m_httpsUpgradeEnabled { true };
-    mutable MediaSessionGroupIdentifier m_mediaSessionGroupIdentifier;
+    mutable Markable<MediaSessionGroupIdentifier> m_mediaSessionGroupIdentifier;
 
     std::optional<std::pair<uint16_t, uint16_t>> m_portsForUpgradingInsecureSchemeForTesting;
 
@@ -1609,7 +1613,7 @@ private:
     Ref<BadgeClient> m_badgeClient;
     Ref<HistoryItemClient> m_historyItemClient;
 
-    HashMap<RegistrableDomain, uint64_t> m_noiseInjectionHashSalts;
+    UncheckedKeyHashMap<RegistrableDomain, uint64_t> m_noiseInjectionHashSalts;
 
 #if PLATFORM(IOS_FAMILY)
     String m_sceneIdentifier;

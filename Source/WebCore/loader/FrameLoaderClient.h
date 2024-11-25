@@ -34,6 +34,7 @@
 namespace WebCore {
 
 class FormState;
+class Frame;
 class HitTestResult;
 class NavigationAction;
 class ResourceRequest;
@@ -52,6 +53,7 @@ public:
     virtual void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse& redirectResponse, FormState*, const String& clientRedirectSourceForHistory, std::optional<NavigationIdentifier>, std::optional<HitTestResult>&&, bool hasOpener, IsPerformingHTTPFallback, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&) = 0;
     virtual bool dispatchDidReceiveInvalidCertificate(DocumentLoader*, const CertificateInfo&, const char*) { return false; }
     virtual void updateSandboxFlags(SandboxFlags) = 0;
+    virtual void updateOpener(const Frame&) = 0;
     virtual ~FrameLoaderClient() = default;
 };
 

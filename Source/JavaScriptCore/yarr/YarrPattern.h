@@ -718,8 +718,9 @@ struct YarrPattern {
     // is the subpatterenId for a non-duplicate named group.
     // For a duplicate named group, the size will be greater than 2. The first vector entry it is the
     // duplicateNamedGroupId. Subsequent vector entries are the subpatternId's for that duplicateNamedGroupId.
-    HashMap<String, Vector<unsigned>> m_namedGroupToParenIndices;
+    UncheckedKeyHashMap<String, Vector<unsigned>> m_namedGroupToParenIndices;
     Vector<unsigned> m_duplicateNamedGroupForSubpatternId;
+    String m_atom;
 
 private:
     ErrorCode compile(StringView patternString);
@@ -734,7 +735,7 @@ private:
     CharacterClass* nonspacesCached { nullptr };
     CharacterClass* nonwordcharCached { nullptr };
     CharacterClass* nonwordUnicodeIgnoreCasecharCached { nullptr };
-    HashMap<unsigned, CharacterClass*> unicodePropertiesCached;
+    UncheckedKeyHashMap<unsigned, CharacterClass*> unicodePropertiesCached;
 };
 
     void indentForNestingLevel(PrintStream&, unsigned);

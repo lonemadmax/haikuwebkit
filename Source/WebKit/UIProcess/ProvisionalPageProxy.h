@@ -42,15 +42,6 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
-namespace WebKit {
-class ProvisionalPageProxy;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::ProvisionalPageProxy> : std::true_type { };
-}
-
 namespace API {
 class Navigation;
 }
@@ -92,19 +83,24 @@ struct WebNavigationDataStore;
 using LayerHostingContextID = uint32_t;
 #endif
 
-class ProvisionalPageProxy : public IPC::MessageReceiver, public IPC::MessageSender {
+class ProvisionalPageProxy final : public IPC::MessageReceiver, public IPC::MessageSender, public RefCounted<ProvisionalPageProxy> {
     WTF_MAKE_TZONE_ALLOCATED(ProvisionalPageProxy);
 public:
-    ProvisionalPageProxy(WebPageProxy&, Ref<FrameProcess>&&, BrowsingContextGroup&, std::unique_ptr<SuspendedPageProxy>, API::Navigation&, bool isServerRedirect, const WebCore::ResourceRequest&, ProcessSwapRequestedByClient, bool isProcessSwappingOnNavigationResponse, API::WebsitePolicies*, WebsiteDataStore* replacedDataStoreForWebArchiveLoad = nullptr);
+    template<typename... Args>
+    static Ref<ProvisionalPageProxy> create(Args&&... args)
+    {
+        return adoptRef(*new ProvisionalPageProxy(std::forward<Args>(args)...));
+    }
     ~ProvisionalPageProxy();
 
-    WebPageProxy& page() { return m_page.get(); }
-    const WebPageProxy& page() const { return m_page.get(); }
-    Ref<WebPageProxy> protectedPage() const;
+    WebPageProxy* page() { return m_page.get(); }
+    const WebPageProxy* page() const { return m_page.get(); }
+    RefPtr<WebPageProxy> protectedPage() const;
 
     WebCore::PageIdentifier webPageID() const { return m_webPageID; }
     WebFrameProxy* mainFrame() const { return m_mainFrame.get(); }
     BrowsingContextGroup& browsingContextGroup() { return m_browsingContextGroup.get(); }
+    Ref<BrowsingContextGroup> protectedBrowsingContextGroup();
     WebProcessProxy& process();
     Ref<WebProcessProxy> protectedProcess();
     ProcessSwapRequestedByClient processSwapRequestedByClient() const { return m_processSwapRequestedByClient; }
@@ -153,6 +149,8 @@ public:
     WebPageProxyMessageReceiverRegistration& messageReceiverRegistration() { return m_messageReceiverRegistration; }
 
 private:
+    ProvisionalPageProxy(WebPageProxy&, Ref<FrameProcess>&&, BrowsingContextGroup&, std::unique_ptr<SuspendedPageProxy>, API::Navigation&, bool isServerRedirect, const WebCore::ResourceRequest&, ProcessSwapRequestedByClient, bool isProcessSwappingOnNavigationResponse, API::WebsitePolicies*, WebsiteDataStore* replacedDataStoreForWebArchiveLoad = nullptr);
+
     RefPtr<WebFrameProxy> protectedMainFrame() const;
 
     // IPC::MessageReceiver
@@ -202,7 +200,7 @@ private:
     void initializeWebPage(RefPtr<API::WebsitePolicies>&&);
     bool validateInput(WebCore::FrameIdentifier, const std::optional<WebCore::NavigationIdentifier>& = std::nullopt);
 
-    WeakRef<WebPageProxy> m_page;
+    WeakPtr<WebPageProxy> m_page;
     WebCore::PageIdentifier m_webPageID;
     Ref<FrameProcess> m_frameProcess;
     Ref<BrowsingContextGroup> m_browsingContextGroup;
@@ -234,7 +232,7 @@ private:
     CompletionHandler<void(String&&)> m_accessibilityBindCompletionHandler;
 #endif
 #if USE(RUNNINGBOARD)
-    UniqueRef<ProcessThrottler::ForegroundActivity> m_provisionalLoadActivity;
+    Ref<ProcessThrottler::ForegroundActivity> m_provisionalLoadActivity;
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     LayerHostingContextID m_contextIDForVisibilityPropagationInWebProcess { 0 };

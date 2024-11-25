@@ -28,9 +28,19 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#include "WebExtensionPermission.h"
 #include "WebExtensionUtilities.h"
+#include <WebCore/TextResourceDecoder.h>
 
 namespace WebKit {
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+static constexpr auto iconVariantsManifestKey = "icon_variants"_s;
+#endif
+
+static constexpr auto actionManifestKey = "action"_s;
+static constexpr auto browserActionManifestKey = "browser_action"_s;
+static constexpr auto pageActionManifestKey = "page_action"_s;
 
 static constexpr auto manifestVersionManifestKey = "manifest_version"_s;
 
@@ -57,8 +67,8 @@ static constexpr auto contentScriptsAllFramesManifestKey = "all_frames"_s;
 static constexpr auto contentScriptsJSManifestKey = "js"_s;
 static constexpr auto contentScriptsCSSManifestKey = "css"_s;
 static constexpr auto contentScriptsWorldManifestKey = "world"_s;
-static constexpr auto contentScriptsIsolatedManifestKey = "ISOLATED"_s;
-static constexpr auto contentScriptsMainManifestKey = "MAIN"_s;
+static constexpr auto contentScriptsIsolatedManifestKey = "isolated"_s;
+static constexpr auto contentScriptsMainManifestKey = "main"_s;
 static constexpr auto contentScriptsCSSOriginManifestKey = "css_origin"_s;
 static constexpr auto contentScriptsAuthorManifestKey = "author"_s;
 static constexpr auto contentScriptsUserManifestKey = "user"_s;
@@ -83,11 +93,28 @@ static constexpr auto backgroundDocumentManifestKey = "document"_s;
 static constexpr auto generatedBackgroundPageFilename = "_generated_background_page.html"_s;
 static constexpr auto generatedBackgroundServiceWorkerFilename = "_generated_service_worker.js"_s;
 
+static constexpr auto permissionsManifestKey = "permissions"_s;
+static constexpr auto optionalPermissionsManifestKey = "optional_permissions"_s;
+static constexpr auto hostPermissionsManifestKey = "host_permissions"_s;
+static constexpr auto optionalHostPermissionsManifestKey = "optional_host_permissions"_s;
+
+static constexpr auto externallyConnectableManifestKey = "externally_connectable"_s;
+static constexpr auto externallyConnectableMatchesManifestKey = "matches"_s;
+static constexpr auto externallyConnectableIDsManifestKey = "ids"_s;
+
 static constexpr auto devtoolsPageManifestKey = "devtools_page"_s;
 
 static constexpr auto webAccessibleResourcesManifestKey = "web_accessible_resources"_s;
 static constexpr auto webAccessibleResourcesResourcesManifestKey = "resources"_s;
 static constexpr auto webAccessibleResourcesMatchesManifestKey = "matches"_s;
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+static constexpr auto sidebarActionManifestKey = "sidebar_action"_s;
+static constexpr auto sidePanelManifestKey = "side_panel"_s;
+static constexpr auto sidebarActionTitleManifestKey = "default_title"_s;
+static constexpr auto sidebarActionPathManifestKey = "default_panel"_s;
+static constexpr auto sidePanelPathManifestKey = "default_path"_s;
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
 bool WebExtension::manifestParsedSuccessfully()
 {
@@ -235,6 +262,244 @@ void WebExtension::populateWebAccessibleResourcesIfNeeded()
         parseWebAccessibleResourcesVersion3();
     else
         parseWebAccessibleResourcesVersion2();
+}
+
+URL WebExtension::resourceFileURLForPath(const String& originalPath)
+{
+    ASSERT(originalPath);
+
+    String path = originalPath;
+    if (path.startsWith('/'))
+        path = path.substring(1);
+
+    if (!path.length() || m_resourceBaseURL.isEmpty())
+        return { };
+
+    URL result { m_resourceBaseURL, path };
+    if (!FileSystem::fileExists(result.fileSystemPath()))
+        return { };
+
+    // Don't allow escaping the base URL with "../".
+    auto basePath = FileSystem::realPath(m_resourceBaseURL.fileSystemPath());
+    auto resourcePath = FileSystem::realPath(result.fileSystemPath());
+    if (!resourcePath.startsWith(basePath)) {
+        RELEASE_LOG_ERROR(Extensions, "Resource URL path escape attempt: %s", resourcePath.utf8().data());
+        return { };
+    }
+
+    return result;
+}
+
+String WebExtension::resourceStringForPath(const String& originalPath, RefPtr<API::Error>& outError, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
+{
+    ASSERT(originalPath);
+
+    String path = originalPath;
+
+    // Remove leading slash to normalize the path for lookup/storage in the cache dictionary.
+    if (path.startsWith('/'))
+        path = path.substring(1);
+
+    if (RefPtr cachedData = m_resources.get(path))
+        return String::fromUTF8(cachedData->span());
+
+    if (path == generatedBackgroundPageFilename || path == generatedBackgroundServiceWorkerFilename)
+        return generatedBackgroundContent();
+
+    RefPtr data = resourceDataForPath(path, outError, cacheResult, suppressErrors);
+    if (!data)
+        return nullString();
+
+    if (!data->size())
+        return emptyString();
+
+    auto mimeType = MIMETypeRegistry::mimeTypeForPath(path);
+    RefPtr decoder = TextResourceDecoder::create(mimeType, { }, true);
+    return decoder->decode(data->span());
+}
+
+static int toAPI(WebExtension::Error error)
+{
+    switch (error) {
+    case WebExtension::Error::Unknown:
+        return static_cast<int>(WebExtension::APIError::Unknown);
+    case WebExtension::Error::ResourceNotFound:
+        return static_cast<int>(WebExtension::APIError::ResourceNotFound);
+    case WebExtension::Error::InvalidManifest:
+        return static_cast<int>(WebExtension::APIError::InvalidManifest);
+    case WebExtension::Error::UnsupportedManifestVersion:
+        return static_cast<int>(WebExtension::APIError::UnsupportedManifestVersion);
+    case WebExtension::Error::InvalidDeclarativeNetRequest:
+        return static_cast<int>(WebExtension::APIError::InvalidDeclarativeNetRequestEntry);
+    case WebExtension::Error::InvalidBackgroundPersistence:
+        return static_cast<int>(WebExtension::APIError::InvalidBackgroundPersistence);
+    case WebExtension::Error::InvalidResourceCodeSignature:
+        return static_cast<int>(WebExtension::APIError::InvalidResourceCodeSignature);
+    default:
+        return static_cast<int>(WebExtension::APIError::InvalidManifestEntry);
+    }
+}
+
+Ref<API::Error> WebExtension::createError(Error error, const String& customLocalizedDescription, RefPtr<API::Error> underlyingError)
+{
+    auto errorCode = toAPI(error);
+    String localizedDescription;
+
+    switch (error) {
+    case Error::Unknown:
+        localizedDescription = WEB_UI_STRING("An unknown error has occurred.", "WKWebExtensionErrorUnknown description");
+        break;
+
+    case Error::ResourceNotFound:
+        ASSERT(customLocalizedDescription);
+        break;
+
+    case Error::InvalidManifest:
+        if (underlyingError && !underlyingError->localizedDescription().isEmpty())
+            localizedDescription = WEB_UI_FORMAT_STRING("Unable to parse manifest: %s", "WKWebExtensionErrorInvalidManifest description, because of a JSON error", underlyingError->localizedDescription().utf8().data());
+        else
+            localizedDescription = WEB_UI_STRING("Unable to parse manifest because of an unexpected format.", "WKWebExtensionErrorInvalidManifest description");
+        break;
+
+    case Error::UnsupportedManifestVersion:
+        localizedDescription = WEB_UI_STRING("An unsupported `manifest_version` was specified.", "WKWebExtensionErrorUnsupportedManifestVersion description");
+        break;
+
+    case Error::InvalidAction:
+        if (supportsManifestVersion(3))
+            localizedDescription = WEB_UI_STRING("Missing or empty `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for action only");
+        else
+            localizedDescription = WEB_UI_STRING("Missing or empty `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for browser_action or page_action");
+        break;
+
+    case Error::InvalidActionIcon: {
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+        RefPtr<JSON::Value> actionManifest;
+        if (supportsManifestVersion(3))
+            actionManifest = manifestObject()->getValue(actionManifestKey);
+        else {
+            actionManifest = manifestObject()->getValue(browserActionManifestKey);
+            if (!actionManifest)
+                actionManifest = manifestObject()->getValue(pageActionManifestKey);
+        }
+
+        if (actionManifest) {
+            if (auto actionObject = actionManifest->asObject(); actionObject->getValue(iconVariantsManifestKey)) {
+                if (supportsManifestVersion(3))
+                    localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants in action only");
+                else
+                    localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants in browser_action or page_action");
+            } else {
+                if (supportsManifestVersion(3))
+                    localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in action only");
+                else
+                    localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in browser_action or page_action");
+            }
+        } else
+#endif
+        if (supportsManifestVersion(3))
+            localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in action only");
+        else
+            localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in browser_action or page_action");
+        break;
+    }
+
+    case Error::InvalidBackgroundContent:
+        localizedDescription = WEB_UI_STRING("Empty or invalid `background` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for background");
+        break;
+
+    case Error::InvalidCommands:
+        localizedDescription = WEB_UI_STRING("Invalid `commands` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for commands");
+        break;
+
+    case Error::InvalidContentScripts:
+        localizedDescription = WEB_UI_STRING("Empty or invalid `content_scripts` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for content_scripts");
+        break;
+
+    case Error::InvalidContentSecurityPolicy:
+        localizedDescription = WEB_UI_STRING("Empty or invalid `content_security_policy` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for content_security_policy");
+        break;
+
+    case Error::InvalidDeclarativeNetRequest:
+        if (underlyingError && !underlyingError->localizedDescription().isEmpty())
+            localizedDescription = WEB_UI_FORMAT_STRING("Unable to parse `declarativeNetRequest` rules: %s", "WKWebExtensionErrorInvalidDeclarativeNetRequest description, because of a JSON error", underlyingError->localizedDescription().utf8().data());
+        else
+            localizedDescription = WEB_UI_STRING("Unable to parse `declarativeNetRequest` rules because of an unexpected error.", "WKWebExtensionErrorInvalidDeclarativeNetRequest description");
+        break;
+
+    case Error::InvalidDescription:
+        localizedDescription = WEB_UI_STRING("Missing or empty `description` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for description");
+        break;
+
+    case Error::InvalidExternallyConnectable:
+        localizedDescription = WEB_UI_STRING("Empty or invalid `externally_connectable` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for externally_connectable");
+        break;
+
+    case Error::InvalidIcon:
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+        if (manifestObject()->getValue(iconVariantsManifestKey))
+            localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants");
+        else
+#endif
+            localizedDescription = WEB_UI_STRING("Missing or empty `icons` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icons");
+        break;
+
+    case Error::InvalidName:
+        localizedDescription = WEB_UI_STRING("Missing or empty `name` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for name");
+        break;
+
+    case Error::InvalidOptionsPage:
+        if (manifestObject()->getValue(optionsUIManifestKey))
+            localizedDescription = WEB_UI_STRING("Empty or invalid `options_ui` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for options UI");
+        else
+            localizedDescription = WEB_UI_STRING("Empty or invalid `options_page` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for options page");
+        break;
+
+    case Error::InvalidURLOverrides:
+        if (manifestObject()->getValue(browserURLOverridesManifestKey))
+            localizedDescription = WEB_UI_STRING("Empty or invalid `browser_url_overrides` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for browser URL overrides");
+        else
+            localizedDescription = WEB_UI_STRING("Empty or invalid `chrome_url_overrides` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for chrome URL overrides");
+        break;
+
+    case Error::InvalidVersion:
+        localizedDescription = WEB_UI_STRING("Missing or empty `version` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for version");
+        break;
+
+    case Error::InvalidWebAccessibleResources:
+        localizedDescription = WEB_UI_STRING("Invalid `web_accessible_resources` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for web_accessible_resources");
+        break;
+
+    case Error::InvalidBackgroundPersistence:
+        localizedDescription = WEB_UI_STRING("Invalid `persistent` manifest entry.", "WKWebExtensionErrorInvalidBackgroundPersistence description");
+        break;
+
+    case Error::InvalidResourceCodeSignature:
+        ASSERT(customLocalizedDescription);
+        break;
+    }
+
+    if (!customLocalizedDescription.isEmpty())
+        localizedDescription = customLocalizedDescription;
+
+    return API::Error::create({ "WKWebExtensionErrorDomain"_s, errorCode, { }, localizedDescription });
+}
+
+Vector<Ref<API::Error>> WebExtension::errors()
+{
+    populateDisplayStringsIfNeeded();
+    populateActionPropertiesIfNeeded();
+    populateBackgroundPropertiesIfNeeded();
+    populateContentScriptPropertiesIfNeeded();
+    populatePermissionsPropertiesIfNeeded();
+    populatePagePropertiesIfNeeded();
+    populateContentSecurityPolicyStringsIfNeeded();
+    populateWebAccessibleResourcesIfNeeded();
+    populateCommandsIfNeeded();
+    populateDeclarativeNetRequestPropertiesIfNeeded();
+    populateExternallyConnectableIfNeeded();
+
+    return m_errors;
 }
 
 const String& WebExtension::displayName()
@@ -855,18 +1120,18 @@ void WebExtension::populateContentScriptPropertiesIfNeeded()
 
         auto contentWorldType = WebExtensionContentWorldType::ContentScript;
         auto worldString = injectedContentObject->getString(contentScriptsWorldManifestKey);
-        if (!worldString || worldString == contentScriptsIsolatedManifestKey)
+        if (!worldString || equalIgnoringASCIICase(worldString, contentScriptsIsolatedManifestKey))
             contentWorldType = WebExtensionContentWorldType::ContentScript;
-        else if (worldString == contentScriptsMainManifestKey)
+        else if (equalIgnoringASCIICase(worldString, contentScriptsMainManifestKey))
             contentWorldType = WebExtensionContentWorldType::Main;
         else
             recordError(createError(Error::InvalidContentScripts, WEB_UI_STRING("Manifest `content_scripts` entry has unknown `world` value.", "WKWebExtensionErrorInvalidContentScripts description for unknown 'world' value")));
 
         auto styleLevel = WebCore::UserStyleLevel::Author;
         auto cssOriginString = injectedContentObject->getString(contentScriptsCSSOriginManifestKey);
-        if (!cssOriginString || cssOriginString == contentScriptsAuthorManifestKey)
+        if (!cssOriginString || equalIgnoringASCIICase(cssOriginString, contentScriptsAuthorManifestKey))
             styleLevel = WebCore::UserStyleLevel::Author;
-        else if (cssOriginString == contentScriptsUserManifestKey)
+        else if (equalIgnoringASCIICase(cssOriginString, contentScriptsUserManifestKey))
             styleLevel = WebCore::UserStyleLevel::User;
         else
             recordError(createError(Error::InvalidContentScripts, WEB_UI_STRING("Manifest `content_scripts` entry has unknown `css_origin` value.", "WKWebExtensionErrorInvalidContentScripts description for unknown 'css_origin' value")));
@@ -890,6 +1155,299 @@ void WebExtension::populateContentScriptPropertiesIfNeeded()
     for (Ref injectedContentValue : *contentScriptsManifestArray) {
         if (RefPtr injectedContentObject = injectedContentValue->asObject())
             addInjectedContentData(injectedContentObject);
+    }
+}
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+bool WebExtension::hasSidebarAction()
+{
+    if (RefPtr manifestObject = this->manifestObject())
+        return manifestObject->getValue(sidebarActionManifestKey);
+
+    return false;
+}
+
+bool WebExtension::hasSidePanel()
+{
+    return hasRequestedPermission(WebExtensionPermission::sidePanel());
+}
+
+bool WebExtension::hasAnySidebar()
+{
+    return hasSidebarAction() || hasSidePanel();
+}
+
+RefPtr<WebCore::Icon> WebExtension::sidebarIcon(WebCore::FloatSize idealSize)
+{
+    // FIXME: <https://webkit.org/b/276833> implement this
+    return nullptr;
+}
+
+const String& WebExtension::sidebarDocumentPath()
+{
+    populateSidebarPropertiesIfNeeded();
+    return m_sidebarDocumentPath;
+}
+
+const String& WebExtension::sidebarTitle()
+{
+    populateSidebarPropertiesIfNeeded();
+    return m_sidebarTitle;
+}
+
+void WebExtension::populateSidebarPropertiesIfNeeded()
+{
+    if (m_parsedManifestSidebarProperties)
+        return;
+
+    m_parsedManifestSidebarProperties = true;
+
+    RefPtr manifestObject = this->manifestObject();
+    if (!manifestObject)
+        return;
+
+    // sidePanel documentation: https://developer.chrome.com/docs/extensions/reference/manifest#side-panel
+    // see "Examples" header -> "Side Panel" tab (doesn't mention `default_path` key elsewhere)
+    // sidebarAction documentation: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/sidebar_action
+
+    if (RefPtr sidebarActionObject = manifestObject->getObject(sidebarActionManifestKey)) {
+        populateSidebarActionProperties(sidebarActionObject);
+        return;
+    }
+
+    if (RefPtr sidePanelObject = manifestObject->getObject(sidePanelManifestKey))
+        populateSidePanelProperties(sidePanelObject);
+}
+
+void WebExtension::populateSidebarActionProperties(const JSON::Object& sidebarActionObject)
+{
+    // FIXME: <https://webkit.org/b/276833> implement sidebar icon parsing
+    m_sidebarIconsCache = nullptr;
+    m_sidebarTitle = sidebarActionObject.getString(sidebarActionTitleManifestKey);
+    m_sidebarDocumentPath = sidebarActionObject.getString(sidebarActionPathManifestKey);
+}
+
+void WebExtension::populateSidePanelProperties(const JSON::Object& sidePanelObject)
+{
+    // Since sidePanel cannot set a default title or icon from the manifest, setting these to null here is intentional.
+    m_sidebarIconsCache = nullptr;
+    m_sidebarTitle = nullString();
+    m_sidebarDocumentPath = sidePanelObject.getString(sidePanelPathManifestKey);
+}
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+
+const WebExtension::PermissionsSet& WebExtension::supportedPermissions()
+{
+    static MainThreadNeverDestroyed<PermissionsSet> permissions = std::initializer_list<String> { WebExtensionPermission::activeTab(), WebExtensionPermission::alarms(), WebExtensionPermission::clipboardWrite(),
+        WebExtensionPermission::contextMenus(), WebExtensionPermission::cookies(), WebExtensionPermission::declarativeNetRequest(), WebExtensionPermission::declarativeNetRequestFeedback(),
+        WebExtensionPermission::declarativeNetRequestWithHostAccess(), WebExtensionPermission::menus(), WebExtensionPermission::nativeMessaging(), WebExtensionPermission::notifications(), WebExtensionPermission::scripting(),
+        WebExtensionPermission::storage(), WebExtensionPermission::tabs(), WebExtensionPermission::unlimitedStorage(), WebExtensionPermission::webNavigation(), WebExtensionPermission::webRequest(),
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+        WebExtensionPermission::sidePanel(),
+#endif
+    };
+    return permissions;
+}
+
+const WebExtension::PermissionsSet& WebExtension::requestedPermissions()
+{
+    populatePermissionsPropertiesIfNeeded();
+    return m_permissions;
+}
+
+const WebExtension::PermissionsSet& WebExtension::optionalPermissions()
+{
+    populatePermissionsPropertiesIfNeeded();
+    return m_optionalPermissions;
+}
+
+const WebExtension::MatchPatternSet& WebExtension::requestedPermissionMatchPatterns()
+{
+    populatePermissionsPropertiesIfNeeded();
+    return m_permissionMatchPatterns;
+}
+
+const WebExtension::MatchPatternSet& WebExtension::optionalPermissionMatchPatterns()
+{
+    populatePermissionsPropertiesIfNeeded();
+    return m_optionalPermissionMatchPatterns;
+}
+
+const WebExtension::MatchPatternSet& WebExtension::externallyConnectableMatchPatterns()
+{
+    populateExternallyConnectableIfNeeded();
+    return m_externallyConnectableMatchPatterns;
+}
+
+WebExtension::MatchPatternSet WebExtension::allRequestedMatchPatterns()
+{
+    populatePermissionsPropertiesIfNeeded();
+    populateContentScriptPropertiesIfNeeded();
+    populateExternallyConnectableIfNeeded();
+
+    WebExtension::MatchPatternSet result;
+
+    for (Ref matchPattern : m_permissionMatchPatterns)
+        result.add(matchPattern);
+
+    for (Ref matchPattern : m_externallyConnectableMatchPatterns)
+        result.add(matchPattern);
+
+    for (auto& injectedContent : m_staticInjectedContents) {
+        for (Ref matchPattern : injectedContent.includeMatchPatterns)
+            result.add(matchPattern);
+    }
+
+    return result;
+}
+
+void WebExtension::populateExternallyConnectableIfNeeded()
+{
+    if (m_parsedExternallyConnectable)
+        return;
+
+    m_parsedExternallyConnectable = true;
+
+    RefPtr manifestObject = this->manifestObject();
+    if (!manifestObject)
+        return;
+
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/externally_connectable
+
+    RefPtr externallyConnectableObject = manifestObject->getObject(externallyConnectableManifestKey);
+    if (!externallyConnectableObject)
+        return;
+
+    if (!externallyConnectableObject->size()) {
+        recordError(createError(Error::InvalidExternallyConnectable));
+        return;
+    }
+
+    bool shouldReportError = false;
+    MatchPatternSet matchPatterns;
+
+    if (RefPtr matchPatternStrings = externallyConnectableObject->getArray(externallyConnectableMatchesManifestKey)) {
+        for (auto matchPatternStringValue : *matchPatternStrings) {
+            auto matchPatternString = matchPatternStringValue->asString();
+            if (matchPatternString.isEmpty())
+                continue;
+
+            if (RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(matchPatternString)) {
+                if (matchPattern->matchesAllURLs() || !matchPattern->isSupported()) {
+                    shouldReportError = true;
+                    continue;
+                }
+
+                // URL patterns must contain at least a second-level domain. Top level domains and wildcards are not standalone patterns.
+                if (matchPattern->hostIsPublicSuffix()) {
+                    shouldReportError = true;
+                    continue;
+                }
+
+                matchPatterns.add(matchPattern.releaseNonNull());
+            }
+        }
+    }
+
+    m_externallyConnectableMatchPatterns = WTFMove(matchPatterns);
+
+    RefPtr extensionIDs = externallyConnectableObject->getArray(externallyConnectableIDsManifestKey);
+    if (extensionIDs) {
+        extensionIDs = filterObjects(*extensionIDs, [](auto& value) {
+            return !value.asString().isEmpty();
+        });
+    }
+
+    if (shouldReportError || (m_externallyConnectableMatchPatterns.isEmpty() && (!extensionIDs || (extensionIDs && !extensionIDs->length()))))
+        recordError(createError(Error::InvalidExternallyConnectable));
+}
+
+void WebExtension::populatePermissionsPropertiesIfNeeded()
+{
+    if (m_parsedManifestPermissionProperties)
+        return;
+
+    m_parsedManifestPermissionProperties = true;
+
+    RefPtr manifestObject = this->manifestObject();
+    if (!manifestObject)
+        return;
+
+    bool findMatchPatternsInPermissions = !supportsManifestVersion(3);
+
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions
+    if (RefPtr permissionsManifestArray = manifestObject->getArray(permissionsManifestKey)) {
+        for (Ref permissionObject : *permissionsManifestArray) {
+            auto permission = permissionObject->asString();
+            if (permission.isEmpty())
+                continue;
+
+            if (findMatchPatternsInPermissions) {
+                if (RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(permission)) {
+                    if (matchPattern->isSupported())
+                        m_permissionMatchPatterns.add(matchPattern.releaseNonNull());
+                    continue;
+                }
+            }
+
+            if (supportedPermissions().contains(permission))
+                m_permissions.add(permission);
+        }
+    }
+
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/host_permissions
+
+    if (!findMatchPatternsInPermissions) {
+        if (RefPtr hostPermissionsManifestArray = manifestObject->getArray(hostPermissionsManifestKey)) {
+            for (Ref permissionObject : *hostPermissionsManifestArray) {
+                auto permission = permissionObject->asString();
+                if (permission.isEmpty())
+                    continue;
+
+                if (RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(permission)) {
+                    if (matchPattern->isSupported())
+                        m_permissionMatchPatterns.add(matchPattern.releaseNonNull());
+                }
+            }
+        }
+    }
+
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/optional_permissions
+
+    if (RefPtr optionalPermissionsManifestArray = manifestObject->getArray(optionalPermissionsManifestKey)) {
+        for (Ref permissionObject : *optionalPermissionsManifestArray) {
+            auto permission = permissionObject->asString();
+            if (permission.isEmpty())
+                continue;
+
+            if (findMatchPatternsInPermissions) {
+                if (RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(permission)) {
+                    if (matchPattern->isSupported() && !m_permissionMatchPatterns.contains(*matchPattern))
+                        m_optionalPermissionMatchPatterns.add(matchPattern.releaseNonNull());
+                    continue;
+                }
+            }
+
+            if (!m_permissions.contains(permission) && supportedPermissions().contains(permission))
+                m_optionalPermissions.add(permission);
+        }
+    }
+
+    // Documentation: https://github.com/w3c/webextensions/issues/119
+
+    if (!findMatchPatternsInPermissions) {
+        if (RefPtr hostPermissionsManifestArray = manifestObject->getArray(optionalHostPermissionsManifestKey)) {
+            for (Ref permissionObject : *hostPermissionsManifestArray) {
+                auto permission = permissionObject->asString();
+                if (permission.isEmpty())
+                    continue;
+
+                if (RefPtr matchPattern = WebExtensionMatchPattern::getOrCreate(permission)) {
+                    if (matchPattern->isSupported() && !m_permissionMatchPatterns.contains(*matchPattern))
+                        m_optionalPermissionMatchPatterns.add(matchPattern.releaseNonNull());
+                }
+            }
+        }
     }
 }
 

@@ -507,14 +507,14 @@ public:
     void clearCurrentModifierStateForTesting();
 
     void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
-    void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&&, CompletionHandler<void()>&&);
+    void setDomainsWithCrossPageStorageAccess(UncheckedKeyHashMap<TopFrameDomain, Vector<SubResourceDomain>>&&, CompletionHandler<void()>&&);
     void seedResourceLoadStatisticsForTesting(const WebCore::RegistrableDomain& firstPartyDomain, const WebCore::RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&&);
     void sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&&);
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void setSandboxEnabled(bool);
     void addSandboxPath(const CString& path, SandboxPermission permission) { m_extraSandboxPaths.add(path, permission); };
-    const HashMap<CString, SandboxPermission>& sandboxPaths() const { return m_extraSandboxPaths; };
+    const UncheckedKeyHashMap<CString, SandboxPermission>& sandboxPaths() const { return m_extraSandboxPaths; };
     bool sandboxEnabled() const { return m_sandboxEnabled; };
 
     void setUserMessageHandler(Function<void(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&)>&& handler) { m_userMessageHandler = WTFMove(handler); }
@@ -522,7 +522,10 @@ public:
 
 #if USE(ATSPI)
     const String& accessibilityBusAddress() const;
+    const String& accessibilityBusName() const;
     const String& sandboxedAccessibilityBusAddress() const;
+
+    const String& generateNextAccessibilityBusName();
 #endif
 #endif
 
@@ -595,6 +598,20 @@ public:
 
     bool webProcessStateUpdatesForPageClientEnabled() const { return m_webProcessStateUpdatesForPageClientEnabled; }
     void setWebProcessStateUpdatesForPageClientEnabled(bool enabled) { m_webProcessStateUpdatesForPageClientEnabled = enabled; }
+
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    void observeScriptTelemetryUpdatesIfNeeded();
+#endif
+
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+    void memoryPressureStatusChangedForProcess(WebProcessProxy&, SystemMemoryPressureStatus);
+    void checkMemoryPressureStatus();
+
+    static Seconds defaultWebProcessSuspensionDelay();
+    Seconds webProcessSuspensionDelay() const;
+    void updateWebProcessSuspensionDelay();
+    void updateWebProcessSuspensionDelayWithPacing(WeakHashSet<WebProcessProxy>&&);
+#endif
 
 private:
     enum class NeedsGlobalStaticInitialization : bool { No, Yes };
@@ -716,7 +733,7 @@ private:
     Vector<Ref<WebProcessProxy>> m_processes;
     WeakPtr<WebProcessProxy> m_prewarmedProcess;
 
-    HashMap<PAL::SessionID, WeakPtr<WebProcessProxy>> m_dummyProcessProxies; // Lightweight WebProcessProxy objects without backing process.
+    UncheckedKeyHashMap<PAL::SessionID, WeakPtr<WebProcessProxy>> m_dummyProcessProxies; // Lightweight WebProcessProxy objects without backing process.
 
     static WeakHashSet<WebProcessProxy>& remoteWorkerProcesses();
 
@@ -766,7 +783,7 @@ private:
     bool m_memorySamplerEnabled { false };
     double m_memorySamplerInterval { 1400.0 };
 
-    using WebContextSupplementMap = HashMap<ASCIILiteral, RefPtr<WebContextSupplement>>;
+    using WebContextSupplementMap = UncheckedKeyHashMap<ASCIILiteral, RefPtr<WebContextSupplement>>;
     WebContextSupplementMap m_supplements;
 
 #if USE(SOUP)
@@ -825,7 +842,7 @@ private:
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    HashMap<String, String> m_encodedContentExtensions;
+    UncheckedKeyHashMap<String, String> m_encodedContentExtensions;
 #endif
 
 #if ENABLE(GAMEPAD)
@@ -849,7 +866,7 @@ private:
     };
     Paths m_resolvedPaths;
 
-    HashMap<PAL::SessionID, HashSet<WebPageProxyIdentifier>> m_sessionToPageIDsMap;
+    UncheckedKeyHashMap<PAL::SessionID, HashSet<WebPageProxyIdentifier>> m_sessionToPageIDsMap;
 
     ForegroundWebProcessCounter m_foregroundWebProcessCounter;
     BackgroundWebProcessCounter m_backgroundWebProcessCounter;
@@ -857,9 +874,9 @@ private:
     UniqueRef<WebBackForwardCache> m_backForwardCache;
 
     UniqueRef<WebProcessCache> m_webProcessCache;
-    HashMap<WebCore::RegistrableDomain, RefPtr<WebProcessProxy>> m_swappedProcessesPerRegistrableDomain;
+    UncheckedKeyHashMap<WebCore::RegistrableDomain, RefPtr<WebProcessProxy>> m_swappedProcessesPerRegistrableDomain;
 
-    HashMap<WebCore::RegistrableDomain, std::unique_ptr<WebCore::PrewarmInformation>> m_prewarmInformationPerRegistrableDomain;
+    UncheckedKeyHashMap<WebCore::RegistrableDomain, std::unique_ptr<WebCore::PrewarmInformation>> m_prewarmInformationPerRegistrableDomain;
 
 #if HAVE(DISPLAY_LINK)
     DisplayLinkCollection m_displayLinks;
@@ -867,12 +884,13 @@ private:
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     bool m_sandboxEnabled { false };
-    HashMap<CString, SandboxPermission> m_extraSandboxPaths;
+    UncheckedKeyHashMap<CString, SandboxPermission> m_extraSandboxPaths;
 
     Function<void(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&)> m_userMessageHandler;
 
 #if USE(ATSPI)
     mutable std::optional<String> m_accessibilityBusAddress;
+    mutable std::optional<String> m_accessibilityBusName;
     String m_sandboxedAccessibilityBusAddress;
 #endif
 #endif
@@ -900,7 +918,7 @@ private:
     static bool s_useSeparateServiceWorkerProcess;
 
     HashSet<WebCore::RegistrableDomain> m_domainsWithUserInteraction;
-    HashMap<TopFrameDomain, Vector<SubResourceDomain>> m_domainsWithCrossPageStorageAccessQuirk;
+    UncheckedKeyHashMap<TopFrameDomain, Vector<SubResourceDomain>> m_domainsWithCrossPageStorageAccessQuirk;
     
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::PowerObserver> m_powerObserver;
@@ -931,6 +949,11 @@ private:
 #endif
 
     bool m_webProcessStateUpdatesForPageClientEnabled { false };
+
+#if PLATFORM(MAC)
+    ApproximateTime m_lastCriticalMemoryPressureStatusTime;
+    RunLoop::Timer m_checkMemoryPressureStatusTimer;
+#endif
 };
 
 template<typename T>
@@ -965,6 +988,17 @@ void WebProcessPool::sendToAllRemoteWorkerProcesses(const T& message, ShouldSkip
             continue;
         process->send(T(message), 0);
     }
+}
+
+inline WebProcessPool& WebProcessProxy::processPool() const
+{
+    ASSERT(m_processPool);
+    return *m_processPool.get();
+}
+
+inline Ref<WebProcessPool> WebProcessProxy::protectedProcessPool() const
+{
+    return processPool();
 }
 
 } // namespace WebKit

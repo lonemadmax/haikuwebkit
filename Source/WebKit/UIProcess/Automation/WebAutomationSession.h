@@ -103,9 +103,6 @@ public:
 using AutomationCompletionHandler = WTF::CompletionHandler<void(std::optional<AutomationCommandError>)>;
 
 class WebAutomationSession final : public API::ObjectImpl<API::Object::Type::AutomationSession>, public IPC::MessageReceiver
-#if ENABLE(REMOTE_INSPECTOR)
-    , public Inspector::RemoteAutomationTarget
-#endif
     , public Inspector::AutomationBackendDispatcherHandler
 #if ENABLE(WEBDRIVER_ACTIONS_API)
     , public SimulatedInputDispatcher::Client
@@ -114,6 +111,26 @@ class WebAutomationSession final : public API::ObjectImpl<API::Object::Type::Aut
 public:
     WebAutomationSession();
     ~WebAutomationSession();
+
+#if ENABLE(REMOTE_INSPECTOR)
+    class Debuggable : public Inspector::RemoteAutomationTarget {
+    public:
+        static Ref<Debuggable> create(WebAutomationSession&);
+
+        void sessionDestroyed();
+
+    // Inspector::RemoteAutomationTarget API
+    String name() const;
+    void dispatchMessageFromRemote(String&& message);
+    void connect(Inspector::FrontendChannel&, bool isAutomaticConnection = false, bool immediatelyPause = false);
+    void disconnect(Inspector::FrontendChannel&);
+
+    private:
+        explicit Debuggable(WebAutomationSession&);
+
+        WeakPtr<WebAutomationSession> m_session;
+    };
+#endif // ENABLE(REMOTE_INSPECTOR)
 
     void setClient(std::unique_ptr<API::AutomationSessionClient>&&);
 
@@ -138,12 +155,16 @@ public:
     bool shouldAllowGetUserMediaForPage(const WebPageProxy&) const;
 
 #if ENABLE(REMOTE_INSPECTOR)
-    // Inspector::RemoteAutomationTarget API
     String name() const { return m_sessionIdentifier; }
     void dispatchMessageFromRemote(String&& message);
     void connect(Inspector::FrontendChannel&, bool isAutomaticConnection = false, bool immediatelyPause = false);
     void disconnect(Inspector::FrontendChannel&);
+
+    void init();
+    bool isPaired() const;
+    bool isPendingTermination() const;
 #endif
+
     void terminate();
 
 #if ENABLE(WEBDRIVER_ACTIONS_API)
@@ -248,8 +269,8 @@ private:
 
     void waitForNavigationToCompleteOnPage(WebPageProxy&, Inspector::Protocol::Automation::PageLoadStrategy, Seconds, Ref<Inspector::BackendDispatcher::CallbackBase>&&);
     void waitForNavigationToCompleteOnFrame(WebFrameProxy&, Inspector::Protocol::Automation::PageLoadStrategy, Seconds, Ref<Inspector::BackendDispatcher::CallbackBase>&&);
-    void respondToPendingPageNavigationCallbacksWithTimeout(HashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>&);
-    void respondToPendingFrameNavigationCallbacksWithTimeout(HashMap<WebCore::FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>&);
+    void respondToPendingPageNavigationCallbacksWithTimeout(UncheckedKeyHashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>&);
+    void respondToPendingFrameNavigationCallbacksWithTimeout(UncheckedKeyHashMap<WebCore::FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>&);
     void loadTimerFired();
 
     void exitFullscreenWindowForPage(WebPageProxy&, WTF::CompletionHandler<void()>&&);
@@ -303,6 +324,7 @@ private:
 
     Ref<Inspector::FrontendRouter> protectedFrontendRouter() const;
     Ref<Inspector::BackendDispatcher> protectedBackendDispatcher() const;
+    Ref<Debuggable> protectedDebuggable() const;
 
     WeakPtr<WebProcessPool> m_processPool;
 
@@ -313,32 +335,32 @@ private:
     Ref<Inspector::AutomationBackendDispatcher> m_domainDispatcher;
     std::unique_ptr<Inspector::AutomationFrontendDispatcher> m_domainNotifier;
 
-    HashMap<WebPageProxyIdentifier, String> m_webPageHandleMap;
-    HashMap<String, WebPageProxyIdentifier> m_handleWebPageMap;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, String> m_webPageHandleMap;
+    UncheckedKeyHashMap<String, WebPageProxyIdentifier> m_handleWebPageMap;
 
-    HashMap<WebCore::FrameIdentifier, String> m_webFrameHandleMap;
-    HashMap<String, WebCore::FrameIdentifier> m_handleWebFrameMap;
+    UncheckedKeyHashMap<WebCore::FrameIdentifier, String> m_webFrameHandleMap;
+    UncheckedKeyHashMap<String, WebCore::FrameIdentifier> m_handleWebFrameMap;
 
-    HashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingNormalNavigationInBrowsingContextCallbacksPerPage;
-    HashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingEagerNavigationInBrowsingContextCallbacksPerPage;
-    HashMap<WebCore::FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingNormalNavigationInBrowsingContextCallbacksPerFrame;
-    HashMap<WebCore::FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingEagerNavigationInBrowsingContextCallbacksPerFrame;
-    HashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingInspectorCallbacksPerPage;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingNormalNavigationInBrowsingContextCallbacksPerPage;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingEagerNavigationInBrowsingContextCallbacksPerPage;
+    UncheckedKeyHashMap<WebCore::FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingNormalNavigationInBrowsingContextCallbacksPerFrame;
+    UncheckedKeyHashMap<WebCore::FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingEagerNavigationInBrowsingContextCallbacksPerFrame;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>> m_pendingInspectorCallbacksPerPage;
 #if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
-    HashMap<WebPageProxyIdentifier, Function<void(std::optional<AutomationCommandError>)>> m_pendingKeyboardEventsFlushedCallbacksPerPage;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, Function<void(std::optional<AutomationCommandError>)>> m_pendingKeyboardEventsFlushedCallbacksPerPage;
 #endif
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
-    HashMap<WebPageProxyIdentifier, Function<void(std::optional<AutomationCommandError>)>> m_pendingMouseEventsFlushedCallbacksPerPage;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, Function<void(std::optional<AutomationCommandError>)>> m_pendingMouseEventsFlushedCallbacksPerPage;
 #endif
 #if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
-    HashMap<WebPageProxyIdentifier, Function<void(std::optional<AutomationCommandError>)>> m_pendingWheelEventsFlushedCallbacksPerPage;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, Function<void(std::optional<AutomationCommandError>)>> m_pendingWheelEventsFlushedCallbacksPerPage;
 #endif
 
     uint64_t m_nextEvaluateJavaScriptCallbackID { 1 };
-    HashMap<uint64_t, RefPtr<Inspector::AutomationBackendDispatcherHandler::EvaluateJavaScriptFunctionCallback>> m_evaluateJavaScriptFunctionCallbacks;
+    UncheckedKeyHashMap<uint64_t, RefPtr<Inspector::AutomationBackendDispatcherHandler::EvaluateJavaScriptFunctionCallback>> m_evaluateJavaScriptFunctionCallbacks;
 
     uint64_t m_nextScreenshotCallbackID { 1 };
-    HashMap<uint64_t, RefPtr<Inspector::AutomationBackendDispatcherHandler::TakeScreenshotCallback>> m_screenshotCallbacks;
+    UncheckedKeyHashMap<uint64_t, RefPtr<Inspector::AutomationBackendDispatcherHandler::TakeScreenshotCallback>> m_screenshotCallbacks;
 
     enum class WindowTransitionedToState {
         Fullscreen,
@@ -354,8 +376,8 @@ private:
 #if ENABLE(WEBDRIVER_ACTIONS_API)
     // SimulatedInputDispatcher APIs take a set of input sources. We also intern these
     // so that previous input source state is used as initial state for later commands.
-    HashMap<String, Ref<SimulatedInputSource>> m_inputSources;
-    HashMap<WebPageProxyIdentifier, Ref<SimulatedInputDispatcher>> m_inputDispatchersByPage;
+    UncheckedKeyHashMap<String, Ref<SimulatedInputSource>> m_inputSources;
+    UncheckedKeyHashMap<WebPageProxyIdentifier, Ref<SimulatedInputDispatcher>> m_inputDispatchersByPage;
 #endif
 #if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
     // Keep track of currently active modifiers across multiple keystrokes.
@@ -368,13 +390,14 @@ private:
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
     MonotonicTime m_lastClickTime;
     MouseButton m_lastClickButton { MouseButton::None };
-    HashMap<MouseButton, bool, WTF::IntHash<MouseButton>, WTF::StrongEnumHashTraits<MouseButton>> m_mouseButtonsCurrentlyDown;
+    UncheckedKeyHashMap<MouseButton, bool, WTF::IntHash<MouseButton>, WTF::StrongEnumHashTraits<MouseButton>> m_mouseButtonsCurrentlyDown;
     WebCore::IntPoint m_lastClickPosition;
     unsigned m_clickCount { 1 };
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
     Inspector::FrontendChannel* m_remoteChannel { nullptr };
+    Ref<Debuggable> m_debuggable;
 #endif
 
 };

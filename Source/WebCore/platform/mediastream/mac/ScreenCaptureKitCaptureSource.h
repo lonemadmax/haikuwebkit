@@ -57,7 +57,6 @@ class ScreenCaptureKitCaptureSource final
     , public ScreenCaptureSessionSourceObserver {
 public:
     static Expected<uint32_t, CaptureSourceError> computeDeviceID(const CaptureDevice&);
-    static UniqueRef<DisplayCaptureSourceCocoa::Capturer> create(CapturerObserver&, const CaptureDevice&, uint32_t deviceID);
 
     ScreenCaptureKitCaptureSource(CapturerObserver&, const CaptureDevice&, uint32_t);
     virtual ~ScreenCaptureKitCaptureSource();
@@ -76,7 +75,7 @@ public:
 private:
     // DisplayCaptureSourceCocoa::Capturer
     bool start() final;
-    void stop() final;
+    void stop() final { stopInternal([] { }); }
     void end() final;
     DisplayCaptureSourceCocoa::DisplayFrameType generateFrame() final;
     CaptureDevice::DeviceType deviceType() const final;
@@ -92,6 +91,7 @@ private:
     void sessionFilterDidChange(SCContentFilter*) final;
     void sessionStreamDidEnd(SCStream*) final;
 
+    void stopInternal(CompletionHandler<void()>&&);
     void startContentStream();
     void findShareableContent();
     RetainPtr<SCStreamConfiguration> streamConfiguration();

@@ -42,15 +42,6 @@
 
 OBJC_CLASS UIScrollView;
 
-namespace WebKit {
-class RemoteScrollingCoordinatorProxy;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteScrollingCoordinatorProxy> : std::true_type { };
-}
-
 namespace WebCore {
 class FloatPoint;
 class PlatformWheelEvent;
@@ -66,11 +57,11 @@ class RemoteScrollingTree;
 class WebPageProxy;
 class WebWheelEvent;
 
-class RemoteScrollingCoordinatorProxy : public CanMakeWeakPtr<RemoteScrollingCoordinatorProxy> {
+class RemoteScrollingCoordinatorProxy : public CanMakeWeakPtr<RemoteScrollingCoordinatorProxy>, public CanMakeCheckedPtr<RemoteScrollingCoordinatorProxy> {
     WTF_MAKE_TZONE_ALLOCATED(RemoteScrollingCoordinatorProxy);
     WTF_MAKE_NONCOPYABLE(RemoteScrollingCoordinatorProxy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteScrollingCoordinatorProxy);
 public:
-    explicit RemoteScrollingCoordinatorProxy(WebPageProxy&);
     virtual ~RemoteScrollingCoordinatorProxy();
     
     constexpr bool isRemoteScrollingCoordinatorProxyIOS() const
@@ -162,8 +153,8 @@ public:
     bool scrollingPerformanceTestingEnabled() const;
     
     void receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase);
-    void deferWheelEventTestCompletionForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
-    void removeWheelEventTestCompletionDeferralForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason);
+    void deferWheelEventTestCompletionForReason(std::optional<WebCore::ScrollingNodeID>, WebCore::WheelEventTestMonitor::DeferReason);
+    void removeWheelEventTestCompletionDeferralForReason(std::optional<WebCore::ScrollingNodeID>, WebCore::WheelEventTestMonitor::DeferReason);
 
     virtual void windowScreenWillChange() { }
     virtual void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<WebCore::FramesPerSecond>) { }
@@ -191,6 +182,8 @@ public:
     bool isMonitoringWheelEvents();
 
 protected:
+    explicit RemoteScrollingCoordinatorProxy(WebPageProxy&);
+
     RemoteScrollingTree* scrollingTree() const { return m_scrollingTree.get(); }
 
     virtual void connectStateNodeLayers(WebCore::ScrollingStateTree&, const RemoteLayerTreeHost&) = 0;

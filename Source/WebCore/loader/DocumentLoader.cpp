@@ -160,9 +160,9 @@ static void setAllDefersLoading(const ResourceLoaderMap& loaders, bool defers)
         loader->setDefersLoading(defers);
 }
 
-static HashMap<ScriptExecutionContextIdentifier, DocumentLoader*>& scriptExecutionContextIdentifierToLoaderMap()
+static UncheckedKeyHashMap<ScriptExecutionContextIdentifier, DocumentLoader*>& scriptExecutionContextIdentifierToLoaderMap()
 {
-    static NeverDestroyed<HashMap<ScriptExecutionContextIdentifier, DocumentLoader*>> map;
+    static NeverDestroyed<UncheckedKeyHashMap<ScriptExecutionContextIdentifier, DocumentLoader*>> map;
     return map.get();
 }
 
@@ -1143,7 +1143,8 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
         if (ResourceLoader* mainResourceLoader = this->mainResourceLoader())
             InspectorInstrumentation::continueWithPolicyDownload(*m_frame, *mainResourceLoader->identifier(), *this, m_response);
 
-        if (!m_frame->effectiveSandboxFlags().contains(SandboxFlag::Downloads)) {
+        bool shouldIgnoreSandboxFlags = m_frame->isMainFrame() && m_frame->document() && m_frame->protectedDocument()->quirks().shouldAllowDownloadsInSpiteOfCSP();
+        if (!m_frame->effectiveSandboxFlags().contains(SandboxFlag::Downloads) || shouldIgnoreSandboxFlags) {
             // When starting the request, we didn't know that it would result in download and not navigation. Now we know that main document URL didn't change.
             // Download may use this knowledge for purposes unrelated to cookies, notably for setting file quarantine data.
             protectedFrameLoader()->setOriginalURLForDownloadRequest(m_request);
@@ -2633,7 +2634,7 @@ void DocumentLoader::contentFilterHandleProvisionalLoadFailure(const ResourceErr
 
 #endif // ENABLE(CONTENT_FILTERING)
 
-void DocumentLoader::setActiveContentRuleListActionPatterns(const HashMap<String, Vector<String>>& patterns)
+void DocumentLoader::setActiveContentRuleListActionPatterns(const UncheckedKeyHashMap<String, Vector<String>>& patterns)
 {
     MemoryCompactRobinHoodHashMap<String, Vector<UserContentURLPattern>> parsedPatternMap;
 
@@ -2663,9 +2664,9 @@ void DocumentLoader::setHTTPSByDefaultMode(HTTPSByDefaultMode mode)
 {
     if (mode == HTTPSByDefaultMode::Disabled) {
         if (m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::HTTPSOnly))
-            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeAndFailClosed;
+            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeWithUserMediatedFallback;
         else if (m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::HTTPSFirst))
-            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeWithHTTPFallback;
+            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeWithAutomaticFallback;
     } else
         m_httpsByDefaultMode = mode;
 }

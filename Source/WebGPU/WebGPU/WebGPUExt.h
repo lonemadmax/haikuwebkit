@@ -164,11 +164,12 @@ WGPU_EXPORT void wgpuDeviceClearUncapturedErrorCallback(WGPUDevice device) WGPU_
 
 #endif  // !defined(WGPU_SKIP_DECLARATIONS)
 
-#if ENABLE(WEBGPU_SWIFT) && defined(__WEBGPU__)
+#if defined(ENABLE_WEBGPU_SWIFT) && ENABLE_WEBGPU_SWIFT && defined(__WEBGPU__)
 #include "Buffer.h"
 #include "CommandEncoder.h"
 #include "CommandsMixin.h"
 #include "Device.h"
+#include "QuerySet.h"
 #include "Queue.h"
 #endif
 

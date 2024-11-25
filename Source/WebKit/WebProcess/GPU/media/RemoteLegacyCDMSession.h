@@ -53,7 +53,7 @@ class RemoteLegacyCDMSession final
     : public WebCore::LegacyCDMSession
     , public IPC::MessageReceiver {
 public:
-    static std::unique_ptr<RemoteLegacyCDMSession> create(WeakPtr<RemoteLegacyCDMFactory>, RemoteLegacyCDMSessionIdentifier&&, WebCore::LegacyCDMSessionClient&);
+    static std::unique_ptr<RemoteLegacyCDMSession> create(RemoteLegacyCDMFactory&, RemoteLegacyCDMSessionIdentifier&&, WebCore::LegacyCDMSessionClient&);
     ~RemoteLegacyCDMSession();
 
     // MessageReceiver
@@ -62,7 +62,7 @@ public:
     const RemoteLegacyCDMSessionIdentifier& identifier() const { return m_identifier; }
 
 private:
-    RemoteLegacyCDMSession(WeakPtr<RemoteLegacyCDMFactory>, RemoteLegacyCDMSessionIdentifier&&, WebCore::LegacyCDMSessionClient&);
+    RemoteLegacyCDMSession(RemoteLegacyCDMFactory&, RemoteLegacyCDMSessionIdentifier&&, WebCore::LegacyCDMSessionClient&);
 
     // LegacyCDMSession
     WebCore::LegacyCDMSessionType type() final { return WebCore::CDMSessionTypeRemote; }
@@ -80,7 +80,7 @@ private:
     RemoteLegacyCDMSessionIdentifier m_identifier;
     WeakPtr<WebCore::LegacyCDMSessionClient> m_client;
     String m_sessionId;
-    mutable HashMap<String, RefPtr<ArrayBuffer>> m_cachedKeyCache;
+    mutable UncheckedKeyHashMap<String, RefPtr<ArrayBuffer>> m_cachedKeyCache;
 };
 
 }

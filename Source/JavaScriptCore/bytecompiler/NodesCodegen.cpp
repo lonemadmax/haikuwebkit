@@ -661,7 +661,7 @@ RegisterID* PropertyListNode::emitBytecode(BytecodeGenerator& generator, Registe
     };
 
     using GetterSetterPair = std::pair<PropertyNode*, PropertyNode*>;
-    using GetterSetterMap = HashMap<UniquedStringImpl*, GetterSetterPair, IdentifierRepHash>;
+    using GetterSetterMap = UncheckedKeyHashMap<UniquedStringImpl*, GetterSetterPair, IdentifierRepHash>;
 
     if (hasPrivateAccessors()) {
         GetterSetterMap privateAccessorMap;
@@ -2265,6 +2265,7 @@ CREATE_INTRINSIC_FOR_BRAND_CHECK(isSetIterator, IsSetIterator)
 CREATE_INTRINSIC_FOR_BRAND_CHECK(isUndefinedOrNull, IsUndefinedOrNull)
 CREATE_INTRINSIC_FOR_BRAND_CHECK(isWrapForValidIterator, IsWrapForValidIterator)
 CREATE_INTRINSIC_FOR_BRAND_CHECK(isRegExpStringIterator, IsRegExpStringIterator)
+CREATE_INTRINSIC_FOR_BRAND_CHECK(isAsyncFromSyncIterator, IsAsyncFromSyncIterator)
 
 #undef CREATE_INTRINSIC_FOR_BRAND_CHECK
 
@@ -3624,11 +3625,12 @@ RegisterID* ThrowableBinaryOpNode::emitBytecode(BytecodeGenerator& generator, Re
 
 RegisterID* InstanceOfNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    RefPtr<RegisterID> dstReg = generator.finalDestination(dst);
     RefPtr<RegisterID> value = generator.emitNodeForLeftHandSide(m_expr1, m_rightHasAssignments, m_expr2->isPure(generator));
+    RefPtr<RegisterID> dstReg = generator.finalDestination(dst, value.get());
     RefPtr<RegisterID> constructor = generator.emitNode(m_expr2);
+    RefPtr<RegisterID> hasInstanceOrPrototype = generator.newTemporary();
     generator.emitExpressionInfo(divot(), divotStart(), divotEnd());
-    return generator.emitInstanceof(dstReg.get(), value.get(), constructor.get());
+    return generator.emitInstanceof(dstReg.get(), value.get(), constructor.get(), hasInstanceOrPrototype.get());
 }
 
 // ------------------------------ InNode ----------------------------

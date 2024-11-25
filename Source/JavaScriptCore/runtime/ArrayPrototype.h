@@ -48,10 +48,8 @@ STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(ArrayPrototype, ArrayPrototype::Base);
 
 JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncToString);
 JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncValues);
-JSC_DECLARE_HOST_FUNCTION(arrayProtoPrivateFuncConcatMemcpy);
 JSC_DECLARE_HOST_FUNCTION(arrayProtoPrivateFuncAppendMemcpy);
 JSC_DECLARE_HOST_FUNCTION(arrayProtoPrivateFuncFromFastFillWithUndefined);
 JSC_DECLARE_HOST_FUNCTION(arrayProtoPrivateFuncFromFastFillWithEmpty);
-JSC_DECLARE_HOST_FUNCTION(arrayPrototPrivateFuncArraySpeciesWatchpointIsValid);
 
 } // namespace JSC

@@ -111,7 +111,6 @@
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RenderedDocumentMarker.h>
 #import <WebCore/ReportingScope.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SmartReplace.h>
@@ -122,6 +121,7 @@
 #import <WebCore/markup.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/text/TextEncoding.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -315,7 +315,7 @@ WebView *getWebView(WebFrame *webFrame)
         effectiveSandboxFlags.add(parentLocalFrame->effectiveSandboxFlags());
 
     auto coreFrame = WebCore::LocalFrame::createSubframe(page, [frame] (auto&, auto& frameLoader) {
-        return makeUniqueRef<WebFrameLoaderClient>(frameLoader, frame.get());
+        return makeUniqueRefWithoutRefCountedCheck<WebFrameLoaderClient>(frameLoader, frame.get());
     }, WebCore::FrameIdentifier::generate(), effectiveSandboxFlags, ownerElement);
     frame->_private->coreFrame = coreFrame.ptr();
 

@@ -445,9 +445,8 @@
     (global-name "com.apple.lsd.mapdb")) 
 
 ;; <rdar://problem/12413942>
-(with-filter (require-not (state-flag "BlockMobileGestaltInWebContentSandbox"))
-    (allow file-read*
-       (well-known-system-group-container-literal "/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist")))
+(allow file-read*
+   (well-known-system-group-container-literal "/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist"))
 
 (allow iokit-get-properties
        (iokit-property "IORegistryEntryPropertyKeys"))
@@ -898,11 +897,12 @@
             (extension "com.apple.webkit.extension.mach")
             (global-name "com.apple.mobileassetd.v2"))))
 
-(allow mach-lookup
-    (require-all
-        (extension "com.apple.webkit.extension.mach")
-        (system-attribute apple-internal)
-        (global-name "com.apple.webinspector")))
+(with-filter (require-not (state-flag "BlockWebInspectorInWebContentSandbox"))
+    (allow mach-lookup
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (system-attribute apple-internal)
+            (global-name "com.apple.webinspector"))))
 
 ;; Silence warnings about these connections if we have decided not to extend access to them:
 (deny mach-lookup (with no-report)

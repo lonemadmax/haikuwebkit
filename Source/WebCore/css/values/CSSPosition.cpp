@@ -37,10 +37,10 @@ bool isCenterPosition(const Position& position)
         return WTF::switchOn(component,
             [](auto)   { return false; },
             [](Center) { return true;  },
-            [](const LengthPercentage& value) {
+            [](const LengthPercentage<>& value) {
                 return WTF::switchOn(value.value,
-                    [](const LengthPercentageRaw& raw) { return raw.type == CSSUnitType::CSS_PERCENTAGE && raw.value == 50.0; },
-                    [](const UnevaluatedCalc<LengthPercentageRaw>&) { return false; }
+                    [](const LengthPercentageRaw<>& raw) { return raw.type == CSSUnitType::CSS_PERCENTAGE && raw.value == 50.0; },
+                    [](const UnevaluatedCalc<LengthPercentageRaw<>>&) { return false; }
                 );
             }
         );
@@ -56,44 +56,19 @@ bool isCenterPosition(const Position& position)
     );
 }
 
-void serializationForCSS(StringBuilder& builder, const Left&)
-{
-    builder.append(nameLiteralForSerialization(CSSValueLeft));
-}
-
-void serializationForCSS(StringBuilder& builder, const Right&)
-{
-    builder.append(nameLiteralForSerialization(CSSValueRight));
-}
-
-void serializationForCSS(StringBuilder& builder, const Top&)
-{
-    builder.append(nameLiteralForSerialization(CSSValueTop));
-}
-
-void serializationForCSS(StringBuilder& builder, const Bottom&)
-{
-    builder.append(nameLiteralForSerialization(CSSValueBottom));
-}
-
-void serializationForCSS(StringBuilder& builder, const Center&)
-{
-    builder.append(nameLiteralForSerialization(CSSValueCenter));
-}
-
-void serializationForCSS(StringBuilder& builder, const Position& position)
+void Serialize<Position>::operator()(StringBuilder& builder, const Position& position)
 {
     serializationForCSS(builder, position.value);
 }
 
-void collectComputedStyleDependencies(ComputedStyleDependencies& dependencies, const Position& position)
+void ComputedStyleDependenciesCollector<Position>::operator()(ComputedStyleDependencies& dependencies, const Position& position)
 {
     collectComputedStyleDependencies(dependencies, position.value);
 }
 
-IterationStatus visitCSSValueChildren(const Position& position, const Function<IterationStatus(CSSValue&)>& func)
+IterationStatus CSSValueChildrenVisitor<Position>::operator()(const Function<IterationStatus(CSSValue&)>& func, const Position& position)
 {
-    return visitCSSValueChildren(position.value, func);
+    return visitCSSValueChildren(func, position.value);
 }
 
 } // namespace CSS

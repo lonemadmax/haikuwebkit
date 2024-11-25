@@ -1117,7 +1117,7 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfTrack()
     ASSERT(m_isLegacyPlaybin);
 
     using TrackType = TrackPrivateBaseGStreamer::TrackType;
-    std::variant<HashMap<AtomString, Ref<AudioTrackPrivateGStreamer>>*, HashMap<AtomString, Ref<VideoTrackPrivateGStreamer>>*, HashMap<AtomString, Ref<InbandTextTrackPrivateGStreamer>>*> variantTracks = static_cast<HashMap<AtomString, Ref<TrackPrivateType>>*>(0);
+    std::variant<UncheckedKeyHashMap<AtomString, Ref<AudioTrackPrivateGStreamer>>*, UncheckedKeyHashMap<AtomString, Ref<VideoTrackPrivateGStreamer>>*, UncheckedKeyHashMap<AtomString, Ref<InbandTextTrackPrivateGStreamer>>*> variantTracks = static_cast<UncheckedKeyHashMap<AtomString, Ref<TrackPrivateType>>*>(0);
     auto type(static_cast<TrackType>(variantTracks.index()));
     const char* typeName;
     bool* hasType;
@@ -1140,7 +1140,7 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfTrack()
     default:
         ASSERT_NOT_REACHED();
     }
-    auto& tracks = *std::get<HashMap<AtomString, Ref<TrackPrivateType>>*>(variantTracks);
+    auto& tracks = *std::get<UncheckedKeyHashMap<AtomString, Ref<TrackPrivateType>>*>(variantTracks);
 
     // Ignore notifications after a EOS. We don't want the tracks to disappear when the video is finished.
     if (m_isEndReached && (type == TrackType::Audio || type == TrackType::Video))
@@ -3143,8 +3143,9 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
         return;
     }
 
-#if !RELEASE_LOG_DISABLED
-    GST_INFO_OBJECT(m_pipeline.get(), "WebCore logs identifier for this pipeline is: %" PRIx64, mediaPlayerLogIdentifier());
+#if !RELEASE_LOG_DISABLED && !defined(GST_DISABLE_GST_DEBUG)
+    auto identifier = makeString(mediaPlayerLogIdentifier());
+    GST_INFO_OBJECT(m_pipeline.get(), "WebCore logs identifier for this pipeline is: %s", identifier.convertToASCIIUppercase().ascii().data());
 #endif
     registerActivePipeline(m_pipeline);
 

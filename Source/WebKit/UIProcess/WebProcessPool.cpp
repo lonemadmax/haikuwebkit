@@ -102,7 +102,6 @@
 #include <WebCore/ProcessWarming.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ResourceRequest.h>
-#include <WebCore/RuntimeApplicationChecks.h>
 #include <WebCore/Site.h>
 #include <pal/SessionID.h>
 #include <wtf/CallbackAggregator.h>
@@ -160,6 +159,10 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 #include "WebExtensionMatchPattern.h"
+#endif
+
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+#include <sys/sysctl.h>
 #endif
 
 #define WEBPROCESSPOOL_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - WebProcessPool::" fmt, static_cast<void*>(this), ##__VA_ARGS__)
@@ -250,6 +253,9 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_webProcessWithAudibleMediaCounter([this](RefCounterEvent) { updateAudibleMediaAssertions(); })
     , m_audibleActivityTimer(RunLoop::main(), this, &WebProcessPool::clearAudibleActivity)
     , m_webProcessWithMediaStreamingCounter([this](RefCounterEvent) { updateMediaStreamingActivity(); })
+#if PLATFORM(MAC)
+    , m_checkMemoryPressureStatusTimer(RunLoop::main(), this, &WebProcessPool::checkMemoryPressureStatus)
+#endif
 {
     static auto s_needsGlobalStaticInitialization = NeedsGlobalStaticInitialization::Yes;
     auto needsGlobalStaticInitialization = std::exchange(s_needsGlobalStaticInitialization, NeedsGlobalStaticInitialization::No);
@@ -257,16 +263,6 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
         WTF::setProcessPrivileges(allPrivileges());
         WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
         Process::setIdentifier(WebCore::ProcessIdentifier::generate());
-#if PLATFORM(COCOA)
-        // This can be removed once Safari calls _setLinkedOnOrAfterEverything everywhere that WebKit deploys.
-#if PLATFORM(IOS_FAMILY)
-        bool isSafari = WebCore::IOSApplication::isMobileSafari();
-#elif PLATFORM(MAC)
-        bool isSafari = WebCore::MacApplication::isSafari();
-#endif
-        if (isSafari)
-            enableAllSDKAlignedBehaviors();
-#endif
     }
 
     for (auto& scheme : m_configuration->alwaysRevalidatedURLSchemes())
@@ -307,7 +303,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     updateBackForwardCacheCapacity();
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
-    if (WebCore::IOSApplication::isLutron() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SharedNetworkProcess)) {
+    if (WTF::IOSApplication::isLutron() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SharedNetworkProcess)) {
         callOnMainRunLoop([] {
             if (WebsiteDataStore::defaultDataStoreExists())
                 WebsiteDataStore::defaultDataStore()->terminateNetworkProcess();
@@ -318,7 +314,6 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
     Ref storageAccessUserAgentStringQuirkController = StorageAccessUserAgentStringQuirkController::sharedSingleton();
     Ref storageAccessPromptQuirkController = StorageAccessPromptQuirkController::sharedSingleton();
-    Ref scriptTelemetryController = ScriptTelemetryController::sharedSingleton();
 
     m_storageAccessUserAgentStringQuirksDataUpdateObserver = storageAccessUserAgentStringQuirkController->observeUpdates([weakThis = WeakPtr { *this }] {
         // FIXME: Filter by process's site when site isolation is enabled
@@ -343,16 +338,6 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     });
     storageAccessPromptQuirkController->initializeIfNeeded();
     storageAccessUserAgentStringQuirkController->initializeIfNeeded();
-
-    m_scriptTelemetryDataUpdateObserver = scriptTelemetryController->observeUpdates([weakThis = WeakPtr { *this }] {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return;
-
-        if (auto data = ScriptTelemetryController::sharedSingleton().cachedListData(); !data.isEmpty())
-            protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateScriptTelemetryFilter(WTFMove(data)));
-    });
-    scriptTelemetryController->initializeIfNeeded();
 #endif // ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
 }
 
@@ -1106,7 +1091,7 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     for (auto& page : process.pages()) {
-        if (auto& mediaCapability = page->mediaCapability()) {
+        if (RefPtr mediaCapability = page->mediaCapability()) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessCapabilities, "processDidFinishLaunching[envID=%{public}s]: updating media capability", mediaCapability->environmentIdentifier().utf8().data());
             page->updateMediaCapability();
         }
@@ -1254,7 +1239,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
 
     bool enableProcessSwapOnCrossSiteNavigation = pagePreference->processSwapOnCrossSiteNavigationEnabled();
 #if PLATFORM(IOS_FAMILY)
-    if (WebCore::IOSApplication::isFirefox() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ProcessSwapOnCrossSiteNavigation))
+    if (WTF::IOSApplication::isFirefox() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ProcessSwapOnCrossSiteNavigation))
         enableProcessSwapOnCrossSiteNavigation = false;
 #endif
 
@@ -2266,7 +2251,7 @@ void WebProcessPool::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableD
     m_domainsWithUserInteraction = WTFMove(domains);
 }
 
-void WebProcessPool::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
+void WebProcessPool::setDomainsWithCrossPageStorageAccess(UncheckedKeyHashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {    
     Ref callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
 
@@ -2493,5 +2478,167 @@ void WebProcessPool::setPagesControlledByAutomation(bool controlled)
 }
 #endif
 #endif
+
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+
+void WebProcessPool::observeScriptTelemetryUpdatesIfNeeded()
+{
+    if (m_scriptTelemetryDataUpdateObserver)
+        return;
+
+    Ref controller = ScriptTelemetryController::sharedSingleton();
+    m_scriptTelemetryDataUpdateObserver = controller->observeUpdates([weakThis = WeakPtr { *this }] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        if (auto data = ScriptTelemetryController::sharedSingleton().cachedListData(); !data.isEmpty())
+            protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateScriptTelemetryFilter(WTFMove(data)));
+    });
+    controller->initializeIfNeeded();
+}
+
+#endif // ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+
+static bool isSystemUnderCriticalMemoryPressure()
+{
+    static ApproximateTime lastCheckTime;
+    static constexpr Seconds checkInterval { 1_s };
+    static bool isSystemUnderCriticalMemoryPressure;
+
+    auto now = ApproximateTime::now();
+    if (lastCheckTime + checkInterval < now) {
+        lastCheckTime = now;
+
+        int level;
+        size_t length = sizeof(level);
+        sysctlbyname("kern.memorystatus_vm_pressure_level", &level, &length, nullptr, 0);
+
+        isSystemUnderCriticalMemoryPressure = (level == DISPATCH_MEMORYPRESSURE_CRITICAL);
+    }
+
+    return isSystemUnderCriticalMemoryPressure;
+}
+
+static Seconds criticalMemoryPressureCheckInterval()
+{
+    static Seconds interval = []() {
+        auto value = CFPreferencesGetAppIntegerValue(CFSTR("DebugWebProcessCriticalMemoryPressureCheckInterval"), kCFPreferencesCurrentApplication, nullptr);
+        return value > 0 ? Seconds(value) : 30_min;
+    }();
+    return interval;
+}
+
+void WebProcessPool::checkMemoryPressureStatus()
+{
+    auto now = ApproximateTime::now();
+
+    // Typically a WebContent process receiving a critical memory pressure notification would update
+    // this, but double check in case no WebContent processes have run recently.
+    if (isSystemUnderCriticalMemoryPressure())
+        m_lastCriticalMemoryPressureStatusTime = now;
+
+    auto intervalSinceLastCriticalMemoryPressureEvent = now - m_lastCriticalMemoryPressureStatusTime;
+
+    if (intervalSinceLastCriticalMemoryPressureEvent >= criticalMemoryPressureCheckInterval()) {
+        WEBPROCESSPOOL_RELEASE_LOG(MemoryPressure, "checkMemoryPressureStatus: System memory pressure has been non-critical for a long period of time. WebContent processes will suspend normally.");
+        updateWebProcessSuspensionDelay();
+        return;
+    }
+
+    m_checkMemoryPressureStatusTimer.startOneShot(criticalMemoryPressureCheckInterval() - intervalSinceLastCriticalMemoryPressureEvent);
+}
+
+Seconds WebProcessPool::defaultWebProcessSuspensionDelay()
+{
+    static Seconds delay = []() {
+        auto value = CFPreferencesGetAppIntegerValue(CFSTR("DebugWebProcessSuspensionDelay"), kCFPreferencesCurrentApplication, nullptr);
+        return value > 0 ? Seconds(value) : 8_min;
+    }();
+    return delay;
+}
+
+Seconds WebProcessPool::webProcessSuspensionDelay() const
+{
+    static Seconds fastSuspensionDelay = []() {
+        auto value = CFPreferencesGetAppIntegerValue(CFSTR("DebugWebProcessFastSuspensionDelay"), kCFPreferencesCurrentApplication, nullptr);
+        return value > 0 ? Seconds(value) : 10_s;
+    }();
+
+    if (!m_configuration->suspendsWebProcessesAggressivelyOnCriticalMemoryPressure())
+        return defaultWebProcessSuspensionDelay();
+
+    // The system has been under critical memory pressure recently, so suspend processes faster than normal.
+    if (ApproximateTime::now() < m_lastCriticalMemoryPressureStatusTime + criticalMemoryPressureCheckInterval())
+        return fastSuspensionDelay;
+
+    return defaultWebProcessSuspensionDelay();
+}
+
+void WebProcessPool::memoryPressureStatusChangedForProcess(WebProcessProxy& process, SystemMemoryPressureStatus status)
+{
+    if (!m_configuration->suspendsWebProcessesAggressivelyOnCriticalMemoryPressure())
+        return;
+
+    if (status != SystemMemoryPressureStatus::Critical)
+        return;
+
+    // Make sure this isn't a stale critical memory pressure event from a process that suspended
+    // a long time ago and just resumed.
+    if (!isSystemUnderCriticalMemoryPressure())
+        return;
+
+    m_lastCriticalMemoryPressureStatusTime = ApproximateTime::now();
+
+    // Immediately tell this process to update its suspension delay, which might cause it to suspend
+    // and help relieve the pressure.
+    process.updateWebProcessSuspensionDelay();
+
+    if (m_checkMemoryPressureStatusTimer.isActive())
+        return;
+    m_checkMemoryPressureStatusTimer.startOneShot(criticalMemoryPressureCheckInterval());
+
+    WEBPROCESSPOOL_RELEASE_LOG(MemoryPressure, "memoryPressureStatusChangedForProcess: Detected critical system memory pressure. WebContent processes will suspend aggressively.");
+    updateWebProcessSuspensionDelay();
+}
+
+void WebProcessPool::updateWebProcessSuspensionDelay()
+{
+    WeakHashSet<WebProcessProxy> remainingProcesses;
+    for (Ref process : processes()) {
+        if (process->throttler().isSuspended()) {
+            process->updateWebProcessSuspensionDelay();
+            continue;
+        }
+
+        // This process is currently running, so updating its suspension delay might cause it to
+        // suspend. We pace these state changes to reduce the likelihood of CPU or swap storms.
+        remainingProcesses.add(process);
+    }
+
+    updateWebProcessSuspensionDelayWithPacing(WTFMove(remainingProcesses));
+}
+
+void WebProcessPool::updateWebProcessSuspensionDelayWithPacing(WeakHashSet<WebProcessProxy>&& processes)
+{
+    RefPtr process = processes.takeAny();
+    if (!process)
+        return;
+
+    process->updateWebProcessSuspensionDelay();
+
+    // Updating the activity timeout of a running process can cause it to suspend, which then
+    // triggers other operations (like full GC and cache clearing) that can be expensive. We pace
+    // these state changes to reduce the likelihood of CPU or swap storms.
+    static constexpr Seconds intervalBetweenUpdates { 500_ms };
+    WorkQueue::protectedMain()->dispatchAfter(intervalBetweenUpdates, [weakThis = WeakPtr { *this }, processes = WTFMove(processes)]() mutable {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->updateWebProcessSuspensionDelayWithPacing(WTFMove(processes));
+    });
+}
+
+#endif // ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
 
 } // namespace WebKit

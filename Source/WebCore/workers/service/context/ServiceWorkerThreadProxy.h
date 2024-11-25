@@ -93,7 +93,7 @@ public:
     void fireBackgroundFetchEvent(BackgroundFetchInformation&&, CompletionHandler<void(bool)>&&);
     void fireBackgroundFetchClickEvent(BackgroundFetchInformation&&, CompletionHandler<void(bool)>&&);
 
-    WEBCORE_EXPORT void didSaveScriptsToDisk(ScriptBuffer&&, HashMap<URL, ScriptBuffer>&& importedScripts);
+    WEBCORE_EXPORT void didSaveScriptsToDisk(ScriptBuffer&&, UncheckedKeyHashMap<URL, ScriptBuffer>&& importedScripts);
 
     WEBCORE_EXPORT void setLastNavigationWasAppInitiated(bool);
     WEBCORE_EXPORT bool lastNavigationWasAppInitiated();
@@ -127,7 +127,7 @@ private:
     Ref<Page> m_page;
     Ref<Document> m_document;
 #if ENABLE(REMOTE_INSPECTOR)
-    std::unique_ptr<ServiceWorkerDebuggable> m_remoteDebuggable;
+    Ref<ServiceWorkerDebuggable> m_remoteDebuggable;
 #endif
     Ref<ServiceWorkerThread> m_serviceWorkerThread;
     CacheStorageProvider& m_cacheStorageProvider;
@@ -136,8 +136,8 @@ private:
 
     ServiceWorkerInspectorProxy m_inspectorProxy;
     uint64_t m_functionalEventTasksCounter { 0 };
-    HashMap<uint64_t, CompletionHandler<void(bool)>> m_ongoingFunctionalEventTasks;
-    HashMap<uint64_t, CompletionHandler<void(bool, std::optional<NotificationPayload>&&)>> m_ongoingNotificationPayloadFunctionalEventTasks;
+    UncheckedKeyHashMap<uint64_t, CompletionHandler<void(bool)>> m_ongoingFunctionalEventTasks;
+    UncheckedKeyHashMap<uint64_t, CompletionHandler<void(bool, std::optional<NotificationPayload>&&)>> m_ongoingNotificationPayloadFunctionalEventTasks;
 };
 
 } // namespace WebKit

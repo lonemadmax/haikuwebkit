@@ -340,11 +340,11 @@ static FontSelectionRequest computeFontSelectionRequest(CSSPropertyParserHelpers
                 return normalWeightValue();
             }
         },
-        [&](const CSS::Number& weight) {
+        [&](const CSSPropertyParserHelpers::UnresolvedFontWeightNumber& weight) {
             // FIXME: Figure out correct behavior when conversion data is required.
             if (requiresConversionData(weight))
                 return normalWeightValue();
-            return FontSelectionValue(clampTo<float>(CSS::toStyleNoConversionDataRequired(weight, CSSCalcSymbolTable { }).value, 1, 1000));
+            return FontSelectionValue::clampFloat(Style::toStyleNoConversionDataRequired(weight).value);
         }
     );
 
@@ -352,11 +352,11 @@ static FontSelectionRequest computeFontSelectionRequest(CSSPropertyParserHelpers
         [&](CSSValueID ident) -> FontSelectionValue {
             return *fontStretchValue(ident);
         },
-        [&](const CSS::Percentage& percent) -> FontSelectionValue  {
+        [&](const CSSPropertyParserHelpers::UnresolvedFontStretchPercentage& percent) -> FontSelectionValue  {
             // FIXME: Figure out correct behavior when conversion data is required.
             if (requiresConversionData(percent))
                 return normalStretchValue();
-            return FontSelectionValue::clampFloat(CSS::toStyleNoConversionDataRequired(percent, CSSCalcSymbolTable { }).value);
+            return FontSelectionValue::clampFloat(Style::toStyleNoConversionDataRequired(percent).value);
         }
     );
 
@@ -374,11 +374,11 @@ static FontSelectionRequest computeFontSelectionRequest(CSSPropertyParserHelpers
                 return std::nullopt;
             }
         },
-        [&](const CSS::Angle& angle) -> std::optional<FontSelectionValue> {
+        [&](const CSSPropertyParserHelpers::UnresolvedFontStyleObliqueAngle& angle) -> std::optional<FontSelectionValue> {
             // FIXME: Figure out correct behavior when conversion data is required.
             if (requiresConversionData(angle))
                 return std::nullopt;
-            return normalizedFontItalicValue(CSS::toStyleNoConversionDataRequired(angle, CSSCalcSymbolTable { }).value);
+            return FontSelectionValue::clampFloat(Style::toStyleNoConversionDataRequired(angle).value);
         }
     );
 

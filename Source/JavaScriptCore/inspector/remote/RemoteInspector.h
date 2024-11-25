@@ -249,7 +249,7 @@ private:
     void receivedPingSuccessMessage() WTF_REQUIRES_LOCK(m_mutex);
 #endif
 #if USE(INSPECTOR_SOCKET_SERVER)
-    HashMap<String, CallHandler>& dispatchMap() final;
+    UncheckedKeyHashMap<String, CallHandler>& dispatchMap() final;
     void didClose(RemoteInspectorSocketEndpoint&, ConnectionID) final;
 
     void sendWebInspectorEvent(const String&);
@@ -278,9 +278,9 @@ private:
     // from any thread.
     Lock m_mutex;
 
-    HashMap<TargetID, RemoteControllableTarget*> m_targetMap;
-    HashMap<TargetID, RefPtr<RemoteConnectionToTarget>> m_targetConnectionMap;
-    HashMap<TargetID, TargetListing> m_targetListingMap;
+    UncheckedKeyHashMap<TargetID, RemoteControllableTarget*> m_targetMap;
+    UncheckedKeyHashMap<TargetID, RefPtr<RemoteConnectionToTarget>> m_targetConnectionMap;
+    UncheckedKeyHashMap<TargetID, TargetListing> m_targetListingMap;
 
 #if PLATFORM(COCOA)
     RefPtr<RemoteInspectorXPCConnection> m_relayConnection;

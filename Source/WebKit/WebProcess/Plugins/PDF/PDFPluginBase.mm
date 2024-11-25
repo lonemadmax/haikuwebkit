@@ -32,6 +32,7 @@
 #import "MessageSenderInlines.h"
 #import "PDFIncrementalLoader.h"
 #import "PDFKitSPI.h"
+#import "PDFScriptEvaluation.h"
 #import "PluginView.h"
 #import "WKAccessibilityPDFDocumentObject.h"
 #import "WebEventConversion.h"
@@ -74,6 +75,8 @@
 #import <wtf/text/TextStream.h>
 
 #import "PDFKitSoftLink.h"
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebKit {
 using namespace WebCore;
@@ -155,6 +158,9 @@ void PDFPluginBase::teardown()
         existingCompletionHandler({ }, WTFMove(frameInfo), { }, { });
     }
 #endif // ENABLE(PDF_HUD)
+
+    if (isLocked())
+        teardownPasswordEntryForm();
 }
 
 Page* PDFPluginBase::page() const
@@ -572,7 +578,9 @@ void PDFPluginBase::tryRunScriptsInPDFDocument()
     if (!m_pdfDocument || !m_documentFinishedLoading || m_didRunScripts)
         return;
 
-    PDFScriptEvaluator::runScripts([m_pdfDocument documentRef], *this);
+    PDFScriptEvaluation::runScripts([m_pdfDocument documentRef], [this, protectedThis = Ref { *this }] {
+        print();
+    });
     m_didRunScripts = true;
 }
 
@@ -1242,5 +1250,7 @@ std::optional<FrameIdentifier> PDFPluginBase::rootFrameID() const
 }
 
 } // namespace WebKit
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(PDF_PLUGIN)

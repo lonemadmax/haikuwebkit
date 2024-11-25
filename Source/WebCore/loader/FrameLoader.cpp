@@ -165,7 +165,7 @@
 #if PLATFORM(IOS_FAMILY)
 #include "DocumentType.h"
 #include "ResourceLoader.h"
-#include "RuntimeApplicationChecks.h"
+#include <wtf/RuntimeApplicationChecks.h>
 #endif
 
 #define PAGE_ID (pageID() ? pageID()->toUInt64() : 0)
@@ -1270,7 +1270,14 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
         // we have already saved away the scroll and doc state for the long slow load,
         // but it's not an obvious case.
 
+        std::optional<WTF::UUID> uuid;
+        if (historyHandling == NavigationHistoryBehavior::Replace) {
+            if (RefPtr currentItem = m_frame->checkedHistory()->currentItem())
+                uuid = currentItem->uuidIdentifier();
+        }
         m_frame->checkedHistory()->updateBackForwardListForFragmentScroll();
+        if (uuid)
+            m_frame->checkedHistory()->currentItem()->setUUIDIdentifier(*uuid);
 
         if (!document->hasRecentUserInteractionForNavigationFromJS() && !documentLoader()->triggeringAction().isRequestFromClientOrUserInput()) {
             if (RefPtr currentItem = m_frame->history().currentItem())
@@ -1918,7 +1925,7 @@ bool FrameLoader::willLoadMediaElementURL(URL& url, Node& initiatorNode)
 #if PLATFORM(IOS_FAMILY)
     // MobileStore depends on the iOS 4.0 era client delegate method because webView:resource:willSendRequest:redirectResponse:fromDataSource
     // doesn't let them tell when a load request is coming from a media element. See <rdar://problem/8266916> for more details.
-    if (IOSApplication::isMobileStore())
+    if (WTF::IOSApplication::isMobileStore())
         return m_client->shouldLoadMediaElementURL(url);
 #endif
 
@@ -2395,8 +2402,10 @@ void FrameLoader::commitProvisionalLoad()
     if (RefPtr document = frame->document())
         document->checkedEditor()->confirmOrCancelCompositionAndNotifyClient();
 
+IGNORE_GCC_WARNINGS_BEGIN("format-overflow")
     LOG(Loading, "WebCoreLoading frame %" PRIu64 ": Finished committing provisional load to URL %s", frame->frameID().object().toUInt64(),
         frame->document() ? frame->document()->url().stringCenterEllipsizedToLength().utf8().data() : "");
+IGNORE_GCC_WARNINGS_END
 
     if (m_loadType == FrameLoadType::Standard && m_documentLoader && m_documentLoader->isClientRedirect())
         frame->checkedHistory()->updateForClientRedirect();
@@ -2821,8 +2830,8 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
             isHTTPSByDefaultEnabled = page->protectedSettings()->httpsByDefault();
         }
 
-        bool isHTTPSFirstApplicable = (isHTTPSByDefaultEnabled || provisionalDocumentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeWithHTTPFallback)
-            && provisionalDocumentLoader->httpsByDefaultMode() != HTTPSByDefaultMode::UpgradeAndFailClosed
+        bool isHTTPSFirstApplicable = (isHTTPSByDefaultEnabled || provisionalDocumentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeWithAutomaticFallback)
+            && provisionalDocumentLoader->httpsByDefaultMode() != HTTPSByDefaultMode::UpgradeWithUserMediatedFallback
             && !isHTTPFallbackInProgress()
             && provisionalDocumentLoader->request().wasSchemeOptimisticallyUpgraded();
 
@@ -3938,7 +3947,6 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
     ASSERT(m_policyDocumentLoader || !m_provisionalDocumentLoader->unreachableURL().isEmpty());
 
     Ref frame = m_frame.get();
-    bool isTargetItem = frame->checkedHistory()->provisionalItem() ? frame->checkedHistory()->provisionalItem()->isTargetItem() : false;
 
     bool urlIsDisallowed = allowNavigationToInvalidURL == AllowNavigationToInvalidURL::No && !request.url().isValid();
     bool canContinue = navigationPolicyDecision == NavigationPolicyDecision::ContinueLoad && shouldClose() && !urlIsDisallowed;
@@ -3976,14 +3984,9 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
         if (navigationPolicyDecision != NavigationPolicyDecision::LoadWillContinueInAnotherProcess)
             checkLoadComplete();
 
-        // If the navigation request came from the back/forward menu, and we punt on it, we have the 
-        // problem that we have optimistically moved the b/f cursor already, so move it back. For sanity,
-        // we only do this when punting a navigation for the target frame or top-level frame.  
-        if ((isTargetItem || frame->isMainFrame()) && isBackForwardLoadType(policyChecker().loadType())) {
-            if (RefPtr page = frame->page()) {
-                if (RefPtr resetItem = frame->mainFrame().history().currentItem())
-                    page->checkedBackForward()->setCurrentItem(*resetItem);
-            }
+        if (RefPtr provisionalItem = frame->checkedHistory()->provisionalItem(); provisionalItem && isBackForwardLoadType(policyChecker().loadType())) {
+            if (RefPtr page = frame->page())
+                page->checkedBackForward()->clearProvisionalItem(*provisionalItem);
         }
         return;
     }
@@ -4649,16 +4652,14 @@ bool LocalFrameLoaderClient::hasHTMLView() const
     return true;
 }
 
-RefPtr<Frame> createWindow(LocalFrame& openerFrame, FrameLoadRequest&& request, WindowFeatures& features, bool& created)
+std::pair<RefPtr<Frame>, CreatedNewPage> createWindow(LocalFrame& openerFrame, FrameLoadRequest&& request, WindowFeatures&& features)
 {
     ASSERT(!features.dialog || request.frameName().isEmpty());
     ASSERT(request.resourceRequest().httpMethod() == "GET"_s);
 
-    created = false;
-
     // FIXME: Provide line number information with respect to the opener's document.
     if (request.resourceRequest().url().protocolIsJavaScript() && !openerFrame.protectedDocument()->checkedContentSecurityPolicy()->allowJavaScriptURLs(openerFrame.document()->url().string(), { }, request.resourceRequest().url().string(), nullptr))
-        return nullptr;
+        return { nullptr, CreatedNewPage::No };
 
     if (!request.frameName().isEmpty() && !isBlankTargetFrameName(request.frameName())) {
         if (RefPtr frame = openerFrame.loader().findFrameForNavigation(request.frameName(), openerFrame.protectedDocument().get())) {
@@ -4667,123 +4668,45 @@ RefPtr<Frame> createWindow(LocalFrame& openerFrame, FrameLoadRequest&& request, 
                     page->chrome().focus();
             }
             frame->updateOpener(openerFrame);
-            return frame;
+            return { frame, CreatedNewPage::No };
         }
-    }
-
-    // https://html.spec.whatwg.org/#the-rules-for-choosing-a-browsing-context-given-a-browsing-context-name (Step 8.2)
-    if (openerFrame.document()->shouldForceNoOpenerBasedOnCOOP()) {
-        request.setFrameName(blankTargetFrameName());
-        features.noopener = true;
-    }
-
-    if (openerFrame.document()->settingsValues().blobRegistryTopOriginPartitioningEnabled && request.resourceRequest().url().protocolIsBlob() && !openerFrame.document()->protectedSecurityOrigin()->isSameOriginAs(openerFrame.document()->protectedTopOrigin())) {
-        request.setFrameName(blankTargetFrameName());
-        features.noopener = true;
     }
 
     // Sandboxed frames cannot open new auxiliary browsing contexts.
     if (isDocumentSandboxed(openerFrame, SandboxFlag::Popups)) {
         // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
         openerFrame.protectedDocument()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Blocked opening '"_s, request.resourceRequest().url().stringCenterEllipsizedToLength(), "' in a new window because the request was made in a sandboxed frame whose 'allow-popups' permission is not set."_s));
-        return nullptr;
+        return { nullptr, CreatedNewPage::No };
     }
 
     // FIXME: Setting the referrer should be the caller's responsibility.
-    String referrer = SecurityPolicy::generateReferrerHeader(openerFrame.document()->referrerPolicy(), request.resourceRequest().url(), openerFrame.loader().outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
+    String referrer = features.wantsNoReferrer() ? String() :  SecurityPolicy::generateReferrerHeader(openerFrame.document()->referrerPolicy(), request.resourceRequest().url(), openerFrame.loader().outgoingReferrerURL(), OriginAccessPatternsForWebProcess::singleton());
     if (!referrer.isEmpty())
         request.resourceRequest().setHTTPReferrer(referrer);
     FrameLoader::addSameSiteInfoToRequestIfNeeded(request.resourceRequest(), openerFrame.protectedDocument().get());
 
     RefPtr oldPage = openerFrame.page();
     if (!oldPage)
-        return nullptr;
+        return { nullptr, CreatedNewPage::No };
 
+#if PLATFORM(GTK)
+    features.oldWindowRect = oldPage->chrome().windowRect();
+#endif
+
+    String openedMainFrameName = isBlankTargetFrameName(request.frameName()) ? String() : request.frameName();
     ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy = shouldOpenExternalURLsPolicyToApply(openerFrame, request);
     NavigationAction action { request.requester(), request.resourceRequest(), request.initiatedByMainFrame(), request.isRequestFromClientOrUserInput(), NavigationType::Other, shouldOpenExternalURLsPolicy };
     action.setNewFrameOpenerPolicy(features.wantsNoOpener() ? NewFrameOpenerPolicy::Suppress : NewFrameOpenerPolicy::Allow);
-    RefPtr page = oldPage->chrome().createWindow(openerFrame, features, action);
+    RefPtr page = oldPage->chrome().createWindow(openerFrame, openedMainFrameName, features, action);
     if (!page)
-        return nullptr;
+        return { nullptr, CreatedNewPage::No };
 
     Ref frame = page->mainFrame();
 
-    if (!isBlankTargetFrameName(request.frameName()))
-        frame->tree().setSpecifiedName(request.frameName());
-
-    page->chrome().setToolbarsVisible(features.toolBarVisible || features.locationBarVisible);
-
     if (!frame->page())
-        return nullptr;
-    if (features.statusBarVisible)
-        page->chrome().setStatusbarVisible(*features.statusBarVisible);
+        return { nullptr, CreatedNewPage::No };
 
-    if (!frame->page())
-        return nullptr;
-    if (features.scrollbarsVisible)
-        page->chrome().setScrollbarsVisible(*features.scrollbarsVisible);
-
-    if (!frame->page())
-        return nullptr;
-    if (features.menuBarVisible)
-        page->chrome().setMenubarVisible(*features.menuBarVisible);
-
-    if (!frame->page())
-        return nullptr;
-    if (features.resizable)
-        page->chrome().setResizable(*features.resizable);
-
-    // 'x' and 'y' specify the location of the window, while 'width' and 'height'
-    // specify the size of the viewport. We can only resize the window, so adjust
-    // for the difference between the window size and the viewport size.
-
-    // FIXME: We should reconcile the initialization of viewport arguments between iOS and non-IOS.
-#if !PLATFORM(IOS_FAMILY)
-    FloatSize viewportSize = page->chrome().pageRect().size();
-    FloatRect windowRect = page->chrome().windowRect();
-    if (features.x)
-        windowRect.setX(*features.x);
-    if (features.y)
-        windowRect.setY(*features.y);
-    // Zero width and height mean using default size, not minimum one.
-    if (features.width && *features.width)
-        windowRect.setWidth(*features.width + (windowRect.width() - viewportSize.width()));
-    if (features.height && *features.height)
-        windowRect.setHeight(*features.height + (windowRect.height() - viewportSize.height()));
-
-#if PLATFORM(GTK)
-    FloatRect oldWindowRect = oldPage->chrome().windowRect();
-    // Use the size of the previous window if there is no default size.
-    if (!windowRect.width())
-        windowRect.setWidth(oldWindowRect.width());
-    if (!windowRect.height())
-        windowRect.setHeight(oldWindowRect.height());
-#endif
-
-    // Ensure non-NaN values, minimum size as well as being within valid screen area.
-    FloatRect newWindowRect = LocalDOMWindow::adjustWindowRect(*page, windowRect);
-
-    if (!frame->page())
-        return nullptr;
-    page->chrome().setWindowRect(newWindowRect);
-#else
-    // On iOS, width and height refer to the viewport dimensions.
-    ViewportArguments arguments;
-    // Zero width and height mean using default size, not minimum one.
-    if (features.width && *features.width)
-        arguments.width = *features.width;
-    if (features.height && *features.height)
-        arguments.height = *features.height;
-    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
-        localFrame->setViewportArguments(arguments);
-#endif
-
-    if (!frame->page())
-        return nullptr;
-    page->chrome().show();
-
-    created = true;
-    return frame;
+    return { WTFMove(frame), CreatedNewPage::Yes };
 }
 
 // At the moment, we do not actually create a new browsing context / frame. We merely make it so that existing windowProxy for the

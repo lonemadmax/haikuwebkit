@@ -1,4 +1,6 @@
 set(WTF_PUBLIC_HEADERS
+    AbstractRefCounted.h
+    AbstractRefCountedAndCanMakeWeakPtr.h
     ASCIICType.h
     AccessibleAddress.h
     AggregateLogger.h
@@ -113,6 +115,7 @@ set(WTF_PUBLIC_HEADERS
     HexNumber.h
     Identified.h
     Indenter.h
+    IndexedRange.h
     IndexKeyType.h
     IndexMap.h
     IndexSet.h
@@ -242,6 +245,7 @@ set(WTF_PUBLIC_HEADERS
     RefCountedLeakCounter.h
     RefCounter.h
     RefPtr.h
+    RefTrackerMixin.h
     RefVector.h
     ReferenceWrapperVector.h
     ResourceUsage.h
@@ -250,6 +254,7 @@ set(WTF_PUBLIC_HEADERS
     RobinHoodHashSet.h
     RobinHoodHashTable.h
     RunLoop.h
+    RuntimeApplicationChecks.h
     SHA1.h
     SIMDHelpers.h
     SIMDUTF.h
@@ -258,6 +263,7 @@ set(WTF_PUBLIC_HEADERS
     SchedulePair.h
     Scope.h
     ScopedLambda.h
+    ScopedPrintStream.h
     Seconds.h
     SegmentedVector.h
     SentinelLinkedList.h
@@ -305,6 +311,7 @@ set(WTF_PUBLIC_HEADERS
     TZoneMalloc.h
     TZoneMallocInlines.h
     TaggedArrayStoragePtr.h
+    TaggedPtr.h
     ThreadAssertions.h
     ThreadGroup.h
     ThreadMessage.h
@@ -538,7 +545,9 @@ set(WTF_SOURCES
     ReadWriteLock.cpp
     RefCounted.cpp
     RefCountedLeakCounter.cpp
+    RefTrackerMixin.cpp
     RunLoop.cpp
+    RuntimeApplicationChecks.cpp
     SHA1.cpp
     SIMDUTF.cpp
     SafeStrerror.cpp

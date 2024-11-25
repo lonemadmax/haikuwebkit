@@ -81,7 +81,7 @@ public:
     void insertDebugMarker(String&& markerLabel);
     void popDebugGroup();
     void pushDebugGroup(String&& groupLabel);
-    void setBindGroup(uint32_t groupIndex, const BindGroup&, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets);
+    void setBindGroup(uint32_t groupIndex, const BindGroup&, std::span<const uint32_t>);
     void setBlendConstant(const WGPUColor&);
     void setIndexBuffer(Buffer&, WGPUIndexFormat, uint64_t offset, uint64_t size);
     void setPipeline(const RenderPipeline&);
@@ -114,7 +114,9 @@ private:
     RenderPassEncoder(CommandEncoder&, Device&, NSString*);
 
     bool validatePopDebugGroup() const;
+    bool executePreDrawCommands(uint32_t firstInstance, uint32_t instanceCount, bool passWasSplit = false);
     bool executePreDrawCommands(bool passWasSplit = false, const Buffer* = nullptr);
+    bool executePreDrawCommands(uint32_t firstInstance, uint32_t instanceCount, bool passWasSplit = false, const Buffer* = nullptr);
     bool runIndexBufferValidation(uint32_t firstInstance, uint32_t instanceCount);
     void runVertexBufferValidation(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
     void addResourceToActiveResources(const TextureView&, OptionSet<BindGroupEntryUsage>);
@@ -158,10 +160,10 @@ private:
     Vector<uint32_t> m_vertexDynamicOffsets;
     Vector<uint32_t> m_fragmentDynamicOffsets;
     Ref<CommandEncoder> m_parentEncoder;
-    HashMap<uint32_t, Vector<uint32_t>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroupDynamicOffsets;
+    UncheckedKeyHashMap<uint32_t, Vector<uint32_t>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroupDynamicOffsets;
     using EntryUsage = OptionSet<BindGroupEntryUsage>;
-    using EntryMap = HashMap<uint64_t, EntryUsage, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
-    HashMap<const void*, EntryMap> m_usagesForResource;
+    using EntryMap = UncheckedKeyHashMap<uint64_t, EntryUsage, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
+    UncheckedKeyHashMap<const void*, EntryMap> m_usagesForResource;
     float m_minDepth { 0.f };
     float m_maxDepth { 1.f };
     HashSet<uint64_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_queryBufferIndicesToClear;
@@ -183,8 +185,8 @@ private:
         uint64_t offset { 0 };
         uint64_t size { 0 };
     };
-    HashMap<uint32_t, BufferAndOffset, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_vertexBuffers;
-    HashMap<uint32_t, RefPtr<const BindGroup>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroups;
+    UncheckedKeyHashMap<uint32_t, BufferAndOffset, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_vertexBuffers;
+    UncheckedKeyHashMap<uint32_t, RefPtr<const BindGroup>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroups;
     NSString* m_lastErrorString { nil };
 #if CPU(X86_64)
     MTLRenderPassDescriptor* m_metalDescriptor { nil };

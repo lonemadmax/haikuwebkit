@@ -4303,6 +4303,17 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
             rc = self.runStep()
         return rc
 
+    def test_relevant_safer_cpp_pull_request(self):
+        file_names = ['Tools/CISupport/Shared/download-and-install-build-tools', 'Tools/Scripts/build-and-analyze', 'Source/WebKit']
+        self.setupStep(CheckChangeRelevance())
+        self.setProperty('buildername', 'Safer-CPP-Checks-EWS')
+        self.setProperty('github.number', 1234)
+        for file_name in file_names:
+            CheckChangeRelevance._get_patch = lambda x: file_name
+            self.expectOutcome(result=SUCCESS, state_string='Pull request contains relevant changes')
+            rc = self.runStep()
+        return rc
+
     def test_relevant_bindings_tests_patch(self):
         file_names = ['Source/WebCore', 'Tools']
         self.setupStep(CheckChangeRelevance())
@@ -4340,7 +4351,7 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
     def test_non_relevant_patch_on_various_queues(self):
         CheckChangeRelevance._get_patch = lambda x: 'Sample patch'
         queues = ['Bindings-Tests-EWS', 'JSC-Tests-EWS', 'macOS-Monterey-Release-Build-EWS',
-                  'macOS-Catalina-Debug-WK1-Tests-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
+                  'macOS-Catalina-Debug-WK1-Tests-EWS', 'macOS-Safer-CPP-Checks-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
         for queue in queues:
             self.setupStep(CheckChangeRelevance())
             self.setProperty('buildername', queue)
@@ -4351,7 +4362,7 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
     def test_non_relevant_pull_request_on_various_queues(self):
         CheckChangeRelevance._get_patch = lambda x: '\n'
         queues = ['Bindings-Tests-EWS', 'JSC-Tests-EWS', 'macOS-Monterey-Release-Build-EWS',
-                  'macOS-Catalina-Debug-WK1-Tests-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
+                  'macOS-Catalina-Debug-WK1-Tests-EWS', 'macOS-Safer-CPP-Checks-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
         for queue in queues:
             self.setupStep(CheckChangeRelevance())
             self.setProperty('buildername', queue)
@@ -4446,7 +4457,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: b'+++ LayoutTests/http/tests/events/device-orientation-motion-insecure-context.html'
         self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), ['LayoutTests/http/tests/events/device-orientation-motion-insecure-context.html'])
@@ -4459,7 +4470,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: b'+++ LayoutTests/svg/filters/feConvolveMatrix-clipped.svg'
         self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), ['LayoutTests/svg/filters/feConvolveMatrix-clipped.svg'])
@@ -4472,7 +4483,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: b'+++ LayoutTests/fast/table/037.xml'
         self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), ['LayoutTests/fast/table/037.xml'])
@@ -4484,7 +4495,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/reference/test-name.html'.encode('utf-8')
         self.expectOutcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -4496,7 +4507,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/reference/test-name.svg'.encode('utf-8')
         self.expectOutcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -4508,7 +4519,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/reference/test-name.xml'.encode('utf-8')
         self.expectOutcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -4519,7 +4530,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/http/tests/events/device-motion-expected-mismatch.html'.encode('utf-8')
         self.expectOutcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -4530,7 +4541,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: '+++ LayoutTests/html/test.txt'.encode('utf-8')
         self.expectOutcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -4541,7 +4552,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: b'Sample patch which does not modify any layout test'
         self.expectOutcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -4552,7 +4563,7 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         FindModifiedLayoutTests._get_patch = lambda x: b''
         self.expectOutcome(result=WARNINGS, state_string='Patch could not be accessed')
         self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']) + 0
+            ExpectShell(workdir='wkdir', logEnviron=False, command=['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']) + 0
         )
         rc = self.runStep()
         self.assertEqual(self.getProperty('modified_tests'), None)
@@ -5706,8 +5717,8 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_success_mac(self):
         self.setupStep(PrintConfiguration())
-        self.setProperty('buildername', 'macOS-Monterey-Release-WK2-Tests-EWS')
-        self.setProperty('platform', 'mac-monterey')
+        self.setProperty('buildername', 'macOS-Sequoia-Release-WK2-Tests-EWS')
+        self.setProperty('platform', 'mac-sequoia')
 
         self.expectRemoteCommands(
             ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0
@@ -5721,35 +5732,36 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
             + ExpectShell.log('stdio', stdout='Tue Apr  9 15:30:52 PDT 2019'),
             ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='''ProductName:	macOS
-ProductVersion:	12.0.1
-BuildVersion:	21A558'''),
+ProductVersion:	15.0
+BuildVersion:	24A335'''),
             ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='Configuration version: Software: System Software Overview: System Version: macOS 11.4 (20F71) Kernel Version: Darwin 20.5.0 Boot Volume: Macintosh HD Boot Mode: Normal Computer Name: bot1020 User Name: WebKit Build Worker (buildbot) Secure Virtual Memory: Enabled System Integrity Protection: Enabled Time since boot: 27 seconds Hardware: Hardware Overview: Model Name: Mac mini Model Identifier: Macmini8,1 Processor Name: 6-Core Intel Core i7 Processor Speed: 3.2 GHz Number of Processors: 1 Total Number of Cores: 6 L2 Cache (per Core): 256 KB L3 Cache: 12 MB Hyper-Threading Technology: Enabled Memory: 32 GB System Firmware Version: 1554.120.19.0.0 (iBridge: 18.16.14663.0.0,0) Serial Number (system): C07DXXXXXXXX Hardware UUID: F724DE6E-706A-5A54-8D16-000000000000 Provisioning UDID: E724DE6E-006A-5A54-8D16-000000000000 Activation Lock Status: Disabled Xcode 12.5 Build version 12E262'),
             ExpectShell(command=['/bin/sh', '-c', 'echo TimezoneVers: $(cat /usr/share/zoneinfo/+VERSION)'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
             ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
-            + ExpectShell.log('stdio', stdout='''MacOSX12.0.sdk - macOS 12.0 (macosx12.0)
-SDKVersion: 12.0
-Path: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk
-PlatformVersion: 12.0
+            + ExpectShell.log('stdio', stdout='''MacOSX15.sdk - macOS 15.0 (macosx15.0)
+SDKVersion: 15.0
+Path: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.sdk
+PlatformVersion: 15.0
 PlatformPath: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform
-ProductBuildVersion: 21A344
-ProductCopyright: 1983-2021 Apple Inc.
+BuildID: E7931D9A-726E-11EF-B57C-DCEFEEF80074
+ProductBuildVersion: 24A336
+ProductCopyright: 1983-2024 Apple Inc.
 ProductName: macOS
-ProductUserVisibleVersion: 12.0
-ProductVersion: 12.0
-iOSSupportVersion: 15.0
+ProductUserVisibleVersion: 15.0
+ProductVersion: 15.0
+iOSSupportVersion: 18.0
 
-Xcode 13.1
-Build version 13A1030d''')
+Xcode 16.0
+Build version 16A242d''')
             + 0,
         )
-        self.expectOutcome(result=SUCCESS, state_string='OS: Monterey (12.0.1), Xcode: 13.1')
+        self.expectOutcome(result=SUCCESS, state_string='OS: Sequoia (15.0), Xcode: 16.0')
         return self.runStep()
 
     def test_success_ios_simulator(self):
         self.setupStep(PrintConfiguration())
-        self.setProperty('buildername', 'Apple-iOS-15-Simulator-Release-WK2-Tests')
-        self.setProperty('platform', 'ios-simulator-15')
+        self.setProperty('buildername', 'Apple-iOS-17-Simulator-Release-WK2-Tests')
+        self.setProperty('platform', 'ios-simulator-17')
 
         self.expectRemoteCommands(
             ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0
@@ -5763,28 +5775,28 @@ Build version 13A1030d''')
             + ExpectShell.log('stdio', stdout='Tue Apr  9 15:30:52 PDT 2019'),
             ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='''ProductName:	macOS
-ProductVersion:	11.6
-BuildVersion:	20G165'''),
+ProductVersion:	14.5
+BuildVersion:	23F79'''),
             ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='Sample system information'),
             ExpectShell(command=['/bin/sh', '-c', 'echo TimezoneVers: $(cat /usr/share/zoneinfo/+VERSION)'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
             ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
-            + ExpectShell.log('stdio', stdout='''iPhoneSimulator15.0.sdk - Simulator - iOS 15.0 (iphonesimulator15.0)
-SDKVersion: 15.0
-Path: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator15.0.sdk
-PlatformVersion: 15.0
+            + ExpectShell.log('stdio', stdout='''iPhoneSimulator17.5.sdk - Simulator - iOS 17.5 (iphonesimulator17.5)
+SDKVersion: 17.5
+Path: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator17.5.sdk
+PlatformVersion: 17.5
 PlatformPath: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform
-BuildID: 84856584-0587-11EC-B99C-6807972BB3D4
-ProductBuildVersion: 19A339
-ProductCopyright: 1983-2021 Apple Inc.
+BuildID: 8EFDDFDC-08C7-11EF-A0A9-DD3864AEFA1C
+ProductBuildVersion: 21F77
+ProductCopyright: 1983-2024 Apple Inc.
 ProductName: iPhone OS
-ProductVersion: 15.0
+ProductVersion: 17.5
 
-Xcode 13.0
-Build version 13A233''')
+Xcode 15.4
+Build version 15F31d''')
             + 0,
         )
-        self.expectOutcome(result=SUCCESS, state_string='OS: Big Sur (11.6), Xcode: 13.0')
+        self.expectOutcome(result=SUCCESS, state_string='OS: Sonoma (14.5), Xcode: 15.4')
         return self.runStep()
 
     def test_success_webkitpy(self):
@@ -5797,16 +5809,16 @@ Build version 13A233''')
             ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
             ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='''ProductName:	macOS
-ProductVersion:	11.6
-BuildVersion:	20G165'''),
+ProductVersion:	14.5
+BuildVersion:	23F79'''),
             ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='Sample system information'),
             ExpectShell(command=['/bin/sh', '-c', 'echo TimezoneVers: $(cat /usr/share/zoneinfo/+VERSION)'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
             ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60,
                         logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''Xcode 13.0\nBuild version 13A233'''),
+            + ExpectShell.log('stdio', stdout='''Xcode 15.4\nBuild version 15F31d'''),
         )
-        self.expectOutcome(result=SUCCESS, state_string='OS: Big Sur (11.6), Xcode: 13.0')
+        self.expectOutcome(result=SUCCESS, state_string='OS: Sonoma (14.5), Xcode: 15.4')
         return self.runStep()
 
     def test_success_linux_wpe(self):
@@ -9267,6 +9279,8 @@ class TestFindUnexpectedStaticAnalyzerResults(BuildStepMixinAdditions, unittest.
 
 
 class TestDisplaySaferCPPResults(BuildStepMixinAdditions, unittest.TestCase):
+    HEADER = '### Safer C++ Build [#123](http://localhost:8080/#/builders/1/builds/13)\n'
+
     def setUp(self):
         return self.setUpBuildStep()
 
@@ -9274,6 +9288,7 @@ class TestDisplaySaferCPPResults(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def configureStep(self):
+        self.maxDiff = None
         self.setupStep(DisplaySaferCPPResults())
         self.setProperty('buildnumber', '123')
         self.setProperty('github.number', '17')
@@ -9282,14 +9297,14 @@ class TestDisplaySaferCPPResults(BuildStepMixinAdditions, unittest.TestCase):
             return {
                 "passes": {
                     "WebCore": {
-                        "NoUncountedMemberChecker": ['File17.cpp'],
-                        "RefCntblBaseVirtualDtor": ['File17.cpp'],
+                        "NoUncountedMemberChecker": [],
+                        "RefCntblBaseVirtualDtor": [],
                         "UncountedCallArgsChecker": [],
                         "UncountedLocalVarsChecker": []
                     },
                     "WebKit": {
                         "NoUncountedMemberChecker": [],
-                        "RefCntblBaseVirtualDtor": [],
+                        "RefCntblBaseVirtualDtor": ['File17.cpp'],
                         "UncountedCallArgsChecker": [],
                         "UncountedLocalVarsChecker": []
                     }
@@ -9315,10 +9330,15 @@ class TestDisplaySaferCPPResults(BuildStepMixinAdditions, unittest.TestCase):
     def test_success_preexisting_failures(self):
         self.configureStep()
         self.setProperty('unexpected_new_issues', 10)
+        next_steps = []
+        self.patch(self.build, 'addStepsAfterCurrentStep', lambda s: next_steps.extend(s))
 
         self.expectOutcome(result=SUCCESS, state_string='Ignored 10 pre-existing failures')
         rc = self.runStep()
         self.assertEqual(self.getProperty('build_summary'), 'Ignored 10 pre-existing failures')
+        self.assertEqual(self.getProperty('comment_text'), None)
+        self.assertEqual([], next_steps)
+        return rc
 
     def test_success_only_fixes(self):
         self.configureStep()
@@ -9329,13 +9349,30 @@ class TestDisplaySaferCPPResults(BuildStepMixinAdditions, unittest.TestCase):
         self.expectOutcome(result=SUCCESS, state_string='Found 1 fixed file: File17.cpp')
         rc = self.runStep()
         self.assertEqual(self.getProperty('passes'), ['File17.cpp'])
-        expected_comment = "Safer CPP Build [#123](http://localhost:8080/#/builders/1/builds/13): Found 1 fixed file!\n"
-        expected_comment += "Please update expectations manually or by using `update-safer-cpp-expectations --remove-expected-failures` before landing."
+        expected_comment = self.HEADER + "\n:warning: Found 1 fixed file! Please update expectations in `Source/[WebKit/WebCore]/SaferCPPExpectations` by running the following command and update your pull request:\n"
+        expected_comment += "- `Tools/Scripts/update-safer-cpp-expectations -p WebKit --RefCntblBaseVirtualDtor File17.cpp`"
         self.assertEqual(self.getProperty('comment_text'), expected_comment)
         self.assertEqual(self.getProperty('build_summary'), 'Found 1 fixed file: File17.cpp')
         self.assertEqual([LeaveComment(), SetBuildSummary()], next_steps)
+        return rc
 
     def test_failure_new_failures(self):
+        self.configureStep()
+        self.setProperty('unexpected_new_issues', 10)
+        self.setProperty('unexpected_failing_files', 1)
+        next_steps = []
+        self.patch(self.build, 'addStepsAfterCurrentStep', lambda s: next_steps.extend(s))
+
+        self.expectOutcome(result=FAILURE, state_string='Found 10 new failures in File1.cpp')
+        rc = self.runStep()
+        expected_comment = self.HEADER + ":x: Found [10 new failures](https://ews-build.s3-us-west-2.amazonaws.com/None/None-123/scan-build-output/new-results.html). "
+        expected_comment += "Please address these issues before landing. See [WebKit Guidelines for Safer C++ Programming](https://github.com/WebKit/WebKit/wiki/Safer-CPP-Guidelines).\n(cc @rniwa)\n"
+        self.assertEqual(self.getProperty('comment_text'), expected_comment)
+        self.assertEqual(self.getProperty('build_finish_summary'), 'Found 10 new failures in File1.cpp')
+        self.assertEqual([LeaveComment(), SetBuildSummary()], next_steps)
+        return rc
+
+    def test_failure_mixed(self):
         self.configureStep()
         self.setProperty('unexpected_new_issues', 10)
         self.setProperty('unexpected_passing_files', 1)
@@ -9345,11 +9382,13 @@ class TestDisplaySaferCPPResults(BuildStepMixinAdditions, unittest.TestCase):
 
         self.expectOutcome(result=FAILURE, state_string='Found 10 new failures in File1.cpp and found 1 fixed file: File17.cpp')
         rc = self.runStep()
-        expected_comment = "Safer CPP Build [#123](http://localhost:8080/#/builders/1/builds/13): Found [10 new failures](https://ews-build.s3-us-west-2.amazonaws.com/None/None-123/scan-build-output/new-results.html)."
-        expected_comment += "\nPlease address these issues before landing. See [WebKit Guidelines for Safer C++ Programming](https://github.com/WebKit/WebKit/wiki/Safer-CPP-Guidelines).\n(cc @rniwa)"
+        expected_comment = self.HEADER + ":x: Found [10 new failures](https://ews-build.s3-us-west-2.amazonaws.com/None/None-123/scan-build-output/new-results.html). "
+        expected_comment += "Please address these issues before landing. See [WebKit Guidelines for Safer C++ Programming](https://github.com/WebKit/WebKit/wiki/Safer-CPP-Guidelines).\n(cc @rniwa)\n"
+        expected_comment += "\n:warning: Found 1 fixed file! Please update expectations in `Source/[WebKit/WebCore]/SaferCPPExpectations` by running the following command and update your pull request:\n"
+        expected_comment += '- `Tools/Scripts/update-safer-cpp-expectations -p WebKit --RefCntblBaseVirtualDtor File17.cpp`'
         self.assertEqual(self.getProperty('comment_text'), expected_comment)
         self.assertEqual(self.getProperty('build_finish_summary'), 'Found 10 new failures in File1.cpp')
-        self.assertEqual([LeaveComment()], next_steps)
+        self.assertEqual([LeaveComment(), SetBuildSummary()], next_steps)
 
 
 class TestPrintClangVersion(BuildStepMixinAdditions, unittest.TestCase):

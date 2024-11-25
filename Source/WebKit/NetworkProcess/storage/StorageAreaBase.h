@@ -30,18 +30,10 @@
 #include "StorageAreaImplIdentifier.h"
 #include "StorageAreaMapIdentifier.h"
 #include <WebCore/ClientOrigin.h>
+#include <wtf/HashMap.h>
 #include <wtf/Identified.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
-
-namespace WebKit {
-class StorageAreaBase;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::StorageAreaBase> : std::true_type { };
-}
 
 namespace WebCore {
 struct ClientOrigin;
@@ -73,13 +65,16 @@ public:
     unsigned quota() const { return m_quota; }
     void addListener(IPC::Connection::UniqueID, StorageAreaMapIdentifier);
     void removeListener(IPC::Connection::UniqueID);
-    bool hasListeners() const;
+    bool hasListeners() const { return !m_listeners.isEmpty(); }
     void notifyListenersAboutClear();
 
-    virtual HashMap<String, String> allItems() = 0;
+    virtual UncheckedKeyHashMap<String, String> allItems() = 0;
     virtual Expected<void, StorageError> setItem(IPC::Connection::UniqueID, StorageAreaImplIdentifier, String&& key, String&& value, const String& urlString) = 0;
     virtual Expected<void, StorageError> removeItem(IPC::Connection::UniqueID, StorageAreaImplIdentifier, const String& key, const String& urlString) = 0;
     virtual Expected<void, StorageError> clear(IPC::Connection::UniqueID, StorageAreaImplIdentifier, const String& urlString) = 0;
+
+    virtual void ref() const = 0;
+    virtual void deref() const = 0;
 
 protected:
     StorageAreaBase(unsigned quota, const WebCore::ClientOrigin&);
@@ -88,7 +83,7 @@ protected:
 private:
     unsigned m_quota;
     WebCore::ClientOrigin m_origin;
-    HashMap<IPC::Connection::UniqueID, StorageAreaMapIdentifier> m_listeners;
+    UncheckedKeyHashMap<IPC::Connection::UniqueID, StorageAreaMapIdentifier> m_listeners;
 };
 
 } // namespace WebKit

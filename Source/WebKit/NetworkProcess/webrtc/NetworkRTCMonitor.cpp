@@ -52,7 +52,7 @@ namespace WebKit {
 
 class CallbackAggregator final : public ThreadSafeRefCounted<CallbackAggregator, WTF::DestructionThread::MainRunLoop> {
 public:
-    using Callback = CompletionHandler<void(RTCNetwork::IPAddress&&, RTCNetwork::IPAddress&&, HashMap<String, RTCNetwork>&&)>;
+    using Callback = CompletionHandler<void(RTCNetwork::IPAddress&&, RTCNetwork::IPAddress&&, UncheckedKeyHashMap<String, RTCNetwork>&&)>;
     static Ref<CallbackAggregator> create(Callback&& callback) { return adoptRef(*new CallbackAggregator(WTFMove(callback))); }
 
     ~CallbackAggregator()
@@ -62,7 +62,7 @@ public:
 
     void setIPv4(RTCNetwork::IPAddress&& ipv4) { m_ipv4 = WTFMove(ipv4); }
     void setIPv6(RTCNetwork::IPAddress&& ipv6) { m_ipv6 = WTFMove(ipv6); }
-    void setNetworkMap(HashMap<String, RTCNetwork>&& networkMap) { m_networkMap = crossThreadCopy(WTFMove(networkMap)); }
+    void setNetworkMap(UncheckedKeyHashMap<String, RTCNetwork>&& networkMap) { m_networkMap = crossThreadCopy(WTFMove(networkMap)); }
 
 private:
     explicit CallbackAggregator(Callback&& callback)
@@ -72,7 +72,7 @@ private:
 
     Callback m_callback;
 
-    HashMap<String, RTCNetwork> m_networkMap;
+    UncheckedKeyHashMap<String, RTCNetwork> m_networkMap;
     RTCNetwork::IPAddress m_ipv4;
     RTCNetwork::IPAddress m_ipv6;
 };
@@ -94,7 +94,7 @@ private:
     void updateNetworks();
     void updateNetworksOnQueue();
 
-    void onGatheredNetworks(RTCNetwork::IPAddress&&, RTCNetwork::IPAddress&&, HashMap<String, RTCNetwork>&&);
+    void onGatheredNetworks(RTCNetwork::IPAddress&&, RTCNetwork::IPAddress&&, UncheckedKeyHashMap<String, RTCNetwork>&&);
 
     WeakHashSet<NetworkRTCMonitor> m_observers;
 
@@ -106,7 +106,7 @@ private:
     RTCNetwork::IPAddress m_ipv4;
     RTCNetwork::IPAddress m_ipv6;
     int m_networkLastIndex { 0 };
-    HashMap<String, RTCNetwork> m_networkMap;
+    UncheckedKeyHashMap<String, RTCNetwork> m_networkMap;
 };
 
 static NetworkManager& networkManager()
@@ -179,7 +179,7 @@ static rtc::AdapterType interfaceAdapterType(const char* interfaceName)
 #endif
 }
 
-static HashMap<String, RTCNetwork> gatherNetworkMap()
+static UncheckedKeyHashMap<String, RTCNetwork> gatherNetworkMap()
 {
     struct ifaddrs* interfaces;
     int error = getifaddrs(&interfaces);
@@ -188,7 +188,7 @@ static HashMap<String, RTCNetwork> gatherNetworkMap()
 
     std::unique_ptr<struct ifaddrs> toBeFreed(interfaces);
 
-    HashMap<String, RTCNetwork> networkMap;
+    UncheckedKeyHashMap<String, RTCNetwork> networkMap;
     for (auto* iterator = interfaces; iterator != nullptr; iterator = iterator->ifa_next) {
         if (!iterator->ifa_addr || !iterator->ifa_netmask)
             continue;
@@ -211,7 +211,7 @@ static HashMap<String, RTCNetwork> gatherNetworkMap()
 
         auto name = span(iterator->ifa_name);
         auto prefixString = address->second.rtcAddress().ToString();
-        auto networkKey = makeString(StringView { name }, "-"_s, prefixLength, "-"_s, StringView { std::span(prefixString.c_str(), prefixString.length()) });
+        auto networkKey = makeString(name, "-"_s, prefixLength, "-"_s, std::span { prefixString });
 
         networkMap.ensure(networkKey, [&] {
             return RTCNetwork { name, networkKey.utf8().span(), address->second, prefixLength, interfaceAdapterType(iterator->ifa_name), 0, 0, true, false, scopeID, { } };
@@ -337,14 +337,10 @@ static bool isEqual(const Vector<RTCNetwork::InterfaceAddress>& a, const Vector<
     if (a.size() != b.size())
         return false;
 
-    auto iteratorA = a.begin();
-    auto iteratorB = b.begin();
-
-    while (iteratorA != a.end()) {
-        if (!isEqual(*iteratorA++, *iteratorB++))
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (!isEqual(a[i], b[i]))
             return false;
     }
-
     return true;
 }
 
@@ -364,10 +360,10 @@ static bool sortNetworks(const RTCNetwork& a, const RTCNetwork& b)
     if (precedenceA != precedenceB)
         return precedenceA < precedenceB;
 
-    return codePointCompare(StringView { std::span(a.description.data(), a.description.size()) }, StringView { std::span(b.description.data(), b.description.size()) }) < 0;
+    return codePointCompare(StringView { a.description.span() }, StringView { b.description.span() }) < 0;
 }
 
-void NetworkManager::onGatheredNetworks(RTCNetwork::IPAddress&& ipv4, RTCNetwork::IPAddress&& ipv6, HashMap<String, RTCNetwork>&& networkMap)
+void NetworkManager::onGatheredNetworks(RTCNetwork::IPAddress&& ipv4, RTCNetwork::IPAddress&& ipv6, UncheckedKeyHashMap<String, RTCNetwork>&& networkMap)
 {
     if (!m_didReceiveResults) {
         m_didReceiveResults = true;

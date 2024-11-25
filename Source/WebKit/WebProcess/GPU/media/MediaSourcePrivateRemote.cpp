@@ -111,19 +111,18 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const Co
         return AddStatus::NotSupported;
 
     AddStatus returnedStatus;
-    RemoteSourceBufferIdentifier returnedIdentifier;
     RefPtr<SourceBufferPrivate> returnedSourceBuffer;
     DEBUG_LOG(LOGIDENTIFIER, contentType);
 
     // the sendSync() call requires us to run on the connection's dispatcher, which is the main thread.
     // FIXME: Uses a new Connection for remote playback, and not the main GPUProcessConnection's one.
     // FIXME: m_mimeTypeCache is a main-thread only object.
-    callOnMainRunLoopAndWait([this, &returnedStatus, &returnedIdentifier, contentTypeString = contentType.raw().isolatedCopy(), &returnedSourceBuffer, gpuProcessConnection] {
+    callOnMainRunLoopAndWait([this, &returnedStatus, contentTypeString = contentType.raw().isolatedCopy(), &returnedSourceBuffer, gpuProcessConnection] {
         ContentType contentType { contentTypeString };
         MediaEngineSupportParameters parameters;
         parameters.isMediaSource = true;
         parameters.type = contentType;
-        if (m_mimeTypeCache.supportsTypeAndCodecs(parameters) == MediaPlayer::SupportsType::IsNotSupported) {
+        if (m_mimeTypeCache->supportsTypeAndCodecs(parameters) == MediaPlayer::SupportsType::IsNotSupported) {
             returnedStatus = AddStatus::NotSupported;
             return;
         }
@@ -133,7 +132,6 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const Co
 
         if (status == AddStatus::Ok) {
             ASSERT(remoteSourceBufferIdentifier.has_value());
-            returnedIdentifier = * remoteSourceBufferIdentifier;
             returnedSourceBuffer = SourceBufferPrivateRemote::create(*gpuProcessConnection, *remoteSourceBufferIdentifier, *this);
         }
         returnedStatus = status;
@@ -230,6 +228,7 @@ MediaPlayer::ReadyState MediaSourcePrivateRemote::mediaPlayerReadyState() const
 void MediaSourcePrivateRemote::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
 {
     // Call from MediaSource's dispatcher.
+#if !RELEASE_LOG_DISABLED
     if (m_mediaPlayerReadyState > MediaPlayer::ReadyState::HaveCurrentData && readyState == MediaPlayer::ReadyState::HaveCurrentData) {
         RefPtr player = m_mediaPlayerPrivate.get();
         auto currentTime = player->currentTime();
@@ -237,6 +236,7 @@ void MediaSourcePrivateRemote::setMediaPlayerReadyState(MediaPlayer::ReadyState 
         auto duration = this->duration();
         ALWAYS_LOG(LOGIDENTIFIER, "stall detected at:", currentTime, " duration:", duration, " buffered:", buffered);
     }
+#endif
     m_mediaPlayerReadyState = readyState;
     ensureOnDispatcher([protectedThis = Ref { *this }, this, readyState] {
         auto gpuProcessConnection = m_gpuProcessConnection.get();

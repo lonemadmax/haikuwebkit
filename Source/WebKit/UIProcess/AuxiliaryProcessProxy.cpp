@@ -60,9 +60,9 @@
 
 namespace WebKit {
 
-static HashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>& connectionToProcessMap()
+static UncheckedKeyHashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>& connectionToProcessMap()
 {
-    static MainThreadNeverDestroyed<HashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>> map;
+    static MainThreadNeverDestroyed<UncheckedKeyHashMap<IPC::Connection::UniqueID, WeakPtr<AuxiliaryProcessProxy>>> map;
     return map.get();
 }
 
@@ -326,7 +326,7 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::C
         return;
 
 #if PLATFORM(MAC) && USE(RUNNINGBOARD)
-    m_lifetimeActivity = throttler().foregroundActivity("Lifetime Activity"_s).moveToUniquePtr();
+    m_lifetimeActivity = throttler().foregroundActivity("Lifetime Activity"_s);
     m_boostedJetsamAssertion = ProcessAssertion::create(*this, "Jetsam Boost"_s, ProcessAssertionType::BoostedJetsam);
 #endif
 

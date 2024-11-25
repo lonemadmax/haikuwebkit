@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -613,11 +613,11 @@ private:
     ModuleInformation& m_info;
     const FunctionCodeIndex m_functionIndex;
     Vector<VirtualRegister> m_normalizedArguments;
-    HashMap<Label*, Vector<SwitchEntry>> m_switches;
+    UncheckedKeyHashMap<Label*, Vector<SwitchEntry>> m_switches;
     ExpressionType m_jsNullConstant;
     ExpressionType m_zeroConstant;
     ResultList m_uninitializedLocals;
-    HashMap<EncodedJSValue, VirtualRegister, WTF::IntHash<EncodedJSValue>, ConstantMapHashTraits> m_constantMap;
+    UncheckedKeyHashMap<EncodedJSValue, VirtualRegister, WTF::IntHash<EncodedJSValue>, ConstantMapHashTraits> m_constantMap;
     Vector<VirtualRegister, 2> m_results;
     Checked<unsigned> m_stackSize { 0 };
     Checked<unsigned> m_maxStackSize { 0 };
@@ -656,6 +656,7 @@ LLIntGenerator::LLIntGenerator(ModuleInformation& info, FunctionCodeIndex functi
     , m_info(info)
     , m_functionIndex(functionIndex)
 {
+    m_codeBlock->m_callees = FixedBitVector(m_info.internalFunctionCount());
     {
         auto& threadSpecific = threadSpecificBuffer();
         Buffer buffer = WTFMove(*threadSpecific);
@@ -1530,6 +1531,7 @@ void LLIntGenerator::endTryTable(ControlType& data)
                 results.append(virtualRegisterForLocal(m_stackSize + i));
         }
 
+        alignWideOpcode32();
         RefPtr<Label> handlerLabel = newEmittedLabel();
 
         switch (target.type) {
@@ -1652,6 +1654,8 @@ auto LLIntGenerator::addCall(FunctionSpaceIndex functionIndex, const TypeDefinit
     ASSERT(callType == CallType::Call || isTailCall);
     ASSERT(signature.as<FunctionSignature>()->argumentCount() == args.size());
     LLIntCallInformation wasmCalleeInfo = callInformationForCaller(*signature.as<FunctionSignature>());
+    if (!m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex))
+        m_codeBlock->m_callees.testAndSet(functionIndex - m_info.importFunctionCount());
 
     unifyValuesWithBlock(wasmCalleeInfo.arguments, args);
 

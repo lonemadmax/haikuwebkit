@@ -25,14 +25,14 @@
 #include "config.h"
 #include "CSSPrimitiveNumericTypes+ComputedStyleDependencies.h"
 
-#include "CSSValue.h"
+#include "ComputedStyleDependencies.h"
 
 namespace WebCore {
 namespace CSS {
 
 // MARK: - Computed Style Dependencies
 
-void collectComputedStyleDependencies(ComputedStyleDependencies& dependencies, CSSUnitType unit)
+void ComputedStyleDependenciesCollector<CSSUnitType>::operator()(ComputedStyleDependencies& dependencies, CSSUnitType unit)
 {
     switch (unit) {
     case CSSUnitType::CSS_RCAP:
@@ -132,16 +132,6 @@ void collectComputedStyleDependencies(ComputedStyleDependencies& dependencies, C
     case CSSUnitType::CSS_CALC:
         break;
     }
-}
-
-void collectComputedStyleDependencies(ComputedStyleDependencies& dependencies, const LengthRaw& length)
-{
-    collectComputedStyleDependencies(dependencies, length.type);
-}
-
-void collectComputedStyleDependencies(ComputedStyleDependencies& dependencies, const LengthPercentageRaw& lengthPercentage)
-{
-    collectComputedStyleDependencies(dependencies, lengthPercentage.type);
 }
 
 } // namespace CSS

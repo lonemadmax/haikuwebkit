@@ -146,7 +146,7 @@ constexpr IntSize iconSize = IntSize(400, 400);
 
 void WebPageProxy::didGeneratePageLoadTiming(const WebPageLoadTiming& timing)
 {
-    if (auto* state = NavigationState::fromWebPage(*this))
+    if (RefPtr state = NavigationState::fromWebPage(*this))
         state->didGeneratePageLoadTiming(timing);
 }
 
@@ -207,14 +207,14 @@ void WebPageProxy::saveRecentSearches(IPC::Connection& connection, const String&
 {
     MESSAGE_CHECK(!name.isNull(), connection);
 
-    m_websiteDataStore->saveRecentSearches(name, searchItems);
+    protectedWebsiteDataStore()->saveRecentSearches(name, searchItems);
 }
 
 void WebPageProxy::loadRecentSearches(IPC::Connection& connection, const String& name, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!name.isNull(), connection, completionHandler({ }));
 
-    m_websiteDataStore->loadRecentSearches(name, WTFMove(completionHandler));
+    protectedWebsiteDataStore()->loadRecentSearches(name, WTFMove(completionHandler));
 }
 
 std::optional<IPC::AsyncReplyID> WebPageProxy::grantAccessToCurrentPasteboardData(const String& pasteboardName, CompletionHandler<void()>&& completionHandler, std::optional<FrameIdentifier> frameID)
@@ -422,7 +422,7 @@ void WebPageProxy::insertDictatedTextAsync(const String& text, const EditingRang
     Vector<DictationAlternative> dictationAlternatives;
     for (const auto& alternativeWithRange : dictationAlternativesWithRange) {
         if (auto context = pageClient->addDictationAlternatives(alternativeWithRange.alternatives.get()))
-            dictationAlternatives.append({ alternativeWithRange.range, context });
+            dictationAlternatives.append({ alternativeWithRange.range, *context });
     }
 
     if (dictationAlternatives.isEmpty()) {
@@ -444,9 +444,9 @@ void WebPageProxy::addDictationAlternative(TextAlternativeWithRange&& alternativ
 
     auto nsAlternatives = alternative.alternatives.get();
     auto context = pageClient->addDictationAlternatives(nsAlternatives);
-    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::AddDictationAlternative { nsAlternatives.primaryString, context }, [context, weakThis = WeakPtr { *this }](bool success) {
+    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::AddDictationAlternative { nsAlternatives.primaryString, *context }, [context, weakThis = WeakPtr { *this }](bool success) {
         if (RefPtr protectedThis = weakThis.get(); protectedThis && !success)
-            protectedThis->removeDictationAlternatives(context);
+            protectedThis->removeDictationAlternatives(*context);
     }, webPageIDInMainFrameProcess());
 }
 
@@ -488,7 +488,7 @@ WebPageProxy::Internals::~Internals() = default;
 
 std::optional<SharedPreferencesForWebProcess> WebPageProxy::Internals::sharedPreferencesForWebPaymentMessages() const
 {
-    return page->legacyMainFrameProcess().sharedPreferencesForWebProcess();
+    return protectedPage()->protectedLegacyMainFrameProcess()->sharedPreferencesForWebProcess();
 }
 
 IPC::Connection* WebPageProxy::Internals::paymentCoordinatorConnection(const WebPaymentCoordinatorProxy&)
@@ -508,7 +508,7 @@ void WebPageProxy::Internals::getPaymentCoordinatorEmbeddingUserAgent(WebPagePro
 
 CocoaWindow *WebPageProxy::Internals::paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) const
 {
-    RefPtr pageClient = page->pageClient();
+    RefPtr pageClient = protectedPage()->pageClient();
     return pageClient ? pageClient->platformWindow() : nullptr;
 }
 
@@ -675,12 +675,12 @@ void WebPageProxy::fullscreenVideoTextRecognitionTimerFired()
         return;
 
     auto identifier = *internals().currentFullscreenVideoSessionIdentifier;
-    m_videoPresentationManager->requestBitmapImageForCurrentTime(identifier, [identifier, weakThis = WeakPtr { *this }](std::optional<ShareableBitmap::Handle>&& imageHandle) {
+    RefPtr { m_videoPresentationManager }->requestBitmapImageForCurrentTime(identifier, [identifier, weakThis = WeakPtr { *this }](std::optional<ShareableBitmap::Handle>&& imageHandle) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || protectedThis->internals().currentFullscreenVideoSessionIdentifier != identifier)
             return;
 
-        auto presentationManager = protectedThis->m_videoPresentationManager;
+        RefPtr presentationManager = protectedThis->m_videoPresentationManager;
         if (!presentationManager)
             return;
         if (!imageHandle)
@@ -1119,14 +1119,14 @@ bool WebPageProxy::shouldAllowAutoFillForCellularIdentifiers() const
 
 #if ENABLE(EXTENSION_CAPABILITIES)
 
-const std::optional<MediaCapability>& WebPageProxy::mediaCapability() const
+const MediaCapability* WebPageProxy::mediaCapability() const
 {
-    return internals().mediaCapability;
+    return internals().mediaCapability.get();
 }
 
-void WebPageProxy::setMediaCapability(std::optional<MediaCapability>&& capability)
+void WebPageProxy::setMediaCapability(RefPtr<MediaCapability>&& capability)
 {
-    if (auto oldCapability = std::exchange(internals().mediaCapability, std::nullopt))
+    if (RefPtr oldCapability = std::exchange(internals().mediaCapability, nullptr))
         deactivateMediaCapability(*oldCapability);
 
     internals().mediaCapability = WTFMove(capability);
@@ -1157,17 +1157,18 @@ void WebPageProxy::resetMediaCapability()
     URL currentURL { this->currentURL() };
 
     if (!hasRunningProcess() || !currentURL.isValid()) {
-        setMediaCapability(std::nullopt);
+        setMediaCapability(nullptr);
         return;
     }
 
-    if (!mediaCapability() || !protocolHostAndPortAreEqual(mediaCapability()->webPageURL(), currentURL))
-        setMediaCapability(MediaCapability { WTFMove(currentURL) });
+    RefPtr mediaCapability = this->mediaCapability();
+    if (!mediaCapability || !protocolHostAndPortAreEqual(mediaCapability->webPageURL(), currentURL))
+        setMediaCapability(MediaCapability::create(WTFMove(currentURL)));
 }
 
 void WebPageProxy::updateMediaCapability()
 {
-    auto& mediaCapability = internals().mediaCapability;
+    RefPtr mediaCapability = internals().mediaCapability;
     if (!mediaCapability)
         return;
 
@@ -1201,7 +1202,8 @@ bool WebPageProxy::shouldActivateMediaCapability() const
 
 bool WebPageProxy::shouldDeactivateMediaCapability() const
 {
-    if (!mediaCapability() || !mediaCapability()->isActivatingOrActive())
+    RefPtr mediaCapability = this->mediaCapability();
+    if (!mediaCapability || !mediaCapability->isActivatingOrActive())
         return false;
 
     if (internals().mediaState & WebCore::MediaProducer::MediaCaptureMask)
@@ -1435,6 +1437,16 @@ void WebPageProxy::proofreadingSessionUpdateStateForSuggestionWithID(IPC::Connec
 
 #endif // ENABLE(WRITING_TOOLS)
 
+void WebPageProxy::createTextIndicatorForElementWithID(const String& elementID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+{
+    if (!hasRunningProcess()) {
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::CreateTextIndicatorForElementWithID(elementID), WTFMove(completionHandler), webPageIDInMainFrameProcess());
+}
+
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 
 void WebPageProxy::playPredominantOrNowPlayingMediaSession(CompletionHandler<void(bool)>&& completion)
@@ -1457,7 +1469,7 @@ bool WebPageProxy::tryToSendCommandToActiveControlledVideo(PlatformMediaSession:
     if (!hasActiveVideoForControlsManager())
         return false;
 
-    WeakPtr model = m_playbackSessionManager->controlsManagerInterface()->playbackSessionModel();
+    WeakPtr model = protectedPlaybackSessionManager()->controlsManagerInterface()->playbackSessionModel();
     if (!model)
         return false;
 
@@ -1473,6 +1485,13 @@ WTF::MachSendRight WebPageProxy::createMachSendRightForRemoteLayerServer()
     return MachSendRight::create([CARemoteLayerServer sharedServer].serverPort);
 }
 #endif
+
+void WebPageProxy::getInformationFromImageData(Vector<uint8_t>&& data, CompletionHandler<void(Expected<std::pair<String, Vector<IntSize>>, WebCore::ImageDecodingError>&&)>&& completionHandler)
+{
+    ensureProtectedRunningProcess()->sendWithAsyncReply(Messages::WebPage::GetInformationFromImageData(WTFMove(data)), [preventProcessShutdownScope = protectedLegacyMainFrameProcess()->shutdownPreventingScope(), completionHandler = WTFMove(completionHandler)] (auto result) mutable {
+        completionHandler(WTFMove(result));
+    }, webPageIDInMainFrameProcess());
+}
 
 } // namespace WebKit
 

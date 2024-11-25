@@ -2314,22 +2314,16 @@ static bool shouldPrependSpace(AXCoreObject& object, AXCoreObject* previousObjec
 
 String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) const
 {
-    auto isAriaVisible = [this] () {
-        return Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const auto& object) {
-            return equalLettersIgnoringASCIICase(object.getAttribute(aria_hiddenAttr), "false"_s);
-        }) != nullptr;
-    };
-
     RefPtr node = this->node();
     if (auto* text = dynamicDowncast<Text>(node.get()))
-        return !mode.isHidden() || isAriaVisible() ? text->wholeText() : emptyString();
+        return !mode.isHidden() ? text->wholeText() : emptyString();
 
     const auto* style = this->style();
     mode.inHiddenSubtree = WebCore::isDOMHidden(style);
     // The Accname specification states that if the current node is hidden, and not directly
     // referenced by aria-labelledby or aria-describedby, and is not a host language text
     // alternative, the empty string should be returned.
-    if (mode.isHidden() && !isAriaVisible() && (node && !ancestorsOfType<HTMLCanvasElement>(*node).first())) {
+    if (mode.isHidden() && node && !ancestorsOfType<HTMLCanvasElement>(*node).first()) {
         if (!labelForObjects().isEmpty() || !descriptionForObjects().isEmpty()) {
             // This object is a hidden label or description for another object, so ignore hidden states for our
             // subtree text under element traversals too.
@@ -2564,18 +2558,14 @@ DateComponentsType AccessibilityObject::dateTimeComponentsType() const
 
 SRGBA<uint8_t> AccessibilityNodeObject::colorValue() const
 {
-#if !ENABLE(INPUT_TYPE_COLOR)
-    return Color::transparentBlack;
-#else
     if (!isColorWell())
-        return Color::transparentBlack;
+        return Color::black;
 
     RefPtr input = dynamicDowncast<HTMLInputElement>(node());
     if (!input)
-        return Color::transparentBlack;
+        return Color::black;
 
     return input->valueAsColor().toColorTypeLossy<SRGBA<uint8_t>>();
-#endif
 }
 
 // This function implements the ARIA accessible name as described by the Mozilla

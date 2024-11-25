@@ -40,6 +40,10 @@
 #include <wtf/glib/Application.h>
 #include <wtf/glib/Sandbox.h>
 
+#if USE(ATSPI)
+#include <wtf/UUID.h>
+#endif
+
 #if ENABLE(REMOTE_INSPECTOR)
 #include <JavaScriptCore/RemoteInspector.h>
 #endif
@@ -66,7 +70,9 @@
 #endif
 
 #if !USE(SYSTEM_MALLOC) && OS(LINUX)
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <bmalloc/valgrind.h>
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
 namespace WebKit {
@@ -161,6 +167,8 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
         parameters.accessibilityBusAddress = String::fromUTF8(address);
     else
         parameters.accessibilityBusAddress = m_sandboxEnabled && shouldUseBubblewrap() ? sandboxedAccessibilityBusAddress() : accessibilityBusAddress();
+
+    parameters.accessibilityBusName = accessibilityBusName();
 #endif
 
     parameters.systemSettings = WebCore::SystemSettings::singleton().settingsState();
@@ -203,8 +211,10 @@ void WebProcessPool::setSandboxEnabled(bool enabled)
     }
 
 #if !USE(SYSTEM_MALLOC)
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     if (RUNNING_ON_VALGRIND)
         return;
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
     if (const char* disableSandbox = getenv("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS")) {
@@ -272,10 +282,26 @@ const String& WebProcessPool::accessibilityBusAddress() const
     return m_accessibilityBusAddress.value();
 }
 
+const String& WebProcessPool::accessibilityBusName() const
+{
+    RELEASE_ASSERT(m_accessibilityBusName.has_value());
+    return m_accessibilityBusName.value();
+}
+
 const String& WebProcessPool::sandboxedAccessibilityBusAddress() const
 {
     return m_sandboxedAccessibilityBusAddress;
 }
+
+const String& WebProcessPool::generateNextAccessibilityBusName()
+{
+    m_accessibilityBusName = makeString(String::fromUTF8(WTF::applicationID().span()), ".Sandboxed.WebProcess-"_s, WTF::UUID::createVersion4());
+    RELEASE_ASSERT(g_dbus_is_name(m_accessibilityBusName.value().utf8().data()));
+    RELEASE_ASSERT(!g_dbus_is_unique_name(m_accessibilityBusName.value().utf8().data()));
+
+    return accessibilityBusName();
+}
+
 #endif
 
 } // namespace WebKit

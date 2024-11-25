@@ -27,6 +27,7 @@
 
 #include "FrameRateAligner.h"
 #include "ReducedResolutionSeconds.h"
+#include "ScrollAxis.h"
 #include "Timer.h"
 #include <wtf/CancellableTask.h>
 #include <wtf/CheckedRef.h>
@@ -36,10 +37,14 @@
 
 namespace WebCore {
 
+class AnimationTimeline;
 class CSSTransition;
 class Document;
-class AnimationTimeline;
+class ScrollTimeline;
+class ViewTimeline;
 class WebAnimation;
+
+struct ViewTimelineInsets;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AnimationTimelinesController);
 class AnimationTimelinesController final : public CanMakeCheckedPtr<AnimationTimelinesController> {
@@ -62,12 +67,22 @@ public:
     WEBCORE_EXPORT void resumeAnimations();
     bool animationsAreSuspended() const { return m_isSuspended; }
 
+    void registerNamedScrollTimeline(const AtomString&, Element&, ScrollAxis);
+    void unregisterNamedScrollTimeline(const AtomString&);
+    ScrollTimeline* scrollTimelineForName(const AtomString&) const;
+
+    void registerNamedViewTimeline(const AtomString&, Element&, ScrollAxis, ViewTimelineInsets&&);
+    void unregisterNamedViewTimelineForSubject(const AtomString&, const Element&);
+    ViewTimeline* viewTimelineForNameAndSubject(const AtomString&, const Element&) const;
+
 private:
     ReducedResolutionSeconds liveCurrentTime() const;
     void cacheCurrentTime(ReducedResolutionSeconds);
     void maybeClearCachedCurrentTime();
 
-    HashMap<FramesPerSecond, ReducedResolutionSeconds> m_animationFrameRateToLastTickTimeMap;
+    UncheckedKeyHashMap<FramesPerSecond, ReducedResolutionSeconds> m_animationFrameRateToLastTickTimeMap;
+    UncheckedKeyHashMap<AtomString, Ref<ScrollTimeline>> m_nameToScrollTimelineMap;
+    UncheckedKeyHashMap<AtomString, Vector<Ref<ViewTimeline>>> m_nameToViewTimelinesMap;
     WeakHashSet<AnimationTimeline> m_timelines;
     TaskCancellationGroup m_currentTimeClearingTaskCancellationGroup;
     Document& m_document;

@@ -670,7 +670,7 @@
             }
         },
         "text-box-edge": {
-            "inherited": false,
+            "inherited": true,
             "values": [
                 "auto",
                 "text",
@@ -1182,17 +1182,16 @@
             "inherited": true,
             "values": [
                 "auto",
-                "space-all"
+                "space-all",
+                "trim-all"
             ],
             "codegen-properties": {
-                "settings-flag": "cssTextSpacingEnabled",
+                "settings-flag": "cssTextSpacingTrimEnabled",
                 "font-property": true,
                 "high-priority": true,
                 "sink-priority": true,
                 "converter": "TextSpacingTrim",
-                "parser-function": "consumeTextSpacingTrim",
-                "parser-grammar-unused": "auto | space-all | trim-all | [ allow-end || space-first ]",
-                "parser-grammar-unused-reason": "Needs support for '||' groups."
+                "parser-grammar": "space-all | trim-all | auto"
             },
             "status": "in development",
             "specification": {
@@ -1349,8 +1348,8 @@
                 "inter-character"
             ],
             "codegen-properties": {
-                "top-priority": true,
-                "comment": "This is a top priority property to ensure that its value can be checked when determining a smart default font size', (<https://trac.webkit.org/browser/trunk/Source/WebCore/ChangeLog?rev=172861>).",
+                "cascade-alias": "ruby-position",
+                "skip-builder": true,
                 "name-for-methods": "RubyPosition",
                 "parser-function": "consumeWebKitRubyPosition",
                 "parser-grammar-unused": "before | after | inter-character",
@@ -1555,6 +1554,45 @@
             "specification": {
                 "category": "css-animations",
                 "url": "https://www.w3.org/TR/css3-animations/#animation-play-state-property"
+            }
+        },
+        "animation-range": {
+            "codegen-properties": {
+                "longhands": [
+                    "animation-range-start",
+                    "animation-range-end"
+                ],
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#animation-range"
+            }
+        },
+        "animation-range-start": {
+            "codegen-properties": {
+                "converter": "AnimationRangeStart",
+                "parser-function": "consumeAnimationRangeStart",
+                "parser-grammar-unused": "[ normal | <length-percentage> | [ <custom-ident> || <length-percentage>?] ]#",
+                "parser-grammar-unused-reason": "Needs support for '||' groups.",
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#propdef-animation-range-start"
+            }
+        },
+        "animation-range-end": {
+            "codegen-properties": {
+                "converter": "AnimationRangeEnd",
+                "parser-function": "consumeAnimationRangeEnd",
+                "parser-grammar-unused": "[ normal | <length-percentage> | [ <custom-ident> || <length-percentage>? ] ]#",
+                "parser-grammar-unused-reason": "Needs support for '||' groups.",
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#propdef-animation-range-end"
             }
         },
         "animation-timeline": {
@@ -7978,7 +8016,7 @@
             "codegen-properties": {
                 "converter": "MarqueeSpeed",
                 "internal-only": true,
-                "parser-grammar": "<time [0,inf] unitless-allowed>"
+                "parser-grammar": "<time [0,inf]>"
             },
             "status": "non-standard"
         },
@@ -8656,10 +8694,10 @@
                 "flat",
                 "preserve-3d",
                 {
-                    "value": "optimized-3d",
-                    "status": "internal",
-                    "enable-if": "ENABLE_CSS_TRANSFORM_STYLE_OPTIMIZED_3D",
-                    "settings-flag": "transformStyleOptimized3DEnabled"
+                    "value": "separated",
+                    "status": "non-standard",
+                    "settings-flag": "cssTransformStyleSeparatedEnabled",
+                    "enable-if": "HAVE_CORE_ANIMATION_SEPARATED_LAYERS"
                 }
             ],
             "codegen-properties": {
@@ -9205,6 +9243,7 @@
         },
         "scrollbar-width": {
             "codegen-properties": {
+                "converter": "ScrollbarWidth",
                 "parser-grammar": "auto | thin | none",
                 "settings-flag": "cssScrollbarWidthEnabled"
             },
@@ -9339,9 +9378,7 @@
         "view-transition-name": {
             "codegen-properties": {
                 "converter": "ViewTransitionName",
-                "parser-function": "consumeViewTransitionName",
-                "parser-grammar-unused": "none | <custom-ident>",
-                "parser-grammar-unused-reason": "Needs support for applying restrictions to <custom-ident>. The <custom-ident> production used here excludes the keyword auto.",
+                "parser-grammar": "none | auto | <custom-ident>",
                 "settings-flag": "viewTransitionsEnabled"
             },
             "specification": {

@@ -66,17 +66,17 @@ public:
 
     Ref<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer* player) const final
     {
-        return m_manager.createRemoteMediaPlayer(player, m_remoteEngineIdentifier);
+        return protectedManager()->createRemoteMediaPlayer(player, m_remoteEngineIdentifier);
     }
 
     void getSupportedTypes(HashSet<String>& types) const final
     {
-        return m_manager.getSupportedTypes(m_remoteEngineIdentifier, types);
+        return protectedManager()->getSupportedTypes(m_remoteEngineIdentifier, types);
     }
 
     MediaPlayer::SupportsType supportsTypeAndCodecs(const MediaEngineSupportParameters& parameters) const final
     {
-        return m_manager.supportsTypeAndCodecs(m_remoteEngineIdentifier, parameters);
+        return protectedManager()->supportsTypeAndCodecs(m_remoteEngineIdentifier, parameters);
     }
 
     HashSet<SecurityOriginData> originsInMediaCache(const String& path) const final
@@ -97,12 +97,14 @@ public:
 
     bool supportsKeySystem(const String& keySystem, const String& mimeType) const final
     {
-        return m_manager.supportsKeySystem(m_remoteEngineIdentifier, keySystem, mimeType);
+        return protectedManager()->supportsKeySystem(m_remoteEngineIdentifier, keySystem, mimeType);
     }
 
 private:
+    Ref<RemoteMediaPlayerManager> protectedManager() const { return m_manager.get().releaseNonNull(); }
+
     MediaPlayerEnums::MediaEngineIdentifier m_remoteEngineIdentifier;
-    RemoteMediaPlayerManager& m_manager;
+    ThreadSafeWeakPtr<RemoteMediaPlayerManager> m_manager; // Cannot be null.
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaPlayerManager);
@@ -116,7 +118,7 @@ RemoteMediaPlayerManager::RemoteMediaPlayerManager() = default;
 
 RemoteMediaPlayerManager::~RemoteMediaPlayerManager() = default;
 
-using RemotePlayerTypeCache = HashMap<MediaPlayerEnums::MediaEngineIdentifier, std::unique_ptr<RemoteMediaPlayerMIMETypeCache>, WTF::IntHash<MediaPlayerEnums::MediaEngineIdentifier>, WTF::StrongEnumHashTraits<MediaPlayerEnums::MediaEngineIdentifier>>;
+using RemotePlayerTypeCache = UncheckedKeyHashMap<MediaPlayerEnums::MediaEngineIdentifier, std::unique_ptr<RemoteMediaPlayerMIMETypeCache>, WTF::IntHash<MediaPlayerEnums::MediaEngineIdentifier>, WTF::StrongEnumHashTraits<MediaPlayerEnums::MediaEngineIdentifier>>;
 static RemotePlayerTypeCache& mimeCaches()
 {
     static NeverDestroyed<RemotePlayerTypeCache> caches;
@@ -155,6 +157,7 @@ Ref<MediaPlayerPrivateInterface> RemoteMediaPlayerManager::createRemoteMediaPlay
 #if PLATFORM(IOS_FAMILY)
     proxyConfiguration.networkInterfaceName = player->mediaPlayerNetworkInterfaceName();
 #endif
+    proxyConfiguration.audioOutputDeviceId = player->audioOutputDeviceId();
     proxyConfiguration.mediaContentTypesRequiringHardwareSupport = player->mediaContentTypesRequiringHardwareSupport();
     proxyConfiguration.renderingCanBeAccelerated = player->renderingCanBeAccelerated();
     proxyConfiguration.preferredAudioCharacteristics = player->preferredAudioCharacteristics();
@@ -190,7 +193,7 @@ Ref<MediaPlayerPrivateInterface> RemoteMediaPlayerManager::createRemoteMediaPlay
 
     auto identifier = MediaPlayerIdentifier::generate();
     auto clientIdentifier = player->clientIdentifier();
-    gpuProcessConnection().connection().send(Messages::RemoteMediaPlayerManagerProxy::CreateMediaPlayer(identifier, clientIdentifier, remoteEngineIdentifier, proxyConfiguration), 0);
+    gpuProcessConnection().connection().send(Messages::RemoteMediaPlayerManagerProxy::CreateMediaPlayer(identifier, *clientIdentifier, remoteEngineIdentifier, proxyConfiguration), 0);
 
     auto remotePlayer = MediaPlayerPrivateRemote::create(player, remoteEngineIdentifier, identifier, *this);
     m_players.add(identifier, remotePlayer.get());
@@ -204,14 +207,14 @@ void RemoteMediaPlayerManager::deleteRemoteMediaPlayer(MediaPlayerIdentifier ide
     gpuProcessConnection().connection().send(Messages::RemoteMediaPlayerManagerProxy::DeleteMediaPlayer(identifier), 0);
 }
 
-MediaPlayerIdentifier RemoteMediaPlayerManager::findRemotePlayerId(const MediaPlayerPrivateInterface* player)
+std::optional<MediaPlayerIdentifier> RemoteMediaPlayerManager::findRemotePlayerId(const MediaPlayerPrivateInterface* player)
 {
     for (auto pair : m_players) {
         if (pair.value.get() == player)
             return pair.key;
     }
 
-    return { };
+    return std::nullopt;
 }
 
 void RemoteMediaPlayerManager::getSupportedTypes(MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, HashSet<String>& result)
@@ -239,8 +242,10 @@ bool RemoteMediaPlayerManager::supportsKeySystem(MediaPlayerEnums::MediaEngineId
 
 void RemoteMediaPlayerManager::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (RefPtr player = m_players.get(LegacyNullableObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())).get())
-        player->didReceiveMessage(connection, decoder);
+    if (ObjectIdentifier<MediaPlayerIdentifierType>::isValidIdentifier(decoder.destinationID())) {
+        if (RefPtr player = m_players.get(ObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())).get())
+            player->didReceiveMessage(connection, decoder);
+    }
 }
 
 void RemoteMediaPlayerManager::setUseGPUProcess(bool useGPUProcess)

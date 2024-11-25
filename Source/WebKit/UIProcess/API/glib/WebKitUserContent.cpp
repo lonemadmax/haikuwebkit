@@ -29,7 +29,7 @@ using namespace WebCore;
 
 API::ContentWorld& webkitContentWorld(const char* worldName)
 {
-    static NeverDestroyed<HashMap<CString, RefPtr<API::ContentWorld>>> map;
+    static NeverDestroyed<UncheckedKeyHashMap<CString, RefPtr<API::ContentWorld>>> map;
     return *map.get().ensure(worldName, [worldName = String::fromUTF8(worldName)] {
         return API::ContentWorld::sharedWorldWithName(worldName);
     }).iterator->value;
@@ -80,8 +80,12 @@ static inline Vector<String> toStringVector(const char* const* strv)
         return Vector<String>();
 
     Vector<String> result;
+
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     for (auto str = strv; *str; ++str)
         result.append(String::fromUTF8(*str));
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
     return result;
 }
 

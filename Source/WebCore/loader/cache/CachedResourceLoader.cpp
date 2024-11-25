@@ -72,7 +72,6 @@
 #include "RenderElement.h"
 #include "ResourceLoadInfo.h"
 #include "ResourceTiming.h"
-#include "RuntimeApplicationChecks.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "ScriptController.h"
@@ -85,6 +84,7 @@
 #include "UserContentController.h"
 #include "UserStyleSheet.h"
 #include <pal/SessionID.h>
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
@@ -147,6 +147,7 @@ static CachedResourceHandle<CachedResource> createResource(CachedResource::Type 
     case CachedResource::Type::Ping:
     case CachedResource::Type::MediaResource:
 #if ENABLE(MODEL_ELEMENT)
+    case CachedResource::Type::EnvironmentMapResource:
     case CachedResource::Type::ModelResource:
 #endif
     case CachedResource::Type::RawResource:
@@ -192,6 +193,7 @@ static CachedResourceHandle<CachedResource> createResource(CachedResourceRequest
     case CachedResource::Type::Icon:
     case CachedResource::Type::MainResource:
 #if ENABLE(MODEL_ELEMENT)
+    case CachedResource::Type::EnvironmentMapResource:
     case CachedResource::Type::ModelResource:
 #endif
         return new CachedRawResource(WTFMove(request), resource.type(), resource.sessionID(), resource.cookieJar());
@@ -348,6 +350,11 @@ ResourceErrorOr<CachedResourceHandle<CachedRawResource>> CachedResourceLoader::r
     case FetchOptions::Destination::Audio:
     case FetchOptions::Destination::Video:
         break;
+    case FetchOptions::Destination::Environmentmap:
+#if ENABLE(MODEL_ELEMENT)
+        resourceType = CachedResource::Type::EnvironmentMapResource;
+        break;
+#endif
     case FetchOptions::Destination::Model:
 #if ENABLE(MODEL_ELEMENT)
         resourceType = CachedResource::Type::ModelResource;
@@ -395,6 +402,11 @@ ResourceErrorOr<CachedResourceHandle<CachedApplicationManifest>> CachedResourceL
 #endif // ENABLE(APPLICATION_MANIFEST)
 
 #if ENABLE(MODEL_ELEMENT)
+ResourceErrorOr<CachedResourceHandle<CachedRawResource>> CachedResourceLoader::requestEnvironmentMapResource(CachedResourceRequest&& request)
+{
+    return castCachedResourceTo<CachedRawResource>(requestResource(CachedResource::Type::EnvironmentMapResource, WTFMove(request)));
+}
+
 ResourceErrorOr<CachedResourceHandle<CachedRawResource>> CachedResourceLoader::requestModelResource(CachedResourceRequest&& request)
 {
     return castCachedResourceTo<CachedRawResource>(requestResource(CachedResource::Type::ModelResource, WTFMove(request)));
@@ -410,6 +422,7 @@ static MixedContentChecker::ContentType contentTypeFromResourceType(CachedResour
     case CachedResource::Type::ImageResource:
     case CachedResource::Type::MediaResource:
 #if ENABLE(MODEL_ELEMENT)
+    case CachedResource::Type::EnvironmentMapResource:
     case CachedResource::Type::ModelResource:
 #endif
         return MixedContentChecker::ContentType::ActiveCanWarn;
@@ -457,6 +470,7 @@ static MixedContentChecker::IsUpgradable isUpgradableTypeFromResourceType(Cached
     // 3.1. Upgradeable Content
     if (type == CachedResource::Type::ImageResource
 #if ENABLE(MODEL_ELEMENT)
+        || type == CachedResource::Type::EnvironmentMapResource
         || type == CachedResource::Type::ModelResource
 #endif
         || type == CachedResource::Type::MediaResource)
@@ -497,6 +511,7 @@ bool CachedResourceLoader::checkInsecureContent(CachedResource::Type type, const
     case CachedResource::Type::TextTrackResource:
 #endif
 #if ENABLE(MODEL_ELEMENT)
+    case CachedResource::Type::EnvironmentMapResource:
     case CachedResource::Type::ModelResource:
 #endif
     case CachedResource::Type::MediaResource:
@@ -582,6 +597,7 @@ bool CachedResourceLoader::allowedByContentSecurityPolicy(CachedResource::Type t
     case CachedResource::Type::Ping:
     case CachedResource::Type::RawResource:
 #if ENABLE(MODEL_ELEMENT)
+    case CachedResource::Type::EnvironmentMapResource:
     case CachedResource::Type::ModelResource:
 #endif
         return true;
@@ -1032,6 +1048,7 @@ static FetchOptions::Destination destinationForType(CachedResource::Type type, L
     case CachedResource::Type::RawResource:
     case CachedResource::Type::MediaResource:
 #if ENABLE(MODEL_ELEMENT)
+    case CachedResource::Type::EnvironmentMapResource:
     case CachedResource::Type::ModelResource:
 #endif
         // The caller is responsible for setting the appropriate destination.
@@ -1170,11 +1187,12 @@ ResourceErrorOr<CachedResourceHandle<CachedResource>> CachedResourceLoader::requ
             }
         }
 #endif
-        bool isHTTPSOnlyActive = m_documentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeAndFailClosed
+        // FIXME: Propagate a better error code
+        bool isHTTPSOnlyActive = (m_documentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeWithUserMediatedFallback || m_documentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeAndNoFallback)
             && !m_documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnlyExplicitlyBypassedForDomain)
             && !frame->loader().isHTTPFallbackInProgress()
             && !(committedDocumentURL.protocolIs("http"_s) && request.resourceRequest().isSameSite());
-        if (!madeHTTPS && !request.resourceRequest().url().protocolIs("https"_s) && type == CachedResource::Type::MainResource && isHTTPSOnlyActive)
+        if (!madeHTTPS && !LegacySchemeRegistry::shouldTreatURLSchemeAsSecure(request.resourceRequest().url().protocol()) && type == CachedResource::Type::MainResource && isHTTPSOnlyActive)
             return makeUnexpected(protectedDocumentLoader()->protectedFrameLoader()->client().httpNavigationWithHTTPSOnlyError(request.resourceRequest()));
 
         if (madeHTTPS

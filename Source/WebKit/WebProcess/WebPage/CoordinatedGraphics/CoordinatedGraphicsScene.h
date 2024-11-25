@@ -30,14 +30,11 @@
 #include <WebCore/TextureMapperLayer.h>
 #include <WebCore/TextureMapperPlatformLayerProxy.h>
 #include <wtf/Function.h>
+#include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/RunLoop.h>
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/Vector.h>
-
-namespace Nicosia {
-class Buffer;
-}
 
 namespace WebCore {
 class CoordinatedBackingStore;
@@ -83,6 +80,8 @@ private:
 
     void onNewBufferAvailable() override;
 
+    void removeLayer(Nicosia::CompositionLayer&);
+
     struct {
         RefPtr<Nicosia::Scene> scene;
         Nicosia::Scene::State state;
@@ -100,6 +99,8 @@ private:
     std::unique_ptr<WebCore::TextureMapperLayer> m_rootLayer;
 
     Nicosia::PlatformLayer::LayerID m_rootLayerID { 0 };
+
+    UncheckedKeyHashMap<WebCore::TextureMapperLayer*, Ref<WebCore::CoordinatedBackingStore>> m_backingStores;
 
     WebCore::TextureMapperFPSCounter m_fpsCounter;
 };

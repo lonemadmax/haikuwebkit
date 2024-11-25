@@ -49,7 +49,7 @@ namespace {
 const unsigned retryTimeOutValueMs = 200;
 }
 
-U2fAuthenticator::U2fAuthenticator(std::unique_ptr<CtapDriver>&& driver)
+U2fAuthenticator::U2fAuthenticator(Ref<CtapDriver>&& driver)
     : FidoAuthenticator(WTFMove(driver))
     , m_retryTimer(RunLoop::main(), this, &U2fAuthenticator::retryLastCommand)
 {
@@ -228,7 +228,7 @@ void U2fAuthenticator::continueBogusCommandNoCredentialsAfterResponseReceived(Ap
     U2F_RELEASE_LOG("continueBogusCommandNoCredentialsAfterResponseReceived: Status %hu", enumToUnderlyingType(apduResponse.status()));
     switch (apduResponse.status()) {
     case ApduResponse::Status::SW_NO_ERROR:
-        if (auto* observer = this->observer())
+        if (RefPtr observer = this->observer())
             observer->authenticatorStatusUpdated(WebAuthenticationStatus::NoCredentialsFound);
         receiveRespond(ExceptionData { ExceptionCode::NotAllowedError, "No credentials from the allowCredentials list is found in the authenticator."_s });
         return;

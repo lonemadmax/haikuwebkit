@@ -28,9 +28,11 @@
 #if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include <WebCore/MediaPlayerEnums.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -41,8 +43,9 @@ namespace WebKit {
 
 class RemoteMediaPlayerManager;
 
-class RemoteMediaPlayerMIMETypeCache {
+class RemoteMediaPlayerMIMETypeCache final : public CanMakeThreadSafeCheckedPtr<RemoteMediaPlayerMIMETypeCache> {
     WTF_MAKE_TZONE_ALLOCATED(RemoteMediaPlayerMIMETypeCache);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteMediaPlayerMIMETypeCache);
 public:
     RemoteMediaPlayerMIMETypeCache(RemoteMediaPlayerManager&, WebCore::MediaPlayerEnums::MediaEngineIdentifier);
     ~RemoteMediaPlayerMIMETypeCache() = default;
@@ -53,11 +56,13 @@ public:
     bool isEmpty() const;
 
 private:
-    RemoteMediaPlayerManager& m_manager;
+    Ref<RemoteMediaPlayerManager> protectedManager() const;
+
+    ThreadSafeWeakPtr<RemoteMediaPlayerManager> m_manager; // Cannot be null.
     WebCore::MediaPlayerEnums::MediaEngineIdentifier m_engineIdentifier;
 
     using SupportedTypesAndCodecsKey = std::tuple<String, bool, bool, bool>;
-    std::optional<HashMap<SupportedTypesAndCodecsKey, WebCore::MediaPlayerEnums::SupportsType>> m_supportsTypeAndCodecsCache;
+    std::optional<UncheckedKeyHashMap<SupportedTypesAndCodecsKey, WebCore::MediaPlayerEnums::SupportsType>> m_supportsTypeAndCodecsCache;
     HashSet<String> m_supportedTypesCache;
     bool m_hasPopulatedSupportedTypesCacheFromGPUProcess { false };
 };

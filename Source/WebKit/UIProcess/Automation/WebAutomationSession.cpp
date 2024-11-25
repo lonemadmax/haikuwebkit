@@ -51,6 +51,7 @@
 #include <algorithm>
 #include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
+#include <wtf/MainThread.h>
 #include <wtf/URL.h>
 #include <wtf/UUID.h>
 #include <wtf/text/MakeString.h>
@@ -83,6 +84,57 @@ static const Seconds defaultPageLoadTimeout = 300_s;
 // https://www.w3.org/TR/webdriver/#dfn-page-loading-strategy
 static const Inspector::Protocol::Automation::PageLoadStrategy defaultPageLoadStrategy = Inspector::Protocol::Automation::PageLoadStrategy::Normal;
 
+#if ENABLE(REMOTE_INSPECTOR)
+auto WebAutomationSession::Debuggable::create(WebAutomationSession& session) -> Ref<Debuggable>
+{
+    return adoptRef(*new Debuggable(session));
+}
+
+WebAutomationSession::Debuggable::Debuggable(WebAutomationSession& session)
+    : m_session(&session)
+{
+}
+
+void WebAutomationSession::Debuggable::sessionDestroyed()
+{
+    m_session = nullptr;
+}
+
+String WebAutomationSession::Debuggable::name() const
+{
+    String name;
+    callOnMainRunLoopAndWait([this, protectedThis = Ref { *this }, &name] {
+        if (RefPtr session = m_session.get())
+            name = session->name().isolatedCopy();
+    });
+    return name;
+}
+
+void WebAutomationSession::Debuggable::dispatchMessageFromRemote(String&& message)
+{
+    callOnMainRunLoopAndWait([this, protectedThis = Ref { *this }, message = WTFMove(message).isolatedCopy()]() mutable {
+        if (RefPtr session = m_session.get())
+            session->dispatchMessageFromRemote(WTFMove(message));
+    });
+}
+
+void WebAutomationSession::Debuggable::connect(Inspector::FrontendChannel& channel, bool isAutomaticConnection, bool immediatelyPause)
+{
+    callOnMainRunLoopAndWait([this, protectedThis = Ref { *this }, &channel, isAutomaticConnection, immediatelyPause] {
+        if (RefPtr session = m_session.get())
+            session->connect(channel, isAutomaticConnection, immediatelyPause);
+    });
+}
+
+void WebAutomationSession::Debuggable::disconnect(Inspector::FrontendChannel& channel)
+{
+    callOnMainRunLoopAndWait([this, protectedThis = Ref { *this }, &channel] {
+        if (RefPtr session = m_session.get())
+            session->disconnect(channel);
+    });
+}
+#endif // ENABLE(REMOTE_INSPECTOR)
+
 WebAutomationSession::WebAutomationSession()
     : m_client(makeUnique<API::AutomationSessionClient>())
     , m_frontendRouter(FrontendRouter::create())
@@ -90,6 +142,9 @@ WebAutomationSession::WebAutomationSession()
     , m_domainDispatcher(AutomationBackendDispatcher::create(m_backendDispatcher, this))
     , m_domainNotifier(makeUnique<AutomationFrontendDispatcher>(m_frontendRouter))
     , m_loadTimer(RunLoop::main(), this, &WebAutomationSession::loadTimerFired)
+#if ENABLE(REMOTE_INSPECTOR)
+    , m_debuggable(Debuggable::create(*this))
+#endif
 {
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
     m_mouseButtonsCurrentlyDown.reserveInitialCapacity(3);
@@ -100,6 +155,9 @@ WebAutomationSession::~WebAutomationSession()
 {
     ASSERT(!m_client);
     ASSERT(!m_processPool);
+#if ENABLE(REMOTE_INSPECTOR)
+    protectedDebuggable()->sessionDestroyed();
+#endif
 }
 
 void WebAutomationSession::setClient(std::unique_ptr<API::AutomationSessionClient>&& client)
@@ -128,8 +186,6 @@ RefPtr<WebProcessPool> WebAutomationSession::protectedProcessPool() const
 
 #if ENABLE(REMOTE_INSPECTOR)
 
-// Inspector::RemoteAutomationTarget API
-
 void WebAutomationSession::dispatchMessageFromRemote(String&& message)
 {
     protectedBackendDispatcher()->dispatch(WTFMove(message));
@@ -143,13 +199,28 @@ void WebAutomationSession::connect(Inspector::FrontendChannel& channel, bool isA
     m_remoteChannel = &channel;
     protectedFrontendRouter()->connectFrontend(channel);
 
-    setIsPaired(true);
+    protectedDebuggable()->setIsPaired(true);
 }
 
 void WebAutomationSession::disconnect(Inspector::FrontendChannel& channel)
 {
     ASSERT(&channel == m_remoteChannel);
     terminate();
+}
+
+void WebAutomationSession::init()
+{
+    protectedDebuggable()->init();
+}
+
+bool WebAutomationSession::isPaired() const
+{
+    return m_debuggable->isPaired();
+}
+
+bool WebAutomationSession::isPendingTermination() const
+{
+    return m_debuggable->isPendingTermination();
 }
 
 #endif // ENABLE(REMOTE_INSPECTOR)
@@ -183,7 +254,7 @@ void WebAutomationSession::terminate()
         protectedFrontendRouter()->disconnectFrontend(*channel);
     }
 
-    setIsPaired(false);
+    protectedDebuggable()->setIsPaired(false);
 #endif
 
     if (m_client)
@@ -543,7 +614,7 @@ void WebAutomationSession::waitForNavigationToCompleteOnFrame(WebFrameProxy& fra
     }
 }
 
-void WebAutomationSession::respondToPendingPageNavigationCallbacksWithTimeout(HashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>& map)
+void WebAutomationSession::respondToPendingPageNavigationCallbacksWithTimeout(UncheckedKeyHashMap<WebPageProxyIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>& map)
 {
     auto timeoutError = STRING_FOR_PREDEFINED_ERROR_NAME(Timeout);
     for (auto id : copyToVector(map.keys())) {
@@ -563,7 +634,7 @@ static WebPageProxy* findPageForFrameID(const WebProcessPool& processPool, Frame
     return nullptr;
 }
 
-void WebAutomationSession::respondToPendingFrameNavigationCallbacksWithTimeout(HashMap<FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>& map)
+void WebAutomationSession::respondToPendingFrameNavigationCallbacksWithTimeout(UncheckedKeyHashMap<FrameIdentifier, RefPtr<Inspector::BackendDispatcher::CallbackBase>>& map)
 {
     auto timeoutError = STRING_FOR_PREDEFINED_ERROR_NAME(Timeout);
     for (auto id : copyToVector(map.keys())) {
@@ -1574,8 +1645,8 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::Automa
 
 Inspector::Protocol::ErrorStringOr<void> WebAutomationSession::setSessionPermissions(Ref<JSON::Array>&& permissions)
 {
-    for (auto it = permissions->begin(); it != permissions->end(); ++it) {
-        auto permission = it->get().asObject();
+    for (auto& value : permissions.get()) {
+        auto permission = value->asObject();
         if (!permission)
             SYNC_FAIL_WITH_PREDEFINED_ERROR_AND_DETAILS(InvalidParameter, "The parameter 'permissions' is invalid."_s);
 
@@ -1648,7 +1719,7 @@ Inspector::Protocol::ErrorStringOr<String /* authenticatorId */> WebAutomationSe
     auto page = webPageProxyForHandle(browsingContextHandle);
     if (!page)
         SYNC_FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
-    return page->protectedWebsiteDataStore()->virtualAuthenticatorManager().createAuthenticator({
+    return page->protectedWebsiteDataStore()->protectedVirtualAuthenticatorManager()->createAuthenticator({
         .protocol = protocol,
         .transport = toAuthenticatorTransport(parsedTransport.value()),
         .hasResidentKey = *hasResidentKey,
@@ -1667,7 +1738,7 @@ Inspector::Protocol::ErrorStringOr<void> WebAutomationSession::removeVirtualAuth
     auto page = webPageProxyForHandle(browsingContextHandle);
     if (!page)
         SYNC_FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
-    if (!page->protectedWebsiteDataStore()->virtualAuthenticatorManager().removeAuthenticator(authenticatorId))
+    if (!page->protectedWebsiteDataStore()->protectedVirtualAuthenticatorManager()->removeAuthenticator(authenticatorId))
         SYNC_FAIL_WITH_PREDEFINED_ERROR_AND_DETAILS(InvalidParameter, "No such authenticator exists."_s);
     return { };
 #else
@@ -1943,8 +2014,8 @@ void WebAutomationSession::performMouseInteraction(const Inspector::Protocol::Au
     auto floatY = static_cast<float>(*y);
 
     OptionSet<WebEventModifier> keyModifiers;
-    for (auto it = keyModifierStrings->begin(); it != keyModifierStrings->end(); ++it) {
-        auto modifierString = it->get().asString();
+    for (auto& value : keyModifierStrings.get()) {
+        auto modifierString = value->asString();
         if (!modifierString)
             ASYNC_FAIL_WITH_PREDEFINED_ERROR_AND_DETAILS(InvalidParameter, "The parameter 'modifiers' is invalid."_s);
 
@@ -2279,8 +2350,8 @@ void WebAutomationSession::performInteractionSequence(const Inspector::Protocol:
             if (auto pressedVirtualKeysArray = stateObject->getArray("pressedVirtualKeys"_s)) {
                 VirtualKeyMap pressedVirtualKeys;
 
-                for (auto it = pressedVirtualKeysArray->begin(); it != pressedVirtualKeysArray->end(); ++it) {
-                    auto pressedVirtualKeyString = (*it)->asString();
+                for (auto& value : *pressedVirtualKeysArray) {
+                    auto pressedVirtualKeyString = value->asString();
                     if (!pressedVirtualKeyString)
                         ASYNC_FAIL_WITH_PREDEFINED_ERROR_AND_DETAILS(InvalidParameter, "Encountered a non-string virtual key value."_s);
 
@@ -2482,6 +2553,11 @@ Ref<Inspector::FrontendRouter> WebAutomationSession::protectedFrontendRouter() c
 Ref<Inspector::BackendDispatcher> WebAutomationSession::protectedBackendDispatcher() const
 {
     return m_backendDispatcher;
+}
+
+Ref<WebAutomationSession::Debuggable> WebAutomationSession::protectedDebuggable() const
+{
+    return m_debuggable;
 }
 
 #if !PLATFORM(COCOA) && !USE(CAIRO) && !USE(SKIA)

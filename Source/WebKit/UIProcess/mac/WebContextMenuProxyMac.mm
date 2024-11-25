@@ -31,6 +31,7 @@
 #import "APIAttachment.h"
 #import "APIContextMenuClient.h"
 #import "CocoaImage.h"
+#import "EditorState.h"
 #import "ImageAnalysisUtilities.h"
 #import "MenuUtilities.h"
 #import "PageClientImplMac.h"
@@ -864,11 +865,35 @@ void WebContextMenuProxyMac::getContextMenuItem(const WebContextMenuItemData& it
         // FIXME: (rdar://127608508) Remove this `respondsToSelector` check when possible.
         if ([NSMenuItem.class respondsToSelector:@selector(standardWritingToolsMenuItem)]) {
             RetainPtr menuItem = [NSMenuItem standardWritingToolsMenuItem];
+            [[menuItem submenu] setAutoenablesItems:NO];
 
             for (NSMenuItem *subItem in [menuItem submenu].itemArray) {
                 if (subItem.isSeparatorItem)
                     continue;
 
+                bool shouldEnableItem = [&] {
+                    auto tag = [subItem tag];
+                    if (tag == WTRequestedToolIndex)
+                        return true;
+
+                    bool editorStateIsContentEditable = false;
+                    bool allowProofreadingAndRewritingTools = true;
+
+                    if (RefPtr page = this->page()) {
+                        auto& editorState = page->editorState();
+                        editorStateIsContentEditable = editorState.isContentEditable;
+
+                        if (editorStateIsContentEditable)
+                            allowProofreadingAndRewritingTools = editorState.hasPostLayoutData() && !editorState.postLayoutData->paragraphContextForCandidateRequest.isEmpty();
+                    }
+
+                    if (tag == WTRequestedToolCompose)
+                        return editorStateIsContentEditable;
+
+                    return allowProofreadingAndRewritingTools;
+                }();
+
+                subItem.enabled = static_cast<BOOL>(shouldEnableItem);
                 subItem.target = WKMenuTarget.sharedMenuTarget;
             }
 

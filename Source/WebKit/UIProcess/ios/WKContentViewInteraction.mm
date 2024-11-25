@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -131,7 +131,6 @@
 #import <WebCore/PathUtilities.h>
 #import <WebCore/PlatformTextAlternatives.h>
 #import <WebCore/PromisedAttachmentInfo.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScrollTypes.h>
 #import <WebCore/Scrollbar.h>
 #import <WebCore/ShareData.h>
@@ -162,6 +161,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CallbackAggregator.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/Scope.h>
 #import <wtf/SetForScope.h>
 #import <wtf/StdLibExtras.h>
@@ -215,6 +215,8 @@
 #if HAVE(AUTOCORRECTION_ENHANCEMENTS)
 #define UIWKDocumentRequestAutocorrectedRanges (1 << 7)
 #endif
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 #if USE(BROWSERENGINEKIT)
 
@@ -394,12 +396,14 @@ WKSelectionDrawingInfo::WKSelectionDrawingInfo(const EditorState& editorState)
     type = SelectionType::Range;
     if (!editorState.postLayoutData)
         return;
+
     auto& postLayoutData = *editorState.postLayoutData;
     auto& visualData = *editorState.visualData;
     caretRect = visualData.caretRectAtEnd;
     caretColor = postLayoutData.caretColor;
     selectionGeometries = visualData.selectionGeometries;
     selectionClipRect = visualData.selectionClipRect;
+    enclosingLayerID = visualData.enclosingLayerID;
 }
 
 inline bool operator==(const WKSelectionDrawingInfo& a, const WKSelectionDrawingInfo& b)
@@ -435,6 +439,9 @@ inline bool operator==(const WKSelectionDrawingInfo& a, const WKSelectionDrawing
     if (a.type != WKSelectionDrawingInfo::SelectionType::None && a.selectionClipRect != b.selectionClipRect)
         return false;
 
+    if (a.enclosingLayerID != b.enclosingLayerID)
+        return false;
+
     return true;
 }
 
@@ -457,6 +464,7 @@ TextStream& operator<<(TextStream& stream, const WKSelectionDrawingInfo& info)
     stream.dumpProperty("caret color", info.caretColor);
     stream.dumpProperty("selection geometries", info.selectionGeometries);
     stream.dumpProperty("selection clip rect", info.selectionClipRect);
+    stream.dumpProperty("layer", info.enclosingLayerID);
     return stream;
 }
 
@@ -1859,6 +1867,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)shouldHideSelectionWhenScrolling
 {
+    if (_page->preferences().selectionHonorsOverflowScrolling())
+        return NO;
+
     if (_isEditable)
         return _focusedElementInformation.insideFixedPosition;
 
@@ -2798,7 +2809,7 @@ static inline WebCore::FloatSize tapHighlightBorderRadius(WebCore::FloatSize bor
     });
 
 #if USE(UICONTEXTMENU)
-    [_fileUploadPanel repositionContextMenuIfNeeded];
+    [_fileUploadPanel repositionContextMenuIfNeeded:WebKit::KeyboardIsDismissing::No];
 #endif
 }
 
@@ -3255,8 +3266,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!hitView)
         return NO;
 
-    RetainPtr selectionContainer = [self _selectionContainerScrollView];
-    return hitView == selectionContainer || [selectionContainer _wk_isAncestorOf:hitView.get()];
+    RetainPtr hitScroller = dynamic_objc_cast<UIScrollView>(hitView.get()) ?: [hitView _wk_parentScrollView];
+    return hitScroller && hitScroller == self._selectionContainerViewInternal._wk_parentScrollView;
 }
 
 - (BOOL)_shouldToggleSelectionCommandsAfterTapAt:(CGPoint)point
@@ -4750,6 +4761,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     if (_isEditable && [self isFirstResponder])
         _keyboardDidRequestDismissal = YES;
+
+#if USE(UICONTEXTMENU)
+    [_fileUploadPanel repositionContextMenuIfNeeded:WebKit::KeyboardIsDismissing::Yes];
+#endif
 }
 
 - (void)copyForWebView:(id)sender
@@ -5944,8 +5959,12 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
 
 - (void)updateFocusedElementValueAsColor:(UIColor *)value
 {
-    WebCore::Color color(WebCore::roundAndClampToSRGBALossy(value.CGColor));
-    String valueAsString = WebCore::serializationForHTML(color);
+    auto color = [&] {
+        if (_page->preferences().inputTypeColorEnhancementsEnabled())
+            return WebCore::Color::createAndPreserveColorSpace(value.CGColor);
+        return WebCore::Color(WebCore::roundAndClampToSRGBALossy(value.CGColor));
+    }();
+    auto valueAsString = WebCore::serializationForHTML(color);
 
     _page->setFocusedElementValue(_focusedElementInformation.elementContext, valueAsString);
     _focusedElementInformation.value = valueAsString;
@@ -9721,7 +9740,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!_focusedElementInformation.shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation)
         return NO;
 
-    return WebCore::IOSApplication::isDataActivation();
+    return WTF::IOSApplication::isDataActivation();
 }
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -11066,6 +11085,23 @@ static RetainPtr<UITargetedPreview> createTargetedPreview(UIImage *image, UIView
     return adoptNS([[UITargetedPreview alloc] initWithView:imageView.get() parameters:parameters.get() target:target.get()]);
 }
 
+- (UITargetedPreview *)_createTargetedPreviewFromTextIndicator:(WebCore::TextIndicatorData)textIndicatorData previewContainer:(UIView *)previewContainer
+{
+    RetainPtr textIndicatorImage = uiImageForImage(textIndicatorData.contentImage.get());
+
+    RetainPtr preview = createTargetedPreview(textIndicatorImage.get(), self, previewContainer, textIndicatorData.textBoundingRectInRootViewCoordinates, textIndicatorData.textRectsInBoundingRectCoordinates, ^{
+        if (textIndicatorData.estimatedBackgroundColor != WebCore::Color::transparentBlack)
+            return cocoaColor(textIndicatorData.estimatedBackgroundColor).autorelease();
+
+        // In the case where background color estimation fails, it doesn't make sense to
+        // show a text indicator preview with a clear background in light mode. Default
+        // to the system background color instead.
+        return UIColor.systemBackgroundColor;
+    }());
+
+    return preview.autorelease();
+}
+
 static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootView, UIView *containerView, const WebCore::FloatRect& frameInRootViewCoordinates, UIColor *backgroundColor)
 {
     if (!containerView.window)
@@ -11168,15 +11204,8 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     if (_positionInformation.isLink && _positionInformation.linkIndicator.contentImage) {
         auto indicator = _positionInformation.linkIndicator;
         _positionInformationLinkIndicator = indicator;
-        auto textIndicatorImage = uiImageForImage(indicator.contentImage.get());
-        targetedPreview = createTargetedPreview(textIndicatorImage.get(), self, self.containerForContextMenuHintPreviews, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, ^{
-            if (indicator.estimatedBackgroundColor != WebCore::Color::transparentBlack)
-                return cocoaColor(indicator.estimatedBackgroundColor).autorelease();
-            // In the case where background color estimation fails, it doesn't make sense to
-            // show a text indicator preview with a clear background in light mode. Default
-            // to the system background color instead.
-            return UIColor.systemBackgroundColor;
-        }());
+
+        targetedPreview = [self _createTargetedPreviewFromTextIndicator:indicator previewContainer:self.containerForContextMenuHintPreviews];
     } else if ((_positionInformation.isAttachment || _positionInformation.isImage) && _positionInformation.image) {
         auto cgImage = _positionInformation.image->makeCGImageCopy();
         auto image = adoptNS([[UIImage alloc] initWithCGImage:cgImage.get()]);
@@ -11544,7 +11573,7 @@ static WebKit::DocumentEditingContextRequest toWebRequest(id request)
 
 - (void)setGrammarCheckingEnabled:(BOOL)enabled
 {
-    if (static_cast<bool>(enabled) == WebKit::TextChecker::state().isGrammarCheckingEnabled)
+    if (static_cast<bool>(enabled) == WebKit::TextChecker::state().contains(WebKit::TextCheckerState::GrammarCheckingEnabled))
         return;
 
     WebKit::TextChecker::setGrammarCheckingEnabled(enabled);
@@ -11559,28 +11588,28 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     // check them before the linked-on-or-after.
 
     // <rdar://problem/59521967> iAd Video does not respond to mouse events, only touch events
-    if (WebCore::IOSApplication::isNews() || WebCore::IOSApplication::isStocks()) {
+    if (WTF::IOSApplication::isNews() || WTF::IOSApplication::isStocks()) {
         warningVersion = nullptr;
         return YES;
     }
 
     if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsiOSAppsOnMacOS)) {
-        if (WebCore::IOSApplication::isFIFACompanion() // <rdar://problem/67093487>
-            || WebCore::IOSApplication::isNoggin() // <rdar://problem/64830335>
-            || WebCore::IOSApplication::isOKCupid() // <rdar://problem/65698496>
-            || WebCore::IOSApplication::isJWLibrary() // <rdar://problem/68104852>
-            || WebCore::IOSApplication::isPaperIO() // <rdar://problem/68738585>
-            || WebCore::IOSApplication::isCrunchyroll()) { // <rdar://problem/66362029>
+        if (WTF::IOSApplication::isFIFACompanion() // <rdar://problem/67093487>
+            || WTF::IOSApplication::isNoggin() // <rdar://problem/64830335>
+            || WTF::IOSApplication::isOKCupid() // <rdar://problem/65698496>
+            || WTF::IOSApplication::isJWLibrary() // <rdar://problem/68104852>
+            || WTF::IOSApplication::isPaperIO() // <rdar://problem/68738585>
+            || WTF::IOSApplication::isCrunchyroll()) { // <rdar://problem/66362029>
             warningVersion = "14.2";
             return YES;
         }
     }
 
     if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SendsNativeMouseEvents)) {
-        if (WebCore::IOSApplication::isPocketCity() // <rdar://problem/62273077>
-            || WebCore::IOSApplication::isEssentialSkeleton() // <rdar://problem/62694519>
-            || WebCore::IOSApplication::isESPNFantasySports() // <rdar://problem/64671543>
-            || WebCore::IOSApplication::isDoubleDown()) { // <rdar://problem/64668138>
+        if (WTF::IOSApplication::isPocketCity() // <rdar://problem/62273077>
+            || WTF::IOSApplication::isEssentialSkeleton() // <rdar://problem/62694519>
+            || WTF::IOSApplication::isESPNFantasySports() // <rdar://problem/64671543>
+            || WTF::IOSApplication::isDoubleDown()) { // <rdar://problem/64668138>
             warningVersion = "13.4";
             return YES;
         }
@@ -12727,9 +12756,11 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 - (CGRect)contentsRectForImageAnalysisInteraction:(VKCImageAnalysisInteraction *)interaction
 {
     auto unitInteractionRect = _imageAnalysisInteractionBounds;
-    WebCore::FloatRect unobscuredRect = self.bounds;
-    unitInteractionRect.moveBy(-unobscuredRect.location());
-    unitInteractionRect.scale(1 / unobscuredRect.size());
+    WebCore::FloatRect contentViewBounds = self.bounds;
+    auto obscuredInset = self.webView._computedObscuredInset;
+    unitInteractionRect.move(obscuredInset.left, obscuredInset.top);
+    unitInteractionRect.moveBy(-contentViewBounds.location());
+    unitInteractionRect.scale(1 / contentViewBounds.size());
     return unitInteractionRect;
 }
 
@@ -13373,30 +13404,15 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 #if ENABLE(WRITING_TOOLS)
 - (void)targetedPreviewForID:(NSUUID *)uuid completionHandler:(void (^)(UITargetedPreview *))completionHandler
 {
-    auto textUUID = WTF::UUID::fromNSUUID(uuid);
-    _page->getTextIndicatorForID(*textUUID, [protectedSelf = retainPtr(self), completionHandler = makeBlockPtr(completionHandler)] (std::optional<WebCore::TextIndicatorData> indicatorData) {
+    auto animationID = WTF::UUID::fromNSUUID(uuid);
 
+    _page->getTextIndicatorForID(*animationID, [protectedSelf = retainPtr(self), completionHandler = makeBlockPtr(completionHandler)] (auto&& indicatorData) {
         if (!indicatorData) {
             completionHandler(nil);
             return;
         }
 
-        auto snapshot = indicatorData->contentImage;
-        if (!snapshot) {
-            completionHandler(nil);
-            return;
-        }
-
-        auto snapshotImage = snapshot->nativeImage();
-        if (!snapshotImage) {
-            completionHandler(nil);
-            return;
-        }
-
-        RetainPtr image = adoptNS([[UIImage alloc] initWithCGImage:snapshotImage->platformImage().get() scale:protectedSelf->_page->deviceScaleFactor() orientation:UIImageOrientationUp]);
-
-        RetainPtr targetedPreview = createTargetedPreview(image.get(), protectedSelf.get(), [protectedSelf containerForContextMenuHintPreviews], indicatorData->textBoundingRectInRootViewCoordinates, indicatorData->textRectsInBoundingRectCoordinates, nil);
-
+        RetainPtr targetedPreview = [protectedSelf _createTargetedPreviewFromTextIndicator:*indicatorData previewContainer:[protectedSelf containerForContextMenuHintPreviews]];
         completionHandler(targetedPreview.get());
     });
 }
@@ -13436,33 +13452,17 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
     // Store this completion handler so that it can be called after the execution of the next
     // call to replace the text and eventually use this completion handler to pass the
     // text indicator to UIKit.
-    _page->storeDestinationCompletionHandlerForAnimationID(*animationUUID, [protectedSelf = retainPtr(self),  completionHandler = makeBlockPtr(completionHandler)] (std::optional<WebCore::TextIndicatorData> textIndicatorData) {
-        if (!textIndicatorData) {
+    _page->storeDestinationCompletionHandlerForAnimationID(*animationUUID, [protectedSelf = retainPtr(self), completionHandler = makeBlockPtr(completionHandler)] (auto&& indicatorData) {
+        if (!indicatorData) {
             completionHandler(nil);
             return;
         }
 
-        auto snapshot = textIndicatorData->contentImage;
-        if (!snapshot) {
-            completionHandler(nil);
-            return;
-        }
-
-        auto snapshotImage = snapshot->nativeImage();
-        if (!snapshotImage) {
-            completionHandler(nil);
-            return;
-        }
-
-        RetainPtr image = adoptNS([[UIImage alloc] initWithCGImage:snapshotImage->platformImage().get() scale:protectedSelf->_page->deviceScaleFactor() orientation:UIImageOrientationUp]);
-
-        RetainPtr targetedPreview = createTargetedPreview(image.get(), protectedSelf.get(), [protectedSelf containerForContextMenuHintPreviews], textIndicatorData->textBoundingRectInRootViewCoordinates, textIndicatorData->textRectsInBoundingRectCoordinates, nil);
-
+        RetainPtr targetedPreview = [protectedSelf _createTargetedPreviewFromTextIndicator:*indicatorData previewContainer:[protectedSelf containerForContextMenuHintPreviews]];
         completionHandler(targetedPreview.get());
     });
 
     _page->callCompletionHandlerForAnimationID(*animationUUID, WebCore::TextAnimationRunMode::RunAnimation);
-
 }
 
 - (void)replacementEffectDidComplete
@@ -13636,29 +13636,23 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
     return self._selectionContainerViewInternal;
 }
 
-- (WKBaseScrollView *)_selectionContainerScrollView
-{
-    if (!self.selectionHonorsOverflowScrolling)
-        return [_webView _scrollViewInternal];
-
-    if (!_page->editorState().hasVisualData())
-        return [_webView _scrollViewInternal];
-
-    auto scrollingNodeID = _page->editorState().visualData->enclosingScrollingNodeID;
-    if (!scrollingNodeID)
-        return [_webView _scrollViewInternal];
-
-    WeakPtr coordinator = _page->scrollingCoordinatorProxy();
-    if (UNLIKELY(!coordinator))
-        return [_webView _scrollViewInternal];
-
-    RetainPtr scrollView = downcast<WebKit::RemoteScrollingCoordinatorProxyIOS>(*coordinator).scrollViewForScrollingNodeID(*scrollingNodeID);
-    return dynamic_objc_cast<WKBaseScrollView>(scrollView.get());
-}
-
 - (UIView *)_selectionContainerViewInternal
 {
-    return self._selectionContainerScrollView.scrolledContentView ?: self;
+    if (!self.selectionHonorsOverflowScrolling)
+        return self;
+
+    if (!_page->editorState().hasVisualData())
+        return self;
+
+    WeakPtr drawingArea = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(_page->drawingArea());
+    if (!drawingArea)
+        return self;
+
+    WeakPtr layerTreeNode = drawingArea->remoteLayerTreeHost().nodeForID(_page->editorState().visualData->enclosingLayerID);
+    if (!layerTreeNode)
+        return self;
+
+    return layerTreeNode->uiView() ?: self;
 }
 
 @end
@@ -15300,5 +15294,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 @end
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // PLATFORM(IOS_FAMILY)

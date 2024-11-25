@@ -217,7 +217,6 @@
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/ResourceLoadObserver.h>
 #import <WebCore/ResourceRequest.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SQLiteFileSystem.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
@@ -273,6 +272,7 @@
 #import <wtf/RefCountedLeakCounter.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RunLoop.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SetForScope.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/StdLibExtras.h>
@@ -1334,7 +1334,7 @@ static RetainPtr<CFMutableSetRef>& allWebViewsSet()
 #if PLATFORM(IOS) || PLATFORM(VISION)
 static bool needsLaBanquePostaleQuirks()
 {
-    static bool needsQuirks = WebCore::IOSApplication::isLaBanquePostale() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoLaBanquePostaleQuirks);
+    static bool needsQuirks = WTF::IOSApplication::isLaBanquePostale() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoLaBanquePostaleQuirks);
     return needsQuirks;
 }
 
@@ -1487,8 +1487,11 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
 
 
 #if PLATFORM(IOS_FAMILY)
-        if (WebCore::IOSApplication::isMobileSafari())
+        if (WTF::IOSApplication::isMobileSafari())
             WebCore::DeprecatedGlobalSettings::setShouldManageAudioSessionCategory(true);
+#endif
+#if USE(AUDIO_SESSION)
+        WebCore::AudioSession::enableMediaPlayback();
 #endif
 
 #if ENABLE(VIDEO)
@@ -1514,7 +1517,7 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
         makeUniqueRef<WebProgressTrackerClient>(self),
         WebCore::PageConfiguration::LocalMainFrameCreationParameters {
             CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> { [] (auto&, auto& frameLoader) {
-                return makeUniqueRef<WebFrameLoaderClient>(frameLoader);
+                return makeUniqueRefWithoutRefCountedCheck<WebFrameLoaderClient>(frameLoader);
             } },
             WebCore::SandboxFlags { } // Set by updateSandboxFlags after instantiation.
         },
@@ -1780,7 +1783,7 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
         makeUniqueRef<WebProgressTrackerClient>(self),
         WebCore::PageConfiguration::LocalMainFrameCreationParameters {
             CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> { [] (auto&, auto& frameLoader) {
-                return makeUniqueRef<WebFrameLoaderClient>(frameLoader);
+                return makeUniqueRefWithoutRefCountedCheck<WebFrameLoaderClient>(frameLoader);
             } },
             WebCore::SandboxFlags { } // Set by updateSandboxFlags after instantiation.
         },
@@ -4704,6 +4707,10 @@ IGNORE_WARNINGS_END
 
 + (void)_setLoadResourcesSerially:(BOOL)serialize
 {
+#if PLATFORM(IOS_FAMILY)
+    WebThreadLock();
+#endif
+
     WebPlatformStrategies::initializeIfNecessary();
 
     webResourceLoadScheduler().setSerialLoadingEnabled(serialize);
@@ -8978,7 +8985,7 @@ FORWARD(toggleUnderline)
 {
     for (auto& alternativeWithRange : alternativesWithRange) {
         if (auto dictationContext = _private->m_alternativeTextUIController->addAlternatives(alternativeWithRange.alternatives.get()))
-            alternatives.append({ alternativeWithRange.range, dictationContext });
+            alternatives.append({ alternativeWithRange.range, *dictationContext });
     }
 }
 

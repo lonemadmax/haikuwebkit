@@ -38,7 +38,6 @@
 #include "CSSValuePool.h"
 #include "CSSViewValue.h"
 #include "Document.h"
-#include "DocumentInlines.h"
 #include "Element.h"
 #include "RenderBox.h"
 #include "ScrollAnchoringController.h"
@@ -56,7 +55,7 @@ Ref<ViewTimeline> ViewTimeline::create(const AtomString& name, ScrollAxis axis, 
     return adoptRef(*new ViewTimeline(name, axis, WTFMove(insets)));
 }
 
-Ref<ViewTimeline> ViewTimeline::createFromCSSValue(Style::BuilderState& builderState, const CSSViewValue& cssViewValue)
+Ref<ViewTimeline> ViewTimeline::createFromCSSValue(const Style::BuilderState& builderState, const CSSViewValue& cssViewValue)
 {
     auto axisValue = cssViewValue.axis();
     auto axis = axisValue ? fromCSSValueID<ScrollAxis>(axisValue->valueID()) : ScrollAxis::Block;
@@ -147,6 +146,27 @@ ViewTimeline::ViewTimeline(const AtomString& name, ScrollAxis axis, ViewTimeline
 {
 }
 
+void ViewTimeline::setSubject(Element* subject)
+{
+    if (subject == m_subject)
+        return;
+
+    RefPtr previousSubject = m_subject.get();
+    m_subject = subject;
+    RefPtr newSubject = m_subject.get();
+
+    if (previousSubject && newSubject && &previousSubject->document() == &newSubject->document())
+        return;
+
+    if (previousSubject) {
+        if (CheckedPtr timelinesController = previousSubject->protectedDocument()->timelinesController())
+            timelinesController->removeTimeline(*this);
+    }
+
+    if (newSubject)
+        newSubject->protectedDocument()->ensureTimelinesController().addTimeline(*this);
+}
+
 void ViewTimeline::dump(TextStream& ts) const
 {
     auto hasAxis = axis() != ScrollAxis::Block;
@@ -185,7 +205,7 @@ Ref<CSSValue> ViewTimeline::toCSSValue(const RenderStyle& style) const
 AnimationTimelinesController* ViewTimeline::controller() const
 {
     if (m_subject)
-        return &m_subject->protectedDocument()->ensureTimelinesController();
+        return &m_subject->document().ensureTimelinesController();
     return nullptr;
 }
 
@@ -198,12 +218,12 @@ AnimationTimeline::ShouldUpdateAnimationsAndSendEvents ViewTimeline::documentWil
 
 Element* ViewTimeline::source() const
 {
-    if (auto* sourceRender = sourceRenderer())
+    if (auto* sourceRender = sourceScrollerRenderer())
         return sourceRender->element();
     return nullptr;
 }
 
-RenderBox* ViewTimeline::sourceRenderer() const
+RenderBox* ViewTimeline::sourceScrollerRenderer() const
 {
     if (!m_subject)
         return nullptr;
@@ -217,7 +237,7 @@ RenderBox* ViewTimeline::sourceRenderer() const
     return subjectRenderer->enclosingScrollableContainer();
 }
 
-ViewTimeline::Data ViewTimeline::computeViewTimelineData(const TimelineRange& range) const
+ScrollTimeline::Data ViewTimeline::computeTimelineData(const TimelineRange& range) const
 {
     if (!m_subject)
         return { };
@@ -228,7 +248,7 @@ ViewTimeline::Data ViewTimeline::computeViewTimelineData(const TimelineRange& ra
     if (!subjectRenderBox)
         return { };
 
-    auto* sourceScrollableArea = scrollableAreaForSourceRenderer(sourceRenderer(), document);
+    auto* sourceScrollableArea = scrollableAreaForSourceRenderer(sourceScrollerRenderer(), document);
     if (!sourceScrollableArea)
         return { };
 
@@ -240,13 +260,12 @@ ViewTimeline::Data ViewTimeline::computeViewTimelineData(const TimelineRange& ra
     //   cover range
     // - range is the scroll offset corresponding to the end of the cover range minus the scroll offset
     //   corresponding to the start of the cover range
-    // TODO: investigate best way to compute subjectOffset, as offsetTop uses offsetParent(), not the containing scroller
-    // TODO: view timeline progress calculation: (currentScrollOffset - coverRangeStart) / (coverRangeEnd - coverRangeStart)
 
     float currentScrollOffset = axis() == ScrollAxis::Block ? sourceScrollableArea->scrollPosition().y() : sourceScrollableArea->scrollPosition().x();
     float scrollContainerSize = axis() == ScrollAxis::Block ? sourceScrollableArea->visibleHeight() : sourceScrollableArea->visibleWidth();
 
-    float subjectOffset = axis() == ScrollAxis::Block ? subjectRenderBox->offsetTop() : subjectRenderBox->offsetLeft();
+    auto subjectOffsetFromSource = subjectRenderBox->localToContainerPoint(FloatPoint(), sourceScrollerRenderer());
+    float subjectOffset = axis() == ScrollAxis::Block ? subjectOffsetFromSource.y() : subjectOffsetFromSource.x();
 
     float subjectSize = axis() == ScrollAxis::Block ? subjectRenderBox->borderBoxRect().height() : subjectRenderBox->borderBoxRect().width();
 
@@ -291,18 +310,18 @@ ViewTimeline::Data ViewTimeline::computeViewTimelineData(const TimelineRange& ra
     auto rangeStart = computeRangeStart() + insetEnd.value();
     auto rangeEnd = computeRangeEnd() - insetStart.value();
 
-    return { currentScrollOffset, rangeStart + floatValueForLength(range.start.offset, rangeEnd - rangeStart), rangeEnd - floatValueForLength(range.end.offset, rangeEnd - rangeStart) };
+    return { currentScrollOffset, rangeStart + ScrollTimeline::floatValueForOffset(range.start.offset, rangeEnd - rangeStart), rangeEnd - ScrollTimeline::floatValueForOffset(range.end.offset, rangeEnd - rangeStart) };
 }
 
-const CSSNumericValue& ViewTimeline::startOffset() const
+Ref<CSSNumericValue> ViewTimeline::startOffset()
 {
-    auto data = computeViewTimelineData();
+    auto data = computeTimelineData();
     return CSSNumericFactory::px(data.rangeStart);
 }
 
-const CSSNumericValue& ViewTimeline::endOffset() const
+Ref<CSSNumericValue> ViewTimeline::endOffset()
 {
-    auto data = computeViewTimelineData();
+    auto data = computeTimelineData();
     return CSSNumericFactory::px(data.rangeEnd);
 }
 

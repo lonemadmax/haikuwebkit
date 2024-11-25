@@ -80,7 +80,7 @@ namespace WebKit {
 class RemoteVideoFrameObjectHeap;
 #endif
 
-IPC::StreamConnectionWorkQueue& remoteGraphicsContextGLStreamWorkQueue();
+IPC::StreamConnectionWorkQueue& remoteGraphicsContextGLStreamWorkQueueSingleton();
 
 
 // GPU process side implementation of that receives messages about GraphicsContextGL calls
@@ -158,7 +158,11 @@ protected:
     using GCGLContext = WebCore::GraphicsContextGLTextureMapperANGLE;
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #include "RemoteGraphicsContextGLFunctionsGenerated.h" // NOLINT
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 private:
     void paintNativeImageToImageBuffer(WebCore::NativeImage&, WebCore::RenderingResourceIdentifier);
@@ -184,7 +188,7 @@ protected:
     ScopedWebGLRenderingResourcesRequest m_renderingResourcesRequest;
     WebCore::ProcessIdentifier m_webProcessIdentifier;
     SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
-    HashMap<uint32_t, PlatformGLObject, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_objectNames;
+    UncheckedKeyHashMap<uint32_t, PlatformGLObject, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_objectNames;
 };
 
 

@@ -187,7 +187,7 @@ public:
     // should not be shown to the user until the ChromeClient of the newly
     // created Page has its show method called.
     // The ChromeClient should not load the request.
-    virtual Page* createWindow(LocalFrame&, const WindowFeatures&, const NavigationAction&) = 0;
+    virtual RefPtr<Page> createWindow(LocalFrame&, const String& openedMainFrameName, const WindowFeatures&, const NavigationAction&) = 0;
     virtual void show() = 0;
 
     virtual bool canRunModal() const = 0;
@@ -329,7 +329,7 @@ public:
 
     virtual bool fetchCustomFixedPositionLayoutRect(IntRect&) { return false; }
 
-    virtual void updateViewportConstrainedLayers(HashMap<PlatformLayer*, std::unique_ptr<ViewportConstraints>>&, const HashMap<PlatformLayer*, PlatformLayer*>&) { }
+    virtual void updateViewportConstrainedLayers(UncheckedKeyHashMap<PlatformLayer*, std::unique_ptr<ViewportConstraints>>&, const UncheckedKeyHashMap<PlatformLayer*, PlatformLayer*>&) { }
 
     virtual void addOrUpdateScrollingLayer(Node*, PlatformLayer* scrollingLayer, PlatformLayer* contentsLayer, const IntSize& scrollSize, bool allowHorizontalScrollbar, bool allowVerticalScrollbar) = 0;
     virtual void removeScrollingLayer(Node*, PlatformLayer* scrollingLayer, PlatformLayer* contentsLayer) = 0;
@@ -345,16 +345,16 @@ public:
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
-    virtual std::unique_ptr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) = 0;
+    virtual RefPtr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) = 0;
 #endif
 
 #if ENABLE(DATALIST_ELEMENT)
-    virtual std::unique_ptr<DataListSuggestionPicker> createDataListSuggestionPicker(DataListSuggestionsClient&) = 0;
+    virtual RefPtr<DataListSuggestionPicker> createDataListSuggestionPicker(DataListSuggestionsClient&) = 0;
     virtual bool canShowDataListSuggestionLabels() const = 0;
 #endif
 
 #if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-    virtual std::unique_ptr<DateTimeChooser> createDateTimeChooser(DateTimeChooserClient&) = 0;
+    virtual RefPtr<DateTimeChooser> createDateTimeChooser(DateTimeChooserClient&) = 0;
 #endif
 
     virtual void setTextIndicator(const TextIndicatorData&) const = 0;
@@ -467,6 +467,9 @@ public:
 #if ENABLE(FULLSCREEN_API)
     virtual bool supportsFullScreenForElement(const Element&, bool) { return false; }
     virtual void enterFullScreenForElement(Element&, HTMLMediaElementEnums::VideoFullscreenMode = WebCore::HTMLMediaElementEnums::VideoFullscreenModeStandard) { }
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    virtual void updateImageSource(Element&) { }
+#endif // ENABLE(QUICKLOOK_FULLSCREEN)
     virtual void exitFullScreenForElement(Element*) { }
     virtual void setRootFullScreenLayer(GraphicsLayer*) { }
 #endif

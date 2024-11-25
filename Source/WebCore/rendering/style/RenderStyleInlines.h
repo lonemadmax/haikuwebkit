@@ -56,6 +56,7 @@
 #include "StyleVisitedLinkColorData.h"
 #include "UnicodeBidi.h"
 #include "ViewTimeline.h"
+#include "WebAnimationTypes.h"
 
 #if ENABLE(APPLE_PAY)
 #include "ApplePayButtonPart.h"
@@ -319,6 +320,7 @@ inline bool RenderStyle::hasViewportConstrainedPosition() const { return positio
 inline bool RenderStyle::hasVisibleBorder() const { return border().hasVisibleBorder(); }
 inline bool RenderStyle::hasVisibleBorderDecoration() const { return hasVisibleBorder() || hasBorderImage(); }
 inline bool RenderStyle::hasVisitedLinkAutoCaretColor() const { return m_rareInheritedData->hasVisitedLinkAutoCaretColor; }
+inline bool RenderStyle::hasZeroOpacity() const { return m_nonInheritedData->miscData->hasZeroOpacity(); }
 inline const Length& RenderStyle::height() const { return m_nonInheritedData->boxData->height(); }
 inline short RenderStyle::hyphenationLimitAfter() const { return m_rareInheritedData->hyphenationLimitAfter; }
 inline short RenderStyle::hyphenationLimitBefore() const { return m_rareInheritedData->hyphenationLimitBefore; }
@@ -398,8 +400,6 @@ inline const AtomString& RenderStyle::initialHyphenationString() { return nullAt
 constexpr Hyphens RenderStyle::initialHyphens() { return Hyphens::Manual; }
 constexpr ImageOrientation RenderStyle::initialImageOrientation() { return ImageOrientation::Orientation::FromImage; }
 constexpr ImageRendering RenderStyle::initialImageRendering() { return ImageRendering::Auto; }
-constexpr ImageResolutionSnap RenderStyle::initialImageResolutionSnap() { return ImageResolutionSnap::None; }
-constexpr ImageResolutionSource RenderStyle::initialImageResolutionSource() { return ImageResolutionSource::Specified; }
 constexpr IntSize RenderStyle::initialInitialLetter() { return { }; }
 constexpr InputSecurity RenderStyle::initialInputSecurity() { return InputSecurity::Auto; }
 constexpr LineJoin RenderStyle::initialJoinStyle() { return LineJoin::Miter; }
@@ -516,9 +516,11 @@ constexpr UserSelect RenderStyle::initialUserSelect() { return UserSelect::Text;
 constexpr VerticalAlign RenderStyle::initialVerticalAlign() { return VerticalAlign::Baseline; }
 inline Vector<ViewTimelineInsets> RenderStyle::initialViewTimelineInsets() { return { }; }
 inline Vector<Style::ScopedName> RenderStyle::initialViewTransitionClasses() { return { }; }
-inline std::optional<Style::ScopedName> RenderStyle::initialViewTransitionName() { return std::nullopt; }
+inline Style::ViewTransitionName RenderStyle::initialViewTransitionName() { return Style::ViewTransitionName::createWithNone(); }
 constexpr Visibility RenderStyle::initialVisibility() { return Visibility::Visible; }
 inline const TimelineScope RenderStyle::initialTimelineScope() { return { }; }
+inline const SingleTimelineRange RenderStyle::initialAnimationRangeStart() { return { SingleTimelineRange::Name::Normal, Length() }; }
+inline const SingleTimelineRange RenderStyle::initialAnimationRangeEnd() { return { SingleTimelineRange::Name::Normal, Length() }; }
 constexpr WhiteSpaceCollapse RenderStyle::initialWhiteSpaceCollapse() { return WhiteSpaceCollapse::Collapse; }
 constexpr WordBreak RenderStyle::initialWordBreak() { return WordBreak::Normal; }
 inline Length RenderStyle::initialLetterSpacing() { return zeroLength(); }
@@ -685,6 +687,8 @@ inline const Vector<ScrollAxis>& RenderStyle::viewTimelineAxes() const { return 
 inline const Vector<ViewTimelineInsets>& RenderStyle::viewTimelineInsets() const { return m_nonInheritedData->rareData->viewTimelineInsets; }
 inline const Vector<AtomString>& RenderStyle::viewTimelineNames() const { return m_nonInheritedData->rareData->viewTimelineNames; }
 inline const TimelineScope& RenderStyle::timelineScope() const { return m_nonInheritedData->rareData->timelineScope; }
+inline const SingleTimelineRange& RenderStyle::animationRangeStart() const { return m_nonInheritedData->rareData->animationRangeStart; }
+inline const SingleTimelineRange& RenderStyle::animationRangeEnd() const { return m_nonInheritedData->rareData->animationRangeEnd; }
 inline std::optional<ScrollbarColor> RenderStyle::scrollbarColor() const { return m_rareInheritedData->scrollbarColor.asOptional(); }
 inline const StyleColor& RenderStyle::scrollbarThumbColor() const { return m_rareInheritedData->scrollbarColor->thumbColor; }
 inline const StyleColor& RenderStyle::scrollbarTrackColor() const { return m_rareInheritedData->scrollbarColor->trackColor; }
@@ -756,7 +760,7 @@ inline UserSelect RenderStyle::userSelect() const { return static_cast<UserSelec
 inline VerticalAlign RenderStyle::verticalAlign() const { return m_nonInheritedData->boxData->verticalAlign(); }
 inline const Length& RenderStyle::verticalAlignLength() const { return m_nonInheritedData->boxData->verticalAlignLength(); }
 inline const Vector<Style::ScopedName>& RenderStyle::viewTransitionClasses() const { return m_nonInheritedData->rareData->viewTransitionClasses; }
-inline std::optional<Style::ScopedName> RenderStyle::viewTransitionName() const { return m_nonInheritedData->rareData->viewTransitionName; }
+inline Style::ViewTransitionName RenderStyle::viewTransitionName() const { return m_nonInheritedData->rareData->viewTransitionName; }
 inline const StyleColor& RenderStyle::visitedLinkBackgroundColor() const { return m_nonInheritedData->miscData->visitedLinkColor->background; }
 inline const StyleColor& RenderStyle::visitedLinkBorderBottomColor() const { return m_nonInheritedData->miscData->visitedLinkColor->borderBottom; }
 inline const StyleColor& RenderStyle::visitedLinkBorderLeftColor() const { return m_nonInheritedData->miscData->visitedLinkColor->borderLeft; }

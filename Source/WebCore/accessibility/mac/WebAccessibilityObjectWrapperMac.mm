@@ -75,12 +75,12 @@
 #import "RenderTextControl.h"
 #import "RenderView.h"
 #import "RenderWidget.h"
-#import "RuntimeApplicationChecks.h"
 #import "ScrollView.h"
 #import "TextIterator.h"
 #import "VisibleUnits.h"
 #import "WebCoreFrameView.h"
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/MakeString.h>
@@ -3054,6 +3054,22 @@ enum class TextUnit {
 
 - (AXTextMarkerRangeRef)textMarkerRangeAtTextMarker:(AXTextMarkerRef)textMarker forUnit:(TextUnit)textUnit
 {
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis()) {
+        AXTextMarker inputMarker { textMarker };
+        switch (textUnit) {
+        case TextUnit::LeftWord:
+            return inputMarker.wordRange(WordRangeType::Left).platformData().autorelease();
+        case TextUnit::RightWord:
+            return inputMarker.wordRange(WordRangeType::Right).platformData().autorelease();
+        case TextUnit::Sentence:
+            return inputMarker.sentenceRange(SentenceRangeType::Current).platformData().autorelease();
+        default:
+            // TODO: Not implemented!
+            break;
+        }
+    }
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
     return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRangeRef>([textMarker = retainPtr(textMarker), &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRangeRef> {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)
@@ -3117,6 +3133,20 @@ enum class TextUnit {
 
 - (AXTextMarkerRef)textMarkerForTextMarker:(AXTextMarkerRef)textMarkerRef atUnit:(TextUnit)textUnit
 {
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis()) {
+        AXTextMarker inputMarker { textMarkerRef };
+        switch (textUnit) {
+        case TextUnit::NextSentenceEnd:
+            return inputMarker.nextSentenceEnd().platformData().autorelease();
+        case TextUnit::PreviousSentenceStart:
+            return inputMarker.previousSentenceStart().platformData().autorelease();
+        default:
+            // TODO: Not implemented!
+            break;
+        }
+    }
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
     return Accessibility::retrieveAutoreleasedValueFromMainThread<AXTextMarkerRef>([textMarkerRef = retainPtr(textMarkerRef), &textUnit, protectedSelf = retainPtr(self)] () -> RetainPtr<AXTextMarkerRef> {
         auto* backingObject = protectedSelf.get().axBackingObject;
         if (!backingObject)

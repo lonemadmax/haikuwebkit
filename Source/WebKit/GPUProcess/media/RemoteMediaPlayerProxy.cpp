@@ -73,6 +73,8 @@
 
 #include <wtf/NativePromise.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebKit {
 
 using namespace WebCore;
@@ -1317,6 +1319,15 @@ Ref<RemoteVideoFrameObjectHeap> RemoteMediaPlayerProxy::protectedVideoFrameObjec
     return m_videoFrameObjectHeap;
 }
 
+void RemoteMediaPlayerProxy::audioOutputDeviceChanged(String&& deviceId)
+{
+    m_configuration.audioOutputDeviceId = WTFMove(deviceId);
+    if (RefPtr player = m_player)
+        player->audioOutputDeviceChanged();
+}
+
 } // namespace WebKit
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(GPU_PROCESS) && ENABLE(VIDEO)

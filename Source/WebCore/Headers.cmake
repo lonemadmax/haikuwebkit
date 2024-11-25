@@ -708,7 +708,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/AnimationFrameRatePreset.h
     animation/AnimationTimeline.h
     animation/AnimationTimelinesController.h
-    animation/CSSNumberishTime.h
     animation/CSSPropertyBlendingClient.h
     animation/CustomAnimationOptions.h
     animation/CompositeOperation.h
@@ -725,9 +724,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/ScrollTimeline.h
     animation/ScrollTimelineOptions.h
     animation/TimelineRange.h
+    animation/TimelineRangeOffset.h
     animation/TimelineScope.h
     animation/ViewTimeline.h
     animation/ViewTimelineOptions.h
+    animation/WebAnimationTime.h
     animation/WebAnimationTypes.h
 
     bindings/IDLTypes.h
@@ -1656,6 +1657,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/UserContentProvider.h
     page/UserContentTypes.h
     page/UserContentURLPattern.h
+    page/UserGestureTokenIdentifier.h
     page/UserInterfaceDirectionPolicy.h
     page/UserMediaRequestIdentifier.h
     page/UserMessageHandler.h
@@ -1823,7 +1825,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/ReferrerPolicy.h
     platform/RegistrableDomain.h
     platform/RemoteCommandListener.h
-    platform/RuntimeApplicationChecks.h
     platform/ScreenOrientationManager.h
     platform/ScreenProperties.h
     platform/ScriptExecutionContextIdentifier.h
@@ -2548,6 +2549,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/TextDecorationThickness.h
     rendering/style/TextSizeAdjustment.h
     rendering/style/TextUnderlineOffset.h
+    rendering/style/ViewTransitionName.h
     rendering/style/WillChangeData.h
 
     rendering/svg/legacy/LegacyRenderSVGModelObject.h

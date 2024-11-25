@@ -77,6 +77,39 @@ WebKit::WebContentMode webContentMode(WKContentMode contentMode)
 
 #endif // PLATFORM(IOS_FAMILY)
 
+WKWebpagePreferencesUpgradeToHTTPSPolicy upgradeToHTTPSPolicy(WebCore::HTTPSByDefaultMode httpsByDefault)
+{
+    switch (httpsByDefault) {
+    case WebCore::HTTPSByDefaultMode::Disabled:
+        return WKWebpagePreferencesUpgradeToHTTPSPolicyKeepAsRequested;
+    case WebCore::HTTPSByDefaultMode::UpgradeWithAutomaticFallback:
+        return WKWebpagePreferencesUpgradeToHTTPSPolicyAutomaticFallbackToHTTP;
+    case WebCore::HTTPSByDefaultMode::UpgradeWithUserMediatedFallback:
+        return WKWebpagePreferencesUpgradeToHTTPSPolicyUserMediatedFallbackToHTTP;
+    case WebCore::HTTPSByDefaultMode::UpgradeAndNoFallback:
+        return WKWebpagePreferencesUpgradeToHTTPSPolicyErrorOnFailure;
+    }
+    ASSERT_NOT_REACHED();
+    return WKWebpagePreferencesUpgradeToHTTPSPolicyKeepAsRequested;
+}
+
+WebCore::HTTPSByDefaultMode httpsByDefaultMode(WKWebpagePreferencesUpgradeToHTTPSPolicy upgradeToHTTPSPolicy)
+{
+    switch (upgradeToHTTPSPolicy) {
+    case WKWebpagePreferencesUpgradeToHTTPSPolicyKeepAsRequested:
+        return WebCore::HTTPSByDefaultMode::Disabled;
+    case WKWebpagePreferencesUpgradeToHTTPSPolicyAutomaticFallbackToHTTP:
+        return WebCore::HTTPSByDefaultMode::UpgradeWithAutomaticFallback;
+    case WKWebpagePreferencesUpgradeToHTTPSPolicyUserMediatedFallbackToHTTP:
+        return WebCore::HTTPSByDefaultMode::UpgradeWithUserMediatedFallback;
+    case WKWebpagePreferencesUpgradeToHTTPSPolicyErrorOnFailure:
+        return WebCore::HTTPSByDefaultMode::UpgradeAndNoFallback;
+    }
+
+    ASSERT_NOT_REACHED();
+    return WebCore::HTTPSByDefaultMode::Disabled;
+}
+
 static _WKWebsiteMouseEventPolicy mouseEventPolicy(WebCore::MouseEventPolicy policy)
 {
     switch (policy) {
@@ -186,7 +219,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (void)_setActiveContentRuleListActionPatterns:(NSDictionary<NSString *, NSSet<NSString *> *> *)patterns
 {
-    __block HashMap<String, Vector<String>> map;
+    __block UncheckedKeyHashMap<String, Vector<String>> map;
     [patterns enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSSet<NSString *> *value, BOOL *) {
         Vector<String> vector;
         vector.reserveInitialCapacity(value.count);
@@ -566,6 +599,16 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
     _websitePolicies->setLockdownModeEnabled(!!lockdownModeEnabled);
 #endif
+}
+
+- (void)setPreferredHTTPSNavigationPolicy:(WKWebpagePreferencesUpgradeToHTTPSPolicy)upgradeToHTTPSPolicy
+{
+    _websitePolicies->setHTTPSByDefault(WebKit::httpsByDefaultMode(upgradeToHTTPSPolicy));
+}
+
+- (WKWebpagePreferencesUpgradeToHTTPSPolicy)preferredHTTPSNavigationPolicy
+{
+    return WebKit::upgradeToHTTPSPolicy(_websitePolicies->httpsByDefaultMode());
 }
 
 - (BOOL)_networkConnectionIntegrityEnabled

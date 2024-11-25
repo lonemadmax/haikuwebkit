@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1505,7 +1505,7 @@ WKURLRef TestController::createTestURL(const char* pathOrURL)
     if (length >= 7 && strstr(pathOrURL, "file://")) {
         auto url = adoptWK(WKURLCreateWithUTF8CString(pathOrURL));
         auto path = testPath(url.get());
-        if (!m_usingServerMode && !WTF::FileSystemImpl::fileExists(String({ path.c_str(), path.length() }))) {
+        if (!m_usingServerMode && !WTF::FileSystemImpl::fileExists(String(std::span { path }))) {
             printf("Failed: File for URL ‘%s’ was not found or is inaccessible\n", pathOrURL);
             return 0;
         }
@@ -1540,7 +1540,7 @@ WKURLRef TestController::createTestURL(const char* pathOrURL)
     auto cPath = buffer.get();
     auto url = adoptWK(WKURLCreateWithUTF8CString(cPath));
     auto path = testPath(url.get());
-    if (!m_usingServerMode && !WTF::FileSystemImpl::fileExists(String({ path.c_str(), path.length() }))) {
+    if (!m_usingServerMode && !WTF::FileSystemImpl::fileExists(String(std::span { path }))) {
         printf("Failed: File ‘%s’ was not found or is inaccessible\n", pathOrURL);
         return 0;
     }
@@ -1866,7 +1866,7 @@ void TestController::didReceiveLiveDocumentsList(WKArrayRef liveDocumentList)
 {
     auto numDocuments = WKArrayGetSize(liveDocumentList);
 
-    HashMap<String, String> documentInfo;
+    UncheckedKeyHashMap<String, String> documentInfo;
     for (size_t i = 0; i < numDocuments; ++i) {
         if (auto dictionary = dictionaryValue(WKArrayGetItemAtIndex(liveDocumentList, i)))
             documentInfo.add(toWTFString(stringValue(dictionary, "id")), toWTFString(stringValue(dictionary, "url")));
@@ -2992,14 +2992,14 @@ public:
     String persistentSalt() const { return m_persistentSalt; }
     void setPersistentSalt(const String& salt) { m_persistentSalt = salt; }
 
-    HashMap<uint64_t, String>& ephemeralSalts() { return m_ephemeralSalts; }
+    UncheckedKeyHashMap<uint64_t, String>& ephemeralSalts() { return m_ephemeralSalts; }
 
     void incrementRequestCount() { ++m_requestCount; }
     void resetRequestCount() { m_requestCount = 0; }
     unsigned requestCount() const { return m_requestCount; }
 
 private:
-    HashMap<uint64_t, String> m_ephemeralSalts;
+    UncheckedKeyHashMap<uint64_t, String> m_ephemeralSalts;
     String m_persistentSalt;
     unsigned m_requestCount { 0 };
     bool m_persistentPermission { false };

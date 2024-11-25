@@ -91,7 +91,6 @@
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/ProcessCapabilities.h>
 #import <WebCore/PublicSuffixStore.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SWContextManager.h>
 #import <WebCore/SystemBattery.h>
 #import <WebCore/SystemSoundManager.h>
@@ -121,6 +120,7 @@
 #import <wtf/MachSendRight.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/ProcessPrivilege.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
@@ -190,6 +190,8 @@
 #import <pal/cocoa/AVFoundationSoftLink.h>
 #import <pal/cocoa/DataDetectorsCoreSoftLink.h>
 #import <pal/cocoa/MediaToolboxSoftLink.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 #define RELEASE_LOG_SESSION_ID (m_sessionID ? m_sessionID->toUInt64() : 0)
 #define WEBPROCESS_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
@@ -361,7 +363,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
 
-    WebCore::setPresentingApplicationBundleIdentifier(parameters.presentingApplicationBundleIdentifier);
+    setPresentingApplicationBundleIdentifier(parameters.presentingApplicationBundleIdentifier);
 
 #if ENABLE(SANDBOX_EXTENSIONS)
     SandboxExtension::consumePermanently(parameters.uiProcessBundleResourcePathExtensionHandle);
@@ -977,7 +979,7 @@ static NSURL *origin(WebPage& page)
     return [NSURL URLWithString:rootFrameOriginString];
 }
 
-static Vector<String> activePagesOrigins(const HashMap<PageIdentifier, RefPtr<WebPage>>& pageMap)
+static Vector<String> activePagesOrigins(const UncheckedKeyHashMap<PageIdentifier, RefPtr<WebPage>>& pageMap)
 {
     Vector<String> origins;
     for (auto& page : pageMap.values()) {
@@ -1532,3 +1534,5 @@ void WebProcess::postObserverNotification(const String& message)
 #undef RELEASE_LOG_SESSION_ID
 #undef WEBPROCESS_RELEASE_LOG
 #undef WEBPROCESS_RELEASE_LOG_ERROR
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

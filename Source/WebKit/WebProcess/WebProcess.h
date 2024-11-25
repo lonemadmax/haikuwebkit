@@ -40,9 +40,11 @@
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PageIdentifier.h>
+#include <WebCore/ProcessIdentity.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ServiceWorkerTypes.h>
 #include <WebCore/Timer.h>
+#include <WebCore/UserGestureTokenIdentifier.h>
 #include <pal/HysteresisActivity.h>
 #include <pal/SessionID.h>
 #include <wtf/Forward.h>
@@ -64,7 +66,6 @@
 #endif
 
 #if PLATFORM(COCOA)
-#include <WebCore/ScreenProperties.h>
 #include <dispatch/dispatch.h>
 #include <wtf/MachSendRight.h>
 
@@ -106,6 +107,7 @@ class UserGestureToken;
 
 enum class EventMakesGamepadsVisible : bool;
 enum class RenderAsTextFlag : uint16_t;
+enum class RenderingPurpose : uint8_t;
 
 struct ClientOrigin;
 struct DisplayUpdate;
@@ -113,12 +115,14 @@ struct MessagePortIdentifier;
 struct MessageWithMessagePorts;
 struct MockMediaDevice;
 struct PrewarmInformation;
+struct ScreenProperties;
 struct ServiceWorkerContextData;
 }
 
 namespace WebKit {
 
 class AudioMediaStreamTrackRendererInternalUnitManager;
+class AudioSessionRoutingArbitrator;
 class GamepadData;
 class GPUProcessConnection;
 class InjectedBundle;
@@ -162,7 +166,7 @@ struct WebsiteDataStoreParameters;
 enum class RemoteWorkerType : uint8_t;
 enum class WebsiteDataType : uint32_t;
 
-using WebTransportSessionIdentifier = LegacyNullableObjectIdentifier<WebTransportSessionIdentifierType>;
+using WebTransportSessionIdentifier = ObjectIdentifier<WebTransportSessionIdentifierType>;
 
 #if PLATFORM(IOS_FAMILY)
 class LayerHostingContext;
@@ -180,7 +184,7 @@ public:
     using SubResourceDomain = WebCore::RegistrableDomain;
 
     static WebProcess& singleton();
-    static constexpr WebCore::AuxiliaryProcessType processType = WebCore::AuxiliaryProcessType::WebContent;
+    static constexpr WTF::AuxiliaryProcessType processType = WTF::AuxiliaryProcessType::WebContent;
 
     template <typename T>
     T* supplement()
@@ -191,8 +195,19 @@ public:
     template <typename T>
     void addSupplement()
     {
-        m_supplements.add(T::supplementName(), makeUnique<T>(*this));
+        m_supplements.add(T::supplementName(), makeUniqueWithoutRefCountedCheck<T>(*this));
     }
+
+    template <typename T>
+    void addSupplementWithoutRefCountedCheck()
+    {
+        m_supplements.add(T::supplementName(), makeUniqueWithoutRefCountedCheck<T>(*this));
+    }
+
+    // ref() & deref() do nothing since WebProcess is a singleton object.
+    // This is for objects owned by the WebProcess to forward their refcounting to their owner.
+    void ref() const { }
+    void deref() const { }
 
     WebPage* webPage(WebCore::PageIdentifier) const;
     void createWebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
@@ -224,7 +239,7 @@ public:
     void setHasStylusDevice(bool);
 #endif
 
-    void updateStorageAccessUserAgentStringQuirks(HashMap<WebCore::RegistrableDomain, String>&&);
+    void updateStorageAccessUserAgentStringQuirks(UncheckedKeyHashMap<WebCore::RegistrableDomain, String>&&);
 
     WebFrame* webFrame(std::optional<WebCore::FrameIdentifier>) const;
     void addWebFrame(WebCore::FrameIdentifier, WebFrame*);
@@ -232,11 +247,11 @@ public:
 
     WebPageGroupProxy* webPageGroup(const WebPageGroupData&);
 
-    uint64_t userGestureTokenIdentifier(std::optional<WebCore::PageIdentifier>, RefPtr<WebCore::UserGestureToken>);
+    std::optional<WebCore::UserGestureTokenIdentifier> userGestureTokenIdentifier(std::optional<WebCore::PageIdentifier>, RefPtr<WebCore::UserGestureToken>);
     void userGestureTokenDestroyed(WebCore::PageIdentifier, WebCore::UserGestureToken&);
     
-    const TextCheckerState& textCheckerState() const { return m_textCheckerState; }
-    void setTextCheckerState(const TextCheckerState&);
+    OptionSet<TextCheckerState> textCheckerState() const { return m_textCheckerState; }
+    void setTextCheckerState(OptionSet<TextCheckerState>);
 
     EventDispatcher& eventDispatcher() { return m_eventDispatcher; }
 
@@ -267,9 +282,11 @@ public:
 #endif
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RemoteLegacyCDMFactory& legacyCDMFactory();
+    Ref<RemoteLegacyCDMFactory> protectedLegacyCDMFactory();
 #endif
 #if ENABLE(ENCRYPTED_MEDIA)
     RemoteCDMFactory& cdmFactory();
+    Ref<RemoteCDMFactory> protectedCDMFactory();
 #endif
     RemoteMediaEngineConfigurationFactory& mediaEngineConfigurationFactory();
 #endif // ENABLE(GPU_PROCESS)
@@ -350,6 +367,7 @@ public:
 #endif
     WebBroadcastChannelRegistry& broadcastChannelRegistry() { return m_broadcastChannelRegistry.get(); }
     WebCookieJar& cookieJar() { return m_cookieJar.get(); }
+    Ref<WebCookieJar> protectedCookieJar();
     WebSocketChannelManager& webSocketChannelManager() { return m_webSocketChannelManager; }
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
@@ -448,6 +466,10 @@ public:
 
     bool haveStorageAccessQuirksForDomain(const WebCore::RegistrableDomain&);
     void updateCachedCookiesEnabled();
+    void enableMediaPlayback();
+#if ENABLE(ROUTING_ARBITRATION)
+    AudioSessionRoutingArbitrator* audioSessionRoutingArbitrator() const { return m_routingArbitrator.get(); }
+#endif
 
 private:
     WebProcess();
@@ -586,7 +608,7 @@ private:
 
     void setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
     void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
-    void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&&, CompletionHandler<void()>&&);
+    void setDomainsWithCrossPageStorageAccess(UncheckedKeyHashMap<TopFrameDomain, Vector<SubResourceDomain>>&&, CompletionHandler<void()>&&);
     void sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&&);
 
     void updateDomainsWithStorageAccessQuirks(HashSet<WebCore::RegistrableDomain>&&);
@@ -674,8 +696,8 @@ private:
     void sendLogOnStream(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<uint8_t> logString, os_log_type_t);
 #endif
 
-    HashMap<WebCore::PageIdentifier, RefPtr<WebPage>> m_pageMap;
-    HashMap<PageGroupIdentifier, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
+    UncheckedKeyHashMap<WebCore::PageIdentifier, RefPtr<WebPage>> m_pageMap;
+    UncheckedKeyHashMap<PageGroupIdentifier, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
     RefPtr<InjectedBundle> m_injectedBundle;
 
     EventDispatcher m_eventDispatcher;
@@ -701,12 +723,12 @@ private:
     bool m_hasStylusDevice { false };
 #endif
 
-    HashMap<WebCore::FrameIdentifier, WeakPtr<WebFrame>> m_frameMap;
+    UncheckedKeyHashMap<WebCore::FrameIdentifier, WeakPtr<WebFrame>> m_frameMap;
 
-    using WebProcessSupplementMap = HashMap<ASCIILiteral, std::unique_ptr<WebProcessSupplement>>;
+    using WebProcessSupplementMap = UncheckedKeyHashMap<ASCIILiteral, std::unique_ptr<WebProcessSupplement>>;
     WebProcessSupplementMap m_supplements;
 
-    TextCheckerState m_textCheckerState;
+    OptionSet<TextCheckerState> m_textCheckerState;
 
     String m_uiProcessBundleIdentifier;
     RefPtr<NetworkProcessConnection> m_networkProcessConnection;
@@ -784,7 +806,7 @@ private:
     ProcessType m_processType { ProcessType::WebContent };
 #endif
 
-    WeakHashMap<WebCore::UserGestureToken, uint64_t> m_userGestureTokens;
+    WeakHashMap<WebCore::UserGestureToken, WebCore::UserGestureTokenIdentifier> m_userGestureTokens;
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     OptionSet<DMABufRendererBufferMode> m_dmaBufRendererBufferMode;
@@ -795,7 +817,7 @@ private:
     std::optional<bool> m_isLockdownModeEnabled;
 
 #if ENABLE(MEDIA_STREAM) && ENABLE(SANDBOX_EXTENSIONS)
-    HashMap<String, RefPtr<SandboxExtension>> m_mediaCaptureSandboxExtensions;
+    UncheckedKeyHashMap<String, RefPtr<SandboxExtension>> m_mediaCaptureSandboxExtensions;
     RefPtr<SandboxExtension> m_machBootstrapExtension;
 #endif
 
@@ -805,7 +827,7 @@ private:
 
     HashCountedSet<WebCore::ServiceWorkerRegistrationIdentifier> m_swRegistrationCounts;
 
-    HashMap<StorageAreaMapIdentifier, WeakPtr<StorageAreaMap>> m_storageAreaMaps;
+    UncheckedKeyHashMap<StorageAreaMapIdentifier, WeakPtr<StorageAreaMap>> m_storageAreaMaps;
 
     void updateIsWebTransportEnabled();
     
@@ -837,6 +859,9 @@ private:
 #if ENABLE(MEDIA_STREAM)
     std::unique_ptr<SpeechRecognitionRealtimeMediaSourceManager> m_speechRecognitionRealtimeMediaSourceManager;
 #endif
+#if ENABLE(ROUTING_ARBITRATION)
+    std::unique_ptr<AudioSessionRoutingArbitrator> m_routingArbitrator;
+#endif
     bool m_hadMainFrameMainResourcePrivateRelayed { false };
     bool m_imageAnimationEnabled { true };
     bool m_hasEverHadAnyWebPages { false };
@@ -849,7 +874,7 @@ private:
     String m_mediaKeysStorageDirectory;
     FileSystem::Salt m_mediaKeysStorageSalt;
 
-    HashMap<WebTransportSessionIdentifier, WeakPtr<WebTransportSession>> m_webTransportSessions;
+    UncheckedKeyHashMap<WebTransportSessionIdentifier, WeakPtr<WebTransportSession>> m_webTransportSessions;
     HashSet<WebCore::RegistrableDomain> m_domainsWithStorageAccessQuirks;
     std::unique_ptr<ScriptTelemetryFilter> m_scriptTelemetryFilter;
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)

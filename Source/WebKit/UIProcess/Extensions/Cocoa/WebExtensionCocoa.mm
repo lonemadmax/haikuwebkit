@@ -36,9 +36,10 @@
 #import "CocoaHelpers.h"
 #import "FoundationSPI.h"
 #import "Logging.h"
+#import "WKNSError.h"
 #import "WKWebExtensionInternal.h"
-#import "WKWebExtensionPermissionPrivate.h"
 #import "WebExtensionConstants.h"
+#import "WebExtensionPermission.h"
 #import "WebExtensionUtilities.h"
 #import "_WKWebExtensionLocalization.h"
 #import <CoreFoundation/CFBundle.h>
@@ -93,11 +94,6 @@ static NSString * const browserURLOverridesManifestKey = @"browser_url_overrides
 static NSString * const generatedBackgroundPageFilename = @"_generated_background_page.html";
 static NSString * const generatedBackgroundServiceWorkerFilename = @"_generated_service_worker.js";
 
-static NSString * const permissionsManifestKey = @"permissions";
-static NSString * const optionalPermissionsManifestKey = @"optional_permissions";
-static NSString * const hostPermissionsManifestKey = @"host_permissions";
-static NSString * const optionalHostPermissionsManifestKey = @"optional_host_permissions";
-
 static NSString * const commandsManifestKey = @"commands";
 static NSString * const commandsSuggestedKeyManifestKey = @"suggested_key";
 static NSString * const commandsDescriptionKeyManifestKey = @"description";
@@ -108,63 +104,50 @@ static NSString * const declarativeNetRequestRulesetIDManifestKey = @"id";
 static NSString * const declarativeNetRequestRuleEnabledManifestKey = @"enabled";
 static NSString * const declarativeNetRequestRulePathManifestKey = @"path";
 
-static NSString * const externallyConnectableManifestKey = @"externally_connectable";
-static NSString * const externallyConnectableMatchesManifestKey = @"matches";
-static NSString * const externallyConnectableIDsManifestKey = @"ids";
-
-#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
-static NSString * const sidebarActionManifestKey = @"sidebar_action";
-static NSString * const sidePanelManifestKey = @"side_panel";
-static NSString * const sidebarActionTitleManifestKey = @"default_title";
-static NSString * const sidebarActionPathManifestKey = @"default_panel";
-static NSString * const sidePanelPathManifestKey = @"default_path";
-#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
-
 static const size_t maximumNumberOfShortcutCommands = 4;
 
-WebExtension::WebExtension(NSBundle *appExtensionBundle, NSURL *resourceBaseURL, NSError **outError)
+WebExtension::WebExtension(NSBundle *appExtensionBundle, NSURL *resourceBaseURL, RefPtr<API::Error>& outError)
     : m_bundle(appExtensionBundle)
     , m_resourceBaseURL(resourceBaseURL)
     , m_manifestJSON(JSON::Value::null())
 {
-    RELEASE_ASSERT(m_bundle || m_resourceBaseURL);
+    RELEASE_ASSERT(m_bundle || !m_resourceBaseURL.isEmpty());
 
     auto *bundleResourceURL = m_bundle.get().resourceURL.URLByStandardizingPath.absoluteURL;
-    if (!m_resourceBaseURL && bundleResourceURL)
+    if (m_resourceBaseURL.isEmpty() && bundleResourceURL)
         m_resourceBaseURL = bundleResourceURL;
 
 #if PLATFORM(MAC)
     m_shouldValidateResourceData = m_bundle && [m_resourceBaseURL isEqual:bundleResourceURL];
 #endif
 
-    RELEASE_ASSERT(m_resourceBaseURL.get().isFileURL);
-    RELEASE_ASSERT(m_resourceBaseURL.get().hasDirectoryPath);
+    RELEASE_ASSERT(m_resourceBaseURL.protocolIsFile());
+    RELEASE_ASSERT(m_resourceBaseURL.hasPath());
+    RELEASE_ASSERT(m_resourceBaseURL.path().right(1) == "/"_s);
 
-    if (outError)
-        *outError = nil;
+    outError = nullptr;
 
     if (!manifestParsedSuccessfully()) {
-        ASSERT(m_errors.get().count);
-        if (outError)
-            *outError = m_errors.get().lastObject;
+        ASSERT(!m_errors.isEmpty());
+        outError = m_errors.last().ptr();
     }
 }
 
-WebExtension::WebExtension(NSDictionary *manifest, NSDictionary *resources)
+WebExtension::WebExtension(NSDictionary *manifest, Resources&& resources)
     : m_manifestJSON(JSON::Value::null())
-    , m_resources([resources mutableCopy] ?: [NSMutableDictionary dictionary])
+    , m_resources(WTFMove(resources))
 {
     RELEASE_ASSERT(manifest);
 
-    NSData *manifestData = encodeJSONData(manifest);
+    auto *manifestData = encodeJSONData(manifest);
     RELEASE_ASSERT(manifestData);
 
-    [m_resources setObject:manifestData forKey:@"manifest.json"];
+    m_resources.set("manifest.json"_s, API::Data::createWithoutCopying(manifestData));
 }
 
-WebExtension::WebExtension(NSDictionary *resources)
+WebExtension::WebExtension(Resources&& resources)
     : m_manifestJSON(JSON::Value::null())
-    , m_resources([resources mutableCopy] ?: [NSMutableDictionary dictionary])
+    , m_resources(WTFMove(resources))
 {
 }
 
@@ -173,7 +156,10 @@ bool WebExtension::parseManifest(NSData *manifestData)
     NSError *parseError;
     m_manifest = parseJSON(manifestData, { }, &parseError);
     if (!m_manifest) {
-        recordError(createError(Error::InvalidManifest, { }, parseError));
+        if (parseError)
+            recordError(createError(Error::InvalidManifest, { }, API::Error::create(parseError)));
+        else
+            recordError(createError(Error::InvalidManifest));
         return false;
     }
 
@@ -213,14 +199,14 @@ NSDictionary *WebExtension::manifest()
 
     m_parsedManifest = true;
 
-    NSError *error;
-    NSData *manifestData = resourceDataForPath(@"manifest.json", &error);
-    if (!manifestData) {
-        recordError(error);
+    RefPtr<API::Error> error;
+    RefPtr manifestData = resourceDataForPath("manifest.json"_s, error);
+    if (!manifestData || error) {
+        recordErrorIfNeeded(error);
         return nil;
     }
 
-    if (!parseManifest(manifestData))
+    if (!parseManifest(static_cast<NSData *>(manifestData->wrapper())))
         return nil;
 
     return m_manifest.get();
@@ -305,27 +291,6 @@ bool WebExtension::validateResourceData(NSURL *resourceURL, NSData *resourceData
 }
 #endif // PLATFORM(MAC)
 
-NSURL *WebExtension::resourceFileURLForPath(NSString *path)
-{
-    ASSERT(path);
-
-    if ([path hasPrefix:@"/"])
-        path = [path substringFromIndex:1];
-
-    if (!path.length || !m_resourceBaseURL)
-        return nil;
-
-    NSURL *resourceURL = [NSURL fileURLWithPath:path.stringByRemovingPercentEncoding isDirectory:NO relativeToURL:m_resourceBaseURL.get()].URLByStandardizingPath;
-
-    // Don't allow escaping the base URL with "../".
-    if (![resourceURL.absoluteString hasPrefix:m_resourceBaseURL.get().absoluteString]) {
-        RELEASE_LOG_ERROR(Extensions, "Resource URL path escape attempt: %{private}@", resourceURL);
-        return nil;
-    }
-
-    return resourceURL;
-}
-
 UTType *WebExtension::resourceTypeForPath(NSString *path)
 {
     UTType *result;
@@ -338,345 +303,96 @@ UTType *WebExtension::resourceTypeForPath(NSString *path)
         }
     } else if (auto *fileExtension = path.pathExtension; fileExtension.length)
         result = [UTType typeWithFilenameExtension:fileExtension];
-    else if (auto *fileURL = resourceFileURLForPath(path))
+    else if (auto *fileURL = static_cast<NSURL *>(resourceFileURLForPath(path)))
         [fileURL getResourceValue:&result forKey:NSURLContentTypeKey error:nil];
 
     return result;
 }
 
-NSString *WebExtension::resourceStringForPath(NSString *path, NSError **outError, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
+RefPtr<API::Data> WebExtension::resourceDataForPath(const String& originalPath, RefPtr<API::Error>& outError, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
 {
-    ASSERT(path);
+    ASSERT(originalPath);
+
+    outError = nullptr;
+
+    String path = originalPath;
 
     // Remove leading slash to normalize the path for lookup/storage in the cache dictionary.
-    if ([path hasPrefix:@"/"])
-        path = [path substringFromIndex:1];
+    if (path.startsWith('/'))
+        path = path.substring(1);
 
-    if (NSString *cachedString = objectForKey<NSString>(m_resources, path))
-        return cachedString;
+    auto *cocoaPath = static_cast<NSString *>(path);
 
-    if ([path isEqualToString:generatedBackgroundPageFilename] || [path isEqualToString:generatedBackgroundServiceWorkerFilename])
-        return generatedBackgroundContent();
-
-    NSData *data = resourceDataForPath(path, outError, CacheResult::No, suppressErrors);
-    if (!data)
-        return nil;
-
-    NSString *string;
-    [NSString stringEncodingForData:data encodingOptions:nil convertedString:&string usedLossyConversion:nil];
-    if (!string)
-        return nil;
-
-    if (cacheResult == CacheResult::Yes) {
-        if (!m_resources)
-            m_resources = [NSMutableDictionary dictionary];
-        [m_resources setObject:string forKey:path];
-    }
-
-    return string;
-}
-
-NSData *WebExtension::resourceDataForPath(NSString *path, NSError **outError, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
-{
-    ASSERT(path);
-
-    if (outError)
-        *outError = nil;
-
-    if ([path hasPrefix:@"data:"]) {
-        if (auto base64Range = [path rangeOfString:@";base64,"]; base64Range.location != NSNotFound) {
-            auto *base64String = [path substringFromIndex:NSMaxRange(base64Range)];
-            return [[NSData alloc] initWithBase64EncodedString:base64String options:0];
+    if ([cocoaPath hasPrefix:@"data:"]) {
+        if (auto base64Range = [cocoaPath rangeOfString:@";base64,"]; base64Range.location != NSNotFound) {
+            auto *base64String = [cocoaPath substringFromIndex:NSMaxRange(base64Range)];
+            auto *data = [[NSData alloc] initWithBase64EncodedString:base64String options:0];
+            return API::Data::createWithoutCopying(data);
         }
 
-        if (auto commaRange = [path rangeOfString:@","]; commaRange.location != NSNotFound) {
-            auto *urlEncodedString = [path substringFromIndex:NSMaxRange(commaRange)];
+        if (auto commaRange = [cocoaPath rangeOfString:@","]; commaRange.location != NSNotFound) {
+            auto *urlEncodedString = [cocoaPath substringFromIndex:NSMaxRange(commaRange)];
             auto *decodedString = [urlEncodedString stringByRemovingPercentEncoding];
-            return [decodedString dataUsingEncoding:NSUTF8StringEncoding];
+            auto *data = [decodedString dataUsingEncoding:NSUTF8StringEncoding];
+            return API::Data::createWithoutCopying(data);
         }
 
-        ASSERT([path isEqualToString:@"data:"]);
-        return [NSData data];
+        ASSERT([cocoaPath isEqualToString:@"data:"]);
+        return API::Data::create(std::span<const uint8_t> { });
     }
 
     // Remove leading slash to normalize the path for lookup/storage in the cache dictionary.
-    if ([path hasPrefix:@"/"])
-        path = [path substringFromIndex:1];
+    if ([cocoaPath hasPrefix:@"/"])
+        cocoaPath = [cocoaPath substringFromIndex:1];
 
-    if (id cachedObject = [m_resources objectForKey:path]) {
-        if (auto *cachedData = dynamic_objc_cast<NSData>(cachedObject))
-            return cachedData;
+    if (RefPtr cachedObject = m_resources.get(path))
+        return cachedObject;
 
-        if (auto *cachedString = dynamic_objc_cast<NSString>(cachedObject))
-            return [cachedString dataUsingEncoding:NSUTF8StringEncoding];
+    if ([cocoaPath isEqualToString:generatedBackgroundPageFilename] || [cocoaPath isEqualToString:generatedBackgroundServiceWorkerFilename])
+        return API::Data::create(generatedBackgroundContent().utf8().span());
 
-        ASSERT(isValidJSONObject(cachedObject, JSONOptions::FragmentsAllowed));
-
-        auto *result = encodeJSONData(cachedObject, JSONOptions::FragmentsAllowed);
-        RELEASE_ASSERT(result);
-
-        // Cache the JSON data, so it can be fetched quicker next time.
-        [m_resources setObject:result forKey:path];
-
-        return result;
-    }
-
-    if ([path isEqualToString:generatedBackgroundPageFilename] || [path isEqualToString:generatedBackgroundServiceWorkerFilename])
-        return [static_cast<NSString *>(generatedBackgroundContent()) dataUsingEncoding:NSUTF8StringEncoding];
-
-    NSURL *resourceURL = resourceFileURLForPath(path);
+    auto *resourceURL = static_cast<NSURL *>(resourceFileURLForPath(path));
     if (!resourceURL) {
-        if (suppressErrors == SuppressNotFoundErrors::No && outError)
-            *outError = createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources. It is an invalid path.", "WKWebExtensionErrorResourceNotFound description with invalid file path", (__bridge CFStringRef)path));
-        return nil;
+        if (suppressErrors == SuppressNotFoundErrors::No)
+            outError = createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources. It is an invalid path.", "WKWebExtensionErrorResourceNotFound description with invalid file path", (__bridge CFStringRef)cocoaPath));
+        return nullptr;
     }
 
     NSError *fileReadError;
     NSData *resultData = [NSData dataWithContentsOfURL:resourceURL options:NSDataReadingMappedIfSafe error:&fileReadError];
     if (!resultData) {
-        if (suppressErrors == SuppressNotFoundErrors::No && outError)
-            *outError = createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources.", "WKWebExtensionErrorResourceNotFound description with file name", (__bridge CFStringRef)path), fileReadError);
-        return nil;
+        if (suppressErrors == SuppressNotFoundErrors::No)
+            outError = createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources.", "WKWebExtensionErrorResourceNotFound description with file name", (__bridge CFStringRef)cocoaPath), API::Error::create(fileReadError));
+        return nullptr;
     }
 
 #if PLATFORM(MAC)
     NSError *validationError;
     if (!validateResourceData(resourceURL, resultData, &validationError)) {
-        if (outError)
-            *outError = createError(Error::InvalidResourceCodeSignature, WEB_UI_FORMAT_CFSTRING("Unable to validate \"%@\" with the extension’s code signature. It likely has been modified since the extension was built.", "WKWebExtensionErrorInvalidResourceCodeSignature description with file name", (__bridge CFStringRef)path), validationError);
-        return nil;
+        outError = createError(Error::InvalidResourceCodeSignature, WEB_UI_FORMAT_CFSTRING("Unable to validate \"%@\" with the extension’s code signature. It likely has been modified since the extension was built.", "WKWebExtensionErrorInvalidResourceCodeSignature description with file name", (__bridge CFStringRef)cocoaPath), API::Error::create(validationError));
+        return nullptr;
     }
 #endif
 
-    if (cacheResult == CacheResult::Yes) {
-        if (!m_resources)
-            m_resources = [NSMutableDictionary dictionary];
-        [m_resources setObject:resultData forKey:path];
-    }
+    Ref data = API::Data::createWithoutCopying(resultData);
+    if (cacheResult == CacheResult::Yes)
+        m_resources.set(path, data);
 
-    return resultData;
+    return data;
 }
 
-static WKWebExtensionError toAPI(WebExtension::Error error)
+void WebExtension::recordError(Ref<API::Error> error)
 {
-    switch (error) {
-    case WebExtension::Error::Unknown:
-        return WKWebExtensionErrorUnknown;
-    case WebExtension::Error::ResourceNotFound:
-        return WKWebExtensionErrorResourceNotFound;
-    case WebExtension::Error::InvalidManifest:
-        return WKWebExtensionErrorInvalidManifest;
-    case WebExtension::Error::UnsupportedManifestVersion:
-        return WKWebExtensionErrorUnsupportedManifestVersion;
-    case WebExtension::Error::InvalidAction:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidActionIcon:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidBackgroundContent:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidCommands:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidContentScripts:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidContentSecurityPolicy:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidDeclarativeNetRequest:
-        return WKWebExtensionErrorInvalidDeclarativeNetRequestEntry;
-    case WebExtension::Error::InvalidDescription:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidExternallyConnectable:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidIcon:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidName:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidOptionsPage:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidURLOverrides:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidVersion:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidWebAccessibleResources:
-        return WKWebExtensionErrorInvalidManifestEntry;
-    case WebExtension::Error::InvalidBackgroundPersistence:
-        return WKWebExtensionErrorInvalidBackgroundPersistence;
-    case WebExtension::Error::InvalidResourceCodeSignature:
-        return WKWebExtensionErrorInvalidResourceCodeSignature;
-    }
-}
-
-NSError *WebExtension::createError(Error error, String customLocalizedDescription, NSError *underlyingError)
-{
-    auto errorCode = toAPI(error);
-    String localizedDescription;
-
-    switch (error) {
-    case Error::Unknown:
-        localizedDescription = WEB_UI_STRING("An unknown error has occurred.", "WKWebExtensionErrorUnknown description");
-        break;
-
-    case Error::ResourceNotFound:
-        ASSERT(customLocalizedDescription);
-        break;
-
-    case Error::InvalidManifest:
-ALLOW_NONLITERAL_FORMAT_BEGIN
-        if (NSString *debugDescription = underlyingError.userInfo[NSDebugDescriptionErrorKey])
-            localizedDescription = [NSString stringWithFormat:WEB_UI_STRING("Unable to parse manifest: %@", "WKWebExtensionErrorInvalidManifest description, because of a JSON error"), debugDescription];
-        else
-            localizedDescription = WEB_UI_STRING("Unable to parse manifest because of an unexpected format.", "WKWebExtensionErrorInvalidManifest description");
-ALLOW_NONLITERAL_FORMAT_END
-        break;
-
-    case Error::UnsupportedManifestVersion:
-        localizedDescription = WEB_UI_STRING("An unsupported `manifest_version` was specified.", "WKWebExtensionErrorUnsupportedManifestVersion description");
-        break;
-
-    case Error::InvalidAction:
-        if (supportsManifestVersion(3))
-            localizedDescription = WEB_UI_STRING("Missing or empty `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for action only");
-        else
-            localizedDescription = WEB_UI_STRING("Missing or empty `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for browser_action or page_action");
-        break;
-
-    case Error::InvalidActionIcon:
-#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
-        if (m_actionDictionary.get()[iconVariantsManifestKey]) {
-            if (supportsManifestVersion(3))
-                localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants in action only");
-            else
-                localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants in browser_action or page_action");
-        } else
-#endif
-        if (supportsManifestVersion(3))
-            localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in action only");
-        else
-            localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in browser_action or page_action");
-        break;
-
-    case Error::InvalidBackgroundContent:
-        localizedDescription = WEB_UI_STRING("Empty or invalid `background` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for background");
-        break;
-
-    case Error::InvalidCommands:
-        localizedDescription = WEB_UI_STRING("Invalid `commands` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for commands");
-        break;
-
-    case Error::InvalidContentScripts:
-        localizedDescription = WEB_UI_STRING("Empty or invalid `content_scripts` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for content_scripts");
-        break;
-
-    case Error::InvalidContentSecurityPolicy:
-        localizedDescription = WEB_UI_STRING("Empty or invalid `content_security_policy` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for content_security_policy");
-        break;
-
-    case Error::InvalidDeclarativeNetRequest:
-ALLOW_NONLITERAL_FORMAT_BEGIN
-        if (NSString *debugDescription = underlyingError.userInfo[NSDebugDescriptionErrorKey])
-            localizedDescription = [NSString stringWithFormat:WEB_UI_STRING("Unable to parse `declarativeNetRequest` rules: %@", "WKWebExtensionErrorInvalidDeclarativeNetRequest description, because of a JSON error"), debugDescription];
-        else
-            localizedDescription = WEB_UI_STRING("Unable to parse `declarativeNetRequest` rules because of an unexpected error.", "WKWebExtensionErrorInvalidDeclarativeNetRequest description");
-ALLOW_NONLITERAL_FORMAT_END
-        break;
-
-    case Error::InvalidDescription:
-        localizedDescription = WEB_UI_STRING("Missing or empty `description` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for description");
-        break;
-
-    case Error::InvalidExternallyConnectable:
-        localizedDescription = WEB_UI_STRING("Empty or invalid `externally_connectable` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for externally_connectable");
-        break;
-
-    case Error::InvalidIcon:
-#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
-        if ([manifest() objectForKey:iconVariantsManifestKey])
-            localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants");
-        else
-#endif
-            localizedDescription = WEB_UI_STRING("Missing or empty `icons` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icons");
-        break;
-
-    case Error::InvalidName:
-        localizedDescription = WEB_UI_STRING("Missing or empty `name` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for name");
-        break;
-
-    case Error::InvalidOptionsPage:
-        if ([manifest() objectForKey:optionsUIManifestKey])
-            localizedDescription = WEB_UI_STRING("Empty or invalid `options_ui` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for options UI");
-        else
-            localizedDescription = WEB_UI_STRING("Empty or invalid `options_page` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for options page");
-        break;
-
-    case Error::InvalidURLOverrides:
-        if ([manifest() objectForKey:browserURLOverridesManifestKey])
-            localizedDescription = WEB_UI_STRING("Empty or invalid `browser_url_overrides` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for browser URL overrides");
-        else
-            localizedDescription = WEB_UI_STRING("Empty or invalid `chrome_url_overrides` manifest entry", "WKWebExtensionErrorInvalidManifestEntry description for chrome URL overrides");
-        break;
-
-    case Error::InvalidVersion:
-        localizedDescription = WEB_UI_STRING("Missing or empty `version` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for version");
-        break;
-
-    case Error::InvalidWebAccessibleResources:
-        localizedDescription = WEB_UI_STRING("Invalid `web_accessible_resources` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for web_accessible_resources");
-        break;
-
-    case Error::InvalidBackgroundPersistence:
-        localizedDescription = WEB_UI_STRING("Invalid `persistent` manifest entry.", "WKWebExtensionErrorInvalidBackgroundPersistence description");
-        break;
-
-    case Error::InvalidResourceCodeSignature:
-        ASSERT(customLocalizedDescription);
-        break;
-    }
-
-    if (!customLocalizedDescription.isEmpty())
-        localizedDescription = customLocalizedDescription;
-
-    NSDictionary *userInfo;
-    if (underlyingError)
-        userInfo = @{ NSLocalizedDescriptionKey: localizedDescription, NSUnderlyingErrorKey: underlyingError };
-    else
-        userInfo = @{ NSLocalizedDescriptionKey: localizedDescription };
-
-    return [[NSError alloc] initWithDomain:WKWebExtensionErrorDomain code:errorCode userInfo:userInfo];
-}
-
-void WebExtension::recordError(NSError *error)
-{
-    ASSERT(error);
-
-    if (!m_errors)
-        m_errors = [NSMutableArray array];
-
-    RELEASE_LOG_ERROR(Extensions, "Error recorded: %{public}@", privacyPreservingDescription(error));
+    RELEASE_LOG_ERROR(Extensions, "Error recorded: %{public}@", privacyPreservingDescription(error->platformError()));
 
     // Only the first occurrence of each error is recorded in the array. This prevents duplicate errors,
     // such as repeated "resource not found" errors, from being included multiple times.
-    if ([m_errors containsObject:error])
+    if (m_errors.contains(error))
         return;
 
     [wrapper() willChangeValueForKey:@"errors"];
-    [m_errors addObject:error];
+    m_errors.append(error);
     [wrapper() didChangeValueForKey:@"errors"];
-}
-
-NSArray *WebExtension::errors()
-{
-    populateDisplayStringsIfNeeded();
-    populateActionPropertiesIfNeeded();
-    populateBackgroundPropertiesIfNeeded();
-    populateContentScriptPropertiesIfNeeded();
-    populatePermissionsPropertiesIfNeeded();
-    populatePagePropertiesIfNeeded();
-    populateContentSecurityPolicyStringsIfNeeded();
-    populateWebAccessibleResourcesIfNeeded();
-    populateCommandsIfNeeded();
-    populateDeclarativeNetRequestPropertiesIfNeeded();
-    populateExternallyConnectableIfNeeded();
-
-    return [m_errors copy] ?: @[ ];
 }
 
 _WKWebExtensionLocalization *WebExtension::localization()
@@ -693,63 +409,6 @@ NSLocale *WebExtension::defaultLocale()
         return nil;
 
     return m_defaultLocale.get();
-}
-
-void WebExtension::populateExternallyConnectableIfNeeded()
-{
-    if (!manifestParsedSuccessfully())
-        return;
-
-    if (m_parsedExternallyConnectable)
-        return;
-
-    m_parsedExternallyConnectable = true;
-
-    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/externally_connectable
-
-    auto *externallyConnectableDictionary = objectForKey<NSDictionary>(m_manifest, externallyConnectableManifestKey, false);
-
-    if (!externallyConnectableDictionary)
-        return;
-
-    if (!externallyConnectableDictionary.count) {
-        recordError(createError(Error::InvalidExternallyConnectable));
-        return;
-    }
-
-    bool shouldReportError = false;
-    MatchPatternSet matchPatterns;
-
-    auto *matchPatternStrings = objectForKey<NSArray>(externallyConnectableDictionary, externallyConnectableMatchesManifestKey, true, NSString.class);
-    for (NSString *matchPatternString in matchPatternStrings) {
-        if (!matchPatternString.length)
-            continue;
-
-        if (auto matchPattern = WebExtensionMatchPattern::getOrCreate(matchPatternString)) {
-            if (matchPattern->matchesAllURLs() || !matchPattern->isSupported()) {
-                shouldReportError = true;
-                continue;
-            }
-
-            // URL patterns must contain at least a second-level domain. Top level domains and wildcards are not standalone patterns.
-            if (matchPattern->hostIsPublicSuffix()) {
-                shouldReportError = true;
-                continue;
-            }
-
-            matchPatterns.add(matchPattern.releaseNonNull());
-        }
-    }
-
-    m_externallyConnectableMatchPatterns = matchPatterns;
-
-    auto *extensionIDs = objectForKey<NSArray>(externallyConnectableDictionary, externallyConnectableIDsManifestKey, true, NSString.class);
-    extensionIDs = filterObjects(extensionIDs, ^bool(id key, NSString *extensionID) {
-        return !!extensionID.length;
-    });
-
-    if (shouldReportError || (matchPatterns.isEmpty() && !extensionIDs.count))
-        recordError(createError(Error::InvalidExternallyConnectable));
 }
 
 CocoaImage *WebExtension::icon(CGSize size)
@@ -852,11 +511,11 @@ void WebExtension::populateActionPropertiesIfNeeded()
 
     // Look for the "default_icon" as a string, which is useful for SVG icons. Only supported by Firefox currently.
     if (auto *defaultIconPath = objectForKey<NSString>(m_actionDictionary, defaultIconManifestKey)) {
-        NSError *resourceError;
-        m_defaultActionIcon = imageForPath(defaultIconPath, &resourceError);
+        RefPtr<API::Error> resourceError;
+        m_defaultActionIcon = imageForPath(defaultIconPath, resourceError);
 
         if (!m_defaultActionIcon) {
-            recordError(resourceError);
+            recordErrorIfNeeded(resourceError);
 
             NSString *localizedErrorDescription;
             if (supportsManifestVersion(3))
@@ -872,87 +531,15 @@ void WebExtension::populateActionPropertiesIfNeeded()
     m_actionPopupPath = objectForKey<NSString>(m_actionDictionary, defaultPopupManifestKey);
 }
 
-#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
-bool WebExtension::hasSidebarAction()
-{
-    return objectForKey<NSDictionary>(m_manifest, sidebarActionManifestKey);
-}
-
-bool WebExtension::hasSidePanel()
-{
-    return hasRequestedPermission(WKWebExtensionPermissionSidePanel);
-}
-
-bool WebExtension::hasAnySidebar()
-{
-    return hasSidebarAction() || hasSidePanel();
-}
-
-CocoaImage *WebExtension::sidebarIcon(CGSize idealSize)
-{
-    // FIXME: <https://webkit.org/b/276833> implement this
-    return nil;
-}
-
-NSString *WebExtension::sidebarDocumentPath()
-{
-    populateSidebarPropertiesIfNeeded();
-    return m_sidebarDocumentPath.get();
-}
-
-NSString *WebExtension::sidebarTitle()
-{
-    populateSidebarPropertiesIfNeeded();
-    return m_sidebarTitle.get();
-}
-
-void WebExtension::populateSidebarPropertiesIfNeeded()
-{
-    if (!manifestParsedSuccessfully())
-        return;
-
-    if (m_parsedManifestSidebarProperties)
-        return;
-
-    // sidePanel documentation: https://developer.chrome.com/docs/extensions/reference/manifest#side-panel
-    // see "Examples" header -> "Side Panel" tab (doesn't mention `default_path` key elsewhere)
-    // sidebarAction documentation: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/sidebar_action
-
-    auto sidebarActionDictionary = objectForKey<NSDictionary>(m_manifest, sidebarActionManifestKey);
-    if (sidebarActionDictionary) {
-        populateSidebarActionProperties(sidebarActionDictionary);
-        return;
-    }
-
-    auto sidePanelDictionary = objectForKey<NSDictionary>(m_manifest, sidePanelManifestKey);
-    if (sidePanelDictionary)
-        populateSidePanelProperties(sidePanelDictionary);
-}
-
-void WebExtension::populateSidebarActionProperties(RetainPtr<NSDictionary> sidebarActionDictionary)
-{
-    // FIXME: <https://webkit.org/b/276833> implement sidebar icon parsing
-    m_sidebarIconsCache = nil;
-    m_sidebarTitle = objectForKey<NSString>(sidebarActionDictionary, sidebarActionTitleManifestKey);
-    m_sidebarDocumentPath = objectForKey<NSString>(sidebarActionDictionary, sidebarActionPathManifestKey);
-}
-
-void WebExtension::populateSidePanelProperties(RetainPtr<NSDictionary> sidePanelDictionary)
-{
-    // Since sidePanel cannot set a default title or icon from the manifest, setting these nil here is intentional.
-    m_sidebarIconsCache = nil;
-    m_sidebarTitle = nil;
-    m_sidebarDocumentPath = objectForKey<NSString>(sidePanelDictionary, sidePanelPathManifestKey);
-}
-#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
-
-CocoaImage *WebExtension::imageForPath(NSString *imagePath, NSError **outError, CGSize sizeForResizing)
+CocoaImage *WebExtension::imageForPath(NSString *imagePath, RefPtr<API::Error>& outError, CGSize sizeForResizing)
 {
     ASSERT(imagePath);
 
-    NSData *imageData = resourceDataForPath(imagePath, outError);
-    if (!imageData)
+    RefPtr data = resourceDataForPath(imagePath, outError);
+    if (!data || outError)
         return nil;
+
+    auto *imageData = static_cast<NSData *>(data->wrapper());
 
     CocoaImage *result;
 
@@ -1064,7 +651,7 @@ NSString *WebExtension::pathForBestImageInIconsDictionary(NSDictionary *iconsDic
     return iconsDictionary[@(bestSize).stringValue];
 }
 
-CocoaImage *WebExtension::bestImageInIconsDictionary(NSDictionary *iconsDictionary, CGSize idealSize, const Function<void(NSError *)>& reportError)
+CocoaImage *WebExtension::bestImageInIconsDictionary(NSDictionary *iconsDictionary, CGSize idealSize, const Function<void(Ref<API::Error>)>& reportError)
 {
     if (!iconsDictionary.count)
         return nil;
@@ -1097,14 +684,14 @@ CocoaImage *WebExtension::bestImageInIconsDictionary(NSDictionary *iconsDictiona
     NSImage *resultImage;
 
     for (NSString *iconPath in uniquePaths) {
-        NSError *resourceError;
-        if (auto *image = imageForPath(iconPath, &resourceError, idealSize)) {
+        RefPtr<API::Error> resourceError;
+        if (auto *image = imageForPath(iconPath, resourceError, idealSize)) {
             if (!resultImage)
                 resultImage = image;
             else
                 [resultImage addRepresentations:image.representations];
         } else if (reportError && resourceError)
-            reportError(resourceError);
+            reportError(*resourceError);
     }
 
     return resultImage;
@@ -1118,12 +705,12 @@ CocoaImage *WebExtension::bestImageInIconsDictionary(NSDictionary *iconsDictiona
     }
 
     auto *images = mapObjects<NSDictionary>(scalePaths, ^id(NSNumber *scale, NSString *path) {
-        NSError *resourceError;
-        if (auto *image = imageForPath(path, &resourceError, idealSize))
+        RefPtr<API::Error> resourceError;
+        if (auto *image = imageForPath(path, resourceError, idealSize))
             return image;
 
         if (reportError && resourceError)
-            reportError(resourceError);
+            reportError(*resourceError);
 
         return nil;
     });
@@ -1155,7 +742,7 @@ CocoaImage *WebExtension::bestImageForIconsDictionaryManifestKey(NSDictionary *d
         return dynamic_objc_cast<CocoaImage>(cachedResult);
 
     auto *iconDictionary = objectForKey<NSDictionary>(dictionary, manifestKey);
-    auto *result = bestImageInIconsDictionary(iconDictionary, idealSize, [&](auto *error) {
+    auto *result = bestImageInIconsDictionary(iconDictionary, idealSize, [&](Ref<API::Error> error) {
         recordError(error);
     });
 
@@ -1244,7 +831,7 @@ NSDictionary *WebExtension::iconsDictionaryForBestIconVariant(NSArray *variants,
     return bestVariant ?: fallbackVariant;
 }
 
-CocoaImage *WebExtension::bestImageForIconVariants(NSArray *variants, CGSize idealSize, const Function<void(NSError *)>& reportError)
+CocoaImage *WebExtension::bestImageForIconVariants(NSArray *variants, CGSize idealSize, const Function<void(Ref<API::Error>)>& reportError)
 {
     auto idealPointSize = idealSize.width > idealSize.height ? idealSize.width : idealSize.height;
     auto *lightIconsDictionary = iconsDictionaryForBestIconVariant(variants, idealPointSize, ColorScheme::Light);
@@ -1308,7 +895,7 @@ CocoaImage *WebExtension::bestImageForIconVariantsManifestKey(NSDictionary *dict
         return dynamic_objc_cast<CocoaImage>(cachedResult);
 
     auto *variants = objectForKey<NSArray>(dictionary, manifestKey, false, NSDictionary.class);
-    auto *result = bestImageForIconVariants(variants, idealSize, [&](auto *error) {
+    auto *result = bestImageForIconVariants(variants, idealSize, [&](Ref<API::Error> error) {
         recordError(error);
     });
 
@@ -1353,7 +940,7 @@ static bool parseCommandShortcut(const String& shortcut, OptionSet<ModifierFlags
     if (shortcut.isEmpty())
         return true;
 
-    static NeverDestroyed<HashMap<String, ModifierFlags>> modifierMap = HashMap<String, ModifierFlags> {
+    static NeverDestroyed<UncheckedKeyHashMap<String, ModifierFlags>> modifierMap = UncheckedKeyHashMap<String, ModifierFlags> {
         { "Ctrl"_s, ModifierFlags::Command },
         { "Command"_s, ModifierFlags::Command },
         { "Alt"_s, ModifierFlags::Option },
@@ -1361,7 +948,7 @@ static bool parseCommandShortcut(const String& shortcut, OptionSet<ModifierFlags
         { "Shift"_s, ModifierFlags::Shift }
     };
 
-    static NeverDestroyed<HashMap<String, String>> specialKeyMap = HashMap<String, String> {
+    static NeverDestroyed<UncheckedKeyHashMap<String, String>> specialKeyMap = UncheckedKeyHashMap<String, String> {
         { "Comma"_s, ","_s },
         { "Period"_s, "."_s },
         { "Space"_s, " "_s },
@@ -1548,7 +1135,7 @@ void WebExtension::populateCommandsIfNeeded()
         recordError(createError(Error::InvalidCommands, error.value()));
 }
 
-std::optional<WebExtension::DeclarativeNetRequestRulesetData> WebExtension::parseDeclarativeNetRequestRulesetDictionary(NSDictionary *rulesetDictionary, NSError **error)
+std::optional<WebExtension::DeclarativeNetRequestRulesetData> WebExtension::parseDeclarativeNetRequestRulesetDictionary(NSDictionary *rulesetDictionary, RefPtr<API::Error>& error)
 {
     NSArray *requiredKeysInRulesetDictionary = @[
         declarativeNetRequestRulesetIDManifestKey,
@@ -1562,22 +1149,24 @@ std::optional<WebExtension::DeclarativeNetRequestRulesetData> WebExtension::pars
         declarativeNetRequestRulePathManifestKey: NSString.class,
     };
 
+    error = nullptr;
+
     NSString *exceptionString;
     bool isRulesetDictionaryValid = validateDictionary(rulesetDictionary, nil, requiredKeysInRulesetDictionary, keyToExpectedValueTypeInRulesetDictionary, &exceptionString);
     if (!isRulesetDictionaryValid) {
-        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, exceptionString);
+        error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, exceptionString);
         return std::nullopt;
     }
 
     NSString *rulesetID = objectForKey<NSString>(rulesetDictionary, declarativeNetRequestRulesetIDManifestKey);
     if (!rulesetID.length) {
-        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` ruleset id.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty ruleset id"));
+        error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` ruleset id.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty ruleset id"));
         return std::nullopt;
     }
 
     NSString *jsonPath = objectForKey<NSString>(rulesetDictionary, declarativeNetRequestRulePathManifestKey);
     if (!jsonPath.length) {
-        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` JSON path.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty JSON path"));
+        error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` JSON path.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty JSON path"));
         return std::nullopt;
 
     }
@@ -1603,7 +1192,7 @@ void WebExtension::populateDeclarativeNetRequestPropertiesIfNeeded()
 
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/declarative_net_request
 
-    if (!supportedPermissions().contains(WKWebExtensionPermissionDeclarativeNetRequest) && !supportedPermissions().contains(WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess)) {
+    if (!supportedPermissions().contains(WebExtensionPermission::declarativeNetRequest()) && !supportedPermissions().contains(WebExtensionPermission::declarativeNetRequestWithHostAccess())) {
         recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Manifest has no `declarativeNetRequest` permission.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for missing declarativeNetRequest permission")));
         return;
     }
@@ -1633,10 +1222,11 @@ void WebExtension::populateDeclarativeNetRequestPropertiesIfNeeded()
         if (rulesetCount >= webExtensionDeclarativeNetRequestMaximumNumberOfStaticRulesets)
             continue;
 
-        NSError *error;
-        auto optionalRuleset = parseDeclarativeNetRequestRulesetDictionary(rulesetDictionary, &error);
+        RefPtr<API::Error> error;
+        auto optionalRuleset = parseDeclarativeNetRequestRulesetDictionary(rulesetDictionary, error);
         if (!optionalRuleset) {
-            recordError(createError(Error::InvalidDeclarativeNetRequest, { }, error));
+            if (error)
+                recordError(createError(Error::InvalidDeclarativeNetRequest, { }, error));
             continue;
         }
 
@@ -1673,142 +1263,6 @@ std::optional<WebExtension::DeclarativeNetRequestRulesetData> WebExtension::decl
     }
 
     return std::nullopt;
-}
-
-const WebExtension::PermissionsSet& WebExtension::supportedPermissions()
-{
-    static MainThreadNeverDestroyed<PermissionsSet> permissions = std::initializer_list<String> { WKWebExtensionPermissionActiveTab, WKWebExtensionPermissionAlarms, WKWebExtensionPermissionClipboardWrite,
-        WKWebExtensionPermissionContextMenus, WKWebExtensionPermissionCookies, WKWebExtensionPermissionDeclarativeNetRequest, WKWebExtensionPermissionDeclarativeNetRequestFeedback,
-        WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess, WKWebExtensionPermissionMenus, WKWebExtensionPermissionNativeMessaging, WKWebExtensionPermissionNotifications, WKWebExtensionPermissionScripting,
-        WKWebExtensionPermissionStorage, WKWebExtensionPermissionTabs, WKWebExtensionPermissionUnlimitedStorage, WKWebExtensionPermissionWebNavigation, WKWebExtensionPermissionWebRequest,
-#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
-        WKWebExtensionPermissionSidePanel,
-#endif
-    };
-    return permissions;
-}
-
-const WebExtension::PermissionsSet& WebExtension::requestedPermissions()
-{
-    populatePermissionsPropertiesIfNeeded();
-    return m_permissions;
-}
-
-const WebExtension::PermissionsSet& WebExtension::optionalPermissions()
-{
-    populatePermissionsPropertiesIfNeeded();
-    return m_optionalPermissions;
-}
-
-const WebExtension::MatchPatternSet& WebExtension::requestedPermissionMatchPatterns()
-{
-    populatePermissionsPropertiesIfNeeded();
-    return m_permissionMatchPatterns;
-}
-
-const WebExtension::MatchPatternSet& WebExtension::optionalPermissionMatchPatterns()
-{
-    populatePermissionsPropertiesIfNeeded();
-    return m_optionalPermissionMatchPatterns;
-}
-
-const WebExtension::MatchPatternSet& WebExtension::externallyConnectableMatchPatterns()
-{
-    populateExternallyConnectableIfNeeded();
-    return m_externallyConnectableMatchPatterns;
-}
-
-WebExtension::MatchPatternSet WebExtension::allRequestedMatchPatterns()
-{
-    populatePermissionsPropertiesIfNeeded();
-    populateContentScriptPropertiesIfNeeded();
-    populateExternallyConnectableIfNeeded();
-
-    WebExtension::MatchPatternSet result;
-
-    for (auto& matchPattern : m_permissionMatchPatterns)
-        result.add(matchPattern);
-
-    for (auto& matchPattern : m_externallyConnectableMatchPatterns)
-        result.add(matchPattern);
-
-    for (auto& injectedContent : m_staticInjectedContents) {
-        for (auto& matchPattern : injectedContent.includeMatchPatterns)
-            result.add(matchPattern);
-    }
-
-    return result;
-}
-
-void WebExtension::populatePermissionsPropertiesIfNeeded()
-{
-    if (!manifestParsedSuccessfully())
-        return;
-
-    if (m_parsedManifestPermissionProperties)
-        return;
-
-    m_parsedManifestPermissionProperties = YES;
-
-    bool findMatchPatternsInPermissions = !supportsManifestVersion(3);
-
-    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions
-
-    NSArray<NSString *> *permissions = objectForKey<NSArray>(m_manifest, permissionsManifestKey, true, NSString.class);
-    for (NSString *permission in permissions) {
-        if (findMatchPatternsInPermissions) {
-            if (auto matchPattern = WebExtensionMatchPattern::getOrCreate(permission)) {
-                if (matchPattern->isSupported())
-                    m_permissionMatchPatterns.add(matchPattern.releaseNonNull());
-                continue;
-            }
-        }
-
-        if (supportedPermissions().contains(permission))
-            m_permissions.add(permission);
-    }
-
-    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/host_permissions
-
-    if (!findMatchPatternsInPermissions) {
-        NSArray<NSString *> *hostPermissions = objectForKey<NSArray>(m_manifest, hostPermissionsManifestKey, true, NSString.class);
-
-        for (NSString *hostPattern in hostPermissions) {
-            if (auto matchPattern = WebExtensionMatchPattern::getOrCreate(hostPattern)) {
-                if (matchPattern->isSupported())
-                    m_permissionMatchPatterns.add(matchPattern.releaseNonNull());
-            }
-        }
-    }
-
-    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/optional_permissions
-
-    NSArray<NSString *> *optionalPermissions = objectForKey<NSArray>(m_manifest, optionalPermissionsManifestKey, true, NSString.class);
-    for (NSString *optionalPermission in optionalPermissions) {
-        if (findMatchPatternsInPermissions) {
-            if (auto matchPattern = WebExtensionMatchPattern::getOrCreate(optionalPermission)) {
-                if (matchPattern->isSupported() && !m_permissionMatchPatterns.contains(*matchPattern))
-                    m_optionalPermissionMatchPatterns.add(matchPattern.releaseNonNull());
-                continue;
-            }
-        }
-
-        if (!m_permissions.contains(optionalPermission) && supportedPermissions().contains(optionalPermission))
-            m_optionalPermissions.add(optionalPermission);
-    }
-
-    // Documentation: https://github.com/w3c/webextensions/issues/119
-
-    if (!findMatchPatternsInPermissions) {
-        NSArray<NSString *> *hostPermissions = objectForKey<NSArray>(m_manifest, optionalHostPermissionsManifestKey, true, NSString.class);
-
-        for (NSString *hostPattern in hostPermissions) {
-            if (auto matchPattern = WebExtensionMatchPattern::getOrCreate(hostPattern)) {
-                if (matchPattern->isSupported() && !m_permissionMatchPatterns.contains(*matchPattern))
-                    m_optionalPermissionMatchPatterns.add(matchPattern.releaseNonNull());
-            }
-        }
-    }
 }
 
 } // namespace WebKit

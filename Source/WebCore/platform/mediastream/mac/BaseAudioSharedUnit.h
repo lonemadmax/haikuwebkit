@@ -53,6 +53,9 @@ class BaseAudioSharedUnit : public RefCounted<BaseAudioSharedUnit>, public Realt
 public:
     virtual ~BaseAudioSharedUnit();
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     void startProducingData();
     void stopProducingData();
     void reconfigure();
@@ -137,6 +140,8 @@ protected:
 private:
     OSStatus startUnit();
     bool shouldContinueRunning() const { return m_producingCount || m_isRenderingAudio || hasClients(); }
+
+    virtual void willChangeCaptureDevice() { };
 
     // RealtimeMediaSourceCenterObserver
     void devicesChanged() final;

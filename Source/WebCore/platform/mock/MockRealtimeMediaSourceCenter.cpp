@@ -267,7 +267,7 @@ public:
         case CaptureDevice::DeviceType::Window: {
 #if PLATFORM(COCOA)
             return DisplayCaptureSourceCocoa::create([this, &device, pageIdentifier] (auto& observer) {
-                auto capturer = makeUniqueRef<MockDisplayCapturer>(observer, device, pageIdentifier);
+                auto capturer = makeUniqueRefWithoutRefCountedCheck<MockDisplayCapturer>(observer, device, pageIdentifier);
                 m_capturer = capturer.get();
                 return capturer;
             }, device, WTFMove(hashSalts), constraints, pageIdentifier);
@@ -322,8 +322,8 @@ private:
     const Vector<CaptureDevice>& speakerDevices() const final { return MockRealtimeMediaSourceCenter::speakerDevices(); }
 #if PLATFORM(COCOA)
     void enableMutedSpeechActivityEventListener(Function<void()>&& callback) final {
-MockAudioSharedUnit::singleton().enableMutedSpeechActivityEventListener(WTFMove(callback)); }
-    void disableMutedSpeechActivityEventListener() final { MockAudioSharedUnit::singleton().disableMutedSpeechActivityEventListener(); }
+        CoreAudioSharedUnit::singleton().enableMutedSpeechActivityEventListener(WTFMove(callback)); }
+    void disableMutedSpeechActivityEventListener() final { CoreAudioSharedUnit::singleton().disableMutedSpeechActivityEventListener(); }
 #endif
 };
 
@@ -333,10 +333,10 @@ static Vector<MockMediaDevice>& devices()
     return devices;
 }
 
-static HashMap<String, MockMediaDevice>& deviceMap()
+static UncheckedKeyHashMap<String, MockMediaDevice>& deviceMap()
 {
     static NeverDestroyed map = [] {
-        HashMap<String, MockMediaDevice> map;
+        UncheckedKeyHashMap<String, MockMediaDevice> map;
         for (auto& device : devices())
             map.add(device.persistentId, device);
         return map;
@@ -374,8 +374,12 @@ void MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(bool
     RealtimeMediaSourceCenter& center = RealtimeMediaSourceCenter::singleton();
 
     if (mock.m_isEnabled) {
-        if (mock.m_isMockAudioCaptureEnabled)
+        if (mock.m_isMockAudioCaptureEnabled) {
+#if PLATFORM(COCOA)
+            MockAudioSharedUnit::enable();
+#endif
             center.setAudioCaptureFactory(mock.audioCaptureFactory());
+        }
         if (mock.m_isMockVideoCaptureEnabled)
             center.setVideoCaptureFactory(mock.videoCaptureFactory());
         if (mock.m_isMockDisplayCaptureEnabled)
@@ -383,8 +387,12 @@ void MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(bool
         return;
     }
 
-    if (mock.m_isMockAudioCaptureEnabled)
+    if (mock.m_isMockAudioCaptureEnabled) {
+#if PLATFORM(COCOA)
+        MockAudioSharedUnit::disable();
+#endif
         center.unsetAudioCaptureFactory(mock.audioCaptureFactory());
+    }
     if (mock.m_isMockVideoCaptureEnabled)
         center.unsetVideoCaptureFactory(mock.videoCaptureFactory());
     if (mock.m_isMockDisplayCaptureEnabled)
@@ -432,7 +440,7 @@ void MockRealtimeMediaSourceCenter::triggerMockCaptureConfigurationChange(bool f
         auto devices = audioCaptureDeviceManager().captureDevices();
         if (devices.size() > 1) {
             MockAudioSharedUnit::increaseBufferSize();
-            MockAudioSharedUnit::singleton().handleNewCurrentMicrophoneDevice(WTFMove(devices[1]));
+            CoreAudioSharedUnit::singleton().handleNewCurrentMicrophoneDevice(WTFMove(devices[1]));
         }
     }
     if (forDisplay) {

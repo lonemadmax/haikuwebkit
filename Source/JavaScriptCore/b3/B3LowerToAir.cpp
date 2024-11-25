@@ -3057,12 +3057,12 @@ private:
             Value* left = m_value->child(0);
             Value* right = m_value->child(1);
 
-            auto tryMultiplyAdd = [&] () -> bool {
+            auto tryMultiplyAdd = [&]() -> bool {
                 if (imm(right) && !m_valueToTmp[right])
                     return false;
 
                 // MADD: d = n * m + a
-                auto tryAppendMultiplyAdd = [&] (Value* left, Value* right) -> bool {
+                auto tryAppendMultiplyAdd = [&](Value* left, Value* right) -> bool {
                     if (left->opcode() != Mul || !canBeInternal(left) || m_locked.contains(right))
                         return false;
                     Value* multiplyLeft = left->child(0);
@@ -3103,7 +3103,7 @@ private:
                 return;
 
             // add-with-shift Pattern: left + (right ShiftType amount)
-            auto tryAppendAddWithShift = [&] (Value* left, Value* right) -> bool {
+            auto tryAppendAddWithShift = [&](Value* left, Value* right) -> bool {
                 Air::Opcode opcode = opcodeBasedOnShiftKind(right->opcode(),
                     AddLeftShift32, AddLeftShift64,
                     AddRightShift32, AddRightShift64,
@@ -3112,6 +3112,30 @@ private:
             };
 
             if (tryAppendAddWithShift(left, right) || tryAppendAddWithShift(right, left))
+                return;
+
+            auto tryAppendAddWithExtend = [&](Value* left, Value* right) -> bool {
+                if constexpr (isARM64()) {
+                    if (!canBeInternal(right))
+                        return false;
+
+                    if (isMergeableValue(right, ZExt32) && !imm(left)) {
+                        append(AddZeroExtend64, tmp(left), tmp(right->child(0)), tmp(m_value));
+                        commitInternal(right);
+                        return true;
+                    }
+
+                    if (isMergeableValue(right, SExt32) && !imm(left)) {
+                        append(AddSignExtend64, tmp(left), tmp(right->child(0)), tmp(m_value));
+                        commitInternal(right);
+                        return true;
+                    }
+                }
+                return false;
+
+            };
+
+            if (tryAppendAddWithExtend(left, right) || tryAppendAddWithExtend(right, left))
                 return;
 
             appendBinOp<Add32, Add64, AddDouble, AddFloat, Commutative>(left, right);
@@ -5306,10 +5330,10 @@ private:
     IndexSet<Value*> m_locked; // These are values that will have no Tmp in Air.
     IndexMap<Value*, Tmp> m_valueToTmp; // These are values that must have a Tmp in Air. We say that a Value* with a non-null Tmp is "pinned".
     IndexMap<Value*, Tmp> m_phiToTmp; // Each Phi gets its own Tmp.
-    HashMap<Value*, Vector<Tmp>> m_tupleValueToTmps; // This is the same as m_valueToTmp for Values that are Tuples.
-    HashMap<Value*, Vector<Tmp>> m_tuplePhiToTmps; // This is the same as m_phiToTmp for Phis that are Tuples.
+    UncheckedKeyHashMap<Value*, Vector<Tmp>> m_tupleValueToTmps; // This is the same as m_valueToTmp for Values that are Tuples.
+    UncheckedKeyHashMap<Value*, Vector<Tmp>> m_tuplePhiToTmps; // This is the same as m_phiToTmp for Phis that are Tuples.
     IndexMap<B3::BasicBlock*, Air::BasicBlock*> m_blockToBlock;
-    HashMap<Variable*, Vector<Tmp>> m_variableToTmps;
+    UncheckedKeyHashMap<Variable*, Vector<Tmp>> m_variableToTmps;
 
     UseCounts m_useCounts;
     PhiChildren m_phiChildren;
@@ -5325,7 +5349,7 @@ private:
     Value* m_value;
 
     PatchpointSpecial* m_patchpointSpecial { nullptr };
-    HashMap<CheckSpecial::Key, CheckSpecial*> m_checkSpecials;
+    UncheckedKeyHashMap<CheckSpecial::Key, CheckSpecial*> m_checkSpecials;
 
     Procedure& m_procedure;
     Code& m_code;

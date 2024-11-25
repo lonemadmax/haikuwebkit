@@ -155,8 +155,6 @@ enum class GridTrackSizingDirection : uint8_t;
 enum class HangingPunctuation : uint8_t;
 enum class Hyphens : uint8_t;
 enum class ImageRendering : uint8_t;
-enum class ImageResolutionSnap : bool;
-enum class ImageResolutionSource : bool;
 enum class InputSecurity : bool;
 enum class InsideLink : uint8_t;
 enum class Isolation : bool;
@@ -262,6 +260,7 @@ struct MasonryAutoFlow;
 struct NamedGridAreaMap;
 struct NamedGridLinesMap;
 struct OrderedNamedGridLinesMap;
+struct SingleTimelineRange;
 
 struct ScrollSnapAlign;
 struct ScrollSnapType;
@@ -273,7 +272,7 @@ struct ViewTimelineInsets;
 struct TabSize;
 class TextAutospace;
 struct TextEdge;
-struct TextSpacingTrim;
+class TextSpacingTrim;
 struct TransformOperationData;
 
 template<typename> class FontTaggedSettings;
@@ -286,6 +285,7 @@ using LayoutBoxExtent = RectEdges<LayoutUnit>;
 
 namespace Style {
 class CustomPropertyRegistry;
+class ViewTransitionName;
 struct PseudoElementIdentifier;
 struct ScopedName;
 }
@@ -727,6 +727,7 @@ public:
     inline float textStrokeWidth() const;
     inline float opacity() const;
     inline bool hasOpacity() const;
+    inline bool hasZeroOpacity() const;
     inline StyleAppearance appearance() const;
     inline StyleAppearance usedAppearance() const;
     inline AspectRatioType aspectRatioType() const;
@@ -996,6 +997,14 @@ public:
     inline const TimelineScope& timelineScope() const;
     inline void setTimelineScope(const TimelineScope&);
 
+    static inline const SingleTimelineRange initialAnimationRangeStart();
+    inline const SingleTimelineRange& animationRangeStart() const;
+    inline void setAnimationRangeStart(const SingleTimelineRange&);
+
+    static inline const SingleTimelineRange initialAnimationRangeEnd();
+    inline const SingleTimelineRange& animationRangeEnd() const;
+    inline void setAnimationRangeEnd(const SingleTimelineRange&);
+
     inline const AnimationList* animations() const;
     inline const AnimationList* transitions() const;
 
@@ -1140,7 +1149,7 @@ public:
     inline MathStyle mathStyle() const;
 
     inline const Vector<Style::ScopedName>& viewTransitionClasses() const;
-    inline std::optional<Style::ScopedName> viewTransitionName() const;
+    inline Style::ViewTransitionName viewTransitionName() const;
 
     void setDisplay(DisplayType value)
     {
@@ -1794,7 +1803,7 @@ public:
     void setQuotes(RefPtr<QuotesData>&&);
 
     inline void setViewTransitionClasses(const Vector<Style::ScopedName>&);
-    inline void setViewTransitionName(std::optional<Style::ScopedName>);
+    inline void setViewTransitionName(Style::ViewTransitionName);
 
     inline WillChangeData* willChange() const;
     void setWillChange(RefPtr<WillChangeData>&&);
@@ -1901,7 +1910,7 @@ public:
     static inline ListStyleType initialListStyleType();
     static constexpr OptionSet<TextTransform> initialTextTransform();
     static inline Vector<Style::ScopedName> initialViewTransitionClasses();
-    static inline std::optional<Style::ScopedName> initialViewTransitionName();
+    static inline Style::ViewTransitionName initialViewTransitionName();
     static constexpr Visibility initialVisibility();
     static constexpr WhiteSpaceCollapse initialWhiteSpaceCollapse();
     static float initialHorizontalBorderSpacing() { return 0; }
@@ -2039,9 +2048,6 @@ public:
     static constexpr OptionSet<LineBoxContain> initialLineBoxContain();
     static constexpr ImageOrientation initialImageOrientation();
     static constexpr ImageRendering initialImageRendering();
-    static constexpr ImageResolutionSource initialImageResolutionSource();
-    static constexpr ImageResolutionSnap initialImageResolutionSnap();
-    static float initialImageResolution() { return 1; }
     static StyleImage* initialBorderImageSource() { return nullptr; }
     static StyleImage* initialMaskBorderSource() { return nullptr; }
     static constexpr PrintColorAdjust initialPrintColorAdjust();

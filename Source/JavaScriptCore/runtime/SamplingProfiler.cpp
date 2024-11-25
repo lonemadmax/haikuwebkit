@@ -138,9 +138,18 @@ protected:
                     // At this point, Wasm::Callee would be dying (ref count is 0), but its fields are still live.
                     // And we can safely copy Wasm::IndexOrName even when any lock is held by suspended threads.
                     auto* wasmCallee = static_cast<Wasm::Callee*>(nativeCallee);
-                    stackTrace[m_depth].wasmIndexOrName = wasmCallee->indexOrName();
                     stackTrace[m_depth].wasmCompilationMode = wasmCallee->compilationMode();
+                    stackTrace[m_depth].wasmIndexOrName = wasmCallee->indexOrName();
+                    stackTrace[m_depth].callSiteIndex = m_callFrame->unsafeCallSiteIndex();
 #if ENABLE(JIT)
+                    // FIXME: We should be able to add all stack traces including inlined ones in SamplingProfiler.
+                    if (wasmCallee->compilationMode() == Wasm::CompilationMode::OMGMode) {
+                        auto* omgCallee = static_cast<const Wasm::OptimizingJITCallee*>(wasmCallee);
+                        bool isInlined = false;
+                        auto origin = omgCallee->getOrigin(stackTrace[m_depth].callSiteIndex.bits(), 0, isInlined);
+                        if (isInlined)
+                            stackTrace[m_depth].wasmIndexOrName = origin;
+                    }
                     stackTrace[m_depth].wasmPCMap = NativeCalleeRegistry::singleton().codeOriginMap(wasmCallee);
 #endif
 #endif
@@ -1056,7 +1065,6 @@ static String tierName(SamplingProfiler::StackFrame& frame)
                 // Just say "Wasm" for now.
                 break;
             case Wasm::CompilationMode::BBQMode:
-            case Wasm::CompilationMode::BBQForOSREntryMode:
                 return Tiers::bbq;
             case Wasm::CompilationMode::OMGMode:
             case Wasm::CompilationMode::OMGForOSREntryMode:
@@ -1086,7 +1094,7 @@ Ref<JSON::Value> SamplingProfiler::stackTracesAsJSON()
         processUnverifiedStackTraces();
     }
 
-    HashMap<SourceID, Ref<SourceProvider>> sources;
+    UncheckedKeyHashMap<SourceID, Ref<SourceProvider>> sources;
 
     auto stackFrameAsJSON = [&](StackFrame& stackFrame) {
         auto [provider, sourceID] = stackFrame.sourceProviderAndID();
@@ -1210,7 +1218,7 @@ void SamplingProfiler::reportTopFunctions(PrintStream& out)
     }
 
     size_t totalSamples = 0;
-    HashMap<String, size_t> functionCounts;
+    UncheckedKeyHashMap<String, size_t> functionCounts;
     for (StackTrace& stackTrace : m_stackTraces) {
         if (!stackTrace.frames.size())
             continue;
@@ -1276,8 +1284,8 @@ void SamplingProfiler::reportTopBytecodes(PrintStream& out)
     }
 
     size_t totalSamples = 0;
-    HashMap<String, size_t> bytecodeCounts;
-    HashMap<String, size_t> tierCounts;
+    UncheckedKeyHashMap<String, size_t> bytecodeCounts;
+    UncheckedKeyHashMap<String, size_t> tierCounts;
 
     auto forEachTier = [&] (auto func) {
         func(Tiers::llint);

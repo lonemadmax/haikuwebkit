@@ -20,6 +20,10 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #include <initializer_list>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
@@ -130,6 +134,9 @@ public:
     TakeType take(const ValueType&);
     TakeType take(iterator);
     TakeType takeAny();
+
+    template<size_t inlineCapacity = 0>
+    Vector<TakeType, inlineCapacity> takeIf(const Invocable<bool(const ValueType&)> auto& functor) { return m_impl.template takeIf<inlineCapacity>(functor); }
 
     // Returns a new set with the elements of both this and the given
     // collection (a.k.a. OR).
@@ -566,3 +573,5 @@ inline void HashSet<T, U, V, W>::checkConsistency() const
 } // namespace WTF
 
 using WTF::HashSet;
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

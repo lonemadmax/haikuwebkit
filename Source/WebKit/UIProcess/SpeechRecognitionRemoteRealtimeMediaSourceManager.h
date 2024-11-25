@@ -37,16 +37,6 @@
 #include "SharedCARingBuffer.h"
 #endif
 
-namespace WebKit {
-class SpeechRecognitionRemoteRealtimeMediaSourceManager;
-struct SharedPreferencesForWebProcess;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::SpeechRecognitionRemoteRealtimeMediaSourceManager> : std::true_type { };
-}
-
 namespace WTF {
 class MediaTime;
 }
@@ -59,11 +49,16 @@ namespace WebKit {
 
 class SpeechRecognitionRemoteRealtimeMediaSource;
 class WebProcessProxy;
+struct SharedPreferencesForWebProcess;
 
 class SpeechRecognitionRemoteRealtimeMediaSourceManager final : public IPC::MessageReceiver, public IPC::MessageSender {
     WTF_MAKE_TZONE_ALLOCATED(SpeechRecognitionRemoteRealtimeMediaSourceManager);
 public:
     explicit SpeechRecognitionRemoteRealtimeMediaSourceManager(const WebProcessProxy&);
+
+    void ref() const;
+    void deref() const;
+
     void addSource(SpeechRecognitionRemoteRealtimeMediaSource&, const WebCore::CaptureDevice&);
     void removeSource(SpeechRecognitionRemoteRealtimeMediaSource&);
 
@@ -86,7 +81,7 @@ private:
     uint64_t messageSenderDestinationID() const final;
 
     WeakRef<const WebProcessProxy> m_process;
-    HashMap<WebCore::RealtimeMediaSourceIdentifier, ThreadSafeWeakPtr<SpeechRecognitionRemoteRealtimeMediaSource>> m_sources;
+    UncheckedKeyHashMap<WebCore::RealtimeMediaSourceIdentifier, ThreadSafeWeakPtr<SpeechRecognitionRemoteRealtimeMediaSource>> m_sources;
 };
 
 } // namespace WebKit

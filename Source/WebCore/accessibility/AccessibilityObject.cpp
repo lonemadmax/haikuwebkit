@@ -118,10 +118,10 @@ void AccessibilityObject::init()
     m_role = determineAccessibilityRole();
 }
 
-AXID AccessibilityObject::treeID() const
+std::optional<AXID> AccessibilityObject::treeID() const
 {
     auto* cache = axObjectCache();
-    return cache ? cache->treeID() : AXID();
+    return cache ? std::optional { cache->treeID() } : std::nullopt;
 }
 
 String AccessibilityObject::dbg() const
@@ -134,7 +134,7 @@ String AccessibilityObject::dbg() const
 
     return makeString(
         "{role: "_s, accessibilityRoleToString(roleValue()),
-        ", ID "_s, objectID().loggingString(),
+        ", ID "_s, objectID() ? objectID()->loggingString() : ""_str,
         isIgnored() ? ", ignored"_s : emptyString(),
         backingEntityDescription,
         '}'
@@ -1013,9 +1013,36 @@ Vector<SimpleRange> AccessibilityObject::findTextRanges(const AccessibilitySearc
     return result;
 }
 
+struct TextOperationRange {
+    SimpleRange scope;
+    CharacterRange characterRange;
+};
+
+static std::optional<TextOperationRange> textOperationRangeFromRange(const SimpleRange& range)
+{
+    RefPtr rootEditableElement = range.start.container->rootEditableElement();
+    if (!rootEditableElement)
+        return std::nullopt;
+
+    std::optional<SimpleRange> scope = makeRangeSelectingNode(*rootEditableElement);
+    if (!scope)
+        return std::nullopt;
+
+    return TextOperationRange { *scope, characterRange(*scope, range, { }) };
+}
+
+static SimpleRange rangeFromTextOperationRange(const TextOperationRange& textOperationRange)
+{
+    return resolveCharacterRange(textOperationRange.scope, textOperationRange.characterRange, { });
+}
+
 Vector<String> AccessibilityObject::performTextOperation(const AccessibilityTextOperation& operation)
 {
+    Vector<TextOperationRange> textOperationRanges;
+    textOperationRanges.reserveInitialCapacity(operation.textRanges.size());
+
     Vector<String> result;
+    result.reserveInitialCapacity(operation.textRanges.size());
 
     if (operation.textRanges.isEmpty())
         return result;
@@ -1027,8 +1054,22 @@ Vector<String> AccessibilityObject::performTextOperation(const AccessibilityText
     size_t replacementStringsCount = operation.replacementStrings.size();
     bool useFirstReplacementStringForAllReplacements = (replacementStringsCount == 1);
 
-    for (size_t i = 0; i < operation.textRanges.size(); ++i) {
-        auto textRange = operation.textRanges[i];
+    // Precompute character ranges with respect to their root editable element because
+    // the SimpleRanges stored in AccessibilityTextOperation may be invalidated after
+    // performing a replacement in the same editable element.
+    for (const auto& range : operation.textRanges) {
+        auto textOperationRange = textOperationRangeFromRange(range);
+        if (!textOperationRange) {
+            ASSERT_NOT_REACHED();
+            return result;
+        }
+
+        textOperationRanges.append(*textOperationRange);
+    }
+
+    for (size_t i = 0; i < textOperationRanges.size(); ++i) {
+        const auto& textOperationRange = textOperationRanges[i];
+        auto textRange = rangeFromTextOperationRange(textOperationRange);
 
         String replacementString;
         if (useFirstReplacementStringForAllReplacements)
@@ -1078,7 +1119,14 @@ Vector<String> AccessibilityObject::performTextOperation(const AccessibilityText
         // A bit obvious, but worth noting the API contract for this method is that we should
         // return the replacement string when replacing, but the selected string if not.
         if (replaceSelection) {
-            frame->editor().replaceSelectionWithText(replacementString, Editor::SelectReplacement::Yes, operation.smartReplace == AccessibilityTextOperationSmartReplace::No ? Editor::SmartReplace::No : Editor::SmartReplace::Yes);
+            // Insert text instead of replacing when the selection length is zero, because replacements
+            // aren't performed correctly in certain edge cases like at the the boundary between nodes
+            // separated by spaces <p> foo <i>bar</i>[insert here] baz </p>.
+            if (textOperationRange.characterRange.length)
+                frame->editor().replaceSelectionWithText(replacementString, Editor::SelectReplacement::Yes, operation.smartReplace == AccessibilityTextOperationSmartReplace::No ? Editor::SmartReplace::No : Editor::SmartReplace::Yes);
+            else
+                frame->editor().insertText(replacementString, /* triggeringEvent */ nullptr);
+
             result.append(replacementString);
         } else
             result.append(text);
@@ -2565,8 +2613,8 @@ AccessibilityOrientation AccessibilityObject::orientation() const
     return AccessibilityOrientation::Undefined;
 }    
 
-using ARIARoleMap = HashMap<String, AccessibilityRole, ASCIICaseInsensitiveHash>;
-using ARIAReverseRoleMap = HashMap<AccessibilityRole, String, DefaultHash<int>, WTF::UnsignedWithZeroKeyHashTraits<int>>;
+using ARIARoleMap = UncheckedKeyHashMap<String, AccessibilityRole, ASCIICaseInsensitiveHash>;
+using ARIAReverseRoleMap = UncheckedKeyHashMap<AccessibilityRole, String, DefaultHash<int>, WTF::UnsignedWithZeroKeyHashTraits<int>>;
 
 static ARIARoleMap* gAriaRoleMap = nullptr;
 static ARIAReverseRoleMap* gAriaReverseRoleMap = nullptr;
@@ -2821,7 +2869,7 @@ bool AccessibilityObject::hasHighlighting() const
 
 SRGBA<uint8_t> AccessibilityObject::colorValue() const
 {
-    return Color::transparentBlack;
+    return Color::black;
 }
 
 #if !PLATFORM(MAC)
@@ -3507,7 +3555,7 @@ AccessibilityButtonState AccessibilityObject::checkboxOrRadioValue() const
     return AccessibilityButtonState::Off;
 }
 
-HashMap<String, AXEditingStyleValueVariant> AccessibilityObject::resolvedEditingStyles() const
+UncheckedKeyHashMap<String, AXEditingStyleValueVariant> AccessibilityObject::resolvedEditingStyles() const
 {
     auto document = this->document();
     if (!document)
@@ -3517,7 +3565,7 @@ HashMap<String, AXEditingStyleValueVariant> AccessibilityObject::resolvedEditing
     if (!selectionStyle)
         return { };
 
-    HashMap<String, AXEditingStyleValueVariant> styles;
+    UncheckedKeyHashMap<String, AXEditingStyleValueVariant> styles;
     styles.add("bold"_s, selectionStyle->hasStyle(CSSPropertyFontWeight, "bold"_s));
     styles.add("italic"_s, selectionStyle->hasStyle(CSSPropertyFontStyle, "italic"_s));
     styles.add("underline"_s, selectionStyle->hasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s));
@@ -4000,13 +4048,8 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     if (auto* style = this->style()) {
         if (style->effectiveInert())
             return AccessibilityObjectInclusion::IgnoreObject;
-        if (style->usedVisibility() != Visibility::Visible) {
-            // aria-hidden is meant to override visibility as the determinant in AX hierarchy inclusion.
-            if (equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "false"_s))
-                return AccessibilityObjectInclusion::DefaultBehavior;
-
+        if (style->usedVisibility() != Visibility::Visible)
             return AccessibilityObjectInclusion::IgnoreObject;
-        }
     }
 
     bool useParentData = !m_isIgnoredFromParentData.isNull();
@@ -4053,7 +4096,7 @@ bool AccessibilityObject::isIgnored() const
         attributeCache = axObjectCache->computedObjectAttributeCache();
     
     if (attributeCache) {
-        AccessibilityObjectInclusion ignored = attributeCache->getIgnored(objectID());
+        AccessibilityObjectInclusion ignored = attributeCache->getIgnored(*objectID());
         switch (ignored) {
         case AccessibilityObjectInclusion::IgnoreObject:
             return true;
@@ -4068,7 +4111,7 @@ bool AccessibilityObject::isIgnored() const
 
     // Refetch the attribute cache in case it was enabled as part of computing isIgnored.
     if (axObjectCache && (attributeCache = axObjectCache->computedObjectAttributeCache()))
-        attributeCache->setIgnored(objectID(), ignored ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject);
+        attributeCache->setIgnored(*objectID(), ignored ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject);
 
     return ignored;
 }
@@ -4085,11 +4128,17 @@ bool AccessibilityObject::isIgnoredWithoutCache(AXObjectCache* cache) const
     auto previousLastKnownIsIgnoredValue = m_lastKnownIsIgnoredValue;
     const_cast<AccessibilityObject*>(this)->setLastKnownIsIgnoredValue(ignored);
 
-    if (cache
-        && ((previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IgnoreObject && !ignored)
-        || (previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IncludeObject && ignored)))
-        cache->childrenChanged(parentObject());
+    if (cache) {
+        bool becameUnignored = previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IgnoreObject && !ignored;
+        bool becameIgnored = !becameUnignored && previousLastKnownIsIgnoredValue == AccessibilityObjectInclusion::IncludeObject && ignored;
 
+#if !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+        if (becameIgnored)
+            cache->objectBecameIgnored(*objectID());
+#endif // !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+        if (becameUnignored || becameIgnored)
+            cache->childrenChanged(parentObject());
+    }
     return ignored;
 }
 

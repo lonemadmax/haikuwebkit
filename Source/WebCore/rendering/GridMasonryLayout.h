@@ -26,6 +26,7 @@
 
 #include "GridArea.h"
 #include "GridPositionsResolver.h"
+#include "GridTrackSizingAlgorithm.h"
 #include "LayoutUnit.h"
 #include "RenderBox.h"
 
@@ -41,7 +42,7 @@ public:
     }
 
     void initializeMasonry(unsigned gridAxisTracks, GridTrackSizingDirection masonryAxisDirection);
-    void performMasonryPlacement(unsigned gridAxisTracks, GridTrackSizingDirection masonryAxisDirection);
+    void performMasonryPlacement(const GridTrackSizingAlgorithm&, unsigned gridAxisTracks, GridTrackSizingDirection masonryAxisDirection);
     LayoutUnit offsetForGridItem(const RenderBox&) const;
     LayoutUnit gridContentSize() const { return m_gridContentSize; };
     LayoutUnit gridGap() const { return m_masonryAxisGridGap; };
@@ -53,11 +54,11 @@ private:
     GridArea gridAreaForDefiniteGridAxisItem(const RenderBox&) const;
 
     void collectMasonryItems();
-    void placeItemsUsingOrderModifiedDocumentOrder(); 
-    void placeItemsWithDefiniteGridAxisPosition();
-    void placeItemsWithIndefiniteGridAxisPosition();
-    void setItemGridAxisContainingBlockToGridArea(RenderBox&);
-    void insertIntoGridAndLayoutItem(RenderBox&, const GridArea&);
+    void placeItemsUsingOrderModifiedDocumentOrder(const GridTrackSizingAlgorithm&);
+    void placeItemsWithDefiniteGridAxisPosition(const GridTrackSizingAlgorithm&);
+    void placeItemsWithIndefiniteGridAxisPosition(const GridTrackSizingAlgorithm&);
+    void setItemGridAxisContainingBlockToGridArea(const GridTrackSizingAlgorithm&, RenderBox&);
+    void insertIntoGridAndLayoutItem(const GridTrackSizingAlgorithm&, RenderBox&, const GridArea&);
 
     void resizeAndResetRunningPositions();
     void allocateCapacityForMasonryVectors();
@@ -77,7 +78,7 @@ private:
     Vector<RenderBox*> m_itemsWithIndefiniteGridAxisPosition;
 
     Vector<LayoutUnit> m_runningPositions;
-    HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_itemOffsets;
+    UncheckedKeyHashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_itemOffsets;
     RenderGrid& m_renderGrid;
     LayoutUnit m_masonryAxisGridGap;
     LayoutUnit m_gridContentSize;

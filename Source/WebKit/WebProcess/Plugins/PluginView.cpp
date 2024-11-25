@@ -1080,9 +1080,19 @@ void PluginView::setPDFDisplayModeForTesting(const String& mode)
     protectedPlugin()->setPDFDisplayModeForTesting(mode);
 }
 
+void PluginView::unlockPDFDocumentForTesting(const String& password)
+{
+    protectedPlugin()->attemptToUnlockPDF(password);
+}
+
 Vector<WebCore::FloatRect> PluginView::pdfAnnotationRectsForTesting() const
 {
     return protectedPlugin()->annotationRectsForTesting();
+}
+
+void PluginView::setPDFTextAnnotationValueForTesting(unsigned pageIndex, unsigned annotationIndex, const String& value)
+{
+    return protectedPlugin()->setTextAnnotationValueForTesting(pageIndex, annotationIndex, value);
 }
 
 void PluginView::registerPDFTestCallback(RefPtr<VoidCallback>&& callback)
@@ -1099,6 +1109,13 @@ void PluginView::openWithPreview(CompletionHandler<void(const String&, FrameInfo
 {
     protectedPlugin()->openWithPreview(WTFMove(completionHandler));
 }
+
+#if PLATFORM(IOS_FAMILY)
+void PluginView::pluginDidInstallPDFDocument(double initialScale)
+{
+    protectedWebPage()->pluginDidInstallPDFDocument(initialScale);
+}
+#endif
 
 } // namespace WebKit
 

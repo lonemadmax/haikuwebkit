@@ -78,7 +78,7 @@ MSG_FOR_EXCESSIVE_LOGS = f'Stopped due to excessive logging, limit: {THRESHOLD_F
 SCAN_BUILD_OUTPUT_DIR = 'scan-build-output'
 LLVM_DIR = 'llvm-project'
 STATIC_ANALYSIS_ARCHIVE_PATH = '/tmp/static-analysis.zip'
-LLVM_REVISION = '9d9287b4d5a2554b195074ae93e48fcd87178554'
+LLVM_REVISION = '9a8740e11c82ab23b8cc8fcbee82856bf1d35852'
 
 if CURRENT_HOSTNAME in EWS_BUILD_HOSTNAMES:
     CURRENT_HOSTNAME = 'ews-build.webkit.org'
@@ -1283,12 +1283,23 @@ class CheckChangeRelevance(AnalyzeChange):
         re.compile(rb'Source/', re.IGNORECASE),
         re.compile(rb'Tools/', re.IGNORECASE),
     ]
+
     webkitpy_path_regexes = [
         re.compile(rb'Tools/Scripts/webkitpy', re.IGNORECASE),
         re.compile(rb'Tools/Scripts/libraries', re.IGNORECASE),
         re.compile(rb'Tools/Scripts/commit-log-editor', re.IGNORECASE),
         re.compile(rb'Source/WebKit/Scripts', re.IGNORECASE),
         re.compile(rb'metadata/contributors.json', re.IGNORECASE),
+    ]
+
+    safer_cpp_path_regexes = [
+        re.compile(rb'Source/WebKit', re.IGNORECASE),
+        re.compile(rb'Source/WebCore', re.IGNORECASE),
+        re.compile(rb'Tools/Scripts/build-and-analyze', re.IGNORECASE),
+        re.compile(rb'Tools/Scripts/generate-dirty-files', re.IGNORECASE),
+        re.compile(rb'Tools/Scripts/compare-static-analysis-results', re.IGNORECASE),
+        re.compile(rb'Tools/Scripts/generate-dirty-files', re.IGNORECASE),
+        re.compile(rb'Tools/CISupport/Shared/download-and-install-build-tools', re.IGNORECASE),
     ]
 
     group_to_paths_mapping = {
@@ -1298,6 +1309,7 @@ class CheckChangeRelevance(AnalyzeChange):
         'jsc': jsc_path_regexes,
         'webkitpy': webkitpy_path_regexes,
         'wk1-tests': wk1_path_regexes,
+        'safer-cpp': safer_cpp_path_regexes,
     }
 
     def _patch_is_relevant(self, patch, builderName, timeout=30):
@@ -1421,7 +1433,7 @@ class FindModifiedLayoutTests(shell.ShellCommandNewStyle, AnalyzeChange):
     RE_LAYOUT_TEST = br'^(\+\+\+).*(LayoutTests.*\.html|LayoutTests.*\.svg|LayoutTests.*\.xml)'
     DIRECTORIES_TO_IGNORE = ['reference', 'reftest', 'resources', 'support', 'script-tests', 'tools']
     SUFFIXES_TO_IGNORE = ['-expected', '-expected-mismatch', '-ref', '-notref']
-    command = ['diff', '-u', 'base-expectations.txt', 'new-expectations.txt']
+    command = ['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']
 
     def __init__(self, skipBuildIfNoResult=True):
         self.skipBuildIfNoResult = skipBuildIfNoResult
@@ -5878,10 +5890,9 @@ class PrintConfiguration(steps.ShellSequence):
             return 'Unknown'
 
         build_to_name_mapping = {
+            '15': 'Sequoia',
             '14': 'Sonoma',
-            '13': 'Ventura',
-            '12': 'Monterey',
-            '11': 'Big Sur'
+            '13': 'Ventura'
         }
 
         for key, value in build_to_name_mapping.items():
@@ -7318,22 +7329,26 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
     name = 'display-safer-cpp-results'
     resultDirectory = ''
     NUM_TO_DISPLAY = 10
+    UPDATE_COMMAND = 'Tools/Scripts/update-safer-cpp-expectations -p {project}'
+    CHECKER_ARGS = '--{checker} {files}'
 
     def __init___(self, **kwargs):
         super().__init__(logEnviron=False, **kwargs)
 
     @defer.inlineCallbacks
     def run(self):
+        commands_for_comment = set()
         num_issues = self.getProperty('unexpected_new_issues', 0)
         self.resultDirectory = f"public_html/results/{self.getProperty('buildername')}/{self.getProperty('change_id')}-{self.getProperty('buildnumber')}"
         unexpected_results_data = self.loadResultsData(os.path.join(self.resultDirectory, SCAN_BUILD_OUTPUT_DIR, 'unexpected_results.json'))
-        is_log = yield self.getFilesPerProject(unexpected_results_data, 'passes')
-        is_log += yield self.getFilesPerProject(unexpected_results_data, 'failures')
-        if not is_log and num_issues:
-            pluralSuffix = 's' if num_issues > 1 else ''
-            yield self._addToLog('stdio', f'Ignored {num_issues} pre-existing failure{pluralSuffix}')
+        is_log = yield self.getFilesPerProject(unexpected_results_data, 'passes', commands_for_comment)
+        is_log += yield self.getFilesPerProject(unexpected_results_data, 'failures', commands_for_comment)
         if num_issues:
+            if not is_log:
+                pluralSuffix = 's' if num_issues > 1 else ''
+                yield self._addToLog('stdio', f'Ignored {num_issues} pre-existing failure{pluralSuffix}')
             self.addURL("View failures", self.resultDirectoryURL() + SCAN_BUILD_OUTPUT_DIR + "/new-results.html")
+        self.createComment(commands_for_comment)
         if self.getProperty('unexpected_failing_files', 0):
             return defer.returnValue(FAILURE)
         return defer.returnValue(SUCCESS)
@@ -7344,21 +7359,58 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
         return unexpected_results_data
 
     @defer.inlineCallbacks
-    def getFilesPerProject(self, unexpected_results_data, type):
+    def getFilesPerProject(self, unexpected_results_data, type, commands_for_comment):
         total_file_list = set()
         is_log = 0
         for project, data in unexpected_results_data[type].items():
+            command = self.UPDATE_COMMAND.format(project=project)
             log_content = ''
             for checker, files in data.items():
                 if files:
                     total_file_list.update(files)
                     file_str = '\n'.join(files)
                     log_content += f'=> {checker}\n\n{file_str}\n\n'
+                    command += ' ' + self.CHECKER_ARGS.format(checker=checker, files=' '.join(files))
             if log_content:
                 yield self._addToLog(f'{project}-unexpected-{type}', log_content)
                 is_log += 1
+                if type == 'passes':
+                    commands_for_comment.add(command)
         self.setProperty(f'{type}', list(total_file_list))
         return defer.returnValue(is_log)
+
+    def createComment(self, commands_for_comment):
+        num_failures = self.getProperty('unexpected_failing_files', 0)
+        num_passes = self.getProperty('unexpected_passing_files', 0)
+        num_issues = self.getProperty('unexpected_new_issues', 0)
+
+        if not num_failures and not num_passes:
+            return
+
+        results_link = self.resultDirectoryURL() + SCAN_BUILD_OUTPUT_DIR + "/new-results.html"
+        build_link = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
+        formatted_build_link = f'[#{self.getProperty("buildnumber", "")}]({build_link})'
+        comment = f'### Safer C++ Build {formatted_build_link}\n'
+
+        if num_failures:
+            pluralSuffix = 's' if num_issues > 1 else ''
+            comment += f":x: Found [{num_issues} new failure{pluralSuffix}]({results_link}). "
+            comment += 'Please address these issues before landing. See [WebKit Guidelines for Safer C++ Programming](https://github.com/WebKit/WebKit/wiki/Safer-CPP-Guidelines).\n(cc @rniwa)\n'
+        if num_passes:
+            pluralSuffix = 's' if num_passes > 1 else ''
+            pluralCommand = 's' if len(commands_for_comment) > 1 else ''
+            comment += f'\n:warning: Found {num_passes} fixed file{pluralSuffix}! Please update expectations in `Source/[WebKit/WebCore]/SaferCPPExpectations` by running the following command{pluralCommand} and update your {self.change_type}:\n'
+            comment += '\n'.join([f"- `{c}`" for c in commands_for_comment])
+
+        self.setProperty('comment_text', comment)
+        # FIXME: Add merging blocked upon failure after initial deployment period
+        self.build.addStepsAfterCurrentStep([LeaveComment(), SetBuildSummary()])
+
+    @property
+    def change_type(self):
+        if self.getProperty('github.number', False):
+            return 'pull request'
+        return 'patch'
 
     def doStepIf(self, step):
         return self.getProperty('unexpected_failing_files', 0) or self.getProperty('unexpected_passing_files', 0) or self.getProperty('unexpected_new_issues', 0)
@@ -7377,17 +7429,8 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
         passing_files = (", ").join(self.getProperty('passes', [])[:self.NUM_TO_DISPLAY])
         results_summary = ''
 
-        results_link = self.resultDirectoryURL() + SCAN_BUILD_OUTPUT_DIR + "/new-results.html"
-        build_link = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
-        formatted_build_link = f'[#{self.getProperty("buildnumber", "")}]({build_link})'
-
         if num_failures:
             pluralSuffix = 's' if num_issues > 1 else ''
-            comment = f"Safer CPP Build {formatted_build_link}: Found [{num_issues} new failure{pluralSuffix}]({results_link}).\n"
-            comment += 'Please address these issues before landing. See [WebKit Guidelines for Safer C++ Programming](https://github.com/WebKit/WebKit/wiki/Safer-CPP-Guidelines).\n(cc @rniwa)'
-            self.setProperty('comment_text', comment)
-            # FIXME: Add merging blocked after initial deployment period
-            self.build.addStepsAfterCurrentStep([LeaveComment()])
             results_summary = f'Found {num_issues} new failure{pluralSuffix} in {failing_files}'
             if num_failures > self.NUM_TO_DISPLAY:
                 results_summary += ' ...'
@@ -7398,16 +7441,11 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
             results_summary = f'Ignored {num_issues} pre-existing failure{pluralSuffix}'
             self.setProperty('build_summary', results_summary)
         elif num_passes:
-            # FIXME: Add link to unexpected passes file
             pluralSuffix = 's' if num_passes > 1 else ''
-            comment = f'Safer CPP Build {formatted_build_link}: Found {num_passes} fixed file{pluralSuffix}!\n'
-            comment += 'Please update expectations manually or by using `update-safer-cpp-expectations --remove-expected-failures` before landing.'
-            self.setProperty('comment_text', comment)
             results_summary = f'Found {num_passes} fixed file{pluralSuffix}: {passing_files}'
             if num_passes > self.NUM_TO_DISPLAY:
                 results_summary += ' ...'
             self.setProperty('build_summary', results_summary)
-            self.build.addStepsAfterCurrentStep([LeaveComment(), SetBuildSummary()])
 
         if num_passes and num_failures:
             pluralSuffix = 's' if num_passes > 1 else ''

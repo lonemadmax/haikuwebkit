@@ -407,6 +407,7 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineLayoutResult& 
 
     appendRootInlineBoxDisplayBox(flipRootInlineBoxRectToVisualForWritingMode(lineBox.logicalRectForRootInlineBox(), writingMode), lineBox.rootInlineBox().hasContent(), boxes);
 
+    auto textSpacingAdjustment = 0.f;
     for (size_t index = 0; index < lineLayoutResult.inlineContent.size(); ++index) {
         auto& lineRun = lineLayoutResult.inlineContent[index];
         if (lineRun.isWordBreakOpportunity() || lineRun.isInlineBoxEnd())
@@ -422,8 +423,22 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineLayoutResult& 
             continue;
         }
 
+        auto adjustLogicalRectForTextSpacing = [&](InlineRect& rect) {
+            rect.expandHorizontally(-textSpacingAdjustment);
+            rect.moveHorizontally(textSpacingAdjustment);
+        };
+
         auto logicalRect = [&]() -> InlineRect {
-            if (lineRun.isText() || lineRun.isSoftLineBreak())
+            if (lineRun.isText()) {
+                auto rect = lineBox.logicalRectForTextRun(lineRun);
+                if (textSpacingAdjustment) {
+                    adjustLogicalRectForTextSpacing(rect);
+                    // text-spacing adjustment is retrivied while handling the run corresponding to the inline box start and must be reset here.
+                    textSpacingAdjustment = 0;
+                }
+                return rect;
+            }
+            if (lineRun.isSoftLineBreak())
                 return lineBox.logicalRectForTextRun(lineRun);
             if (lineRun.isHardLineBreak())
                 return lineBox.logicalRectForLineBreakBox(layoutBox);
@@ -431,7 +446,14 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineLayoutResult& 
             auto& boxGeometry = formattingContext().geometryForBox(layoutBox);
             if (lineRun.isAtomicInlineBox() || lineRun.isListMarker())
                 return lineBox.logicalBorderBoxForAtomicInlineBox(layoutBox, boxGeometry);
-            if (lineRun.isInlineBoxStart() || lineRun.isLineSpanningInlineBoxStart())
+            if (lineRun.isInlineBoxStart()) {
+                auto rect = lineBox.logicalBorderBoxForInlineBox(layoutBox, boxGeometry);
+                // The Run representing the InlineBoxStart transports the text spacing adjustment. The adjustment is used here and for the rect representing the following text node. Therefore, we should reset such adjustment when handling the next run which is text.
+                if ((textSpacingAdjustment = lineRun.textSpacingAdjustment()))
+                    adjustLogicalRectForTextSpacing(rect);
+                return rect;
+            }
+            if (lineRun.isLineSpanningInlineBoxStart())
                 return lineBox.logicalBorderBoxForInlineBox(layoutBox, boxGeometry);
             ASSERT_NOT_REACHED();
             return { };
@@ -473,7 +495,7 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineLayoutResult& 
             auto borderBoxLogicalTopLeft = toLayoutPoint(lineBox.logicalRect().topLeft() + logicalRect.topLeft());
             if (lineRun.isInlineBoxStart() || lineRun.isLineSpanningInlineBoxStart()) {
                 // Inline boxes need special (stretchy) box geometry handling.
-                setInlineBoxGeometry(boxGeometry, { borderBoxLogicalTopLeft, logicalRect.size() }, lineBox.inlineLevelBoxFor(lineRun).isFirstBox());
+                setInlineBoxGeometry(lineRun.layoutBox(), boxGeometry, { borderBoxLogicalTopLeft, logicalRect.size() }, lineBox.inlineLevelBoxFor(lineRun).isFirstBox());
                 return;
             }
             boxGeometry.setTopLeft(borderBoxLogicalTopLeft);
@@ -564,7 +586,7 @@ struct IsFirstLastIndex {
     std::optional<size_t> first;
     std::optional<size_t> last;
 };
-using IsFirstLastIndexesMap = HashMap<const Box*, IsFirstLastIndex>;
+using IsFirstLastIndexesMap = UncheckedKeyHashMap<const Box*, IsFirstLastIndex>;
 void InlineDisplayContentBuilder::adjustVisualGeometryForDisplayBox(size_t displayBoxNodeIndex, InlineLayoutUnit& contentRightInInlineDirectionVisualOrder, InlineLayoutUnit lineBoxLogicalTop, const DisplayBoxTree& displayBoxTree, InlineDisplay::Boxes& boxes, const IsFirstLastIndexesMap& isFirstLastIndexesMap)
 {
     auto writingMode = root().style().writingMode();
@@ -643,7 +665,7 @@ void InlineDisplayContentBuilder::adjustVisualGeometryForDisplayBox(size_t displ
     auto inlineBoxLeftInInlineDirectionVisualOrder = isHorizontalWritingMode ? displayBox.left() : displayBox.top();
     auto logicalWidthForBiDiFragment = isHorizontalWritingMode ? displayBox.width() : displayBox.height();
     auto logicalTopRelativeToRoot = lineBox().logicalRect().top() + logicalRect.top();
-    setInlineBoxGeometry(boxGeometry, { logicalTopRelativeToRoot, inlineBoxLeftInInlineDirectionVisualOrder, logicalWidthForBiDiFragment, logicalRect.height() }, isFirstBox);
+    setInlineBoxGeometry(layoutBox, boxGeometry, { logicalTopRelativeToRoot, inlineBoxLeftInInlineDirectionVisualOrder, logicalWidthForBiDiFragment, logicalRect.height() }, isFirstBox);
     if (inlineBox->hasContent())
         displayBox.setHasContent();
 }
@@ -770,7 +792,7 @@ void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lin
                 // Such inline boxes should also be handled here.
                 if (!lineBox.hasContent()) {
                     // FIXME: It's expected to not have any inline boxes on empty lines. They make the line taller. We should reconsider this.
-                    setInlineBoxGeometry(formattingContext().geometryForBox(layoutBox), { { }, { } }, true);
+                    setInlineBoxGeometry(layoutBox, formattingContext().geometryForBox(layoutBox), { { }, { } }, true);
                     continue;
                 }
                 auto isEmptyInlineBox = [&] {
@@ -860,7 +882,7 @@ void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lin
             // these trailing runs have their content on the subsequent line(s).
             auto& inlineBox = lineBox.inlineLevelBoxFor(lineRun);
             appendInlineBoxDisplayBox(lineRun, inlineBox, { { }, m_displayLine.right(), { }, { } }, boxes);
-            setInlineBoxGeometry(formattingContext().geometryForBox(lineRun.layoutBox()), { { }, lineBox.logicalRect().right(), { }, { } }, inlineBox.isFirstBox());
+            setInlineBoxGeometry(lineRun.layoutBox(), formattingContext().geometryForBox(lineRun.layoutBox()), { { }, lineBox.logicalRect().right(), { }, { } }, inlineBox.isFirstBox());
         }
     };
     handleTrailingOpenInlineBoxes();
@@ -1156,15 +1178,26 @@ void InlineDisplayContentBuilder::processRubyContent(InlineDisplay::Boxes& displ
     }
 }
 
-void InlineDisplayContentBuilder::setInlineBoxGeometry(Layout::BoxGeometry& boxGeometry, const InlineRect& logicalRect, bool isFirstInlineBoxFragment)
+void InlineDisplayContentBuilder::setInlineBoxGeometry(const Box& inlineBox, Layout::BoxGeometry& boxGeometry, const InlineRect& logicalRect, bool isFirstInlineBoxFragment)
 {
-    auto enclosingLogicalRect = Rect { toLayoutPoint(logicalRect.topLeft()), { LayoutUnit::fromFloatCeil(logicalRect.width()), LayoutUnit::fromFloatCeil(logicalRect.height()) } };
-    if (!isFirstInlineBoxFragment)
-        enclosingLogicalRect.expandToContain(BoxGeometry::borderBoxRect(boxGeometry));
+    ASSERT(inlineBox.isInlineBox());
 
-    boxGeometry.setTopLeft(enclosingLogicalRect.topLeft());
-    boxGeometry.setContentBoxWidth(enclosingLogicalRect.width() - boxGeometry.horizontalBorderAndPadding());
-    boxGeometry.setContentBoxHeight(enclosingLogicalRect.height() - boxGeometry.verticalBorderAndPadding());
+    auto borderBoxSize = LayoutSize { };
+    if (!inlineBox.isRubyBase())
+        borderBoxSize = { LayoutUnit::fromFloatCeil(logicalRect.width()), LayoutUnit::fromFloatCeil(logicalRect.height()) };
+    else {
+        // While flooring here may produce fractional overflow, it ensures ruby content would never trigger incorrect wrapping triggered by
+        // inflated annotation boxes inside a shrink-to-fit container (where annotation box is sized to the ruby base but it also imposes a required minimum width)
+        borderBoxSize = { LayoutUnit::fromFloatFloor(logicalRect.width()), LayoutUnit::fromFloatFloor(logicalRect.height()) };
+    }
+
+    auto borderBoxRect = Rect { toLayoutPoint(logicalRect.topLeft()), borderBoxSize };
+    if (!isFirstInlineBoxFragment)
+        borderBoxRect.expandToContain(BoxGeometry::borderBoxRect(boxGeometry));
+
+    boxGeometry.setTopLeft(borderBoxRect.topLeft());
+    boxGeometry.setContentBoxWidth(borderBoxRect.width() - boxGeometry.horizontalBorderAndPadding());
+    boxGeometry.setContentBoxHeight(borderBoxRect.height() - boxGeometry.verticalBorderAndPadding());
 }
 
 InlineRect InlineDisplayContentBuilder::flipLogicalRectToVisualForWritingModeWithinLine(const InlineRect& logicalRect, const InlineRect& lineLogicalRect, WritingMode writingMode) const

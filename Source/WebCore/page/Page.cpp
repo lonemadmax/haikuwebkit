@@ -23,6 +23,7 @@
 #include "ActivityStateChangeObserver.h"
 #include "AdvancedPrivacyProtections.h"
 #include "AlternativeTextClient.h"
+#include "AnchorPositionEvaluator.h"
 #include "AnimationFrameRate.h"
 #include "AnimationTimelinesController.h"
 #include "AppHighlightStorage.h"
@@ -185,6 +186,7 @@
 #include "WheelEventTestMonitor.h"
 #include "Widget.h"
 #include "WindowEventLoop.h"
+#include "WindowFeatures.h"
 #include "WorkerOrWorkletScriptController.h"
 #include <JavaScriptCore/VM.h>
 #include <wtf/FileSystem.h>
@@ -371,7 +373,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_alternativeTextClient(WTFMove(pageConfiguration.alternativeTextClient))
     , m_consoleClient(makeUniqueRef<PageConsoleClient>(*this))
 #if ENABLE(REMOTE_INSPECTOR)
-    , m_inspectorDebuggable(makeUniqueRef<PageDebuggable>(*this))
+    , m_inspectorDebuggable(PageDebuggable::create(*this))
 #endif
     , m_socketProvider(WTFMove(pageConfiguration.socketProvider))
     , m_cookieJar(WTFMove(pageConfiguration.cookieJar))
@@ -399,7 +401,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_recentWheelEventDeltaFilter(WheelEventDeltaFilter::create())
     , m_pageOverlayController(makeUnique<PageOverlayController>(*this))
 #if ENABLE(APPLE_PAY)
-    , m_paymentCoordinator(makeUnique<PaymentCoordinator>(WTFMove(pageConfiguration.paymentCoordinatorClient)))
+    , m_paymentCoordinator(PaymentCoordinator::create(WTFMove(pageConfiguration.paymentCoordinatorClient)))
 #endif
 #if ENABLE(WEB_AUTHN)
     , m_authenticatorCoordinator(makeUniqueRef<AuthenticatorCoordinator>(WTFMove(pageConfiguration.authenticatorCoordinatorClient)))
@@ -501,6 +503,9 @@ Page::~Page()
     }
 
     m_inspectorController->inspectedPageDestroyed();
+#if ENABLE(REMOTE_INSPECTOR)
+    m_inspectorDebuggable->detachFromPage();
+#endif
 
     forEachLocalFrame([] (LocalFrame& frame) {
         frame.willDetachPage();
@@ -731,6 +736,7 @@ void Page::settingsDidChange()
     m_webRTCProvider->setH265Support(settings().webRTCH265CodecEnabled());
     m_webRTCProvider->setVP9Support(settings().webRTCVP9Profile0CodecEnabled(), settings().webRTCVP9Profile2CodecEnabled());
     m_webRTCProvider->setAV1Support(settings().webRTCAV1CodecEnabled());
+    m_webRTCProvider->setPortAllocatorRange(settings().webRTCUDPPortRange());
 #endif
 }
 
@@ -1134,7 +1140,7 @@ struct FindReplacementRange {
 
 static void replaceRanges(Page& page, const Vector<FindReplacementRange>& ranges, const String& replacementText)
 {
-    HashMap<RefPtr<ContainerNode>, Vector<FindReplacementRange>> rangesByContainerNode;
+    UncheckedKeyHashMap<RefPtr<ContainerNode>, Vector<FindReplacementRange>> rangesByContainerNode;
     for (auto& range : ranges) {
         auto& rangeList = rangesByContainerNode.ensure(range.root, [] {
             return Vector<FindReplacementRange> { };
@@ -1152,7 +1158,7 @@ static void replaceRanges(Page& page, const Vector<FindReplacementRange>& ranges
         rangeList.insert(insertionIndex, range);
     }
 
-    HashMap<RefPtr<LocalFrame>, unsigned> frameToTraversalIndexMap;
+    UncheckedKeyHashMap<RefPtr<LocalFrame>, unsigned> frameToTraversalIndexMap;
     unsigned currentFrameTraversalIndex = 0;
     for (auto* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
         if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
@@ -2018,6 +2024,10 @@ void Page::updateRendering()
 
     runProcessingStep(RenderingUpdateStep::UpdateValidationMessagePositions, [] (Document& document) {
         document.adjustValidationMessagePositions();
+    });
+
+    runProcessingStep(RenderingUpdateStep::SnapshottedScrollOffsets, [&] (Document& document) {
+        Style::AnchorPositionEvaluator::updateSnapshottedScrollOffsets(document);
     });
 
     for (auto& document : initialDocuments) {
@@ -2887,11 +2897,11 @@ void Page::suspendAllMediaPlayback()
 #endif
 }
 
-MediaSessionGroupIdentifier Page::mediaSessionGroupIdentifier() const
+std::optional<MediaSessionGroupIdentifier> Page::mediaSessionGroupIdentifier() const
 {
     if (!m_mediaSessionGroupIdentifier) {
         if (auto identifier = this->identifier())
-            m_mediaSessionGroupIdentifier = LegacyNullableObjectIdentifier<MediaSessionGroupIdentifierType>(identifier->toUInt64());
+            m_mediaSessionGroupIdentifier = ObjectIdentifier<MediaSessionGroupIdentifierType>(identifier->toUInt64());
     }
     return m_mediaSessionGroupIdentifier;
 }
@@ -4264,7 +4274,7 @@ void Page::dispatchAfterPrintEvent()
 }
 
 #if ENABLE(APPLE_PAY)
-void Page::setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&& paymentCoordinator)
+void Page::setPaymentCoordinator(Ref<PaymentCoordinator>&& paymentCoordinator)
 {
     m_paymentCoordinator = WTFMove(paymentCoordinator);
 }
@@ -4551,6 +4561,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
 #endif
     case RenderingUpdateStep::RestoreScrollPositionAndViewState: ts << "RestoreScrollPositionAndViewState"; break;
     case RenderingUpdateStep::AdjustVisibility: ts << "AdjustVisibility"; break;
+    case RenderingUpdateStep::SnapshottedScrollOffsets: ts << "SnapshottedScrollOffsets"; break;
     }
     return ts;
 }
@@ -5084,6 +5095,76 @@ bool Page::requiresScriptTelemetryForURL(const URL& scriptURL) const
         return false;
 
     return chrome().client().requiresScriptTelemetryForURL(scriptURL, mainFrameOrigin());
+}
+
+void Page::applyWindowFeatures(const WindowFeatures& features)
+{
+    Ref frame = mainFrame();
+    chrome().setToolbarsVisible(features.toolBarVisible || features.locationBarVisible);
+
+    if (!frame->page())
+        return;
+    if (features.statusBarVisible)
+        chrome().setStatusbarVisible(*features.statusBarVisible);
+
+    if (!frame->page())
+        return;
+    if (features.scrollbarsVisible)
+        chrome().setScrollbarsVisible(*features.scrollbarsVisible);
+
+    if (!frame->page())
+        return;
+    if (features.menuBarVisible)
+        chrome().setMenubarVisible(*features.menuBarVisible);
+
+    if (!frame->page())
+        return;
+    if (features.resizable)
+        chrome().setResizable(*features.resizable);
+
+    // 'x' and 'y' specify the location of the window, while 'width' and 'height'
+    // specify the size of the viewport. We can only resize the window, so adjust
+    // for the difference between the window size and the viewport size.
+
+    // FIXME: We should reconcile the initialization of viewport arguments between iOS and non-IOS.
+#if !PLATFORM(IOS_FAMILY)
+    FloatSize viewportSize = chrome().pageRect().size();
+    FloatRect windowRect = chrome().windowRect();
+    if (features.x)
+        windowRect.setX(*features.x);
+    if (features.y)
+        windowRect.setY(*features.y);
+    // Zero width and height mean using default size, not minimum one.
+    if (features.width && *features.width)
+        windowRect.setWidth(*features.width + (windowRect.width() - viewportSize.width()));
+    if (features.height && *features.height)
+        windowRect.setHeight(*features.height + (windowRect.height() - viewportSize.height()));
+
+#if PLATFORM(GTK)
+    // Use the size of the previous window if there is no default size.
+    if (!windowRect.width())
+        windowRect.setWidth(features.oldWindowRect.width());
+    if (!windowRect.height())
+        windowRect.setHeight(features.oldWindowRect.height());
+#endif
+
+    // Ensure non-NaN values, minimum size as well as being within valid screen area.
+    FloatRect newWindowRect = LocalDOMWindow::adjustWindowRect(*this, windowRect);
+
+    if (!frame->page())
+        return;
+    chrome().setWindowRect(newWindowRect);
+#else
+    // On iOS, width and height refer to the viewport dimensions.
+    ViewportArguments arguments;
+    // Zero width and height mean using default size, not minimum one.
+    if (features.width && *features.width)
+        arguments.width = *features.width;
+    if (features.height && *features.height)
+        arguments.height = *features.height;
+    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
+        localFrame->setViewportArguments(arguments);
+#endif
 }
 
 } // namespace WebCore

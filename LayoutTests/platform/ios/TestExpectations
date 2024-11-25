@@ -931,6 +931,8 @@ http/tests/security/listener/xss-window-onclick-shortcut.html [ Skip ]
 ietestcenter/css3/bordersbackgrounds/background-attachment-local-scrolling.htm
 imported/blink/fast/css/border-current-color.html [ Skip ]
 imported/blink/fast/css/crash-corner-present.html [ Skip ]
+imported/blink/fast/events/click-focus-anchor-no-ring.html [ Skip ]
+imported/blink/fast/events/click-focus-svganchor-no-ring.html [ Skip ]
 imported/blink/fast/events/popup-forwarded-gesture.html [ Skip ]
 imported/blink/fast/images/image-hover-display-alt.html [ Skip ]
 imported/blink/fast/replaced/viewport-percentage-height-with-dynamic-container-height.html [ Skip ]
@@ -1421,7 +1423,6 @@ webkit.org/b/178487 compositing/fixed-with-fixed-layout.html [ Failure ]
 webkit.org/b/178487 compositing/geometry/limit-layer-bounds-opacity-transition.html [ Failure ]
 webkit.org/b/178487 compositing/geometry/video-fixed-scrolling.html [ Pass Failure ]
 webkit.org/b/178487 compositing/iframes/composited-iframe-scroll.html [ Failure ]
-webkit.org/b/178487 compositing/iframes/iframe-content-flipping.html [ Failure ]
 webkit.org/b/178487 compositing/iframes/layout-on-compositing-change.html [ Failure ]
 webkit.org/b/178487 compositing/layer-creation/fixed-overlap-extent-rtl.html [ Failure ]
 webkit.org/b/178487 compositing/layer-creation/fixed-overlap-extent.html [ Failure ]
@@ -1439,6 +1440,12 @@ webkit.org/b/178487 compositing/rtl/rtl-iframe-fixed-overflow-scrolled.html [ Fa
 webkit.org/b/178487 compositing/rtl/rtl-iframe-fixed-overflow.html [ Failure ]
 webkit.org/b/178487 compositing/masks/compositing-clip-path-on-subpixel-position.html [ ImageOnlyFailure ]
 webkit.org/b/178487 compositing/video/video-clip-change-src.html [ ImageOnlyFailure ]
+
+# No scrollbars on iOS
+compositing/iframes/iframe-content-flipping.html [ Failure ]
+compositing/iframes/iframe-scrolling-change.html [ Failure ]
+http/tests/site-isolation/compositing/iframes/iframe-content-flipping.html [ Failure ]
+http/tests/site-isolation/compositing/iframes/iframe-scrolling-change.html [ Failure ]
 
 # CSS tests to triage
 webkit.org/b/178588 css3/zoom-coords.xhtml [ Failure ]
@@ -2331,6 +2338,8 @@ accessibility/table-display-flex.html [ Pass ]
 accessibility/table-display-grid.html [ Pass ]
 accessibility/table-display-inline-block.html [ Pass ]
 accessibility/tree-update-with-dirty-layout.html [ Pass ]
+accessibility/tree-update-with-dynamically-ignored-inline-child-div.html [ Pass ]
+accessibility/tree-update-with-dynamically-ignored-tabindex-div.html [ Pass ]
 accessibility/url-test.html [ Pass ]
 accessibility/video-element-url-attribute.html [ Pass ]
 accessibility/visible-character-range-basic.html [ Pass ]
@@ -6536,6 +6545,7 @@ webkit.org/b/237358 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-t
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-blocks-mouse-events.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/backdrop-receives-element-events.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/closed-dialog-does-not-block-mouse-events.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/popover-dialog-does-not-block-mouse-events.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-inlines.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-ancestor-is-inert.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/non-modal-dialog-does-not-block-mouse-events.html [ Failure ]
@@ -7074,9 +7084,9 @@ webkit.org/b/196233 fast/viewport/ios/initial-scale-after-changing-view-scale.ht
 
 webkit.org/b/162975 http/tests/cache/disk-cache/memory-cache-revalidation-updates-disk-cache.html [ Pass Failure ]
 
-webkit.org/b/196112 imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-bold.html [ Pass ImageOnlyFailure ]
-webkit.org/b/196112 imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-double-struck.html [ Pass ImageOnlyFailure ]
-webkit.org/b/196112 imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-italic.html [ Pass ImageOnlyFailure ]
+webkit.org/b/196112 mathml/non-core/mathvariant/mathvariant-bold.html [ Pass ImageOnlyFailure ]
+webkit.org/b/196112 mathml/non-core/mathvariant/mathvariant-double-struck.html [ Pass ImageOnlyFailure ]
+webkit.org/b/196112 mathml/non-core/mathvariant/mathvariant-italic.html [ Pass ImageOnlyFailure ]
 
 http/wpt/cache-storage/quota-third-party.https.html [ Slow ]
 http/wpt/fetch/response-opaque-clone.html [ Slow ]
@@ -7215,10 +7225,6 @@ http/wpt/webauthn/idl.https.html [ Failure ]
 
 webkit.org/b/274340 fast/events/ios/key-command-transpose.html [ Pass Timeout ]
 
-# webkit.org/b/274475 REGRESSION (278960@main?): [ MacOS iOS ] 8X imported/w3c/web-platform-t ests/navigation-api are consistently failing and 1 is crashing
-imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-after-navigations-in-multiple-windows.html [ Failure ]
-imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-replace-cross-origin.html [ Failure ]
-
 webkit.org/b/271916 media/track/track-in-band-layout.html [ Failure ]
 
 webkit.org/b/274766 [ Debug ] http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Failure ]
@@ -7246,7 +7252,7 @@ webkit.org/b/275963 [ x86_64 ] imported/w3c/web-platform-tests/svg/import/metada
 webkit.org/b/275963 [ x86_64 ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Failure ]
 webkit.org/b/275963 [ x86_64 ] svg/custom/use-on-symbol-inside-pattern.svg [ Failure ]
 
-webkit.org/b/275962 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/no-referrer-dynamic-url-censored.html [ Failure ]
+webkit.org/b/275962 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/no-referrer-dynamic-url-censored.html [ Timeout ]
 
 # rdar://130594018 (REGRESSION (278344@main?): [ iOS 18 Release ] 2 http/tests/xmlhttprequest/* layout tests are constantly failing.)
 [ Release ] http/tests/xmlhttprequest/resetting-timeout-to-zero.html [ Failure ]
@@ -7330,7 +7336,8 @@ imported/w3c/web-platform-tests/mathml/presentation-markup/operators/embellished
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/embellished-op-4-2.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/embellished-op-4-3.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-minsize-maxsize-legacy-length-values.html [ Failure ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-border-margin-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/relations/html5-tree/tabindex-002.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mozilla-393760-1.xml [ ImageOnlyFailure ]
 
 webkit.org/b/277195 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-label-focus.html [ Failure ]
 
@@ -7479,10 +7486,6 @@ imported/w3c/web-platform-tests/navigation-api/scroll-behavior/manual-scroll-rep
 
 webkit.org/b/107356 fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
 
-# webkit.org/b/280490 REGRESSION (284225@main) : [ macOS iOS ] 2x imported/w3c/web-platform-t ests/mathml/presentation-markup/operators/* are constant failures 
-imported/w3c/web-platform-tests/mathml/presentation-markup/operators/size-and-position-of-stretchy-fences-with-default-font-001.html [ Failure ]
-imported/w3c/web-platform-tests/mathml/presentation-markup/operators/stretchy-largeop-with-default-font-2.html [ Failure ]
-
 webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphenate-character-002.html [ ImageOnlyFailure ]
 
 # webkit.org/b/280553 [ Sequoia+ iOS wk2 release ] 2x http/tests/resourceLoadStatistics/* are flaky failures.
@@ -7491,3 +7494,17 @@ webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphena
 
 # webkit.org/b/280556 [ macOS iOS wk2 release ] webrtc/stats-timestamp-increases.html is a flaky failure.
 [ Release ] webrtc/stats-timestamp-increases.html  [ Pass Failure ]
+
+# webkit.org/b/281089 REGRESSION(284750@main): [macOS iOS Debug] ASSERTION FAILED: !child->frameID() in http/tests/site-isolation/draw-after-cross-origin-navigation-between-two-remote-frames.html
+[ Debug ] http/tests/site-isolation/draw-after-cross-origin-navigation-between-two-remote-frames.html [ Pass Timeout ImageOnlyFailure ]
+
+webkit.org/b/281238 compositing/tiling/tile-cache-zoomed.html [ Failure ]
+
+# Platform-specific test enabled on macOS and iOS separately.
+webanimations/scroll-timeline-clamped-current-time-while-rubber-banding-ios.html [ Pass ]
+
+# webkit.org/b/281765 PROGRESSION (285251@main): [ macOS iOS ] imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-origin-traversal-redirect.html is a constant failure. 
+imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-origin-traversal-redirect.html [ Skip ]
+
+# webkit.org/b/277908 NEW TEST (284866@main): [ macOS iOS ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html is a flaky failure.
+imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html [ Pass Failure ]

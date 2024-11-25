@@ -172,6 +172,8 @@
 #import <pal/cocoa/WritingToolsUISoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 SOFT_LINK_FRAMEWORK(AVKit)
 SOFT_LINK_CLASS(AVKit, AVTouchBarPlaybackControlsProvider)
@@ -1309,8 +1311,7 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
     m_page->setAddsVisitedLinks(processPool.historyClient().addsVisitedLinks());
 
     auto& pageConfiguration = m_page->configuration();
-    auto& openerInfo = pageConfiguration.openerInfo();
-    m_page->initializeWebPage(openerInfo ? openerInfo->site : WebCore::Site(aboutBlankURL()), pageConfiguration.initialSandboxFlags());
+    m_page->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags());
 
     registerDraggedTypes();
 
@@ -2650,7 +2651,7 @@ bool WebViewImpl::isEditable() const
     return m_page->isEditable();
 }
 
-typedef HashMap<SEL, String> SelectorNameMap;
+typedef UncheckedKeyHashMap<SEL, String> SelectorNameMap;
 
 // Map selectors into Editor command names.
 // This is not needed for any selectors that have the same name as the Editor command.
@@ -2939,20 +2940,20 @@ bool WebViewImpl::validateUserInterfaceItem(id <NSValidatedUserInterfaceItem> it
 
     if (action == @selector(toggleContinuousSpellChecking:)) {
         bool enabled = TextChecker::isContinuousSpellCheckingAllowed();
-        bool checked = enabled && TextChecker::state().isContinuousSpellCheckingEnabled;
+        bool checked = enabled && TextChecker::state().contains(TextCheckerState::ContinuousSpellCheckingEnabled);
         [menuItem(item) setState:checked ? NSControlStateValueOn : NSControlStateValueOff];
         return enabled;
     }
 
     if (action == @selector(toggleGrammarChecking:)) {
-        bool checked = TextChecker::state().isGrammarCheckingEnabled;
+        bool checked = TextChecker::state().contains(TextCheckerState::GrammarCheckingEnabled);
         [menuItem(item) setState:checked ? NSControlStateValueOn : NSControlStateValueOff];
         return true;
     }
 
     if (action == @selector(toggleAutomaticSpellingCorrection:)) {
         bool enable = m_page->editorState().canEnableAutomaticSpellingCorrection;
-        menuItem(item).state = TextChecker::state().isAutomaticSpellingCorrectionEnabled && enable ? NSControlStateValueOn : NSControlStateValueOff;
+        menuItem(item).state = TextChecker::state().contains(TextCheckerState::AutomaticSpellingCorrectionEnabled) && enable ? NSControlStateValueOn : NSControlStateValueOff;
         return enable;
     }
 
@@ -2969,25 +2970,25 @@ bool WebViewImpl::validateUserInterfaceItem(id <NSValidatedUserInterfaceItem> it
     }
 
     if (action == @selector(toggleAutomaticQuoteSubstitution:)) {
-        bool checked = TextChecker::state().isAutomaticQuoteSubstitutionEnabled;
+        bool checked = TextChecker::state().contains(TextCheckerState::AutomaticQuoteSubstitutionEnabled);
         [menuItem(item) setState:checked ? NSControlStateValueOn : NSControlStateValueOff];
         return m_page->editorState().isContentEditable;
     }
 
     if (action == @selector(toggleAutomaticDashSubstitution:)) {
-        bool checked = TextChecker::state().isAutomaticDashSubstitutionEnabled;
+        bool checked = TextChecker::state().contains(TextCheckerState::AutomaticDashSubstitutionEnabled);
         [menuItem(item) setState:checked ? NSControlStateValueOn : NSControlStateValueOff];
         return m_page->editorState().isContentEditable;
     }
 
     if (action == @selector(toggleAutomaticLinkDetection:)) {
-        bool checked = TextChecker::state().isAutomaticLinkDetectionEnabled;
+        bool checked = TextChecker::state().contains(TextCheckerState::AutomaticLinkDetectionEnabled);
         [menuItem(item) setState:checked ? NSControlStateValueOn : NSControlStateValueOff];
         return m_page->editorState().isContentEditable;
     }
 
     if (action == @selector(toggleAutomaticTextReplacement:)) {
-        bool checked = TextChecker::state().isAutomaticTextReplacementEnabled;
+        bool checked = TextChecker::state().contains(TextCheckerState::AutomaticTextReplacementEnabled);
         [menuItem(item) setState:checked ? NSControlStateValueOn : NSControlStateValueOff];
         return m_page->editorState().isContentEditable;
     }
@@ -3089,7 +3090,7 @@ void WebViewImpl::changeSpelling(id sender)
 
 void WebViewImpl::setContinuousSpellCheckingEnabled(bool enabled)
 {
-    if (TextChecker::state().isContinuousSpellCheckingEnabled == enabled)
+    if (TextChecker::state().contains(TextCheckerState::ContinuousSpellCheckingEnabled) == enabled)
         return;
 
     TextChecker::setContinuousSpellCheckingEnabled(enabled);
@@ -3098,7 +3099,7 @@ void WebViewImpl::setContinuousSpellCheckingEnabled(bool enabled)
 
 void WebViewImpl::toggleContinuousSpellChecking()
 {
-    bool spellCheckingEnabled = !TextChecker::state().isContinuousSpellCheckingEnabled;
+    bool spellCheckingEnabled = !TextChecker::state().contains(TextCheckerState::ContinuousSpellCheckingEnabled);
     TextChecker::setContinuousSpellCheckingEnabled(spellCheckingEnabled);
 
     m_page->legacyMainFrameProcess().updateTextCheckerState();
@@ -3106,12 +3107,12 @@ void WebViewImpl::toggleContinuousSpellChecking()
 
 bool WebViewImpl::isGrammarCheckingEnabled()
 {
-    return TextChecker::state().isGrammarCheckingEnabled;
+    return TextChecker::state().contains(TextCheckerState::GrammarCheckingEnabled);
 }
 
 void WebViewImpl::setGrammarCheckingEnabled(bool flag)
 {
-    if (static_cast<bool>(flag) == TextChecker::state().isGrammarCheckingEnabled)
+    if (static_cast<bool>(flag) == TextChecker::state().contains(TextCheckerState::GrammarCheckingEnabled))
         return;
 
     TextChecker::setGrammarCheckingEnabled(flag);
@@ -3120,7 +3121,7 @@ void WebViewImpl::setGrammarCheckingEnabled(bool flag)
 
 void WebViewImpl::toggleGrammarChecking()
 {
-    bool grammarCheckingEnabled = !TextChecker::state().isGrammarCheckingEnabled;
+    bool grammarCheckingEnabled = !TextChecker::state().contains(TextCheckerState::GrammarCheckingEnabled);
     TextChecker::setGrammarCheckingEnabled(grammarCheckingEnabled);
 
     m_page->legacyMainFrameProcess().updateTextCheckerState();
@@ -3128,7 +3129,7 @@ void WebViewImpl::toggleGrammarChecking()
 
 void WebViewImpl::toggleAutomaticSpellingCorrection()
 {
-    TextChecker::setAutomaticSpellingCorrectionEnabled(!TextChecker::state().isAutomaticSpellingCorrectionEnabled);
+    TextChecker::setAutomaticSpellingCorrectionEnabled(!TextChecker::state().contains(TextCheckerState::AutomaticSpellingCorrectionEnabled));
 
     m_page->legacyMainFrameProcess().updateTextCheckerState();
 }
@@ -3156,12 +3157,12 @@ void WebViewImpl::toggleSmartInsertDelete()
 
 bool WebViewImpl::isAutomaticQuoteSubstitutionEnabled()
 {
-    return TextChecker::state().isAutomaticQuoteSubstitutionEnabled;
+    return TextChecker::state().contains(TextCheckerState::AutomaticQuoteSubstitutionEnabled);
 }
 
 void WebViewImpl::setAutomaticQuoteSubstitutionEnabled(bool flag)
 {
-    if (static_cast<bool>(flag) == TextChecker::state().isAutomaticQuoteSubstitutionEnabled)
+    if (static_cast<bool>(flag) == TextChecker::state().contains(TextCheckerState::AutomaticQuoteSubstitutionEnabled))
         return;
 
     TextChecker::setAutomaticQuoteSubstitutionEnabled(flag);
@@ -3170,18 +3171,18 @@ void WebViewImpl::setAutomaticQuoteSubstitutionEnabled(bool flag)
 
 void WebViewImpl::toggleAutomaticQuoteSubstitution()
 {
-    TextChecker::setAutomaticQuoteSubstitutionEnabled(!TextChecker::state().isAutomaticQuoteSubstitutionEnabled);
+    TextChecker::setAutomaticQuoteSubstitutionEnabled(!TextChecker::state().contains(TextCheckerState::AutomaticQuoteSubstitutionEnabled));
     m_page->legacyMainFrameProcess().updateTextCheckerState();
 }
 
 bool WebViewImpl::isAutomaticDashSubstitutionEnabled()
 {
-    return TextChecker::state().isAutomaticDashSubstitutionEnabled;
+    return TextChecker::state().contains(TextCheckerState::AutomaticDashSubstitutionEnabled);
 }
 
 void WebViewImpl::setAutomaticDashSubstitutionEnabled(bool flag)
 {
-    if (static_cast<bool>(flag) == TextChecker::state().isAutomaticDashSubstitutionEnabled)
+    if (static_cast<bool>(flag) == TextChecker::state().contains(TextCheckerState::AutomaticDashSubstitutionEnabled))
         return;
 
     TextChecker::setAutomaticDashSubstitutionEnabled(flag);
@@ -3190,18 +3191,18 @@ void WebViewImpl::setAutomaticDashSubstitutionEnabled(bool flag)
 
 void WebViewImpl::toggleAutomaticDashSubstitution()
 {
-    TextChecker::setAutomaticDashSubstitutionEnabled(!TextChecker::state().isAutomaticDashSubstitutionEnabled);
+    TextChecker::setAutomaticDashSubstitutionEnabled(!TextChecker::state().contains(TextCheckerState::AutomaticDashSubstitutionEnabled));
     m_page->legacyMainFrameProcess().updateTextCheckerState();
 }
 
 bool WebViewImpl::isAutomaticLinkDetectionEnabled()
 {
-    return TextChecker::state().isAutomaticLinkDetectionEnabled;
+    return TextChecker::state().contains(TextCheckerState::AutomaticLinkDetectionEnabled);
 }
 
 void WebViewImpl::setAutomaticLinkDetectionEnabled(bool flag)
 {
-    if (static_cast<bool>(flag) == TextChecker::state().isAutomaticLinkDetectionEnabled)
+    if (static_cast<bool>(flag) == TextChecker::state().contains(TextCheckerState::AutomaticLinkDetectionEnabled))
         return;
 
     TextChecker::setAutomaticLinkDetectionEnabled(flag);
@@ -3210,18 +3211,18 @@ void WebViewImpl::setAutomaticLinkDetectionEnabled(bool flag)
 
 void WebViewImpl::toggleAutomaticLinkDetection()
 {
-    TextChecker::setAutomaticLinkDetectionEnabled(!TextChecker::state().isAutomaticLinkDetectionEnabled);
+    TextChecker::setAutomaticLinkDetectionEnabled(!TextChecker::state().contains(TextCheckerState::AutomaticLinkDetectionEnabled));
     m_page->legacyMainFrameProcess().updateTextCheckerState();
 }
 
 bool WebViewImpl::isAutomaticTextReplacementEnabled()
 {
-    return TextChecker::state().isAutomaticTextReplacementEnabled;
+    return TextChecker::state().contains(TextCheckerState::AutomaticTextReplacementEnabled);
 }
 
 void WebViewImpl::setAutomaticTextReplacementEnabled(bool flag)
 {
-    if (static_cast<bool>(flag) == TextChecker::state().isAutomaticTextReplacementEnabled)
+    if (static_cast<bool>(flag) == TextChecker::state().contains(TextCheckerState::AutomaticTextReplacementEnabled))
         return;
 
     TextChecker::setAutomaticTextReplacementEnabled(flag);
@@ -3230,7 +3231,7 @@ void WebViewImpl::setAutomaticTextReplacementEnabled(bool flag)
 
 void WebViewImpl::toggleAutomaticTextReplacement()
 {
-    TextChecker::setAutomaticTextReplacementEnabled(!TextChecker::state().isAutomaticTextReplacementEnabled);
+    TextChecker::setAutomaticTextReplacementEnabled(!TextChecker::state().contains(TextCheckerState::AutomaticTextReplacementEnabled));
     m_page->legacyMainFrameProcess().updateTextCheckerState();
 }
 
@@ -6746,5 +6747,7 @@ Ref<WebPageProxy> WebViewImpl::protectedPage() const
 }
 
 } // namespace WebKit
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // PLATFORM(MAC)

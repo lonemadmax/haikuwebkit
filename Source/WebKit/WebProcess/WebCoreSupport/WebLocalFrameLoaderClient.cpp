@@ -92,7 +92,6 @@
 #include <WebCore/Quirks.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceRequest.h>
-#include <WebCore/RuntimeApplicationChecks.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Settings.h>
@@ -103,6 +102,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessID.h>
 #include <wtf/ProcessPrivilege.h>
+#include <wtf/RuntimeApplicationChecks.h>
 
 #if ENABLE(FULLSCREEN_API)
 #include <WebCore/FullscreenManager.h>
@@ -484,6 +484,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocum
         false, /* openedByDOMWithOpener */
         !!m_localFrame->opener(), /* hasOpener */
         m_localFrame->loader().isHTTPFallbackInProgress(),
+        { }, /* openedMainFrameName */
         { }, /* requesterOrigin */
         { }, /* requesterTopOrigin */
         std::nullopt, /* targetBackForwardItemIdentifier */
@@ -868,7 +869,7 @@ LocalFrame* WebLocalFrameLoaderClient::dispatchCreatePage(const NavigationAction
     // Just call through to the chrome client.
     WindowFeatures windowFeatures;
     windowFeatures.noopener = newFrameOpenerPolicy == NewFrameOpenerPolicy::Suppress;
-    RefPtr newPage = webPage->corePage()->chrome().createWindow(m_localFrame, windowFeatures, navigationAction);
+    RefPtr newPage = webPage->corePage()->chrome().createWindow(m_localFrame, { }, windowFeatures, navigationAction);
     if (!newPage)
         return nullptr;
     
@@ -950,6 +951,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         false, /* openedByDOMWithOpener */
         navigationAction.newFrameOpenerPolicy() == NewFrameOpenerPolicy::Allow, /* hasOpener */
         m_localFrame->loader().isHTTPFallbackInProgress(),
+        { }, /* openedMainFrameName */
         { }, /* requesterOrigin */
         { }, /* requesterTopOrigin */
         std::nullopt, /* targetBackForwardItemIdentifier */
@@ -1002,6 +1004,11 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Na
 void WebLocalFrameLoaderClient::updateSandboxFlags(WebCore::SandboxFlags sandboxFlags)
 {
     WebFrameLoaderClient::updateSandboxFlags(sandboxFlags);
+}
+
+void WebLocalFrameLoaderClient::updateOpener(const WebCore::Frame& newOpener)
+{
+    WebFrameLoaderClient::updateOpener(newOpener);
 }
 
 void WebLocalFrameLoaderClient::cancelPolicyCheck()
@@ -1084,9 +1091,9 @@ void WebLocalFrameLoaderClient::setMainFrameDocumentReady(bool)
     notImplemented();
 }
 
-void WebLocalFrameLoaderClient::startDownload(const ResourceRequest& request, const String& suggestedName)
+void WebLocalFrameLoaderClient::startDownload(const ResourceRequest& request, const String& suggestedName, FromDownloadAttribute fromDownloadAttribute)
 {
-    m_frame->startDownload(request, suggestedName);
+    m_frame->startDownload(request, suggestedName, fromDownloadAttribute);
 }
 
 void WebLocalFrameLoaderClient::willChangeTitle(DocumentLoader*)

@@ -209,10 +209,10 @@ AXCoreObject* AXCoreObject::nextUnignoredSibling(bool updateChildrenIfNeeded, AX
     return indexOfThis + 1 < siblings.size() ? siblings[indexOfThis + 1].get() : nullptr;
 }
 
-AXCoreObject* AXCoreObject::nextUnignoredSiblingOrParent(bool updateChildrenIfNeeded) const
+AXCoreObject* AXCoreObject::nextUnignoredSiblingOrParent() const
 {
     RefPtr parent = parentObjectUnignored();
-    if (auto* nextSibling = nextUnignoredSibling(updateChildrenIfNeeded, parent.get()))
+    if (auto* nextSibling = nextUnignoredSibling(/* updateChildrenIfNeeded */ true, parent.get()))
         return nextSibling;
     return parent.get();
 }
@@ -298,7 +298,12 @@ AXCoreObject::AXValue AXCoreObject::value()
 
     if (isColorWell()) {
         auto color = convertColor<SRGBA<float>>(colorValue()).resolved();
-        return makeString("rgb "_s, String::numberToStringFixedPrecision(color.red, 6, TrailingZerosPolicy::Keep), ' ', String::numberToStringFixedPrecision(color.green, 6, TrailingZerosPolicy::Keep), ' ', String::numberToStringFixedPrecision(color.blue, 6, TrailingZerosPolicy::Keep), " 1"_s);
+        auto channel = [](float number) {
+            return FormattedNumber::fixedPrecision(number, 6, TrailingZerosPolicy::Keep);
+        };
+        return color.alpha == 1
+            ? makeString("rgb "_s, channel(color.red), ' ', channel(color.green), ' ', channel(color.blue), " 1"_s)
+            : makeString("rgb "_s, channel(color.red), ' ', channel(color.green), ' ', channel(color.blue), ' ', channel(color.alpha));
     }
 
     return stringValue();
@@ -365,8 +370,8 @@ bool AXCoreObject::isTableCellInSameRowGroup(AXCoreObject* otherTableCell)
     if (!otherTableCell)
         return false;
 
-    AXID ancestorID = rowGroupAncestorID();
-    return ancestorID.isValid() && ancestorID == otherTableCell->rowGroupAncestorID();
+    auto ancestorID = rowGroupAncestorID();
+    return ancestorID && *ancestorID == otherTableCell->rowGroupAncestorID();
 }
 
 bool AXCoreObject::isTableCellInSameColGroup(AXCoreObject* tableCell)

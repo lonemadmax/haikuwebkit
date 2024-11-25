@@ -1209,8 +1209,19 @@ void KeyframeEffect::computeStackingContextImpact()
     }
 }
 
-void KeyframeEffect::animationTimelineDidChange(AnimationTimeline* timeline)
+void KeyframeEffect::animationTimelineDidChange(const AnimationTimeline* timeline)
 {
+    AnimationEffect::animationTimelineDidChange(timeline);
+
+    m_isAssociatedWithProgressBasedTimeline = [&] {
+        if (RefPtr animation = this->animation()) {
+            if (RefPtr timeline = animation->timeline())
+                return timeline->isProgressBased();
+        }
+        return false;
+    }();
+    updateAcceleratedAnimationIfNecessary();
+
     auto target = targetStyleable();
     if (!target)
         return;
@@ -1664,6 +1675,9 @@ bool KeyframeEffect::canBeAccelerated() const
     if (m_acceleratedPropertiesState == AcceleratedProperties::None)
         return false;
 
+    if (m_isAssociatedWithProgressBasedTimeline)
+        return false;
+
     if (m_hasAcceleratedPropertyOverriddenByCascadeProperty)
         return false;
 
@@ -1898,7 +1912,9 @@ std::optional<KeyframeEffect::RecomputationReason> KeyframeEffect::recomputeKeyf
         return false;
     }();
 
-    if (logicalPropertyChanged || fontSizeChanged() || fontWeightChanged() || cssVariableChanged() || hasPropertyExplicitlySetToInherit() || propertySetToCurrentColorChanged()) {
+    auto usesAnchorFunctions = m_blendingKeyframes.usesAnchorFunctions();
+
+    if (logicalPropertyChanged || fontSizeChanged() || fontWeightChanged() || cssVariableChanged() || hasPropertyExplicitlySetToInherit() || propertySetToCurrentColorChanged() || usesAnchorFunctions) {
         switch (m_animationType) {
         case WebAnimationType::CSSTransition:
             ASSERT_NOT_REACHED();

@@ -60,7 +60,7 @@ enum class ProcessThrottleState : uint8_t;
 enum class ShouldTakeUIBackgroundAssertion : bool { No, Yes };
 enum class AlwaysRunsAtBackgroundPriority : bool { No, Yes };
 
-using ExtensionCapabilityGrantMap = HashMap<String, ExtensionCapabilityGrant>;
+using ExtensionCapabilityGrantMap = UncheckedKeyHashMap<String, ExtensionCapabilityGrant>;
 
 class AuxiliaryProcessProxy
     : public ThreadSafeRefCounted<AuxiliaryProcessProxy, WTF::DestructionThread::MainRunLoop>
@@ -286,7 +286,7 @@ protected:
 #endif
 
     struct InitializationActivityAndGrant {
-        UniqueRef<ProcessThrottler::ForegroundActivity> foregroundActivity;
+        Ref<ProcessThrottler::ForegroundActivity> foregroundActivity;
 #if USE(EXTENSIONKIT)
         RefPtr<LaunchGrant> launchGrant;
 #endif
@@ -320,7 +320,7 @@ private:
     ProcessThrottler m_throttler;
 #if USE(RUNNINGBOARD)
 #if PLATFORM(MAC)
-    std::unique_ptr<ProcessThrottler::ForegroundActivity> m_lifetimeActivity;
+    RefPtr<ProcessThrottler::ForegroundActivity> m_lifetimeActivity;
     RefPtr<ProcessAssertion> m_boostedJetsamAssertion;
 #endif
 #endif
@@ -328,8 +328,8 @@ private:
     ExtensionCapabilityGrantMap m_extensionCapabilityGrants;
 #endif
 #if ENABLE(CFPREFS_DIRECT_MODE)
-    HashMap<String, std::optional<String>> m_domainlessPreferencesUpdatedWhileSuspended;
-    HashMap<std::pair<String /* domain */, String /* key */>, std::optional<String>> m_preferencesUpdatedWhileSuspended;
+    UncheckedKeyHashMap<String, std::optional<String>> m_domainlessPreferencesUpdatedWhileSuspended;
+    UncheckedKeyHashMap<std::pair<String /* domain */, String /* key */>, std::optional<String>> m_preferencesUpdatedWhileSuspended;
 #endif
 };
 

@@ -38,6 +38,10 @@ namespace WebGPU {
 static id<MTLComputePipelineState> createComputePipelineState(id<MTLDevice> device, id<MTLFunction> function, const PipelineLayout& pipelineLayout, const MTLSize& size, NSString *label)
 {
     auto computePipelineDescriptor = [MTLComputePipelineDescriptor new];
+#if ENABLE(WEBGPU_BY_DEFAULT)
+    computePipelineDescriptor.shaderValidation = MTLShaderValidationEnabled;
+#endif
+
     computePipelineDescriptor.computeFunction = function;
     computePipelineDescriptor.maxTotalThreadsPerThreadgroup = size.width * size.height * size.depth;
     for (size_t i = 0; i < pipelineLayout.numberOfBindGroupLayouts(); ++i)
@@ -54,7 +58,7 @@ static id<MTLComputePipelineState> createComputePipelineState(id<MTLDevice> devi
     return computePipelineState;
 }
 
-static std::optional<MTLSize> metalSize(auto workgroupSize, const HashMap<String, WGSL::ConstantValue>& wgslConstantValues)
+static std::optional<MTLSize> metalSize(auto workgroupSize, const UncheckedKeyHashMap<String, WGSL::ConstantValue>& wgslConstantValues)
 {
     auto width = WGSL::evaluate(*workgroupSize.width, wgslConstantValues);
     auto height = workgroupSize.height ? WGSL::evaluate(*workgroupSize.height, wgslConstantValues) : 1;
@@ -78,7 +82,7 @@ std::pair<Ref<ComputePipeline>, NSString*> Device::createComputePipeline(const W
         return returnInvalidComputePipeline(*this, isAsync);
 
     ShaderModule& shaderModule = WebGPU::fromAPI(descriptor.compute.module);
-    if (!shaderModule.isValid() || &shaderModule.device() != this)
+    if (!shaderModule.isValid() || &shaderModule.device() != this || !descriptor.layout)
         return returnInvalidComputePipeline(*this, isAsync);
 
     PipelineLayout& pipelineLayout = WebGPU::fromAPI(descriptor.layout);
@@ -87,7 +91,7 @@ std::pair<Ref<ComputePipeline>, NSString*> Device::createComputePipeline(const W
     auto entryPointName = descriptor.compute.entryPoint ? fromAPI(descriptor.compute.entryPoint) : shaderModule.defaultComputeEntryPoint();
     NSError *error;
     BufferBindingSizesForPipeline minimumBufferSizes;
-    auto libraryCreationResult = createLibrary(m_device, shaderModule, &pipelineLayout, entryPointName, label, descriptor.compute.constantCount, descriptor.compute.constants, minimumBufferSizes, &error);
+    auto libraryCreationResult = createLibrary(m_device, shaderModule, &pipelineLayout, entryPointName, label, descriptor.compute.constantsSpan(), minimumBufferSizes, &error);
     if (!libraryCreationResult || &pipelineLayout.device() != this)
         return returnInvalidComputePipeline(*this, isAsync, error.localizedDescription ?: @"Compute library failed creation");
 

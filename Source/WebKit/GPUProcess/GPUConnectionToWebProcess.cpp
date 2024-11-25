@@ -309,22 +309,19 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
     , m_presentingApplicationAuditToken(parameters.presentingApplicationAuditToken ? std::optional(parameters.presentingApplicationAuditToken->auditToken()) : std::nullopt)
 #endif
     , m_isLockdownModeEnabled(parameters.isLockdownModeEnabled)
-#if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
-    , m_routingArbitrator(LocalAudioSessionRoutingArbitrator::create(*this))
-#endif
     , m_sharedPreferencesForWebProcess(WTFMove(parameters.sharedPreferencesForWebProcess))
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
-#if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
-    gpuProcess.protectedAudioSessionManager()->session().setRoutingArbitrationClient(m_routingArbitrator.get());
-#endif
+    // This must be called before any media playback function is invoked.
+    enableMediaPlaybackIfNecessary();
 
     // Use this flag to force synchronous messages to be treated as asynchronous messages in the WebProcess.
     // Otherwise, the WebProcess would process incoming synchronous IPC while waiting for a synchronous IPC
     // reply from the GPU process, which would be unsafe.
-    m_connection->setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
-    m_connection->open(*this);
+    Ref connection = m_connection;
+    connection->setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
+    connection->open(*this);
 
 #if ENABLE(VP9)
     bool hasVP9HardwareDecoder;
@@ -364,7 +361,7 @@ GPUConnectionToWebProcess::~GPUConnectionToWebProcess()
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
-    m_connection->invalidate();
+    protectedConnection()->invalidate();
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     protectedSampleBufferDisplayLayerManager()->close();
@@ -399,7 +396,8 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
     assertIsMainThread();
 
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
-    m_routingArbitrator->processDidTerminate();
+    if (m_routingArbitrator)
+        m_routingArbitrator->processDidTerminate();
 #endif
 
 #if USE(AUDIO_SESSION)
@@ -414,7 +412,7 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
 #endif
 #if ENABLE(VIDEO)
     protectedVideoFrameObjectHeap()->close();
-    m_remoteMediaPlayerManagerProxy->clear();
+    protectedRemoteMediaPlayerManagerProxy()->clear();
 #endif
     // RemoteRenderingBackend objects ref their GPUConnectionToWebProcess so we need to make sure
     // to break the reference cycle by destroying them.
@@ -436,15 +434,17 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
     m_libWebRTCCodecsProxy = nullptr;
 #endif
 #if ENABLE(ENCRYPTED_MEDIA)
-    if (m_cdmFactoryProxy)
-        m_cdmFactoryProxy->clear();
+    if (RefPtr cdmFactoryProxy = m_cdmFactoryProxy)
+        cdmFactoryProxy->clear();
 #endif
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RemoteLegacyCDMFactoryProxy& legacyCdmFactoryProxy();
 #endif
 
+#if ENABLE(VIDEO)
     if (RefPtr remoteMediaResourceManager = m_remoteMediaResourceManager)
         remoteMediaResourceManager->stopListeningForIPC();
+#endif
 
     Ref gpuProcess = this->gpuProcess();
     gpuProcess->connectionToWebProcessClosed(connection);
@@ -574,8 +574,8 @@ void GPUConnectionToWebProcess::terminateWebProcess()
 
 void GPUConnectionToWebProcess::lowMemoryHandler(Critical critical, Synchronous synchronous)
 {
-    if (m_sharedResourceCache)
-        m_sharedResourceCache->lowMemoryHandler();
+    if (RefPtr sharedResourceCache = m_sharedResourceCache)
+        sharedResourceCache->lowMemoryHandler();
 #if ENABLE(VIDEO)
     protectedVideoFrameObjectHeap()->lowMemoryHandler();
 #endif
@@ -1254,7 +1254,22 @@ void GPUConnectionToWebProcess::updateSharedPreferencesForWebProcess(SharedPrefe
 {
     m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess);
 #if PLATFORM(COCOA) && USE(LIBWEBRTC)
-    m_libWebRTCCodecsProxy->updateSharedPreferencesForWebProcess(m_sharedPreferencesForWebProcess);
+    protectedLibWebRTCCodecsProxy()->updateSharedPreferencesForWebProcess(m_sharedPreferencesForWebProcess);
+#endif
+    enableMediaPlaybackIfNecessary();
+}
+
+void GPUConnectionToWebProcess::enableMediaPlaybackIfNecessary()
+{
+#if USE(AUDIO_SESSION)
+    if (!WebCore::AudioSession::enableMediaPlayback())
+        return;
+#endif
+
+#if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
+    ASSERT(!m_routingArbitrator);
+    m_routingArbitrator = LocalAudioSessionRoutingArbitrator::create(*this);
+    protectedGPUProcess()->protectedAudioSessionManager()->session().setRoutingArbitrationClient(m_routingArbitrator.get());
 #endif
 }
 

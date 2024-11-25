@@ -111,16 +111,16 @@ void WebsiteDataStore::allowWebsiteDataRecordsForAllOrigins()
     allowsWebsiteDataRecordsForAllOrigins = true;
 }
 
-static HashMap<String, PAL::SessionID>& activeGeneralStorageDirectories()
+static UncheckedKeyHashMap<String, PAL::SessionID>& activeGeneralStorageDirectories()
 {
-    static MainThreadNeverDestroyed<HashMap<String, PAL::SessionID>> directoryToSessionMap;
+    static MainThreadNeverDestroyed<UncheckedKeyHashMap<String, PAL::SessionID>> directoryToSessionMap;
     return directoryToSessionMap;
 }
 
-static HashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>& allDataStores()
+static UncheckedKeyHashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>& allDataStores()
 {
     RELEASE_ASSERT(isUIThread());
-    static NeverDestroyed<HashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>> map;
+    static NeverDestroyed<UncheckedKeyHashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>> map;
     return map;
 }
 
@@ -161,7 +161,10 @@ WebsiteDataStore::WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&& configur
     , m_trackingPreventionDebugMode(m_configuration->resourceLoadStatisticsDebugModeEnabled())
     , m_queue(WorkQueue::create("com.apple.WebKit.WebsiteDataStore"_s))
 #if ENABLE(WEB_AUTHN)
-    , m_authenticatorManager(makeUniqueRef<AuthenticatorManager>())
+    , m_authenticatorManager(AuthenticatorManager::create())
+#endif
+#if ENABLE(DEVICE_ORIENTATION)
+    , m_deviceOrientationAndMotionAccessController(*this)
 #endif
     , m_client(makeUniqueRef<WebsiteDataStoreClient>())
     , m_webLockRegistry(WebCore::LocalWebLockRegistry::create())
@@ -689,7 +692,7 @@ private:
         Ref<WorkQueue> m_queue;
         Function<void(Vector<WebsiteDataRecord>)> m_apply;
 
-        HashMap<String, WebsiteDataRecord> m_websiteDataRecords;
+        UncheckedKeyHashMap<String, WebsiteDataRecord> m_websiteDataRecords;
         Ref<WebsiteDataStore> m_protectedDataStore;
     };
 
@@ -1341,7 +1344,7 @@ void WebsiteDataStore::setStorageAccessPromptQuirkForTesting(String&& topFrameDo
     auto registrableTopFrameDomainString = registrableTopFrameDomain.string();
     Vector<WebCore::OrganizationStorageAccessPromptQuirk> quirk { {
         WTFMove(registrableTopFrameDomainString)
-        , HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> { {
+        , UncheckedKeyHashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> { {
             KeyValuePair { WTFMove(registrableTopFrameDomain),
                 subFrameDomains.map([](auto& domain) { return WebCore::RegistrableDomain::fromRawString(String { domain }); })
             },
@@ -2100,17 +2103,28 @@ void WebsiteDataStore::addSecKeyProxyStore(Ref<SecKeyProxyStore>&& store)
 void WebsiteDataStore::setMockWebAuthenticationConfiguration(WebCore::MockWebAuthenticationConfiguration&& configuration)
 {
     if (!m_authenticatorManager->isMock()) {
-        m_authenticatorManager = makeUniqueRef<MockAuthenticatorManager>(WTFMove(configuration));
+        m_authenticatorManager = MockAuthenticatorManager::create(WTFMove(configuration));
         return;
     }
-    static_cast<MockAuthenticatorManager*>(&m_authenticatorManager)->setTestConfiguration(WTFMove(configuration));
+    Ref manager = downcast<MockAuthenticatorManager>(m_authenticatorManager);
+    manager->setTestConfiguration(WTFMove(configuration));
 }
 
 VirtualAuthenticatorManager& WebsiteDataStore::virtualAuthenticatorManager()
 {
     if (!m_authenticatorManager->isVirtual())
-        m_authenticatorManager = makeUniqueRef<VirtualAuthenticatorManager>();
-    return static_cast<VirtualAuthenticatorManager&>(m_authenticatorManager.get());
+        m_authenticatorManager = VirtualAuthenticatorManager::create();
+    return downcast<VirtualAuthenticatorManager>(m_authenticatorManager.get());
+}
+
+Ref<AuthenticatorManager> WebsiteDataStore::protectedAuthenticatorManager()
+{
+    return authenticatorManager();
+}
+
+Ref<VirtualAuthenticatorManager> WebsiteDataStore::protectedVirtualAuthenticatorManager()
+{
+    return virtualAuthenticatorManager();
 }
 #endif
 

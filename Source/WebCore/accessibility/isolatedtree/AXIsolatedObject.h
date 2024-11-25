@@ -55,7 +55,7 @@ public:
     static Ref<AXIsolatedObject> create(const Ref<AccessibilityObject>&, AXIsolatedTree*);
     ~AXIsolatedObject();
 
-    AXID treeID() const final { return tree()->treeID(); }
+    std::optional<AXID> treeID() const final { return tree()->treeID(); }
     String dbg() const final;
 
     AccessibilityRole roleValue() const final { return static_cast<AccessibilityRole>(intAttributeValue(AXPropertyName::RoleValue)); }
@@ -86,13 +86,15 @@ public:
     bool shouldEmitNewlinesBeforeAndAfterNode() const final { return boolAttributeValue(AXPropertyName::ShouldEmitNewlinesBeforeAndAfterNode); }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
+    AXTextMarkerRange textMarkerRange() const final;
+
 private:
     constexpr ProcessID processID() const final { return tree()->processID(); }
     void detachRemoteParts(AccessibilityDetachmentType) final;
     void detachPlatformWrapper(AccessibilityDetachmentType) final;
 
-    AXID parent() const { return m_parentID; }
-    void setParent(AXID axID) { m_parentID = axID; }
+    std::optional<AXID> parent() const { return m_parentID; }
+    void setParent(std::optional<AXID> axID) { m_parentID = axID; }
 
     AXIsolatedTree* tree() const { return m_cachedTree.get(); }
 
@@ -196,7 +198,7 @@ private:
     bool isColumnHeader() const final { return boolAttributeValue(AXPropertyName::IsColumnHeader); }
     bool isRowHeader() const final { return boolAttributeValue(AXPropertyName::IsRowHeader); }
     String cellScope() const final { return stringAttributeValue(AXPropertyName::CellScope); }
-    AXID rowGroupAncestorID() const final { return propertyValue<AXID>(AXPropertyName::RowGroupAncestorID); }
+    std::optional<AXID> rowGroupAncestorID() const final { return propertyValue<Markable<AXID>>(AXPropertyName::RowGroupAncestorID); }
 
     // Table column support.
     bool isTableColumn() const final { return boolAttributeValue(AXPropertyName::IsTableColumn); }
@@ -394,7 +396,6 @@ private:
 
     std::optional<SimpleRange> simpleRange() const final;
     VisiblePositionRange visiblePositionRange() const final;
-    AXTextMarkerRange textMarkerRange() const final;
 
     String selectedText() const final;
     VisiblePositionRange visiblePositionRangeForLine(unsigned) const final;
@@ -521,7 +522,7 @@ private:
     Widget* widgetForAttachmentView() const final;
     bool isPlugin() const final { return boolAttributeValue(AXPropertyName::IsPlugin); }
 
-    HashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const final;
+    UncheckedKeyHashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const final;
 #if PLATFORM(COCOA)
     RemoteAXObjectRef remoteParentObject() const final;
     FloatRect convertRectToPlatformSpace(const FloatRect&, AccessibilityConversionSpace) const final;
@@ -558,7 +559,7 @@ private:
 
     // FIXME: Make this a ThreadSafeWeakPtr<AXIsolatedTree>.
     RefPtr<AXIsolatedTree> m_cachedTree;
-    AXID m_parentID;
+    Markable<AXID> m_parentID;
     bool m_childrenDirty { true };
     Vector<AXID> m_childrenIDs;
     Vector<RefPtr<AXCoreObject>> m_children;

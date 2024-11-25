@@ -125,7 +125,7 @@ public:
         return std::unique_ptr<ImageBufferBackingStoreFlusher> { new ImageBufferBackingStoreFlusher(WTFMove(imageBufferFlusher)) };
     }
 
-    bool flushAndCollectHandles(HashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&) final
+    bool flushAndCollectHandles(UncheckedKeyHashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&) final
     {
         m_imageBufferFlusher->flush();
         return true;
@@ -228,7 +228,7 @@ void RemoteLayerWithInProcessRenderingBackingStore::prepareToDisplay()
 {
     ASSERT(!m_frontBufferFlushers.size());
 
-    auto* collection = backingStoreCollection();
+    RefPtr collection = backingStoreCollection();
     if (!collection) {
         ASSERT_NOT_REACHED();
         return;

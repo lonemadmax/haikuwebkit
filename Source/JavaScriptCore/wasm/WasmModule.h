@@ -27,6 +27,10 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include <wtf/Compiler.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #include "WasmCalleeGroup.h"
 #include "WasmJS.h"
 #include "WasmMemory.h"
@@ -39,6 +43,7 @@
 namespace JSC {
 
 class VM;
+class JSWebAssemblyInstance;
 
 namespace Wasm {
 
@@ -93,5 +98,7 @@ private:
 };
 
 } } // namespace JSC::Wasm
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

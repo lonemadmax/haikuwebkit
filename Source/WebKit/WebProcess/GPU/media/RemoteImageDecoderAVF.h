@@ -85,15 +85,17 @@ public:
     void encodedDataStatusChanged(size_t frameCount, const WebCore::IntSize&, bool hasTrack);
 
 private:
+    Ref<RemoteImageDecoderAVFManager> protectedManager() const;
+
     ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
-    RemoteImageDecoderAVFManager& m_manager;
+    ThreadSafeWeakPtr<RemoteImageDecoderAVFManager> m_manager; // Cannot be null.
     WebCore::ImageDecoderIdentifier m_identifier;
 
     String m_mimeType;
     String m_uti;
     bool m_isAllDataReceived { false };
     WTF::Function<void(WebCore::EncodedDataStatus)> m_encodedDataStatusChangedCallback;
-    HashMap<int, WebCore::PlatformImagePtr, WTF::IntHash<int>, WTF::UnsignedWithZeroKeyHashTraits<int>> m_frameImages;
+    UncheckedKeyHashMap<int, WebCore::PlatformImagePtr, WTF::IntHash<int>, WTF::UnsignedWithZeroKeyHashTraits<int>> m_frameImages;
     Vector<ImageDecoder::FrameInfo> m_frameInfos;
     size_t m_frameCount { 0 };
     std::optional<WebCore::IntSize> m_size;

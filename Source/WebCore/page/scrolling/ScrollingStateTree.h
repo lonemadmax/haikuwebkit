@@ -57,9 +57,9 @@ public:
 
     ScrollingNodeID createUnparentedNode(ScrollingNodeType, ScrollingNodeID);
     WEBCORE_EXPORT std::optional<ScrollingNodeID> insertNode(ScrollingNodeType, ScrollingNodeID, std::optional<ScrollingNodeID> parentID, size_t childIndex);
-    void unparentNode(ScrollingNodeID);
-    void unparentChildrenAndDestroyNode(ScrollingNodeID);
-    void detachAndDestroySubtree(ScrollingNodeID);
+    void unparentNode(std::optional<ScrollingNodeID>);
+    void unparentChildrenAndDestroyNode(std::optional<ScrollingNodeID>);
+    void detachAndDestroySubtree(std::optional<ScrollingNodeID>);
     void clear();
 
     // Copies the current tree state and clears the changed properties mask in the original.
@@ -75,7 +75,7 @@ public:
     unsigned nodeCount() const { return m_stateNodeMap.size(); }
     unsigned scrollingNodeCount() const { return m_scrollingNodeCount; }
 
-    using StateNodeMap = HashMap<ScrollingNodeID, Ref<ScrollingStateNode>>;
+    using StateNodeMap = UncheckedKeyHashMap<ScrollingNodeID, Ref<ScrollingStateNode>>;
     const StateNodeMap& nodeMap() const { return m_stateNodeMap; }
 
     LayerRepresentation::Type preferredLayerRepresentation() const { return m_preferredLayerRepresentation; }
@@ -119,7 +119,7 @@ private:
     // Contains all the nodes we know about (those in the m_rootStateNode tree, and in m_unparentedNodes subtrees).
     StateNodeMap m_stateNodeMap;
     // Owns roots of unparented subtrees.
-    HashMap<ScrollingNodeID, RefPtr<ScrollingStateNode>> m_unparentedNodes;
+    UncheckedKeyHashMap<ScrollingNodeID, RefPtr<ScrollingStateNode>> m_unparentedNodes;
 
     RefPtr<ScrollingStateFrameScrollingNode> m_rootStateNode;
     unsigned m_scrollingNodeCount { 0 };

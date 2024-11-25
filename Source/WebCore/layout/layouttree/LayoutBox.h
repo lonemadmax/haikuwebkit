@@ -61,7 +61,7 @@ public:
         LineBreak,
         WordBreakOpportunity,
         ListMarker,
-        InputButton // Buttons are implicit flex boxes with no flex display type.
+        ImplicitFlexBox // These boxes are implicit flex boxes with no flex display type and they should probably turned into proper flex boxes.
     };
 
     enum class IsAnonymous : bool { No, Yes };
@@ -127,7 +127,6 @@ public:
 
     bool isDocumentBox() const { return m_nodeType == NodeType::DocumentElement; }
     bool isBodyBox() const { return m_nodeType == NodeType::Body; }
-    bool isInputButton() const { return m_nodeType == NodeType::InputButton; }
     bool isRuby() const { return style().display() == DisplayType::Ruby; }
     bool isRubyBase() const { return style().display() == DisplayType::RubyBase; }
     bool isRubyInlineBox() const { return isRuby() || isRubyBase(); }
@@ -142,7 +141,7 @@ public:
     bool isTableColumn() const { return style().display() == DisplayType::TableColumn; }
     bool isTableCell() const { return style().display() == DisplayType::TableCell; }
     bool isInternalTableBox() const;
-    bool isFlexBox() const { return style().display() == DisplayType::Flex || style().display() == DisplayType::InlineFlex || isInputButton(); }
+    bool isFlexBox() const { return style().display() == DisplayType::Flex || style().display() == DisplayType::InlineFlex || m_nodeType == NodeType::ImplicitFlexBox; }
     bool isFlexItem() const;
     bool isGridBox() const { return style().display() == DisplayType::Grid || style().display() == DisplayType::InlineGrid; }
     bool isIFrame() const { return m_nodeType == NodeType::IFrame; }
@@ -159,9 +158,11 @@ public:
     const Box* nextSibling() const { return m_nextSibling.get(); }
     const Box* nextInFlowSibling() const;
     const Box* nextInFlowOrFloatingSibling() const;
+    const Box* nextOutOfFlowSibling() const;
     const Box* previousSibling() const { return m_previousSibling.get(); }
     const Box* previousInFlowSibling() const;
     const Box* previousInFlowOrFloatingSibling() const;
+    const Box* previousOutOfFlowSibling() const;
     bool isDescendantOf(const ElementBox&) const;
 
     // FIXME: This is currently needed for style updates.
@@ -226,7 +227,7 @@ private:
     
     OptionSet<BaseTypeFlag> baseTypeFlags() const { return OptionSet<BaseTypeFlag>::fromRaw(m_baseTypeFlags); }
 
-    typedef HashMap<const Box*, std::unique_ptr<BoxRareData>> RareDataMap;
+    typedef UncheckedKeyHashMap<const Box*, std::unique_ptr<BoxRareData>> RareDataMap;
 
     static RareDataMap& rareDataMap();
 

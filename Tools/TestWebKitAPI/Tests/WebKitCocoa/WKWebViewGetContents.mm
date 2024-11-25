@@ -328,7 +328,14 @@ TEST(WKWebView, AttributedStringFromTable)
         auto leftEdge = NSRectEdgeMinX;
 #endif
         EXPECT_EQ([cell widthForLayer:NSTextBlockBorder edge:leftEdge], expectedBorderWidth);
-        EXPECT_TRUE([cell backgroundColor] == expectedBackgroundColor || [[cell backgroundColor] isEqual:expectedBackgroundColor]);
+
+        if (!expectedBackgroundColor)
+            EXPECT_NULL(cell.backgroundColor);
+        else {
+            auto cellColor = WebCore::colorFromCocoaColor([cell backgroundColor]);
+            auto expectedColor = WebCore::colorFromCocoaColor(expectedBackgroundColor);
+            EXPECT_EQ(cellColor, expectedColor);
+        }
     };
 
     EXPECT_EQ(allTableCells.size(), 8U);
@@ -561,4 +568,13 @@ TEST(WKWebView, AttributedStringAndCDATASection)
     }];
 
     TestWebKitAPI::Util::run(&finished);
+}
+
+TEST(WKWebView, AttributedStringIncludesUserSelectNoneContent)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 300)]);
+    [webView synchronouslyLoadHTMLString:@"<body><p style='-webkit-user-select: none;'>Hello</p></body>"];
+
+    RetainPtr string = [[webView _contentsAsAttributedString] string];
+    EXPECT_WK_STREQ("Hello", [string stringByTrimmingCharactersInSet:NSCharacterSet.newlineCharacterSet]);
 }

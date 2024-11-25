@@ -33,10 +33,10 @@
 #include "NotImplemented.h"
 #include "PublicSuffixStore.h"
 #include "ResourceRequest.h"
-#include "RuntimeApplicationChecks.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
+#include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -134,51 +134,60 @@ bool NetworkStorageSession::hasHadUserInteractionAsFirstParty(const RegistrableD
     return m_registrableDomainsWithUserInteractionAsFirstParty.contains(registrableDomain);
 }
 
-bool NetworkStorageSession::shouldBlockCookies(const ResourceRequest& request, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
+ThirdPartyCookieBlockingDecision NetworkStorageSession::thirdPartyCookieBlockingDecisionForRequest(const ResourceRequest& request, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
 {
-    return shouldBlockCookies(request.firstPartyForCookies(), request.url(), frameID, pageID, shouldRelaxThirdPartyCookieBlocking);
+    return thirdPartyCookieBlockingDecisionForRequest(request.firstPartyForCookies(), request.url(), frameID, pageID, shouldRelaxThirdPartyCookieBlocking);
 }
     
-bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
+ThirdPartyCookieBlockingDecision NetworkStorageSession::thirdPartyCookieBlockingDecisionForRequest(const URL& firstPartyForCookies, const URL& resource, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
 {
     if (shouldRelaxThirdPartyCookieBlocking == ShouldRelaxThirdPartyCookieBlocking::Yes)
-        return false;
+        return ThirdPartyCookieBlockingDecision::None;
 
     if (!m_isTrackingPreventionEnabled)
-        return false;
+        return ThirdPartyCookieBlockingDecision::None;
 
     RegistrableDomain firstPartyDomain { firstPartyForCookies };
     if (firstPartyDomain.isEmpty())
-        return false;
+        return ThirdPartyCookieBlockingDecision::None;
 
     RegistrableDomain resourceDomain { resource };
     if (resourceDomain.isEmpty())
-        return false;
+        return ThirdPartyCookieBlockingDecision::None;
 
     if (firstPartyDomain == resourceDomain)
-        return false;
+        return ThirdPartyCookieBlockingDecision::None;
 
     if (hasStorageAccess(resourceDomain, firstPartyDomain, frameID, pageID))
-        return false;
+        return ThirdPartyCookieBlockingDecision::None;
 
     switch (m_thirdPartyCookieBlockingMode) {
     case ThirdPartyCookieBlockingMode::All:
-        return true;
+        return ThirdPartyCookieBlockingDecision::All;
     case ThirdPartyCookieBlockingMode::AllExceptBetweenAppBoundDomains:
-        return !shouldExemptDomainPairFromThirdPartyCookieBlocking(firstPartyDomain, resourceDomain);
-    case ThirdPartyCookieBlockingMode::AllExceptManagedDomains: {
-        return !m_managedDomains.contains(firstPartyDomain);
-    }
+        return shouldExemptDomainPairFromThirdPartyCookieBlocking(firstPartyDomain, resourceDomain) ? ThirdPartyCookieBlockingDecision::None : ThirdPartyCookieBlockingDecision::All;
+    case ThirdPartyCookieBlockingMode::AllExceptManagedDomains:
+        return m_managedDomains.contains(firstPartyDomain) ? ThirdPartyCookieBlockingDecision::None : ThirdPartyCookieBlockingDecision::All;
     case ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction:
         if (!hasHadUserInteractionAsFirstParty(firstPartyDomain))
-            return true;
+            return ThirdPartyCookieBlockingDecision::All;
         FALLTHROUGH;
     case ThirdPartyCookieBlockingMode::OnlyAccordingToPerDomainPolicy:
-        return shouldBlockThirdPartyCookies(resourceDomain);
+        return shouldBlockThirdPartyCookies(resourceDomain) ? ThirdPartyCookieBlockingDecision::All : ThirdPartyCookieBlockingDecision::None;
     }
 
     ASSERT_NOT_REACHED();
-    return false;
+    return ThirdPartyCookieBlockingDecision::None;
+}
+
+bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
+{
+    return thirdPartyCookieBlockingDecisionForRequest(firstPartyForCookies, resource, frameID, pageID, shouldRelaxThirdPartyCookieBlocking) == ThirdPartyCookieBlockingDecision::All;
+}
+
+bool NetworkStorageSession::shouldBlockCookies(const ResourceRequest& request, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
+{
+    return shouldBlockCookies(request.firstPartyForCookies(), request.url(), frameID, pageID, shouldRelaxThirdPartyCookieBlocking);
 }
 
 bool NetworkStorageSession::shouldExemptDomainPairFromThirdPartyCookieBlocking(const RegistrableDomain& topFrameDomain, const RegistrableDomain& resourceDomain) const
@@ -230,7 +239,7 @@ void NetworkStorageSession::setDomainsWithUserInteractionAsFirstParty(const Vect
         cookieEnabledStateMayHaveChanged();
 }
 
-void NetworkStorageSession::setDomainsWithCrossPageStorageAccess(const HashMap<TopFrameDomain, Vector<SubResourceDomain>>& domains)
+void NetworkStorageSession::setDomainsWithCrossPageStorageAccess(const UncheckedKeyHashMap<TopFrameDomain, Vector<SubResourceDomain>>& domains)
 {
     m_pairsGrantedCrossPageStorageAccess.clear();
     for (auto& [topDomain, subResourceDomains] : domains) {
@@ -303,7 +312,7 @@ void NetworkStorageSession::grantStorageAccess(const RegistrableDomain& resource
             return;
         auto pagesGrantedIterator = m_pagesGrantedStorageAccess.find(pageID);
         if (pagesGrantedIterator == m_pagesGrantedStorageAccess.end()) {
-            HashMap<RegistrableDomain, RegistrableDomain> entry;
+            UncheckedKeyHashMap<RegistrableDomain, RegistrableDomain> entry;
             entry.add(firstPartyDomain, resourceDomain);
             m_pagesGrantedStorageAccess.add(pageID, entry);
         } else {
@@ -318,7 +327,7 @@ void NetworkStorageSession::grantStorageAccess(const RegistrableDomain& resource
 
     auto pagesGrantedIterator = m_framesGrantedStorageAccess.find(pageID);
     if (pagesGrantedIterator == m_framesGrantedStorageAccess.end()) {
-        HashMap<FrameIdentifier, RegistrableDomain> entry;
+        UncheckedKeyHashMap<FrameIdentifier, RegistrableDomain> entry;
         entry.add(frameID.value(), resourceDomain);
         m_framesGrantedStorageAccess.add(pageID, entry);
     } else {
@@ -443,10 +452,10 @@ std::optional<Seconds> NetworkStorageSession::clientSideCookieCap(const Registra
 #endif
 }
 
-const HashMap<RegistrableDomain, HashSet<RegistrableDomain>>& NetworkStorageSession::storageAccessQuirks()
+const UncheckedKeyHashMap<RegistrableDomain, HashSet<RegistrableDomain>>& NetworkStorageSession::storageAccessQuirks()
 {
-    static NeverDestroyed<HashMap<RegistrableDomain, HashSet<RegistrableDomain>>> map = [] {
-        HashMap<RegistrableDomain, HashSet<RegistrableDomain>> map;
+    static NeverDestroyed<UncheckedKeyHashMap<RegistrableDomain, HashSet<RegistrableDomain>>> map = [] {
+        UncheckedKeyHashMap<RegistrableDomain, HashSet<RegistrableDomain>> map;
         map.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("microsoft.com"_s),
             HashSet { RegistrableDomain::uncheckedCreateFromRegistrableDomainString("microsoftonline.com"_s) });
         map.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("live.com"_s),
@@ -546,7 +555,7 @@ void NetworkStorageSession::deleteCookies(const ClientOrigin& origin, Completion
 
 bool NetworkStorageSession::cookiesEnabled(const URL& firstParty, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
 {
-    return !shouldBlockCookies(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking);
+    return thirdPartyCookieBlockingDecisionForRequest(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking) != ThirdPartyCookieBlockingDecision::All;
 }
 
 void NetworkStorageSession::addCookiesEnabledStateObserver(CookiesEnabledStateObserver& observer)

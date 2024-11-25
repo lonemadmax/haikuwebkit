@@ -49,7 +49,7 @@ public:
     void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&) override;
 #endif
 
-    using CSSValueToSystemColorMap = HashMap<CSSValueKey, Color>;
+    using CSSValueToSystemColorMap = UncheckedKeyHashMap<CSSValueKey, Color>;
 
     WEBCORE_EXPORT static const CSSValueToSystemColorMap& cssValueToSystemColorMap();
     WEBCORE_EXPORT static void setCSSValueToSystemColorMap(CSSValueToSystemColorMap&&);
@@ -142,7 +142,6 @@ private:
 #if ENABLE(INPUT_TYPE_COLOR)
     String colorInputStyleSheet() const final;
 
-    void adjustColorWellStyle(RenderStyle&, const Element*) const final;
     void paintColorWellDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 #endif
 
@@ -200,7 +199,6 @@ private:
 
     Color controlTintColor(const RenderStyle&, OptionSet<StyleColorOptions>) const;
 
-    void adjustStyleForAlternateFormControlDesignTransition(RenderStyle&, const Element*) const;
     void adjustMinimumIntrinsicSizeForAppearance(StyleAppearance, RenderStyle&) const;
 };
 

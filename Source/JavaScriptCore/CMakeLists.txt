@@ -1185,6 +1185,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/RegExpKey.h
     runtime/RegExpObject.h
     runtime/RegExpStringIteratorPrototype.h
+    runtime/RegExpSubstringGlobalAtomCache.h
     runtime/ResourceExhaustion.h
     runtime/RuntimeFlags.h
     runtime/RuntimeType.h
@@ -1272,7 +1273,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmCallee.h
     wasm/WasmCalleeGroup.h
     wasm/WasmCallingConvention.h
-    wasm/WasmCallsiteCollection.h
     wasm/WasmCapabilities.h
     wasm/WasmCompilationContext.h
     wasm/WasmCompilationMode.h

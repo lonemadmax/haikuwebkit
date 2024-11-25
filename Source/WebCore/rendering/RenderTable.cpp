@@ -632,7 +632,7 @@ void RenderTable::layout()
     }
 
     bool paginated = layoutState && layoutState->isPaginated();
-    if (sectionMoved && paginated) {
+    if (sectionCount && sectionMoved && paginated) {
         // FIXME: Table layout should always stabilize even when section moves (see webkit.org/b/174412).
         if (m_recursiveSectionMovedWithPaginationLevel < sectionCount) {
             SetForScope recursiveSectionMovedWithPaginationLevel(m_recursiveSectionMovedWithPaginationLevel, m_recursiveSectionMovedWithPaginationLevel + 1);
@@ -849,12 +849,12 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& p
 
     BackgroundPainter backgroundPainter { *this, paintInfo };
 
-    BackgroundBleedAvoidance bleedAvoidance = determineBackgroundBleedAvoidance(paintInfo.context());
+    auto bleedAvoidance = determineBleedAvoidance(paintInfo.context());
     if (!BackgroundPainter::boxShadowShouldBeAppliedToBackground(*this, rect.location(), bleedAvoidance, { }))
         backgroundPainter.paintBoxShadow(rect, style(), ShadowStyle::Normal);
 
     GraphicsContextStateSaver stateSaver(paintInfo.context(), false);
-    if (bleedAvoidance == BackgroundBleedUseTransparencyLayer) {
+    if (bleedAvoidance == BleedAvoidance::UseTransparencyLayer) {
         // To avoid the background color bleeding out behind the border, we'll render background and border
         // into a transparency layer, and then clip that in one go (which requires setting up the clip before
         // beginning the layer).
@@ -870,7 +870,7 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& p
     if (style().hasVisibleBorderDecoration() && !collapseBorders())
         BorderPainter { *this, paintInfo }.paintBorder(rect, style());
 
-    if (bleedAvoidance == BackgroundBleedUseTransparencyLayer)
+    if (bleedAvoidance == BleedAvoidance::UseTransparencyLayer)
         paintInfo.context().endTransparencyLayer();
 }
 

@@ -57,6 +57,7 @@
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ViewportArguments.h>
+#include <WebCore/WindowFeatures.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/text/WTFString.h>
 
@@ -104,7 +105,7 @@ struct WebPageCreationParameters {
     
     WebPreferencesStore store { };
     DrawingAreaType drawingAreaType { };
-    DrawingAreaIdentifier drawingAreaIdentifier { };
+    DrawingAreaIdentifier drawingAreaIdentifier;
     WebPageProxyIdentifier webPageProxyIdentifier;
     WebPageGroupData pageGroupData;
 
@@ -248,7 +249,7 @@ struct WebPageCreationParameters {
     String overrideContentSecurityPolicy { };
     std::optional<double> cpuLimit { };
 
-    HashMap<String, WebURLSchemeHandlerIdentifier> urlSchemeHandlers { };
+    UncheckedKeyHashMap<String, WebURLSchemeHandlerIdentifier> urlSchemeHandlers { };
     Vector<String> urlSchemesWithLegacyCustomProtocolHandlers { };
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -324,8 +325,10 @@ struct WebPageCreationParameters {
 
     std::optional<RemotePageParameters> remotePageParameters { };
     WebCore::FrameIdentifier mainFrameIdentifier;
+    String openedMainFrameName;
     std::optional<WebCore::FrameIdentifier> mainFrameOpenerIdentifier { };
     WebCore::SandboxFlags initialSandboxFlags;
+    std::optional<WebCore::WindowFeatures> windowFeatures { };
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
     Vector<WebCore::LinkDecorationFilteringData> linkDecorationFilteringData { };

@@ -104,8 +104,11 @@ class WebPageProxyFrameLoadStateObserver final : public FrameLoadStateObserver {
 public:
     static constexpr size_t maxVisitedDomainsSize = 6;
 
-    WebPageProxyFrameLoadStateObserver();
+    explicit WebPageProxyFrameLoadStateObserver(const WebPageProxy&);
     virtual ~WebPageProxyFrameLoadStateObserver();
+
+    void ref() const final;
+    void deref() const final;
 
     void didReceiveProvisionalURL(const URL& url) override
     {
@@ -140,6 +143,7 @@ private:
             m_visitedDomains.removeLast();
     }
 
+    WeakRef<WebPageProxy> m_page;
     Vector<URL> m_provisionalURLs;
     ListHashSet<WebCore::RegistrableDomain> m_visitedDomains;
 };
@@ -147,6 +151,14 @@ private:
 
 class PageLoadTimingFrameLoadStateObserver final : public FrameLoadStateObserver {
 public:
+    explicit PageLoadTimingFrameLoadStateObserver(const WebPageProxy&page)
+        : m_page(page)
+    {
+    }
+
+    void ref() const final;
+    void deref() const final;
+
     bool hasLoadingFrame() const { return !!m_loadingFrameCount; }
 
 private:
@@ -182,6 +194,7 @@ private:
         // FIXME: Assert that m_loadingFrameCount is zero if this is a main frame.
     }
 
+    WeakRef<WebPageProxy> m_page;
     size_t m_loadingFrameCount { 0 };
 };
 
@@ -255,9 +268,15 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 #endif
 {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Internals);
 
 public:
     virtual ~Internals();
+
+    uint32_t ptrCount() const { return WebPopupMenuProxy::Client::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const { return WebPopupMenuProxy::Client::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const { WebPopupMenuProxy::Client::incrementPtrCount(); }
+    void decrementPtrCount() const { WebPopupMenuProxy::Client::decrementPtrCount(); }
 
     WeakRef<WebPageProxy> page;
     OptionSet<WebCore::ActivityState> activityState;
@@ -303,22 +322,22 @@ public:
     WebCore::Color underPageBackgroundColorOverride;
     WebCore::Color underlayColor;
     RunLoop::Timer updateReportedMediaCaptureStateTimer;
-    HashMap<WebURLSchemeHandlerIdentifier, Ref<WebURLSchemeHandler>> urlSchemeHandlersByIdentifier;
+    UncheckedKeyHashMap<WebURLSchemeHandlerIdentifier, Ref<WebURLSchemeHandler>> urlSchemeHandlersByIdentifier;
     std::optional<WebCore::FloatRect> viewExposedRect;
     std::optional<WebCore::FloatSize> viewportSizeForCSSViewportUnits;
     VisibleWebPageToken visiblePageToken;
     WebCore::IntRect visibleScrollerThumbRect;
     WindowKind windowKind { WindowKind::Unparented };
-    std::unique_ptr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToTitleChanges;
-    std::unique_ptr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToNotifications;
+    RefPtr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToTitleChanges;
+    RefPtr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToNotifications;
 
     WebPageProxyMessageReceiverRegistration messageReceiverRegistration;
 
     WeakHashSet<WebPageProxy> m_openedPages;
-    HashMap<WebCore::SleepDisablerIdentifier, std::unique_ptr<WebCore::SleepDisabler>> sleepDisablers;
+    UncheckedKeyHashMap<WebCore::SleepDisablerIdentifier, std::unique_ptr<WebCore::SleepDisabler>> sleepDisablers;
 
 #if ENABLE(APPLE_PAY)
-    std::unique_ptr<WebPaymentCoordinatorProxy> paymentCoordinator;
+    RefPtr<WebPaymentCoordinatorProxy> paymentCoordinator;
 #endif
 
 #if PLATFORM(COCOA)
@@ -381,10 +400,10 @@ public:
 #endif
 
 #if ENABLE(WRITING_TOOLS)
-    HashMap<WTF::UUID, WebCore::TextIndicatorData> textIndicatorDataForAnimationID;
-    HashMap<WTF::UUID, CompletionHandler<void(WebCore::TextAnimationRunMode)>> completionHandlerForAnimationID;
-    HashMap<WTF::UUID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>)>> completionHandlerForDestinationTextIndicatorForSourceID;
-    HashMap<WTF::UUID, WTF::UUID> sourceAnimationIDtoDestinationAnimationID;
+    UncheckedKeyHashMap<WTF::UUID, WebCore::TextIndicatorData> textIndicatorDataForAnimationID;
+    UncheckedKeyHashMap<WTF::UUID, CompletionHandler<void(WebCore::TextAnimationRunMode)>> completionHandlerForAnimationID;
+    UncheckedKeyHashMap<WTF::UUID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>)>> completionHandlerForDestinationTextIndicatorForSourceID;
+    UncheckedKeyHashMap<WTF::UUID, WTF::UUID> sourceAnimationIDtoDestinationAnimationID;
 #endif
 
     MonotonicTime didFinishDocumentLoadForMainFrameTimestamp;
@@ -405,12 +424,12 @@ public:
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    std::optional<MediaCapability> mediaCapability;
+    RefPtr<MediaCapability> mediaCapability;
 #endif
 
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
     std::unique_ptr<WebPageProxyFrameLoadStateObserver> frameLoadStateObserver;
-    HashMap<WebCore::RegistrableDomain, OptionSet<WebCore::WindowProxyProperty>> windowOpenerAccessedProperties;
+    UncheckedKeyHashMap<WebCore::RegistrableDomain, OptionSet<WebCore::WindowProxyProperty>> windowOpenerAccessedProperties;
 #endif
     PageLoadTimingFrameLoadStateObserver pageLoadTimingFrameLoadStateObserver;
 
@@ -448,7 +467,7 @@ public:
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY)
     UIViewController *paymentCoordinatorPresentingViewController(const WebPaymentCoordinatorProxy&) final;
     const String& paymentCoordinatorCTDataConnectionServiceType(const WebPaymentCoordinatorProxy&) final;
-    std::unique_ptr<PaymentAuthorizationPresenter> paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy&, PKPaymentRequest *) final;
+    Ref<PaymentAuthorizationPresenter> paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy&, PKPaymentRequest *) final;
 #endif
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY) && ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
     void getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&&) final;

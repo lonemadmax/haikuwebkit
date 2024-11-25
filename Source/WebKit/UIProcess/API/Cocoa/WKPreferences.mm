@@ -596,6 +596,11 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
     [self _setEnabled:value forFeature:feature];
 }
 
+- (void)_disableRichJavaScriptFeatures
+{
+    _preferences->disableRichJavaScriptFeatures();
+}
+
 - (BOOL)_applePayCapabilityDisclosureAllowed
 {
 #if ENABLE(APPLE_PAY)
@@ -1666,6 +1671,17 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 {
     return _preferences->videoFullscreenRequiresElementFullscreen();
 }
+
+- (void)_setCSSTransformStyleSeparatedEnabled:(BOOL)enabled
+{
+    _preferences->setCSSTransformStyleSeparatedEnabled(enabled);
+}
+
+- (BOOL)_cssTransformStyleSeparatedEnabled
+{
+    return _preferences->cssTransformStyleSeparatedEnabled();
+}
+
 
 @end
 

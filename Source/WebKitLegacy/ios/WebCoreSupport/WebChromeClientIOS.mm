@@ -57,12 +57,12 @@
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/RenderBox.h>
 #import <WebCore/RenderObject.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScrollingConstraints.h>
 #import <WebCore/WAKWindow.h>
 #import <WebCore/WebCoreThreadMessage.h>
 #import <wtf/HashMap.h>
 #import <wtf/RefPtr.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -337,7 +337,7 @@ bool WebChromeClientIOS::fetchCustomFixedPositionLayoutRect(IntRect& rect)
     return false;
 }
 
-void WebChromeClientIOS::updateViewportConstrainedLayers(HashMap<PlatformLayer*, std::unique_ptr<ViewportConstraints>>& layerMap, const HashMap<PlatformLayer*, PlatformLayer*>& stickyContainers)
+void WebChromeClientIOS::updateViewportConstrainedLayers(UncheckedKeyHashMap<PlatformLayer*, std::unique_ptr<ViewportConstraints>>& layerMap, const UncheckedKeyHashMap<PlatformLayer*, PlatformLayer*>& stickyContainers)
 {
     [[webView() _fixedPositionContent] setViewportConstrainedLayers:layerMap stickyContainerMap:stickyContainers];
 }

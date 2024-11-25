@@ -157,7 +157,7 @@ void WebSWServerToContextConnection::firePushEvent(ServiceWorkerIdentifier servi
 
     std::optional<std::span<const uint8_t>> ipcData;
     if (data)
-        ipcData = std::span<const uint8_t> { data->data(), data->size() };
+        ipcData = data->span();
     sendWithAsyncReply(Messages::WebSWContextManagerConnection::FirePushEvent(serviceWorkerIdentifier, ipcData, WTFMove(proposedPayload)), [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](bool wasProcessed, std::optional<NotificationPayload>&& resultPayload) mutable {
         if (CheckedPtr checkedThis = weakThis.get(); checkedThis && !--checkedThis->m_processingFunctionalEventCount)
             checkedThis->protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { checkedThis->webProcessIdentifier() }, 0);
@@ -262,7 +262,7 @@ void WebSWServerToContextConnection::didSaveScriptsToDisk(ServiceWorkerIdentifie
 #if ENABLE(SHAREABLE_RESOURCE) && PLATFORM(COCOA)
     // Send file-mapped ScriptBuffers over to the ServiceWorker process so that it can replace its heap-allocated copies and save on dirty memory.
     auto scriptToSend = script.containsSingleFileMappedSegment() ? script : ScriptBuffer();
-    HashMap<URL, ScriptBuffer> importedScriptsToSend;
+    UncheckedKeyHashMap<URL, ScriptBuffer> importedScriptsToSend;
     for (auto& pair : importedScripts) {
         if (pair.value.containsSingleFileMappedSegment())
             importedScriptsToSend.add(pair.key, pair.value);

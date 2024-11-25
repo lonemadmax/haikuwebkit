@@ -50,7 +50,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ScrollingTree);
 
-using OrphanScrollingNodeMap = HashMap<ScrollingNodeID, RefPtr<ScrollingTreeNode>>;
+using OrphanScrollingNodeMap = UncheckedKeyHashMap<ScrollingNodeID, RefPtr<ScrollingTreeNode>>;
 
 struct CommitTreeState {
     // unvisitedNodes starts with all nodes in the map; we remove nodes as we visit them. At the end, it's the unvisited nodes.
@@ -465,7 +465,9 @@ bool ScrollingTree::updateTreeFromStateNodeRecursive(const ScrollingStateNode* s
     }
 
     auto nodeID = stateNode->scrollingNodeID();
-    auto parentNodeID = state.frameHostingNode ? state.frameHostingNode->scrollingNodeID() : stateNode->parentNodeID();
+    auto parentNodeID = stateNode->parentNodeID();
+    if (!parentNodeID && state.frameHostingNode && is<ScrollingStateFrameScrollingNode>(stateNode))
+        parentNodeID = state.frameHostingNode->scrollingNodeID();
 
     auto it = m_nodeMap.find(nodeID);
 
@@ -792,7 +794,6 @@ bool ScrollingTree::isUserScrollInProgressForNode(std::optional<ScrollingNodeID>
     
 void ScrollingTree::setUserScrollInProgressForNode(ScrollingNodeID nodeID, bool isScrolling)
 {
-    ASSERT(nodeID);
     Locker locker { m_treeStateLock };
     if (isScrolling) {
         m_treeState.nodesWithActiveUserScrolls.add(nodeID);
@@ -821,7 +822,6 @@ bool ScrollingTree::isScrollSnapInProgressForNode(std::optional<ScrollingNodeID>
 
 void ScrollingTree::setNodeScrollSnapInProgress(ScrollingNodeID nodeID, bool isScrollSnapping)
 {
-    ASSERT(nodeID);
     Locker locker { m_treeStateLock };
 
     if (isScrollSnapping) {
@@ -833,16 +833,16 @@ void ScrollingTree::setNodeScrollSnapInProgress(ScrollingNodeID nodeID, bool isS
     }
 }
 
-bool ScrollingTree::isScrollAnimationInProgressForNode(ScrollingNodeID nodeID)
+bool ScrollingTree::isScrollAnimationInProgressForNode(std::optional<ScrollingNodeID> nodeID)
 {
     if (!nodeID)
         return false;
 
     Locker locker { m_treeStateLock };
-    return m_treeState.nodesWithActiveScrollAnimations.contains(nodeID);
+    return m_treeState.nodesWithActiveScrollAnimations.contains(*nodeID);
 }
 
-void ScrollingTree::setScrollAnimationInProgressForNode(ScrollingNodeID nodeID, bool isScrollAnimationInProgress)
+void ScrollingTree::setScrollAnimationInProgressForNode(std::optional<ScrollingNodeID> nodeID, bool isScrollAnimationInProgress)
 {
     if (!nodeID)
         return;
@@ -852,9 +852,9 @@ void ScrollingTree::setScrollAnimationInProgressForNode(ScrollingNodeID nodeID, 
     bool hadAnyAnimatedScrollingNodes = !m_treeState.nodesWithActiveScrollAnimations.isEmpty();
     
     if (isScrollAnimationInProgress)
-        m_treeState.nodesWithActiveScrollAnimations.add(nodeID);
+        m_treeState.nodesWithActiveScrollAnimations.add(*nodeID);
     else
-        m_treeState.nodesWithActiveScrollAnimations.remove(nodeID);
+        m_treeState.nodesWithActiveScrollAnimations.remove(*nodeID);
 
     bool hasAnyAnimatedScrollingNodes = !m_treeState.nodesWithActiveScrollAnimations.isEmpty();
     if (hasAnyAnimatedScrollingNodes != hadAnyAnimatedScrollingNodes)

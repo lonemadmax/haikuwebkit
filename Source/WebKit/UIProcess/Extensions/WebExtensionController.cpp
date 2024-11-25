@@ -39,9 +39,9 @@ namespace WebKit {
 
 constexpr auto freshlyCreatedTimeout = 5_s;
 
-static HashMap<WebExtensionControllerIdentifier, WeakRef<WebExtensionController>>& webExtensionControllers()
+static UncheckedKeyHashMap<WebExtensionControllerIdentifier, WeakRef<WebExtensionController>>& webExtensionControllers()
 {
-    static MainThreadNeverDestroyed<HashMap<WebExtensionControllerIdentifier, WeakRef<WebExtensionController>>> controllers;
+    static MainThreadNeverDestroyed<UncheckedKeyHashMap<WebExtensionControllerIdentifier, WeakRef<WebExtensionController>>> controllers;
     return controllers;
 }
 
@@ -77,15 +77,13 @@ WebExtensionController::~WebExtensionController()
 
 WebExtensionControllerParameters WebExtensionController::parameters() const
 {
-    WebExtensionControllerParameters parameters;
-
-    parameters.identifier = identifier();
-    parameters.testingMode = inTestingMode();
-    parameters.contextParameters = WTF::map(extensionContexts(), [](auto& context) {
-        return context->parameters();
-    });
-
-    return parameters;
+    return {
+        .identifier = identifier(),
+        .testingMode = inTestingMode(),
+        .contextParameters = WTF::map(extensionContexts(), [](auto& context) {
+            return context->parameters();
+        })
+    };
 }
 
 WebExtensionController::WebProcessProxySet WebExtensionController::allProcesses() const

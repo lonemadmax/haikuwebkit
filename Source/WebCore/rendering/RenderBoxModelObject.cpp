@@ -74,7 +74,7 @@
 #include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
-#include "RuntimeApplicationChecks.h"
+#include <wtf/RuntimeApplicationChecks.h>
 #endif
 
 namespace WebCore {
@@ -83,7 +83,7 @@ using namespace HTMLNames;
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderBoxModelObject);
 
-// The HashMap for storing continuation pointers.
+// The UncheckedKeyHashMap for storing continuation pointers.
 // An inline can be split with blocks occuring in between the inline content.
 // When this occurs we need a pointer to the next object. We can basically be
 // split into a sequence of inlines and blocks. The continuation will either be
@@ -134,6 +134,18 @@ static FirstLetterRemainingTextMap& firstLetterRemainingTextMap()
 {
     static NeverDestroyed<FirstLetterRemainingTextMap> map;
     return map;
+}
+
+void RenderBoxModelObject::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
+{
+    const RenderStyle* oldStyle = hasInitializedStyle() ? &style() : nullptr;
+
+    if (!style().anchorNames().isEmpty())
+        view().registerAnchor(*this);
+    else if (oldStyle && !oldStyle->anchorNames().isEmpty())
+        view().unregisterAnchor(*this);
+
+    RenderLayerModelObject::styleWillChange(diff, newStyle);
 }
 
 void RenderBoxModelObject::setSelectionState(HighlightState state)
@@ -306,7 +318,7 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
 {
     // Some document types force synchronous decoding.
 #if PLATFORM(IOS_FAMILY)
-    if (IOSApplication::isIBooksStorytime())
+    if (WTF::IOSApplication::isIBooksStorytime())
         return DecodingMode::Synchronous;
 #endif
 

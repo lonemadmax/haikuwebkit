@@ -36,33 +36,29 @@ class SQLiteTransaction;
 }
 
 namespace WebKit {
-class SQLiteStorageArea;
-}
 
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::SQLiteStorageArea> : std::true_type { };
-}
-
-namespace WebKit {
-
-class SQLiteStorageArea final : public StorageAreaBase {
+class SQLiteStorageArea final : public StorageAreaBase, public RefCounted<SQLiteStorageArea> {
     WTF_MAKE_TZONE_ALLOCATED(SQLiteStorageArea);
 public:
-    SQLiteStorageArea(unsigned quota, const WebCore::ClientOrigin&, const String& path, Ref<WorkQueue>&&);
+    static Ref<SQLiteStorageArea> create(unsigned quota, const WebCore::ClientOrigin&, const String& path, Ref<WorkQueue>&&);
     ~SQLiteStorageArea();
 
     void close();
     void handleLowMemoryWarning();
     void commitTransactionIfNecessary();
+    void clear() final;
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
 private:
+    SQLiteStorageArea(unsigned quota, const WebCore::ClientOrigin&, const String& path, Ref<WorkQueue>&&);
+
     // StorageAreaBase
     Type type() const final { return StorageAreaBase::Type::SQLite; };
     StorageType storageType() const final { return StorageAreaBase::StorageType::Local; };
     bool isEmpty() final;
-    void clear() final;
-    HashMap<String, String> allItems() final;
+    UncheckedKeyHashMap<String, String> allItems() final;
     Expected<void, StorageError> setItem(IPC::Connection::UniqueID, StorageAreaImplIdentifier, String&& key, String&& value, const String& urlString) final;
     Expected<void, StorageError> removeItem(IPC::Connection::UniqueID, StorageAreaImplIdentifier, const String& key, const String& urlString) final;
     Expected<void, StorageError> clear(IPC::Connection::UniqueID, StorageAreaImplIdentifier, const String& urlString) final;
@@ -96,7 +92,7 @@ private:
     std::unique_ptr<WebCore::SQLiteTransaction> m_transaction;
     Vector<std::unique_ptr<WebCore::SQLiteStatement>> m_cachedStatements;
     using Value = std::variant<String, unsigned>;
-    std::optional<HashMap<String, Value>> m_cache;
+    std::optional<UncheckedKeyHashMap<String, Value>> m_cache;
     std::optional<unsigned> m_cacheSize;
 };
 

@@ -1131,21 +1131,18 @@
     (global-name "com.apple.PowerManagement.control"))
 
 #if HAVE(STATIC_FONT_REGISTRY)
-(allow mach-lookup
-    (require-all
-        (extension "com.apple.webkit.extension.mach")
-        (global-name "com.apple.fonts")
-    )
-)
+(with-filter (require-not (state-flag "BlockFontServiceInWebContentSandbox"))
+    (allow mach-lookup
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (global-name "com.apple.fonts"))))
 #else
 (allow mach-lookup
-    (global-name "com.apple.fonts")
-)
+    (global-name "com.apple.fonts"))
 #endif
 
 (deny mach-lookup (with no-report)
-    (global-name "com.apple.lsd.mapdb")
-)
+    (global-name "com.apple.lsd.mapdb"))
 
 ;; <rdar://problem/47268166>
 (when (not (webcontent_gpu_sandbox_extensions_blocking))
@@ -1351,14 +1348,26 @@
         (global-name "com.apple.analyticsd")
         (global-name "com.apple.diagnosticd")))
 
+(with-filter (require-not (state-flag "BlockWebInspectorInWebContentSandbox"))
+    (allow mach-lookup
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (global-name
+                "com.apple.webinspector"))))
+
+(with-filter (require-not (state-flag "BlockIconServicesInWebContentSandbox"))
+    (allow mach-lookup
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (global-name
+                "com.apple.iconservices"
+                "com.apple.iconservices.store"))))
+
 (allow mach-lookup
     (require-all
         (extension "com.apple.webkit.extension.mach")
         (global-name
-            "com.apple.webinspector"
-            "com.apple.coreservices.launchservicesd"
-            "com.apple.iconservices"
-            "com.apple.iconservices.store")))
+            "com.apple.coreservices.launchservicesd")))
 
 (deny mach-lookup (with no-report)
     (global-name "com.apple.audio.AudioComponentRegistrar"))

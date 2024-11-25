@@ -85,6 +85,7 @@ enum class CompositingReason {
     IsolatesCompositedBlendingDescendants  = 1 << 26,
     Model                                  = 1 << 27,
     BackdropRoot                           = 1 << 28,
+    AnchorPositioning                      = 1 << 29,
 };
 
 enum class ScrollCoordinationRole {
@@ -366,7 +367,7 @@ public:
     bool isLayerForIFrameWithScrollCoordinatedContents(const RenderLayer&) const;
     bool isLayerForPluginWithScrollCoordinatedContents(const RenderLayer&) const;
 
-    ScrollableArea* scrollableAreaForScrollingNodeID(ScrollingNodeID) const;
+    ScrollableArea* scrollableAreaForScrollingNodeID(std::optional<ScrollingNodeID>) const;
 
     void removeFromScrollCoordinatedLayers(RenderLayer&);
 
@@ -525,6 +526,7 @@ private:
     bool requiresCompositingForScrollableFrame(RequiresCompositingData&) const;
     bool requiresCompositingForPosition(RenderLayerModelObject&, const RenderLayer&, RequiresCompositingData&) const;
     bool requiresCompositingForOverflowScrolling(const RenderLayer&, RequiresCompositingData&) const;
+    bool requiresCompositingForAnchorPositioning(const RenderLayer&) const;
     IndirectCompositingReason computeIndirectCompositingReason(const RenderLayer&, bool hasCompositedDescendants, bool has3DTransformedDescendants, bool paintsIntoProvidedBacking) const;
 
     static ScrollPositioningBehavior layerScrollBehahaviorRelativeToCompositedAncestor(const RenderLayer&, const RenderLayer& compositedAncestor);
@@ -663,7 +665,7 @@ private:
     Color m_viewBackgroundColor;
     Color m_rootExtendedBackgroundColor;
 
-    HashMap<ScrollingNodeID, SingleThreadWeakPtr<RenderLayer>> m_scrollingNodeToLayerMap;
+    UncheckedKeyHashMap<ScrollingNodeID, SingleThreadWeakPtr<RenderLayer>> m_scrollingNodeToLayerMap;
     SingleThreadWeakHashSet<RenderLayer> m_layersWithUnresolvedRelations;
 #if PLATFORM(IOS_FAMILY)
     std::unique_ptr<LegacyWebKitScrollingLayerCoordinator> m_legacyScrollingLayerCoordinator;

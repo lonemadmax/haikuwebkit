@@ -40,7 +40,7 @@ namespace WebCore {
 constexpr Seconds voiceActivityThrottlingDuration = 5_s;
 
 BaseAudioSharedUnit::BaseAudioSharedUnit()
-    : m_sampleRate(AudioSession::sharedSession().sampleRate())
+    : m_sampleRate(AudioSession::protectedSharedSession()->sampleRate())
     , m_voiceActivityThrottleTimer([] { })
 {
     RealtimeMediaSourceCenter::singleton().addDevicesChangedObserver(*this);
@@ -168,6 +168,9 @@ void BaseAudioSharedUnit::prepareForNewCapture()
 void BaseAudioSharedUnit::setCaptureDevice(String&& persistentID, uint32_t captureDeviceID)
 {
     bool hasChanged = this->persistentID() != persistentID || this->captureDeviceID() != captureDeviceID;
+    if (hasChanged)
+        willChangeCaptureDevice();
+
     m_capturingDevice = { WTFMove(persistentID), captureDeviceID };
 
     auto devices = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().audioCaptureDeviceManager().captureDevices();
@@ -180,6 +183,9 @@ void BaseAudioSharedUnit::setCaptureDevice(String&& persistentID, uint32_t captu
 void BaseAudioSharedUnit::devicesChanged()
 {
     Ref protectedThis { *this };
+
+    if (!hasAudioUnit())
+        return;
 
     auto devices = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().audioCaptureDeviceManager().captureDevices();
     auto persistentID = this->persistentID();
@@ -352,6 +358,8 @@ void BaseAudioSharedUnit::voiceActivityDetected()
 {
     if (m_voiceActivityThrottleTimer.isActive() || !m_voiceActivityCallback)
         return;
+
+    RELEASE_LOG_INFO(WebRTC, "BaseAudioSharedUnit::voiceActivityDetected");
 
     m_voiceActivityCallback();
     m_voiceActivityThrottleTimer.startOneShot(voiceActivityThrottlingDuration);

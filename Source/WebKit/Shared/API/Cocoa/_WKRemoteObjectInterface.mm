@@ -33,6 +33,8 @@
 #import <wtf/Vector.h>
 #import <wtf/text/CString.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 extern "C"
 const char *_protocol_getMethodTypeEncoding(Protocol *p, SEL sel, BOOL isRequiredMethod, BOOL isInstanceMethod);
 
@@ -53,7 +55,7 @@ struct MethodInfo {
 @implementation _WKRemoteObjectInterface {
     RetainPtr<NSString> _identifier;
 
-    HashMap<SEL, MethodInfo> _methods;
+    UncheckedKeyHashMap<SEL, MethodInfo> _methods;
 }
 
 static const char* methodArgumentTypeEncodingForSelector(Protocol *protocol, SEL selector)
@@ -319,3 +321,5 @@ static HashSet<CFTypeRef>& classesForSelectorArgument(_WKRemoteObjectInterface *
 }
 
 @end
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

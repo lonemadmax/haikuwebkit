@@ -56,11 +56,11 @@ public:
     void cloneStorageArea(StorageNamespaceIdentifier, StorageNamespaceIdentifier);
 
 private:
-    StorageAreaIdentifier addStorageArea(std::unique_ptr<MemoryStorageArea>, StorageNamespaceIdentifier);
+    StorageAreaIdentifier addStorageArea(Ref<MemoryStorageArea>&&, StorageNamespaceIdentifier);
 
     CheckedRef<StorageAreaRegistry> m_registry;
-    HashMap<StorageAreaIdentifier, std::unique_ptr<MemoryStorageArea>> m_storageAreas;
-    HashMap<StorageNamespaceIdentifier, StorageAreaIdentifier> m_storageAreasByNamespace;
+    UncheckedKeyHashMap<StorageAreaIdentifier, Ref<MemoryStorageArea>> m_storageAreas;
+    UncheckedKeyHashMap<StorageNamespaceIdentifier, StorageAreaIdentifier> m_storageAreasByNamespace;
 };
 
 } // namespace WebKit

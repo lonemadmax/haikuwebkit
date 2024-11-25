@@ -1090,6 +1090,13 @@
    },
    {
       "emails" : [
+         "aspensantos99@gmail.com"
+      ],
+      "github" : "aspensantos",
+      "name" : "Aspen Santos"
+   },
+   {
+      "emails" : [
          "asumu@igalia.com",
          "atakikawa@igalia.com"
       ],
@@ -1115,6 +1122,9 @@
       "status" : "committer"
    },
    {
+      "aliases" : [
+         "Blaze Jayne Burg"
+      ],
       "emails" : [
          "bburg@apple.com",
          "burg@cs.washington.edu"
@@ -1399,7 +1409,8 @@
    },
    {
       "emails" : [
-         "bfan2@apple.com"
+         "bfan2@apple.com",
+         "briannaf@berkeley.edu"
       ],
       "github" : "briannafan",
       "name" : "Brianna Fan",
@@ -6667,7 +6678,8 @@
       "name" : "Qianlang Chen",
       "nicks" : [
          "qianlangchen"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -8234,9 +8246,12 @@
    },
    {
       "emails" : [
-         "yoav@yoav.ws"
+         "yoav@yoav.ws",
+         "yoav.weiss@shopify.com"
       ],
-      "name" : "Yoav Weiss"
+      "github" : "yoavweiss",
+      "name" : "Yoav Weiss",
+      "status" : "committer"
    },
    {
       "emails" : [

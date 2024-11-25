@@ -541,7 +541,7 @@ void RenderLayerCompositor::BackingSharingState::issuePendingRepaints()
 {
     for (auto& layer : m_layersPendingRepaint) {
         LOG_WITH_STREAM(Compositing, stream << "Issuing postponed repaint of layer " << &layer);
-        layer.computeRepaintRectsIncludingDescendants();
+        layer.compositingStatusChanged(LayoutUpToDate::Yes);
         layer.compositor().repaintOnCompositingChange(layer);
     }
     
@@ -1828,7 +1828,7 @@ void RenderLayerCompositor::adjustOverflowScrollbarContainerLayers(RenderLayer& 
     if (layersClippedByScrollers.isEmpty())
         return;
 
-    HashMap<CheckedPtr<RenderLayer>, CheckedPtr<RenderLayer>> overflowScrollToLastContainedLayerMap;
+    UncheckedKeyHashMap<CheckedPtr<RenderLayer>, CheckedPtr<RenderLayer>> overflowScrollToLastContainedLayerMap;
 
     for (auto* clippedLayer : layersClippedByScrollers) {
         auto* clippingStack = clippedLayer->backing()->ancestorClippingStack();
@@ -2273,8 +2273,7 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
 
             // This layer and all of its descendants have cached repaints rects that are relative to
             // the repaint container, so change when compositing changes; we need to update them here.
-            if (layer.parent())
-                layer.computeRepaintRectsIncludingDescendants();
+            layer.compositingStatusChanged(queryData.layoutUpToDate);
 
             layer.setNeedsCompositingGeometryUpdate();
             layer.setNeedsCompositingConfigurationUpdate();
@@ -2302,7 +2301,7 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
             // the repaint container, so change when compositing changes; we need to update them here,
             // as long as shared backing isn't going to change our repaint container.
             if (!repaintTargetsSharedBacking(layer))
-                layer.computeRepaintRectsIncludingDescendants();
+                layer.compositingStatusChanged(queryData.layoutUpToDate);
 
             // If we need to repaint, do so now that we've removed the backing.
             repaintLayer(layer);
@@ -3114,7 +3113,8 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer& layer, R
         || requiresCompositingForModel(renderer)
         || requiresCompositingForFrame(renderer, queryData)
         || requiresCompositingForPlugin(renderer, queryData)
-        || requiresCompositingForOverflowScrolling(*renderer.layer(), queryData)) {
+        || requiresCompositingForOverflowScrolling(*renderer.layer(), queryData)
+        || requiresCompositingForAnchorPositioning(*renderer.layer())) {
         queryData.intrinsic = true;
         return true;
     }
@@ -3194,6 +3194,7 @@ bool RenderLayerCompositor::requiresOwnBackingStore(const RenderLayer& layer, co
         || requiresCompositingForFrame(renderer, queryData)
         || requiresCompositingForPlugin(renderer, queryData)
         || requiresCompositingForOverflowScrolling(layer, queryData)
+        || requiresCompositingForAnchorPositioning(layer)
         || needsContentsCompositingLayer(layer)
         || renderer.isTransparent()
         || renderer.hasMask()
@@ -3264,6 +3265,9 @@ OptionSet<CompositingReason> RenderLayerCompositor::reasonsForCompositing(const 
 
     if (requiresCompositingForOverflowScrolling(*renderer.layer(), queryData))
         reasons.add(CompositingReason::OverflowScrolling);
+
+    if (requiresCompositingForAnchorPositioning(*renderer.layer()))
+        reasons.add(CompositingReason::AnchorPositioning);
 
     switch (renderer.layer()->indirectCompositingReason()) {
     case IndirectCompositingReason::None:
@@ -3357,6 +3361,7 @@ static ASCIILiteral compositingReasonToString(CompositingReason reason)
     case CompositingReason::Root: return "root"_s;
     case CompositingReason::Model: return "model"_s;
     case CompositingReason::BackdropRoot: return "backdrop root"_s;
+    case CompositingReason::AnchorPositioning: return "anchor positioning"_s;
     }
     return ""_s;
 }
@@ -3945,6 +3950,11 @@ bool RenderLayerCompositor::requiresCompositingForOverflowScrolling(const Render
     return layer.hasCompositedScrollableOverflow();
 }
 
+bool RenderLayerCompositor::requiresCompositingForAnchorPositioning(const RenderLayer& layer) const
+{
+    return !!layer.snapshottedScrollOffsetForAnchorPositioning();
+}
+
 IndirectCompositingReason RenderLayerCompositor::computeIndirectCompositingReason(const RenderLayer& layer, bool hasCompositedDescendants, bool has3DTransformedDescendants, bool paintsIntoProvidedBacking) const
 {
     // When a layer has composited descendants, some effects, like 2d transforms, filters, masks etc must be implemented
@@ -4395,7 +4405,7 @@ bool RenderLayerCompositor::shouldCompositeOverflowControls() const
     if (documentUsesTiledBacking())
         return true;
 
-    if (m_overflowControlsHostLayer && isMainFrameCompositor())
+    if (m_overflowControlsHostLayer && isRootFrameCompositor())
         return true;
 
 #if !USE(COORDINATED_GRAPHICS)
@@ -5754,15 +5764,15 @@ void RenderLayerCompositor::updateSynchronousScrollingNodes()
     clearSynchronousReasonsOnNonRootNodes();
 }
 
-ScrollableArea* RenderLayerCompositor::scrollableAreaForScrollingNodeID(ScrollingNodeID nodeID) const
+ScrollableArea* RenderLayerCompositor::scrollableAreaForScrollingNodeID(std::optional<ScrollingNodeID> nodeID) const
 {
     if (!nodeID)
         return nullptr;
 
-    if (nodeID == m_renderView.frameView().scrollingNodeID())
+    if (*nodeID == m_renderView.frameView().scrollingNodeID())
         return &m_renderView.frameView();
 
-    if (auto weakLayer = m_scrollingNodeToLayerMap.get(nodeID))
+    if (auto weakLayer = m_scrollingNodeToLayerMap.get(*nodeID))
         return weakLayer->scrollableArea();
 
     return nullptr;
@@ -5861,8 +5871,8 @@ TextStream& operator<<(TextStream& ts, const RenderLayerCompositor::BackingShari
 }
 
 #if PLATFORM(IOS_FAMILY)
-typedef HashMap<PlatformLayer*, std::unique_ptr<ViewportConstraints>> LayerMap;
-typedef HashMap<PlatformLayer*, PlatformLayer*> StickyContainerMap;
+typedef UncheckedKeyHashMap<PlatformLayer*, std::unique_ptr<ViewportConstraints>> LayerMap;
+typedef UncheckedKeyHashMap<PlatformLayer*, PlatformLayer*> StickyContainerMap;
 
 void LegacyWebKitScrollingLayerCoordinator::registerAllViewportConstrainedLayers(RenderLayerCompositor& compositor)
 {

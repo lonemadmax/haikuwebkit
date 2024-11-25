@@ -133,6 +133,7 @@
 #import "_WKTextManipulationExclusionRule.h"
 #import "_WKTextManipulationItem.h"
 #import "_WKTextManipulationToken.h"
+#import "_WKTextPreview.h"
 #import "_WKVisitedLinkStoreInternal.h"
 #import "_WKWarningView.h"
 #import <WebCore/AppHighlight.h>
@@ -144,6 +145,7 @@
 #import <WebCore/DOMException.h>
 #import <WebCore/ElementContext.h>
 #import <WebCore/ExceptionCode.h>
+#import <WebCore/ImageUtilities.h>
 #import <WebCore/JSDOMBinding.h>
 #import <WebCore/JSDOMExceptionHandling.h>
 #import <WebCore/LegacySchemeRegistry.h>
@@ -153,7 +155,6 @@
 #import <WebCore/Permissions.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/RunJavaScriptParameters.h>
-#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/Settings.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/StringUtilities.h>
@@ -170,6 +171,7 @@
 #import <wtf/MathExtras.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SystemTracing.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/UUID.h>
@@ -285,7 +287,7 @@ static bool shouldAllowPictureInPictureMediaPlayback()
 
 static bool shouldAllowSettingAnyXHRHeaderFromFileURLs()
 {
-    static bool shouldAllowSettingAnyXHRHeaderFromFileURLs = (WebCore::IOSApplication::isCardiogram() || WebCore::IOSApplication::isNike()) && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DisallowsSettingAnyXHRHeaderFromFileURLs);
+    static bool shouldAllowSettingAnyXHRHeaderFromFileURLs = (WTF::IOSApplication::isCardiogram() || WTF::IOSApplication::isNike()) && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DisallowsSettingAnyXHRHeaderFromFileURLs);
     return shouldAllowSettingAnyXHRHeaderFromFileURLs;
 }
 
@@ -414,7 +416,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     _navigationState = makeUniqueWithoutRefCountedCheck<WebKit::NavigationState>(self);
     _page->setNavigationClient(_navigationState->createNavigationClient());
 
-    _uiDelegate = makeUnique<WebKit::UIDelegate>(self);
+    _uiDelegate = makeUniqueWithoutRefCountedCheck<WebKit::UIDelegate>(self);
     _page->setFindClient(makeUnique<WebKit::FindClient>(self));
     _page->setDiagnosticLoggingClient(makeUnique<WebKit::DiagnosticLoggingClient>(self));
 
@@ -548,6 +550,10 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 #if ENABLE(APPLE_PAY)
     pageConfiguration->preferences().setApplePayEnabled(!![_configuration _applePayEnabled]);
+#endif
+
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    pageConfiguration->preferences().setCSSTransformStyleSeparatedEnabled(!![_configuration _cssTransformStyleSeparatedEnabled]);
 #endif
 
     pageConfiguration->preferences().setNeedsStorageAccessFromFileURLsQuirk(!![_configuration _needsStorageAccessFromFileURLsQuirk]);
@@ -2514,7 +2520,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 - (void)_didEnableBrowserExtensions:(NSDictionary<NSString *, NSString *> *)extensionIDToNameMap
 {
     THROW_IF_SUSPENDED;
-    HashMap<String, String> transformed;
+    UncheckedKeyHashMap<String, String> transformed;
     transformed.reserveInitialCapacity(extensionIDToNameMap.count);
     [extensionIDToNameMap enumerateKeysAndObjectsUsingBlock:[&](NSString *extensionID, NSString *extensionName, BOOL *) {
         transformed.set(extensionID, extensionName);
@@ -2673,7 +2679,7 @@ static RetainPtr<NSDictionary<NSString *, id>> createUserInfo(const std::optiona
                 [wkToken setUserInfo:createUserInfo(token.info).get()];
                 return wkToken;
             });
-            auto identifier = makeString(item.frameID ? item.frameID->processIdentifier().toUInt64() : 0, '-', item.frameID ? item.frameID->object().toUInt64() : 0, '-', item.identifier);
+            auto identifier = makeString(item.frameID ? item.frameID->processIdentifier().toUInt64() : 0, '-', item.frameID ? item.frameID->object().toUInt64() : 0, '-', item.identifier ? item.identifier->toUInt64() : 0);
             return adoptNS([[_WKTextManipulationItem alloc] initWithIdentifier:identifier tokens:tokens.get() isSubframe:item.isSubframe isCrossSiteSubframe:item.isCrossSiteSubframe]);
         };
 
@@ -2722,14 +2728,17 @@ static std::optional<ItemIdentifiers> coreTextManipulationItemIdentifierFromStri
     if (!ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(*processID))
         return std::nullopt;
 
+    if (!ObjectIdentifier<WebCore::TextManipulationItemIdentifierType>::isValidIdentifier(*itemID))
+        return std::nullopt;
+
     return ItemIdentifiers { WebCore::ProcessQualified(ObjectIdentifier<WebCore::FrameIdentifierType>(*frameID),
         ObjectIdentifier<WebCore::ProcessIdentifierType>(*processID)),
-        LegacyNullableObjectIdentifier<WebCore::TextManipulationItemIdentifierType>(*itemID) };
+        ObjectIdentifier<WebCore::TextManipulationItemIdentifierType>(*itemID) };
 }
 
 static WebCore::TextManipulationTokenIdentifier coreTextManipulationTokenIdentifierFromString(NSString *identifier)
 {
-    return LegacyNullableObjectIdentifier<WebCore::TextManipulationTokenIdentifierType>(identifier.longLongValue);
+    return ObjectIdentifier<WebCore::TextManipulationTokenIdentifierType>(identifier.longLongValue);
 }
 
 - (void)_completeTextManipulation:(_WKTextManipulationItem *)item completion:(void(^)(BOOL success))completionHandler
@@ -2816,7 +2825,7 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
         });
         auto identifiers = coreTextManipulationItemIdentifierFromString(wkItem.identifier);
         std::optional<WebCore::FrameIdentifier> frameID;
-        WebCore::TextManipulationItemIdentifier itemID;
+        std::optional<WebCore::TextManipulationItemIdentifier> itemID;
         if (identifiers) {
             frameID = identifiers->frameID;
             itemID = identifiers->itemID;
@@ -3178,6 +3187,17 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     });
 }
 
+- (void)_requestAllTargetableElementsInfo:(CGFloat)hitTestInterval completionHandler:(void(^)(NSArray<NSArray<_WKTargetedElementInfo *> *> *))completionHandler
+{
+    _page->requestAllTargetableElements(float(hitTestInterval), [completion = makeBlockPtr(completionHandler)](auto&& elements) {
+        completion(createNSArray(elements, [](auto& subelements) {
+            return createNSArray(subelements, [](auto& subelement) {
+                return wrapper(subelement);
+            });
+        }).get());
+    });
+}
+
 - (NSURL *)_unreachableURL
 {
     return [NSURL _web_URLWithWTFString:_page->pageLoadState().unreachableURL()];
@@ -3245,6 +3265,27 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
             completionHandler(adoptNS([[UIImage alloc] initWithCGImage:bitmap->makeCGImageCopy().get()]).get(), nil);
 #endif
         });
+    });
+}
+
+- (void)_getInformationFromImageData:(NSData *)imageData completionHandler:(void (^)(NSString * typeIdentifier, NSArray<NSValue *> *availableSizes, NSError *error))completionHandler
+{
+    _page->getInformationFromImageData(makeVector(imageData), [completionHandler = makeBlockPtr(completionHandler)](auto result) mutable {
+        if (!result) {
+            NSError *error = [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedDescriptionKey: WebCore::descriptionString(result.error()) }];
+            return completionHandler(nil, nil, error);
+        }
+
+        auto [typeIdentifier, sizes] = result.value();
+        RetainPtr availableSizes = createNSArray(sizes, [](auto size) {
+#if PLATFORM(MAC)
+            return [NSValue valueWithSize:size];
+#else
+            CGSize cgSize = size;
+            return [NSValue valueWithCGSize:cgSize];
+#endif
+        });
+        return completionHandler(typeIdentifier, availableSizes.autorelease(), nil);
     });
 }
 
@@ -4796,6 +4837,71 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
 {
     _dontResetTransientActivationAfterRunJavaScript = value;
 }
+
+#if USE(UICONTEXTMENU)
+- (void)_targetedPreviewForElementWithID:(NSString *)elementID completionHandler:(void (^)(UITargetedPreview *))completionHandler
+{
+    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKWebView>(self)](auto&& textIndicatorData) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completionHandler(nil);
+            return;
+        }
+
+        if (!textIndicatorData) {
+            completionHandler(nil);
+            return;
+        }
+
+        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:*textIndicatorData previewContainer:strongSelf.get()];
+        completionHandler(preview.get());
+    });
+}
+#elif PLATFORM(MAC)
+- (void)_textPreviewsForElementWithID:(NSString *)elementID completionHandler:(void (^)(NSArray<_WKTextPreview *> *))completionHandler
+{
+    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler)](auto&& textIndicatorData) {
+        if (!textIndicatorData) {
+            completionHandler(@[ ]);
+            return;
+        }
+
+        RefPtr contentImage = textIndicatorData->contentImage;
+        if (!contentImage) {
+            ASSERT_NOT_REACHED();
+            completionHandler(@[ ]);
+            return;
+        }
+
+        RefPtr nativeImage = contentImage->nativeImage();
+        if (!nativeImage) {
+            ASSERT_NOT_REACHED();
+            completionHandler(@[ ]);
+            return;
+        }
+
+        RetainPtr platformImage = nativeImage->platformImage();
+
+        auto textBoundingRectInRootViewCoordinates = textIndicatorData->textBoundingRectInRootViewCoordinates;
+        auto textRectsInBoundingRectCoordinates = textIndicatorData->textRectsInBoundingRectCoordinates;
+        auto contentImageScaleFactor = textIndicatorData->contentImageScaleFactor;
+
+        RetainPtr previews = createNSArray(textRectsInBoundingRectCoordinates, [platformImage, textBoundingRectInRootViewCoordinates, contentImageScaleFactor](auto textRectInBoundingRectCoordinates) -> _WKTextPreview * {
+            auto croppedTextRectInImageCoordinates = textRectInBoundingRectCoordinates;
+            croppedTextRectInImageCoordinates.scale(contentImageScaleFactor);
+
+            RetainPtr textImage = adoptCF(CGImageCreateWithImageInRect(platformImage.get(), croppedTextRectInImageCoordinates));
+
+            auto presentationFrame = CGRectOffset(textRectInBoundingRectCoordinates, textBoundingRectInRootViewCoordinates.x(), textBoundingRectInRootViewCoordinates.y());
+
+            RetainPtr textPreview = adoptNS([[_WKTextPreview alloc] initWithSnapshotImage:textImage.get() presentationFrame:presentationFrame]);
+            return textPreview.autorelease();
+        });
+
+        completionHandler(previews.get());
+    });
+}
+#endif
 
 - (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID
 {
