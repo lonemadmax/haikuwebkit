@@ -81,7 +81,6 @@ public:
 
 private:
     RemoteLayerTreeDrawingAreaProxyIOS& drawingAreaIOS() const;
-    bool propagatesMainFrameScrolls() const override { return false; }
 
     void scrollingTreeNodeWillStartPanGesture(WebCore::ScrollingNodeID) override;
     void scrollingTreeNodeWillStartScroll(WebCore::ScrollingNodeID) override;
@@ -95,12 +94,12 @@ private:
     bool shouldSnapForMainFrameScrolling(WebCore::ScrollEventAxis) const;
     std::pair<float, std::optional<unsigned>> closestSnapOffsetForMainFrameScrolling(WebCore::ScrollEventAxis, float currentScrollOffset, WebCore::FloatPoint scrollDestination, float velocity) const;
 
-    UncheckedKeyHashMap<unsigned, OptionSet<WebCore::TouchAction>> m_touchActionsByTouchIdentifier;
+    HashMap<unsigned, OptionSet<WebCore::TouchAction>> m_touchActionsByTouchIdentifier;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
     HashSet<WebCore::PlatformLayerIdentifier> m_fixedScrollingNodeLayerIDs;
     HashSet<WebCore::PlatformLayerIdentifier> m_overlayRegionLayerIDs;
-    UncheckedKeyHashMap<WebCore::PlatformLayerIdentifier, WebCore::ScrollingNodeID> m_scrollingNodesByLayerID;
+    HashMap<WebCore::PlatformLayerIdentifier, WebCore::ScrollingNodeID> m_scrollingNodesByLayerID;
 #endif
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)

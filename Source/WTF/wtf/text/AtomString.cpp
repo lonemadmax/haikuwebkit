@@ -30,6 +30,8 @@
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WTF {
 
 const StaticAtomString nullAtomData { nullptr };
@@ -108,21 +110,21 @@ AtomString AtomString::number(unsigned long long number)
 AtomString AtomString::number(float number)
 {
     NumberToStringBuffer buffer;
-    size_t length = numberToStringAndSize(number, buffer);
-    return AtomString { std::span { bitwise_cast<const LChar*>(buffer.data()), length } };
+    auto span = numberToStringAndSize(number, buffer);
+    return AtomString { byteCast<LChar>(span) };
 }
 
 AtomString AtomString::number(double number)
 {
     NumberToStringBuffer buffer;
-    size_t length = numberToStringAndSize(number, buffer);
-    return AtomString { std::span { bitwise_cast<const LChar*>(buffer.data()), length } };
+    auto span = numberToStringAndSize(number, buffer);
+    return AtomString { byteCast<LChar>(span) };
 }
 
 AtomString AtomString::fromUTF8Internal(std::span<const char> characters)
 {
     ASSERT(!characters.empty());
-    return AtomStringImpl::add(spanReinterpretCast<const char8_t>(characters));
+    return AtomStringImpl::add(byteCast<char8_t>(characters));
 }
 
 #ifndef NDEBUG
@@ -166,3 +168,5 @@ String replaceUnpairedSurrogatesWithReplacementCharacter(String&& string)
 }
 
 } // namespace WTF
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

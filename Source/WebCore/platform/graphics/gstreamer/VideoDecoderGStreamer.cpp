@@ -20,7 +20,7 @@
 #include "config.h"
 #include "VideoDecoderGStreamer.h"
 
-#if USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "GStreamerElementHarness.h"
@@ -88,8 +88,14 @@ void GStreamerVideoDecoder::create(const String& codecName, const Config& config
         GST_DEBUG_CATEGORY_INIT(webkit_video_decoder_debug, "webkitvideodecoder", 0, "WebKit WebCodecs Video Decoder");
     });
 
+    bool usingHardware = config.decoding == VideoDecoder::HardwareAcceleration::Yes;
     auto& scanner = GStreamerRegistryScanner::singleton();
-    auto lookupResult = scanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, codecName);
+    auto lookupResult = scanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, codecName, usingHardware);
+    if (usingHardware && !lookupResult) {
+        GST_DEBUG("No hardware decoder found for codec %s, falling back to software", codecName.utf8().data());
+        lookupResult = scanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, codecName, false);
+    }
+
     if (!lookupResult) {
         GST_WARNING("No decoder found for codec %s", codecName.utf8().data());
         callback(makeUnexpected(makeString("No decoder found for codec "_s, codecName)));
@@ -97,8 +103,7 @@ void GStreamerVideoDecoder::create(const String& codecName, const Config& config
     }
 
     GRefPtr<GstElement> element = gst_element_factory_create(lookupResult.factory.get(), nullptr);
-    // FIXME: GStreamerVideoDecoder subclasses ThreadSafeRefCounted but gets contructed using makeUniqueRef(), which doesn't seem right.
-    auto decoder = makeUniqueRefWithoutRefCountedCheck<GStreamerVideoDecoder>(codecName, config, WTFMove(outputCallback), WTFMove(element));
+    auto decoder = makeUniqueRef<GStreamerVideoDecoder>(codecName, config, WTFMove(outputCallback), WTFMove(element));
     auto internalDecoder = decoder->m_internalDecoder;
     if (!internalDecoder->isConfigured()) {
         GST_WARNING("Internal video decoder failed to configure for codec %s", codecName.utf8().data());
@@ -230,7 +235,7 @@ GStreamerInternalVideoDecoder::GStreamerInternalVideoDecoder(const String& codec
             timestamp = m_timestamp;
 
         GST_TRACE_OBJECT(m_harness->element(), "Handling decoded frame with PTS: %" GST_TIME_FORMAT " and duration: %" GST_TIME_FORMAT, GST_TIME_ARGS(timestamp), GST_TIME_ARGS(duration));
-        auto videoFrame = VideoFrameGStreamer::create(WTFMove(outputSample), m_presentationSize, fromGstClockTime(timestamp));
+        auto videoFrame = VideoFrameGStreamer::create(WTFMove(outputSample), IntSize(m_presentationSize), fromGstClockTime(timestamp));
         m_outputCallback(VideoDecoder::DecodedFrame { WTFMove(videoFrame), timestamp, duration });
     });
 }
@@ -275,4 +280,4 @@ void GStreamerInternalVideoDecoder::flush()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CODECS) && USE(GSTREAMER)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER)

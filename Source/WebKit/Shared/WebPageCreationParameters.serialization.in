@@ -63,9 +63,6 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
     String userAgent;
 
-    bool itemStatesWereRestoredByAPIRequest;
-    Vector<Ref<WebKit::FrameState>> itemStates;
-
     WebKit::VisitedLinkTableIdentifier visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
@@ -173,7 +170,7 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
     String overrideContentSecurityPolicy;
     std::optional<double> cpuLimit;
 
-    UncheckedKeyHashMap<String, WebKit::WebURLSchemeHandlerIdentifier> urlSchemeHandlers;
+    HashMap<String, WebKit::WebURLSchemeHandlerIdentifier> urlSchemeHandlers;
     Vector<String> urlSchemesWithLegacyCustomProtocolHandlers;
 
 #if ENABLE(APPLICATION_MANIFEST)

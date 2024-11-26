@@ -53,7 +53,7 @@ public:
         uint64_t lastStride { 0 };
         WGPUVertexStepMode stepMode { WGPUVertexStepMode_Vertex };
     };
-    using RequiredBufferIndicesContainer = UncheckedKeyHashMap<uint32_t, BufferData, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
+    using RequiredBufferIndicesContainer = HashMap<uint32_t, BufferData, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
 
     static Ref<RenderPipeline> create(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode depthClipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, uint32_t sampleMask, MTLRenderPipelineDescriptor* renderPipelineDescriptor, uint32_t colorAttachmentCount, const WGPURenderPipelineDescriptor& descriptor, RequiredBufferIndicesContainer&& requiredBufferIndices, BufferBindingSizesForPipeline&& minimumBufferSizes, Device& device)
     {
@@ -86,15 +86,18 @@ public:
     uint32_t sampleMask() const { return m_sampleMask; }
 
     Device& device() const { return m_device; }
-    PipelineLayout& pipelineLayout() const;
+    PipelineLayout& pipelineLayout() const { return m_pipelineLayout; }
+    Ref<PipelineLayout> protectedPipelineLayout() const { return m_pipelineLayout; }
     bool colorDepthStencilTargetsMatch(const WGPURenderPassDescriptor&, const Vector<RefPtr<TextureView>>&, const RefPtr<TextureView>&) const;
     bool validateRenderBundle(const WGPURenderBundleEncoderDescriptor&) const;
     bool writesDepth() const;
     bool writesStencil() const;
 
     const RequiredBufferIndicesContainer& requiredBufferIndices() const { return m_requiredBufferIndices; }
-    WGPUPrimitiveTopology primitiveTopology() const;
-    MTLIndexType stripIndexFormat() const;
+    WGPUPrimitiveTopology primitiveTopology() const { return m_descriptor.primitive.topology; }
+
+    MTLIndexType stripIndexFormat() const { return m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint16 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32; }
+
     const BufferBindingSizesForBindGroup* minimumBufferSizes(uint32_t) const;
 
 private:

@@ -61,8 +61,6 @@ class IntPoint;
 class IntSize;
 class ScrollableArea;
 
-bool nodeHasPresentationRole(Node&);
-
 class AccessibilityObject : public AXCoreObject, public CanMakeWeakPtr<AccessibilityObject> {
 public:
     virtual ~AccessibilityObject();
@@ -351,7 +349,6 @@ public:
         return parentObjectUnignored();
 #endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
     }
-    virtual AccessibilityObject* parentObjectIfExists() const { return nullptr; }
     static AccessibilityObject* firstAccessibleObjectFromNode(const Node*);
     AccessibilityChildrenVector findMatchingObjects(AccessibilitySearchCriteria&&) final;
     virtual bool isDescendantOfBarrenParent() const { return false; }
@@ -431,8 +428,7 @@ public:
     // Only if isColorWell()
     SRGBA<uint8_t> colorValue() const override;
 
-    // FIXME: This should be made final after AccessibilityTable is fixed to use m_role rather than computing its own roleValue().
-    AccessibilityRole roleValue() const override { return m_role; }
+    AccessibilityRole roleValue() const final { return m_role; }
     virtual AccessibilityRole determineAccessibilityRole() = 0;
     String rolePlatformString() const override;
     String roleDescription() const override;
@@ -524,7 +520,7 @@ public:
     void decrement() override { }
     virtual bool toggleDetailsAncestor() { return false; }
 
-    virtual void updateRole();
+    void updateRole();
     bool childrenInitialized() const { return m_childrenInitialized; }
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) override;
     virtual void addChildren() { }
@@ -631,7 +627,7 @@ public:
     bool liveRegionAtomic() const override { return false; }
     bool isBusy() const override { return false; }
     static const String defaultLiveRegionStatusForRole(AccessibilityRole);
-    static bool contentEditableAttributeIsEnabled(Element*);
+    static bool contentEditableAttributeIsEnabled(Element&);
     bool hasContentEditableAttributeSet() const;
 
     bool supportsReadOnly() const;
@@ -868,7 +864,7 @@ public:
     }; // class iterator
 
 protected:
-    AccessibilityObject() = default;
+    explicit AccessibilityObject(AXID);
 
     // FIXME: Make more of these member functions private.
 

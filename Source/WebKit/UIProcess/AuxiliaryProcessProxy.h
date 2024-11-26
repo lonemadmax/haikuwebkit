@@ -60,7 +60,7 @@ enum class ProcessThrottleState : uint8_t;
 enum class ShouldTakeUIBackgroundAssertion : bool { No, Yes };
 enum class AlwaysRunsAtBackgroundPriority : bool { No, Yes };
 
-using ExtensionCapabilityGrantMap = UncheckedKeyHashMap<String, ExtensionCapabilityGrant>;
+using ExtensionCapabilityGrantMap = HashMap<String, ExtensionCapabilityGrant>;
 
 class AuxiliaryProcessProxy
     : public ThreadSafeRefCounted<AuxiliaryProcessProxy, WTF::DestructionThread::MainRunLoop>
@@ -77,10 +77,10 @@ public:
     USING_CAN_MAKE_WEAKPTR(ResponsivenessTimer::Client);
 
     // ProcessLauncher::Client
-    uint32_t ptrCount() const final { return IPC::Connection::Client::ptrCount(); }
-    uint32_t ptrCountWithoutThreadCheck() const final { return IPC::Connection::Client::ptrCountWithoutThreadCheck(); }
-    void incrementPtrCount() const final { IPC::Connection::Client::incrementPtrCount(); }
-    void decrementPtrCount() const final { IPC::Connection::Client::decrementPtrCount(); }
+    uint32_t checkedPtrCount() const final { return IPC::Connection::Client::checkedPtrCount(); }
+    uint32_t checkedPtrCountWithoutThreadCheck() const final { return IPC::Connection::Client::checkedPtrCountWithoutThreadCheck(); }
+    void incrementCheckedPtrCount() const final { IPC::Connection::Client::incrementCheckedPtrCount(); }
+    void decrementCheckedPtrCount() const final { IPC::Connection::Client::decrementCheckedPtrCount(); }
 
     virtual ~AuxiliaryProcessProxy();
 
@@ -328,8 +328,8 @@ private:
     ExtensionCapabilityGrantMap m_extensionCapabilityGrants;
 #endif
 #if ENABLE(CFPREFS_DIRECT_MODE)
-    UncheckedKeyHashMap<String, std::optional<String>> m_domainlessPreferencesUpdatedWhileSuspended;
-    UncheckedKeyHashMap<std::pair<String /* domain */, String /* key */>, std::optional<String>> m_preferencesUpdatedWhileSuspended;
+    HashMap<String, std::optional<String>> m_domainlessPreferencesUpdatedWhileSuspended;
+    HashMap<std::pair<String /* domain */, String /* key */>, std::optional<String>> m_preferencesUpdatedWhileSuspended;
 #endif
 };
 

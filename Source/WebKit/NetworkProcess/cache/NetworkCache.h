@@ -226,6 +226,8 @@ private:
 
     std::optional<Seconds> maxAgeCap(Entry&, const WebCore::ResourceRequest&, PAL::SessionID);
 
+    Ref<Storage> protectedStorage() const { return m_storage; }
+
     Ref<Storage> m_storage;
     Ref<NetworkProcess> m_networkProcess;
 
@@ -235,8 +237,8 @@ private:
 #endif
 
 #if ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)
-    UncheckedKeyHashMap<Key, Ref<AsyncRevalidation>> m_pendingAsyncRevalidations;
-    UncheckedKeyHashMap<GlobalFrameID, WeakHashSet<AsyncRevalidation>> m_pendingAsyncRevalidationByPage;
+    HashMap<Key, Ref<AsyncRevalidation>> m_pendingAsyncRevalidations;
+    HashMap<GlobalFrameID, WeakHashSet<AsyncRevalidation>> m_pendingAsyncRevalidationByPage;
 #endif
 
     unsigned m_traverseCount { 0 };

@@ -98,7 +98,6 @@ private:
 
     AXIsolatedTree* tree() const { return m_cachedTree.get(); }
 
-    AXIsolatedObject() = default;
     AXIsolatedObject(const Ref<AccessibilityObject>&, AXIsolatedTree*);
     bool isAXIsolatedObjectInstance() const final { return true; }
     AccessibilityObject* associatedAXObject() const;
@@ -142,8 +141,8 @@ private:
     template<typename T> T getOrRetrievePropertyValue(AXPropertyName);
 
     void fillChildrenVectorForProperty(AXPropertyName, AccessibilityChildrenVector&) const;
-    void setMathscripts(AXPropertyName, AXCoreObject&);
-    void insertMathPairs(Vector<std::pair<AXID, AXID>>&, AccessibilityMathMultiscriptPairs&);
+    void setMathscripts(AXPropertyName, AccessibilityObject&);
+    void insertMathPairs(Vector<std::pair<Markable<AXID>, Markable<AXID>>>&, AccessibilityMathMultiscriptPairs&);
     template<typename U> void performFunctionOnMainThreadAndWait(U&& lambda) const
     {
         Accessibility::performFunctionOnMainThreadAndWait([&lambda, this] {

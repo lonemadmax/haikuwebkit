@@ -84,6 +84,8 @@
 IGNORE_RETURN_TYPE_WARNINGS_BEGIN
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace B3 {
 
 namespace {
@@ -4414,7 +4416,8 @@ private:
         case B3::VectorBitmask:
             emitSIMDUnaryOp(Air::VectorBitmask);
             return;
-        case B3::VectorBitwiseSelect: {
+        case B3::VectorBitwiseSelect:
+        case B3::VectorRelaxedLaneSelect: {
             SIMDValue* value = m_value->as<SIMDValue>();
             auto resultTmp = tmp(value);
             append(MoveVector, tmp(value->child(2)), resultTmp);
@@ -5385,5 +5388,7 @@ IGNORE_RETURN_TYPE_WARNINGS_END
 #pragma pop_macro("StoreFence")
 #pragma pop_macro("LoadFence")
 #pragma pop_macro("MemoryFence")
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(B3_JIT)

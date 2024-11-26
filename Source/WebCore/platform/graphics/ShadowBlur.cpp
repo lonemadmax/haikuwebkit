@@ -44,6 +44,17 @@
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
+namespace WebCore {
+class ScratchBuffer;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebCore::ScratchBuffer> : std::true_type { };
+}
+
 namespace WebCore {
 
 enum {
@@ -944,3 +955,5 @@ void ShadowBlur::drawShadowLayer(const AffineTransform& transform, const IntRect
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

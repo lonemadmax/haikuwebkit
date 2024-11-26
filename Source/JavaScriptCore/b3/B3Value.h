@@ -42,6 +42,8 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/TriState.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace B3 {
 
 class BasicBlock;
@@ -551,6 +553,7 @@ protected:
         case VectorBitwiseSelect:
         case VectorRelaxedMAdd:
         case VectorRelaxedNMAdd:
+        case VectorRelaxedLaneSelect:
             return 3 * sizeof(Value*);
         case CCall:
         case Check:
@@ -782,6 +785,7 @@ private:
         case VectorBitwiseSelect:
         case VectorRelaxedMAdd:
         case VectorRelaxedNMAdd:
+        case VectorRelaxedLaneSelect:
             if (UNLIKELY(numArgs != 3))
                 badKind(kind, numArgs);
             return Three;
@@ -1037,5 +1041,7 @@ private: \
     } \
 
 } } // namespace JSC::B3
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(B3_JIT)

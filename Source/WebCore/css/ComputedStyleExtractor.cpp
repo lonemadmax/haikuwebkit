@@ -25,7 +25,7 @@
 #include "config.h"
 #include "ComputedStyleExtractor.h"
 
-#include "BasicShapeConversion.h"
+#include "CSSBasicShapeValue.h"
 #include "CSSBorderImage.h"
 #include "CSSBorderImageSliceValue.h"
 #include "CSSCounterValue.h"
@@ -39,6 +39,7 @@
 #include "CSSGridIntegerRepeatValue.h"
 #include "CSSGridLineNamesValue.h"
 #include "CSSGridTemplateAreasValue.h"
+#include "CSSPathValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSProperty.h"
 #include "CSSPropertyAnimation.h"
@@ -80,6 +81,8 @@
 #include "ScaleTransformOperation.h"
 #include "ScrollTimeline.h"
 #include "SkewTransformOperation.h"
+#include "StylePathData.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
 #include "StyleReflection.h"
@@ -91,6 +94,8 @@
 #include "TranslateTransformOperation.h"
 #include "ViewTimeline.h"
 #include "WebAnimationUtilities.h"
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebCore {
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ComputedStyleExtractor);
@@ -584,7 +589,7 @@ static RefPtr<CSSValue> positionOffsetValue(const RenderStyle& style, CSSPropert
             if (isVerticalProperty == containingBlock->isHorizontalWritingMode()) {
                 containingBlockSize = box->isOutOfFlowPositioned()
                     ? box->containingBlockLogicalHeightForPositioned(*containingBlock, false)
-                    : box->containingBlockLogicalHeightForContent(ExcludeMarginBorderPadding);
+                    : box->containingBlockLogicalHeightForContent(AvailableLogicalHeightType::ExcludeMarginBorderPadding);
             } else {
                 containingBlockSize = box->isOutOfFlowPositioned()
                     ? box->containingBlockLogicalWidthForPositioned(*containingBlock, nullptr, false)
@@ -1708,51 +1713,110 @@ static Ref<CSSValue> valueForAnimationTimingFunction(const TimingFunction& timin
     RELEASE_ASSERT_NOT_REACHED();
 }
 
+static Ref<CSSValue> valueForSingleAnimationRange(const RenderStyle& style, const SingleTimelineRange& range, SingleTimelineRange::Type type)
+{
+    CSSValueListBuilder list;
+    if (range.name != SingleTimelineRange::Name::Omitted)
+        list.append(CSSPrimitiveValue::create(SingleTimelineRange::valueID(range.name)));
+    if (!SingleTimelineRange::isDefault(range.offset, type))
+        list.append(ComputedStyleExtractor::zoomAdjustedPixelValueForLength(range.offset, style));
+    return CSSValueList::createSpaceSeparated(WTFMove(list));
+}
+
+static Ref<CSSValue> valueForAnimationRange(const RenderStyle& style, const TimelineRange& range)
+{
+    CSSValueListBuilder list;
+    auto rangeStart = range.start;
+    auto rangeEnd = range.end;
+
+    RefPtr startValue = dynamicDowncast<CSSValueList>(valueForSingleAnimationRange(style, rangeStart, SingleTimelineRange::Type::Start));
+    if (startValue && startValue->length())
+        list.append(*startValue);
+
+    RefPtr endValue = dynamicDowncast<CSSValueList>(valueForSingleAnimationRange(style, rangeEnd, SingleTimelineRange::Type::End));
+    bool endValueEqualsStart = startValue && endValue && startValue->equals(*endValue);
+    bool isNormal = rangeEnd.name == SingleTimelineRange::Name::Normal;
+    bool isDefaultAndSameNameAsStart = rangeStart.name == rangeEnd.name && SingleTimelineRange::isDefault(rangeEnd.offset, SingleTimelineRange::Type::End);
+    if (endValue && endValue->length() && !endValueEqualsStart && !isNormal && !isDefaultAndSameNameAsStart)
+        list.append(*endValue);
+
+    return CSSValueList::createSpaceSeparated(WTFMove(list));
+}
+
 static void addValueForAnimationPropertyToList(const RenderStyle& style, CSSValueListBuilder& list, CSSPropertyID property, const Animation* animation, const AnimationList* animationList)
 {
-    if (property == CSSPropertyTransitionBehavior) {
+    switch (property) {
+    case CSSPropertyTransitionBehavior:
         if (!animation || !animation->isAllowsDiscreteTransitionsFilled())
             list.append(valueForTransitionBehavior(animation ? animation->allowsDiscreteTransitions() : Animation::initialAllowsDiscreteTransitions()));
-    } else if (property == CSSPropertyAnimationDuration || property == CSSPropertyTransitionDuration) {
+        break;
+    case CSSPropertyAnimationDuration:
+    case CSSPropertyTransitionDuration:
         if (!animation || !animation->isDurationFilled())
             list.append(valueForAnimationDuration(animation ? animation->duration() : Animation::initialDuration(), animation, animationList));
-    } else if (property == CSSPropertyAnimationDelay || property == CSSPropertyTransitionDelay) {
+        break;
+    case CSSPropertyAnimationDelay:
+    case CSSPropertyTransitionDelay:
         if (!animation || !animation->isDelayFilled())
             list.append(valueForAnimationDelay(animation ? animation->delay() : Animation::initialDelay()));
-    } else if (property == CSSPropertyAnimationIterationCount) {
+        break;
+    case CSSPropertyAnimationIterationCount:
         if (!animation || !animation->isIterationCountFilled())
             list.append(valueForAnimationIterationCount(animation ? animation->iterationCount() : Animation::initialIterationCount()));
-    } else if (property == CSSPropertyAnimationDirection) {
+        break;
+    case CSSPropertyAnimationDirection:
         if (!animation || !animation->isDirectionFilled())
             list.append(valueForAnimationDirection(animation ? animation->direction() : Animation::initialDirection()));
-    } else if (property == CSSPropertyAnimationFillMode) {
+        break;
+    case CSSPropertyAnimationFillMode:
         if (!animation || !animation->isFillModeFilled())
             list.append(valueForAnimationFillMode(animation ? animation->fillMode() : Animation::initialFillMode()));
-    } else if (property == CSSPropertyAnimationPlayState) {
+        break;
+    case CSSPropertyAnimationPlayState:
         if (!animation || !animation->isPlayStateFilled())
             list.append(valueForAnimationPlayState(animation ? animation->playState() : Animation::initialPlayState()));
-    } else if (property == CSSPropertyAnimationName)
+        break;
+    case CSSPropertyAnimationName:
         list.append(valueForScopedName(animation ? animation->name() : Animation::initialName()));
-    else if (property == CSSPropertyAnimationComposition) {
+        break;
+    case CSSPropertyAnimationComposition:
         if (!animation || !animation->isCompositeOperationFilled())
             list.append(valueForAnimationComposition(animation ? animation->compositeOperation() : Animation::initialCompositeOperation()));
-    } else if (property == CSSPropertyAnimationTimeline) {
+        break;
+    case CSSPropertyAnimationTimeline:
         if (!animation || !animation->isTimelineFilled())
             list.append(valueForAnimationTimeline(style, animation ? animation->timeline() : Animation::initialTimeline()));
-    } else if (property == CSSPropertyTransitionProperty) {
+        break;
+    case CSSPropertyTransitionProperty:
         if (animation) {
             if (!animation->isPropertyFilled())
                 list.append(createTransitionPropertyValue(*animation));
         } else
             list.append(CSSPrimitiveValue::create(CSSValueAll));
-    } else if (property == CSSPropertyAnimationTimingFunction || property == CSSPropertyTransitionTimingFunction) {
+        break;
+    case CSSPropertyAnimationTimingFunction:
+    case CSSPropertyTransitionTimingFunction:
         if (animation) {
             if (!animation->isTimingFunctionFilled())
                 list.append(valueForAnimationTimingFunction(*animation->timingFunction()));
         } else
             list.append(valueForAnimationTimingFunction(CubicBezierTimingFunction::defaultTimingFunction()));
-    } else
+        break;
+    case CSSPropertyAnimationRangeStart:
+        if (!animation || !animation->isRangeStartFilled())
+            list.append(valueForSingleAnimationRange(style, animation ? animation->rangeStart() : Animation::initialRangeStart(), SingleTimelineRange::Type::Start));
+        break;
+    case CSSPropertyAnimationRangeEnd:
+        if (!animation || !animation->isRangeEndFilled())
+            list.append(valueForSingleAnimationRange(style, animation ? animation->rangeEnd() : Animation::initialRangeEnd(), SingleTimelineRange::Type::End));
+        break;
+    case CSSPropertyAnimationRange:
+        if (!animation || !animation->isRangeFilled())
+            list.append(valueForAnimationRange(style, animation ? animation->range() : Animation::initialRange()));
+        break;
+    default:
         ASSERT_NOT_REACHED();
+    }
 }
 
 static Ref<CSSValueList> valueListForAnimationOrTransitionProperty(const RenderStyle& style, CSSPropertyID property, const AnimationList* animationList)
@@ -1970,33 +2034,29 @@ static Ref<CSSValue> valueForPositionOrAutoOrNormal(const RenderStyle& style, co
     return valueForPosition(style, position);
 }
 
-static CSSValueID valueIDForRaySize(RayPathOperation::Size size)
-{
-    switch (size) {
-    case RayPathOperation::Size::ClosestCorner:
-        return CSSValueClosestCorner;
-    case RayPathOperation::Size::ClosestSide:
-        return CSSValueClosestSide;
-    case RayPathOperation::Size::FarthestCorner:
-        return CSSValueFarthestCorner;
-    case RayPathOperation::Size::FarthestSide:
-        return CSSValueFarthestSide;
-    case RayPathOperation::Size::Sides:
-        return CSSValueSides;
-    }
-
-    ASSERT_NOT_REACHED();
-    return CSSValueInvalid;
-}
-
-static Ref<CSSValue> valueForSVGPath(const BasicShapePath* path)
+static Ref<CSSValue> valueForD(const RenderStyle& style, const StylePathData* path)
 {
     if (!path)
         return CSSPrimitiveValue::create(CSSValueNone);
-    return valueForSVGPath(*path, SVGPathConversion::ForceAbsolute);
+    Ref protectedPath = *path;
+    return CSSPathValue::create(Style::overrideToCSS(protectedPath->path(), style, Style::PathConversion::ForceAbsolute));
 }
 
-static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathOperation* operation, SVGPathConversion conversion = SVGPathConversion::None)
+static Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const Style::BasicShape& basicShape, Style::PathConversion conversion)
+{
+    return CSSBasicShapeValue::create(
+        WTF::switchOn(basicShape,
+            [&](const auto& shape) {
+                return CSS::BasicShape { Style::toCSS(shape, style) };
+            },
+            [&](const Style::PathFunction& path) {
+                return CSS::BasicShape { Style::overrideToCSS(path, style, conversion) };
+            }
+        )
+    );
+}
+
+static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathOperation* operation, Style::PathConversion conversion = Style::PathConversion::None)
 {
     if (!operation)
         return CSSPrimitiveValue::create(CSSValueNone);
@@ -2008,8 +2068,8 @@ static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathO
     case PathOperation::Type::Shape: {
         auto& shapeOperation = uncheckedDowncast<ShapePathOperation>(*operation);
         if (shapeOperation.referenceBox() == CSSBoxType::BoxMissing)
-            return CSSValueList::createSpaceSeparated(valueForBasicShape(style, shapeOperation.basicShape(), conversion));
-        return CSSValueList::createSpaceSeparated(valueForBasicShape(style, shapeOperation.basicShape(), conversion),
+            return CSSValueList::createSpaceSeparated(valueForBasicShape(style, shapeOperation.shape(), conversion));
+        return CSSValueList::createSpaceSeparated(valueForBasicShape(style, shapeOperation.shape(), conversion),
             createConvertingToCSSValueID(shapeOperation.referenceBox()));
     }
 
@@ -2018,9 +2078,7 @@ static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathO
 
     case PathOperation::Type::Ray: {
         auto& ray = uncheckedDowncast<RayPathOperation>(*operation);
-        auto angle = CSSPrimitiveValue::create(ray.angle(), CSSUnitType::CSS_DEG);
-        RefPtr<CSSValuePair> position = ray.position().x.isAuto() ? nullptr : RefPtr { CSSValuePair::createNoncoalescing(Ref { ComputedStyleExtractor::zoomAdjustedPixelValueForLength(ray.position().x, style) }, Ref { ComputedStyleExtractor::zoomAdjustedPixelValueForLength(ray.position().y, style) }) };
-        return CSSRayValue::create(WTFMove(angle), valueIDForRaySize(ray.size()), ray.isContaining(), WTFMove(position), ray.referenceBox());
+        return CSSRayValue::create(Style::toCSS(ray.ray(), style), ray.referenceBox());
     }
     }
 
@@ -2695,64 +2753,12 @@ static const RenderStyle& formattingContextRootStyle(const RenderBox& renderer)
 // Mapping is done according to the table in section 6.4 (Abstract-to-Physical Mappings)
 static FlowRelativeDirection physicalToFlowRelativeDirection(const RenderBox& renderer, PhysicalDirection direction)
 {
-    auto& styleToUse = formattingContextRootStyle(renderer);
-    auto isHorizontalWritingMode = styleToUse.isHorizontalWritingMode();
-    auto isLeftToRightDirection = styleToUse.isLeftToRightDirection();
-    // vertical-rl and horizontal-bt writing modes
-    auto isFlippedBlocksWritingMode = styleToUse.isFlippedBlocksWritingMode();
-
-    switch (direction) {
-    case PhysicalDirection::Top:
-        if (isHorizontalWritingMode)
-            return !isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockStart : FlowRelativeDirection::BlockEnd;
-        return isLeftToRightDirection ? FlowRelativeDirection::InlineStart : FlowRelativeDirection::InlineEnd;
-    case PhysicalDirection::Right:
-        if (isHorizontalWritingMode)
-            return isLeftToRightDirection ? FlowRelativeDirection::InlineEnd : FlowRelativeDirection::InlineStart;
-        return !isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockEnd : FlowRelativeDirection::BlockStart;
-    case PhysicalDirection::Bottom:
-        if (isHorizontalWritingMode)
-            return !isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockEnd : FlowRelativeDirection::BlockStart;
-        return isLeftToRightDirection ? FlowRelativeDirection::InlineEnd : FlowRelativeDirection::InlineStart;
-    case PhysicalDirection::Left:
-        if (isHorizontalWritingMode)
-            return isLeftToRightDirection ? FlowRelativeDirection::InlineStart : FlowRelativeDirection::InlineEnd;
-        return !isFlippedBlocksWritingMode ? FlowRelativeDirection::BlockStart : FlowRelativeDirection::BlockEnd;
-    default:
-        ASSERT_NOT_REACHED();
-        return { };
-    }
+    return mapSidePhysicalToLogical(formattingContextRootStyle(renderer).writingMode(), direction);
 }
 
 static PhysicalDirection flowRelativeToPhysicalDirection(const RenderBox& renderer, FlowRelativeDirection direction)
 {
-    auto& styleToUse = formattingContextRootStyle(renderer);
-    auto isHorizontalWritingMode = styleToUse.isHorizontalWritingMode();
-    auto isLeftToRightDirection = styleToUse.isLeftToRightDirection();
-    // vertical-rl and horizontal-bt writing modes
-    auto isFlippedBlocksWritingMode = styleToUse.isFlippedBlocksWritingMode();
-
-    switch (direction) {
-    case FlowRelativeDirection::BlockStart:
-        if (isHorizontalWritingMode)
-            return !isFlippedBlocksWritingMode ? PhysicalDirection::Top : PhysicalDirection::Bottom;
-        return !isFlippedBlocksWritingMode ? PhysicalDirection::Left : PhysicalDirection::Right;
-    case FlowRelativeDirection::BlockEnd:
-        if (isHorizontalWritingMode)
-            return !isFlippedBlocksWritingMode ? PhysicalDirection::Bottom : PhysicalDirection::Top;
-        return !isFlippedBlocksWritingMode ? PhysicalDirection::Right : PhysicalDirection::Left;
-    case FlowRelativeDirection::InlineStart:
-        if (isHorizontalWritingMode)
-            return isLeftToRightDirection ? PhysicalDirection::Left : PhysicalDirection::Right;
-        return isLeftToRightDirection ? PhysicalDirection::Top : PhysicalDirection::Bottom;
-    case FlowRelativeDirection::InlineEnd:
-        if (isHorizontalWritingMode)
-            return isLeftToRightDirection ? PhysicalDirection::Right : PhysicalDirection::Left;
-        return isLeftToRightDirection ? PhysicalDirection::Bottom : PhysicalDirection::Top;
-    default:
-        ASSERT_NOT_REACHED();
-        return { };
-    }
+    return mapSideLogicalToPhysical(formattingContextRootStyle(renderer).writingMode(), direction);
 }
 
 static MarginTrimType toMarginTrimType(const RenderBox& renderer, CSSPropertyID propertyID)
@@ -3025,8 +3031,8 @@ static Ref<CSSValue> shapePropertyValue(const RenderStyle& style, const ShapeVal
     ASSERT(shapeValue->type() == ShapeValue::Type::Shape);
 
     if (shapeValue->cssBox() == CSSBoxType::BoxMissing)
-        return CSSValueList::createSpaceSeparated(valueForBasicShape(style, *shapeValue->shape()));
-    return CSSValueList::createSpaceSeparated(valueForBasicShape(style, *shapeValue->shape()),
+        return CSSValueList::createSpaceSeparated(valueForBasicShape(style, *shapeValue->shape(), Style::PathConversion::None));
+    return CSSValueList::createSpaceSeparated(valueForBasicShape(style, *shapeValue->shape(), Style::PathConversion::None),
         createConvertingToCSSValueID(shapeValue->cssBox()));
 }
 
@@ -3106,7 +3112,7 @@ static Ref<CSSValue> valueForOffsetShorthand(const RenderStyle& style)
     bool nonInitialRotate = style.offsetRotate() != style.initialOffsetRotate();
 
     if (style.offsetPath() || nonInitialDistance || nonInitialRotate)
-        innerList.append(valueForPathOperation(style, style.offsetPath(), SVGPathConversion::ForceAbsolute));
+        innerList.append(valueForPathOperation(style, style.offsetPath(), Style::PathConversion::ForceAbsolute));
 
     if (nonInitialDistance)
         innerList.append(CSSPrimitiveValue::create(style.offsetDistance(), style));
@@ -3214,36 +3220,6 @@ static Ref<CSSValue> valueForTimelineScopeNames(const Vector<AtomString>& names)
         list.append(CSSPrimitiveValue::createCustomIdent(name));
     }
     return CSSValueList::createCommaSeparated(WTFMove(list));
-}
-
-static Ref<CSSValue> valueForSingleAnimationRange(const RenderStyle& style, const SingleTimelineRange& range, SingleTimelineRange::Type type)
-{
-    CSSValueListBuilder list;
-    if (range.name != SingleTimelineRange::Name::Omitted)
-        list.append(CSSPrimitiveValue::create(SingleTimelineRange::valueID(range.name)));
-    if (!SingleTimelineRange::isDefault(range.offset, type))
-        list.append(ComputedStyleExtractor::zoomAdjustedPixelValueForLength(range.offset, style));
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-static Ref<CSSValue> valueForAnimationRange(const RenderStyle& style)
-{
-    CSSValueListBuilder list;
-    auto rangeStart = style.animationRangeStart();
-    auto rangeEnd = style.animationRangeEnd();
-
-    RefPtr startValue = dynamicDowncast<CSSValueList>(valueForSingleAnimationRange(style, rangeStart, SingleTimelineRange::Type::Start));
-    if (startValue && startValue->length())
-        list.append(*startValue);
-
-    RefPtr endValue = dynamicDowncast<CSSValueList>(valueForSingleAnimationRange(style, style.animationRangeEnd(), SingleTimelineRange::Type::End));
-    bool endValueEqualsStart = startValue && endValue && startValue->equals(*endValue);
-    bool isNormal = rangeEnd.name == SingleTimelineRange::Name::Normal;
-    bool isDefaultAndSameNameAsStart = rangeStart.name == rangeEnd.name && SingleTimelineRange::isDefault(rangeEnd.offset, SingleTimelineRange::Type::End);
-    if (endValue && endValue->length() && !endValueEqualsStart && !isNormal && !isDefaultAndSameNameAsStart)
-        list.append(*endValue);
-
-    return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
 static Ref<CSSValue> scrollTimelineShorthandValue(const Vector<Ref<ScrollTimeline>>& timelines)
@@ -3477,7 +3453,7 @@ bool ComputedStyleExtractor::hasProperty(CSSPropertyID propertyID) const
 RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderStyle& style, CSSPropertyID propertyID, RenderElement* renderer, PropertyValueType valueType) const
 {
     auto& cssValuePool = CSSValuePool::singleton();
-    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style.direction(), style.writingMode());
+    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style.writingMode());
 
     ASSERT(isExposed(propertyID, m_element->document().settings()));
 
@@ -3774,7 +3750,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         auto direction = [&] {
             if (m_element == m_element->document().documentElement() && !style.hasExplicitlySetDirection())
                 return RenderStyle::initialDirection();
-            return style.direction();
+            return style.writingMode().computedTextDirection();
         }();
         return createConvertingToCSSValueID(direction);
     }
@@ -4115,7 +4091,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyOffsetPath:
         // The computed value of offset-path must only contain absolute draw commands.
         // https://github.com/w3c/fxtf-drafts/issues/225#issuecomment-334322738
-        return valueForPathOperation(style, style.offsetPath(), SVGPathConversion::ForceAbsolute);
+        return valueForPathOperation(style, style.offsetPath(), Style::PathConversion::ForceAbsolute);
     case CSSPropertyOffsetDistance:
         return CSSPrimitiveValue::create(style.offsetDistance(), style);
     case CSSPropertyOffsetPosition:
@@ -4405,6 +4381,9 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyAnimationIterationCount:
     case CSSPropertyAnimationName:
     case CSSPropertyAnimationPlayState:
+    case CSSPropertyAnimationRangeEnd:
+    case CSSPropertyAnimationRangeStart:
+    case CSSPropertyAnimationRange:
     case CSSPropertyAnimationTimeline:
     case CSSPropertyAnimationTimingFunction:
         return valueListForAnimationOrTransitionProperty(style, propertyID, style.animations());
@@ -4636,7 +4615,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         auto writingMode = [&] {
             if (m_element == m_element->document().documentElement() && !style.hasExplicitlySetWritingMode())
                 return RenderStyle::initialWritingMode();
-            return style.writingMode();
+            return style.writingMode().computedWritingMode();
         }();
         return createConvertingToCSSValueID(writingMode);
     }
@@ -4647,9 +4626,9 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyTextCombineUpright:
         return createConvertingToCSSValueID(style.textCombine());
     case CSSPropertyWebkitTextOrientation:
-        return createConvertingToCSSValueID(style.textOrientation());
+        return createConvertingToCSSValueID(style.writingMode().computedTextOrientation());
     case CSSPropertyTextOrientation:
-        return createConvertingToCSSValueID(style.textOrientation());
+        return createConvertingToCSSValueID(style.writingMode().computedTextOrientation());
     case CSSPropertyWebkitLineBoxContain:
         return createLineBoxContainValue(style.lineBoxContain());
     case CSSPropertyContent:
@@ -4892,7 +4871,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return createConvertingToCSSValueID(style.textZoom());
 
     case CSSPropertyD:
-        return valueForSVGPath(style.d());
+        return valueForD(style, style.d());
 
     case CSSPropertyPaintOrder:
         return paintOrder(style.paintOrder());
@@ -4927,12 +4906,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         }
         ASSERT_NOT_REACHED();
         return CSSPrimitiveValue::create(CSSValueNone);
-    case CSSPropertyAnimationRangeEnd:
-        return valueForSingleAnimationRange(style, style.animationRangeEnd(), SingleTimelineRange::Type::End);
-    case CSSPropertyAnimationRangeStart:
-        return valueForSingleAnimationRange(style, style.animationRangeStart(), SingleTimelineRange::Type::Start);
-    case CSSPropertyAnimationRange:
-        return valueForAnimationRange(style);
 
     // Unimplemented CSS 3 properties (including CSS3 shorthand properties).
     case CSSPropertyAll:
@@ -5263,3 +5236,5 @@ Ref<CSSValue> ComputedStyleExtractor::getMaskShorthandValue() const
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -40,6 +40,15 @@ OBJC_CLASS WebScrollerImpDelegate;
 typedef id ScrollerImpPair;
 
 namespace WebCore {
+class ScrollbarsControllerMac;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebCore::ScrollbarsControllerMac> : std::true_type { };
+}
+
+namespace WebCore {
 
 class WheelEventTestMonitor;
 
@@ -101,6 +110,8 @@ public:
 
     void scrollbarWidthChanged(WebCore::ScrollbarWidth) final;
 private:
+
+    void updateScrollerImps();
 
     // sendContentAreaScrolledSoon() will do the same work that sendContentAreaScrolled() does except
     // it does it after a zero-delay timer fires. This will prevent us from updating overlay scrollbar

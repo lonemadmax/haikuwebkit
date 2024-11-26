@@ -51,7 +51,7 @@ template<typename T, class... Args>
 UniqueRef<T> makeUniqueRef(Args&&... args)
 {
     static_assert(std::is_same<typename T::WTFIsFastAllocated, int>::value, "T sould use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
-    static_assert(!TypeHasRefMemberFunction<T>::value, "T should not be RefCounted");
+    static_assert(!HasRefPtrMemberFunctions<T>::value, "T should not be RefCounted");
     return makeUniqueRefWithoutFastMallocCheck<T>(std::forward<Args>(args)...);
 }
 
@@ -86,14 +86,12 @@ public:
     T* operator&() { ASSERT(m_ref); return m_ref.get(); }
     const T* operator&() const { ASSERT(m_ref); return m_ref.get(); }
 
-    T* operator->() { ASSERT(m_ref); return m_ref.get(); }
-    const T* operator->() const { ASSERT(m_ref); return m_ref.get(); }
-    
+    T* operator->() const { ASSERT(m_ref); return m_ref.get(); }
+
     operator T&() { ASSERT(m_ref); return *m_ref; }
     operator const T&() const { ASSERT(m_ref); return *m_ref; }
 
-    T& operator*() { ASSERT(m_ref); return *m_ref.get(); }
-    const T& operator*() const { ASSERT(m_ref); return *m_ref.get(); }
+    T& operator*() const { ASSERT(m_ref); return *m_ref.get(); }
 
     std::unique_ptr<T> moveToUniquePtr() { return WTFMove(m_ref); }
 

@@ -47,6 +47,8 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 class Compilation;
@@ -57,7 +59,10 @@ struct CompilationContext;
 struct ModuleInformation;
 struct UnlinkedHandlerInfo;
 
-using BlockSignature = const FunctionSignature*;
+struct BlockSignature {
+    const FunctionSignature* m_signature;
+    RefPtr<TypeDefinition> m_generatedUnderlyingType;
+};
 
 enum class TableElementType : uint8_t {
     Externref,
@@ -811,6 +816,8 @@ struct WasmToWasmImportableFunction {
 using FunctionIndexSpace = Vector<WasmToWasmImportableFunction>;
 
 } } // namespace JSC::Wasm
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 namespace WTF {
 

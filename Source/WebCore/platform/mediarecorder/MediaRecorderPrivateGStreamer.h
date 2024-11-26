@@ -55,7 +55,7 @@ public:
     void stopRecording(CompletionHandler<void()>&&);
     void pauseRecording(CompletionHandler<void()>&&);
     void resumeRecording(CompletionHandler<void()>&&);
-    const String& mimeType() const;
+    const String& mimeType() const { return m_mimeType; }
 
     void setSelectTracksCallback(SelectTracksCallback&& callback) { m_selectTracksCallback = WTFMove(callback); }
 
@@ -64,6 +64,7 @@ private:
 
     void setSource(GstElement*);
     void setSink(GstElement*);
+    void configureAudioEncoder(GstElement*);
     void configureVideoEncoder(GstElement*);
 
     GRefPtr<GstEncodingContainerProfile> containerProfile();
@@ -90,6 +91,7 @@ private:
 
     MediaStreamPrivate& m_stream;
     const MediaRecorderPrivateOptions& m_options;
+    String m_mimeType;
     std::optional<SelectTracksCallback> m_selectTracksCallback;
 };
 
@@ -112,7 +114,7 @@ private:
     void stopRecording(CompletionHandler<void()>&&) final;
     void pauseRecording(CompletionHandler<void()>&&) final;
     void resumeRecording(CompletionHandler<void()>&&) final;
-    const String& mimeType() const final;
+    String mimeType() const final;
 
     Ref<MediaRecorderPrivateBackend> m_recorder;
 };

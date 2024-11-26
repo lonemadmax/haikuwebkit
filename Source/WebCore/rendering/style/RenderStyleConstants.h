@@ -467,7 +467,8 @@ enum class ItemPosition : uint8_t {
     FlexStart,
     FlexEnd,
     Left,
-    Right
+    Right,
+    AnchorCenter,
 };
 
 enum class OverflowAlignment : uint8_t {
@@ -960,12 +961,6 @@ enum class TextUnderlinePosition : uint8_t {
     Right    = 1 << 3
 };
 
-enum class TextOrientation : uint8_t {
-    Mixed,
-    Upright,
-    Sideways
-};
-
 enum class TextOverflow : bool {
     Clip,
     Ellipsis
@@ -1314,7 +1309,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisMark);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisPosition);
 WTF::TextStream& operator<<(WTF::TextStream&, TextGroupAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, TextJustify);
-WTF::TextStream& operator<<(WTF::TextStream&, TextOrientation);
 WTF::TextStream& operator<<(WTF::TextStream&, TextOverflow);
 WTF::TextStream& operator<<(WTF::TextStream&, TextSecurity);
 WTF::TextStream& operator<<(WTF::TextStream&, TextTransform);

@@ -67,6 +67,7 @@
 
 #ifdef __cplusplus
 #include <cstdlib>
+#include <span>
 #include <type_traits>
 #endif
 
@@ -228,9 +229,9 @@ WTF_EXPORT_PRIVATE void WTFReportBacktraceWithPrefixAndStackDepth(const char*, i
 WTF_EXPORT_PRIVATE void WTFReportBacktrace(void);
 #ifdef __cplusplus
 WTF_EXPORT_PRIVATE void WTFReportBacktraceWithPrefixAndPrintStream(WTF::PrintStream&, const char*);
-WTF_EXPORT_PRIVATE void WTFPrintBacktraceWithPrefixAndPrintStream(WTF::PrintStream&, void** stack, int size, const char* prefix);
+WTF_EXPORT_PRIVATE void WTFPrintBacktraceWithPrefixAndPrintStream(WTF::PrintStream&, std::span<void* const> stack, const char* prefix);
+WTF_EXPORT_PRIVATE void WTFPrintBacktrace(std::span<void* const> stack);
 #endif
-WTF_EXPORT_PRIVATE void WTFPrintBacktrace(void** stack, int size);
 
 WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
 

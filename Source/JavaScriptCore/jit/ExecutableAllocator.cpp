@@ -37,6 +37,7 @@
 #include <wtf/FileSystem.h>
 #include <wtf/FixedVector.h>
 #include <wtf/IterationStatus.h>
+#include <wtf/MallocSpan.h>
 #include <wtf/PageReservation.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RedBlackTree.h>
@@ -372,6 +373,8 @@ struct JITReservation {
     size_t size { 0 };
 };
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 static ALWAYS_INLINE JITReservation initializeJITPageReservation()
 {
     JITReservation reservation;
@@ -459,6 +462,8 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
 
     return reservation;
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 class FixedVMPoolExecutableAllocator final {
     WTF_MAKE_TZONE_ALLOCATED(FixedVMPoolExecutableAllocator);
@@ -1320,6 +1325,8 @@ void* endOfFixedExecutableMemoryPoolImpl()
     return allocator->memoryEnd();
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 void dumpJITMemory(const void* dst, const void* src, size_t size)
 {
     RELEASE_ASSERT(Options::dumpJITMemoryPath());
@@ -1399,6 +1406,8 @@ void dumpJITMemory(const void* dst, const void* src, size_t size)
 #endif
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 #if ENABLE(MPROTECT_RX_TO_RWX)
 void ExecutableAllocator::startWriting(const void* start, size_t sizeInBytes) { g_jscConfig.fixedVMPoolExecutableAllocator->startWriting(start, sizeInBytes); }
 void ExecutableAllocator::finishWriting(const void* start, size_t sizeInBytes) { g_jscConfig.fixedVMPoolExecutableAllocator->finishWriting(start, sizeInBytes); }
@@ -1406,7 +1415,7 @@ void ExecutableAllocator::finishWriting(const void* start, size_t sizeInBytes) {
 void* performJITMemcpyWithMProtect(void *dst, const void *src, size_t n)
 {
     g_jscConfig.fixedVMPoolExecutableAllocator->startWriting(dst, n);
-    memcpy(dst, src, n);
+    memcpyAtomicIfPossible(dst, src, n);
     g_jscConfig.fixedVMPoolExecutableAllocator->finishWriting(dst, n);
     return dst;
 }
@@ -1428,8 +1437,9 @@ ExecutableMemoryHandle::~ExecutableMemoryHandle()
     allocator->handleWillBeReleased(*this, sizeInBytes());
     if (UNLIKELY(Options::zeroExecutableMemoryOnFree())) {
         // We don't have a performJITMemset so just use a zeroed buffer.
-        auto zeros = MallocPtr<uint8_t>::zeroedMalloc(sizeInBytes());
-        performJITMemcpy(start().untaggedPtr(), zeros.get(), sizeInBytes());
+        auto zeros = MallocSpan<uint8_t>::zeroedMalloc(sizeInBytes());
+        auto span = zeros.span();
+        performJITMemcpy(start().untaggedPtr(), span.data(), span.size());
     }
     jit_heap_deallocate(key());
 }

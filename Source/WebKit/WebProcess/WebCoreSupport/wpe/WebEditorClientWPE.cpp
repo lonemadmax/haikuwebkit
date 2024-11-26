@@ -62,7 +62,7 @@ struct KeyPressEntry {
     const char* name;
 };
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // WPE port
 
 static const KeyDownEntry keyDownEntries[] = {
     { VK_LEFT,   0,                  "MoveLeft"                                },
@@ -143,8 +143,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static const char* interpretKeyEvent(const KeyboardEvent& event)
 {
-    static NeverDestroyed<UncheckedKeyHashMap<int, const char*>> keyDownCommandsMap;
-    static NeverDestroyed<UncheckedKeyHashMap<int, const char*>> keyPressCommandsMap;
+    static NeverDestroyed<HashMap<int, const char*>> keyDownCommandsMap;
+    static NeverDestroyed<HashMap<int, const char*>> keyPressCommandsMap;
 
     if (keyDownCommandsMap.get().isEmpty()) {
         for (unsigned i = 0; i < std::size(keyDownEntries); i++)

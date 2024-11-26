@@ -75,14 +75,14 @@ InlineLayoutUnit InlineFormattingUtils::logicalTopForNextLine(const LineLayoutRe
             return LayoutUnit { lineLogicalRect.top() + formattingContext().root().style().computedLineHeight() };
         };
         auto floatConstraints = floatingContext.constraints(toLayoutUnit(lineLogicalRect.top()), nextLineLogicalTop(), FloatingContext::MayBeAboveLastFloat::Yes);
-        if (floatConstraints.left && floatConstraints.right) {
+        if (floatConstraints.start && floatConstraints.end) {
             // In case of left and right constraints, we need to pick the one that's closer to the current line.
-            return std::min(floatConstraints.left->y, floatConstraints.right->y);
+            return std::min(floatConstraints.start->y, floatConstraints.end->y);
         }
-        if (floatConstraints.left)
-            return floatConstraints.left->y;
-        if (floatConstraints.right)
-            return floatConstraints.right->y;
+        if (floatConstraints.start)
+            return floatConstraints.start->y;
+        if (floatConstraints.end)
+            return floatConstraints.end->y;
         // If we didn't manage to place a content on this vertical position due to intrusive floats, we have to have
         // at least one float here.
         ASSERT_NOT_REACHED();
@@ -128,21 +128,18 @@ bool InlineFormattingUtils::inlineLevelBoxAffectsLineBox(const InlineLevelBox& i
 
 InlineRect InlineFormattingUtils::flipVisualRectToLogicalForWritingMode(const InlineRect& visualRect, WritingMode writingMode)
 {
-    switch (writingModeToBlockFlowDirection(writingMode)) {
+    switch (writingMode.blockDirection()) {
     case FlowDirection::TopToBottom:
     case FlowDirection::BottomToTop:
         return visualRect;
     case FlowDirection::LeftToRight:
-    case FlowDirection::RightToLeft: {
+    case FlowDirection::RightToLeft:
         // FIXME: While vertical-lr and vertical-rl modes do differ in the ordering direction of line boxes
         // in a block container (see: https://drafts.csswg.org/css-writing-modes/#block-flow)
         // we ignore it for now as RenderBlock takes care of it for us.
         return InlineRect { visualRect.left(), visualRect.top(), visualRect.height(), visualRect.width() };
     }
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
+    ASSERT_NOT_REACHED();
     return visualRect;
 }
 
@@ -225,7 +222,7 @@ InlineLayoutUnit InlineFormattingUtils::horizontalAlignmentOffset(const RenderSt
     if (horizontalAvailableSpace <= 0)
         return { };
 
-    auto isLeftToRightDirection = inlineBaseDirectionOverride.value_or(rootStyle.direction()) == TextDirection::LTR;
+    auto isLeftToRightDirection = inlineBaseDirectionOverride.value_or(rootStyle.writingMode().bidiDirection()) == TextDirection::LTR;
 
     auto computedHorizontalAlignment = [&] {
         auto textAlign = rootStyle.textAlign();
@@ -409,9 +406,6 @@ bool InlineFormattingUtils::isAtSoftWrapOpportunity(const InlineItem& previous, 
     ASSERT(previous.isText() || previous.isAtomicInlineBox() || previous.layoutBox().isRubyInlineBox());
     ASSERT(next.isText() || next.isAtomicInlineBox() || next.layoutBox().isRubyInlineBox());
 
-    if (previous.layoutBox().isRubyInlineBox() || next.layoutBox().isRubyInlineBox())
-        return RubyFormattingContext::isAtSoftWrapOpportunity(previous, next);
-
     auto mayWrapPrevious = TextUtil::isWrappingAllowed(previous.layoutBox().parent().style());
     auto mayWrapNext = TextUtil::isWrappingAllowed(next.layoutBox().parent().style());
     if (&previous.layoutBox().parent() == &next.layoutBox().parent() && !mayWrapPrevious && !mayWrapNext)
@@ -488,8 +482,8 @@ size_t InlineFormattingUtils::nextWrapOpportunity(size_t startIndex, const Inlin
             for (++index; index < layoutRange.endIndex() && inlineItemList[index].isInlineBoxEnd(); ++index) { }
             return index;
         }
-        auto isNonRubyInlineBox = (currentItem.isInlineBoxStart() || currentItem.isInlineBoxEnd()) && !currentItem.layoutBox().isRubyInlineBox();
-        if (isNonRubyInlineBox) {
+        auto isInlineBox = currentItem.isInlineBoxStart() || currentItem.isInlineBoxEnd();
+        if (isInlineBox) {
             // Need to see what comes next to decide.
             continue;
         }
@@ -566,7 +560,7 @@ std::pair<InlineLayoutUnit, InlineLayoutUnit> InlineFormattingUtils::textEmphasi
     // Normally we resolve visual -> logical values at pre-layout time, but emphasis values are not part of the general box geometry.
     auto hasAboveTextEmphasis = false;
     auto hasUnderTextEmphasis = false;
-    if (style.isVerticalWritingMode()) {
+    if (style.writingMode().isVerticalTypographic()) {
         hasAboveTextEmphasis = !emphasisPosition.contains(TextEmphasisPosition::Left);
         hasUnderTextEmphasis = !hasAboveTextEmphasis;
     } else {

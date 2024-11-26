@@ -44,7 +44,6 @@ css/StyleSheetList.h
 css/color/CSSUnresolvedStyleColorResolutionState.h
 css/parser/SizesCalcParser.h
 dom/CollectionIndexCache.h
-dom/ContainerNode.h
 dom/ElementAncestorIterator.h
 dom/Node.cpp
 dom/Node.h
@@ -86,7 +85,6 @@ page/FrameSnapshotting.cpp
 page/NavigatorLoginStatus.h
 page/OpportunisticTaskScheduler.h
 page/PerformanceLogging.h
-page/PointerCaptureController.h
 page/PointerLockController.h
 page/RenderingUpdateScheduler.h
 page/ResourceUsageThread.h
@@ -95,7 +93,6 @@ page/WheelEventTestMonitor.h
 page/scrolling/ScrollLatchingController.h
 page/scrolling/ScrollingCoordinator.h
 page/scrolling/ScrollingTreeGestureState.h
-page/scrolling/ScrollingTreeNode.h
 page/scrolling/ScrollingTreeScrollingNodeDelegate.h
 page/scrolling/mac/ScrollerMac.h
 platform/DragImage.cpp
@@ -131,7 +128,6 @@ plugins/PluginData.h
 rendering/RenderQuote.cpp
 rendering/RenderVTTCue.h
 rendering/TextBoxPainter.h
-rendering/style/BasicShapesShape.cpp
 rendering/style/StyleGeneratedImage.cpp
 rendering/svg/SVGTextLayoutAttributesBuilder.h
 rendering/updating/RenderTreeUpdater.h

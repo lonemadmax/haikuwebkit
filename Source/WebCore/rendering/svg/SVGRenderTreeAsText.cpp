@@ -72,6 +72,8 @@
 #include "StyleCachedImage.h"
 #include <math.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 /** class + iomanip to help streaming list separators, i.e. ", " in string "a, b, c, d"
@@ -360,7 +362,7 @@ static inline void writeSVGInlineTextBox(TextStream& ts, const InlineIterator::S
         // FIXME: Remove this hack, once the new text layout engine is completly landed. We want to preserve the old layout test results for now.
         ts << "chunk 1 "_s;
         TextAnchor anchor = svgStyle->textAnchor();
-        bool isVerticalText = textBox.renderer().style().isVerticalWritingMode();
+        bool isVerticalText = textBox.renderer().writingMode().isVertical();
         if (anchor == TextAnchor::Middle) {
             ts << "(middle anchor"_s;
             if (isVerticalText)
@@ -622,3 +624,5 @@ void writeResources(TextStream& ts, const RenderObject& renderer, OptionSet<Rend
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -167,6 +167,7 @@ public:
         Video,
         View,
         ViewTransitionCapture,
+        ViewTransitionRoot,
 #if ENABLE(MATHML)
         MathMLBlock,
         MathMLFenced,
@@ -460,6 +461,7 @@ public:
 #endif
     bool isRenderFragmentContainer() const { return isRenderBlockFlow() && m_typeSpecificFlags.blockFlowFlags().contains(BlockFlowFlag::IsFragmentContainer); }
     bool isRenderViewTransitionContainer() const { return isRenderBlockFlow() && m_typeSpecificFlags.blockFlowFlags().contains(BlockFlowFlag::IsViewTransitionContainer); }
+    bool isRenderViewTransitionRoot() const { return type() == Type::ViewTransitionRoot; }
     bool isRenderReplica() const { return type() == Type::Replica; }
 
     bool isRenderSlider() const { return type() == Type::Slider; }
@@ -888,6 +890,8 @@ public:
 
     const RenderStyle& style() const;
     const RenderStyle& firstLineStyle() const;
+    WritingMode writingMode() const { return style().writingMode(); }
+    // writingMode().isHorizontal() is cached by isHorizontalWritingMode() above.
 
     // Anonymous blocks that are part of of a continuation chain will return their inline continuation's outline style instead.
     // This is typically only relevant when repainting.

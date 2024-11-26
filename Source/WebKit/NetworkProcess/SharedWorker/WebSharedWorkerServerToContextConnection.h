@@ -28,9 +28,9 @@
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "WebPageProxyIdentifier.h"
-#include <WebCore/RegistrableDomain.h>
 #include <WebCore/SharedWorkerIdentifier.h>
 #include <WebCore/SharedWorkerObjectIdentifier.h>
+#include <WebCore/Site.h>
 #include <WebCore/Timer.h>
 #include <WebCore/TransferredMessagePort.h>
 #include <wtf/CheckedRef.h>
@@ -42,7 +42,6 @@ class WebSharedWorkerServerToContextConnection;
 }
 
 namespace WebCore {
-class RegistrableDomain;
 class ScriptBuffer;
 struct ClientOrigin;
 struct WorkerFetchResult;
@@ -58,12 +57,13 @@ class WebSharedWorkerServer;
 class WebSharedWorkerServerToContextConnection final : public IPC::MessageSender, public IPC::MessageReceiver, public RefCounted<WebSharedWorkerServerToContextConnection> {
     WTF_MAKE_TZONE_ALLOCATED(WebSharedWorkerServerToContextConnection);
 public:
-    static Ref<WebSharedWorkerServerToContextConnection> create(NetworkConnectionToWebProcess&, const WebCore::RegistrableDomain&, WebSharedWorkerServer&);
+    static Ref<WebSharedWorkerServerToContextConnection> create(NetworkConnectionToWebProcess&, const WebCore::Site&, WebSharedWorkerServer&);
 
     ~WebSharedWorkerServerToContextConnection();
 
     std::optional<WebCore::ProcessIdentifier> webProcessIdentifier() const;
-    const WebCore::RegistrableDomain& registrableDomain() const { return m_registrableDomain; }
+    const WebCore::RegistrableDomain& registrableDomain() const { return m_site.domain(); }
+    const WebCore::Site& site() const { return m_site; }
     IPC::Connection* ipcConnection() const;
 
     void terminateWhenPossible() { m_shouldTerminateWhenPossible = true; }
@@ -75,7 +75,7 @@ public:
     void suspendSharedWorker(WebCore::SharedWorkerIdentifier);
     void resumeSharedWorker(WebCore::SharedWorkerIdentifier);
 
-    const UncheckedKeyHashMap<WebCore::ProcessIdentifier, HashSet<WebCore::SharedWorkerObjectIdentifier>>& sharedWorkerObjects() const { return m_sharedWorkerObjects; }
+    const HashMap<WebCore::ProcessIdentifier, HashSet<WebCore::SharedWorkerObjectIdentifier>>& sharedWorkerObjects() const { return m_sharedWorkerObjects; }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
@@ -83,7 +83,7 @@ public:
     void removeSharedWorkerObject(WebCore::SharedWorkerObjectIdentifier);
 
 private:
-    WebSharedWorkerServerToContextConnection(NetworkConnectionToWebProcess&, const WebCore::RegistrableDomain&, WebSharedWorkerServer&);
+    WebSharedWorkerServerToContextConnection(NetworkConnectionToWebProcess&, const WebCore::Site&, WebSharedWorkerServer&);
 
     void idleTerminationTimerFired();
     void connectionIsNoLongerNeeded();
@@ -98,8 +98,8 @@ private:
 
     WeakPtr<NetworkConnectionToWebProcess> m_connection;
     WeakPtr<WebSharedWorkerServer> m_server;
-    WebCore::RegistrableDomain m_registrableDomain;
-    UncheckedKeyHashMap<WebCore::ProcessIdentifier, HashSet<WebCore::SharedWorkerObjectIdentifier>> m_sharedWorkerObjects;
+    WebCore::Site m_site;
+    HashMap<WebCore::ProcessIdentifier, HashSet<WebCore::SharedWorkerObjectIdentifier>> m_sharedWorkerObjects;
     WebCore::Timer m_idleTerminationTimer;
     bool m_shouldTerminateWhenPossible { false };
 };

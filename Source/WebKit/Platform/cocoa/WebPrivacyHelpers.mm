@@ -157,9 +157,6 @@ void LinkDecorationFilteringController::updateList(CompletionHandler<void()>&& c
             auto rules = [data rules];
             for (WPLinkFilteringRule *rule : rules) {
                 auto domain = WebCore::RegistrableDomain { URL { makeString("http://"_s, String { rule.domain }) } };
-                // FIXME: This should be removed with rdar://127137181
-                if ([rule.domain hasPrefix:@"http://"])
-                    domain = WebCore::RegistrableDomain { URL { String { rule.domain } } };
                 result.append(WebCore::LinkDecorationFilteringData { WTFMove(domain), [rule respondsToSelector:@selector(path)] ? rule.path : @"", rule.queryParameter });
             }
             setCachedListData(WTFMove(result));
@@ -204,9 +201,6 @@ void requestLinkDecorationFilteringData(LinkFilteringRulesCallback&& callback)
             auto rules = [data rules];
             for (WPLinkFilteringRule *rule : rules) {
                 auto domain = WebCore::RegistrableDomain { URL { makeString("http://"_s, String { rule.domain }) } };
-                // FIXME: This should be removed with rdar://127137181
-                if ([rule.domain hasPrefix:@"http://"])
-                    domain = WebCore::RegistrableDomain { URL { String { rule.domain } } };
                 result.append(WebCore::LinkDecorationFilteringData { WTFMove(domain), { }, rule.queryParameter });
             }
         }
@@ -233,9 +227,9 @@ void StorageAccessPromptQuirkController::didUpdateCachedListData()
     RELEASE_LOG(ResourceLoadStatistics, "StorageAccessPromptQuirkController::didUpdateCachedListData: Loaded %lu storage access prompt(s) quirks from WebPrivacy.", m_cachedListData.size());
 }
 
-static UncheckedKeyHashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> quirkDomainsDictToMap(NSDictionary<NSString *, NSArray<NSString *> *> *quirkDomains)
+static HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> quirkDomainsDictToMap(NSDictionary<NSString *, NSArray<NSString *> *> *quirkDomains)
 {
-    UncheckedKeyHashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> map;
+    HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> map;
     auto* topDomains = quirkDomains.allKeys;
     for (NSString *topDomain : topDomains) {
         Vector<WebCore::RegistrableDomain> subFrameDomains;
@@ -315,7 +309,7 @@ void StorageAccessUserAgentStringQuirkController::updateList(CompletionHandler<v
     [options setAfterUpdates:NO];
 
     [[PAL::getWPResourcesClass() sharedInstance] requestStorageAccessUserAgentStringQuirksData:options.get() completionHandler:^(WPStorageAccessUserAgentStringQuirksData *data, NSError *error) {
-        UncheckedKeyHashMap<WebCore::RegistrableDomain, String> result;
+        HashMap<WebCore::RegistrableDomain, String> result;
         if (error)
             RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request storage access user agent string quirks from WebPrivacy.");
         else {
@@ -385,7 +379,7 @@ void RestrictedOpenerDomainsController::update()
             return;
         }
 
-        UncheckedKeyHashMap<WebCore::RegistrableDomain, RestrictedOpenerType> restrictedOpenerTypes;
+        HashMap<WebCore::RegistrableDomain, RestrictedOpenerType> restrictedOpenerTypes;
         restrictedOpenerTypes.reserveInitialCapacity(domains.count);
 
         for (WPRestrictedOpenerDomain *domainInfo in domains) {

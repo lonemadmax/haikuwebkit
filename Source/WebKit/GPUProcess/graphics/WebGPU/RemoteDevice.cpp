@@ -196,6 +196,11 @@ void RemoteDevice::setSharedVideoFrameMemory(WebCore::SharedMemory::Handle&& han
 }
 #endif
 
+void RemoteDevice::pauseAllErrorReporting(bool pauseErrorReporting)
+{
+    protectedBacking()->pauseAllErrorReporting(pauseErrorReporting);
+}
+
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
 void RemoteDevice::importExternalTextureFromVideoFrame(const WebGPU::ExternalTextureDescriptor& descriptor, WebGPUIdentifier identifier)
 {
@@ -231,14 +236,16 @@ void RemoteDevice::updateExternalTexture(WebKit::WebGPUIdentifier externalTextur
 
     externalTexture.get()->destroy();
     if (auto connection = m_gpuConnectionToWebProcess.get()) {
-        connection->performWithMediaPlayerOnMainThread(mediaPlayerIdentifier, [externalTexture] (auto& player) mutable {
+        RetainPtr<CVPixelBufferRef> pixelBuffer { nullptr };
+        connection->performWithMediaPlayerOnMainThread(mediaPlayerIdentifier, [externalTexture, &pixelBuffer] (auto& player) mutable {
             auto externalTexturePtr = externalTexture.get();
             if (!externalTexturePtr)
                 return;
             auto videoFrame = player.videoFrameForCurrentTime();
-            RetainPtr<CVPixelBufferRef> pixelBuffer = videoFrame ? videoFrame->pixelBuffer() : nullptr;
-            externalTexturePtr->updateExternalTexture(pixelBuffer.get());
+            pixelBuffer = videoFrame ? videoFrame->pixelBuffer() : nullptr;
         });
+        if (auto externalTexturePtr = externalTexture.get())
+            externalTexturePtr->updateExternalTexture(pixelBuffer.get());
     }
 }
 #endif // PLATFORM(COCOA) && ENABLE(VIDEO)

@@ -95,6 +95,7 @@
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
+#include "IntelligenceTextEffectsSupport.h"
 #include "LayoutDisallowedScope.h"
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
@@ -104,7 +105,6 @@
 #include "Logging.h"
 #include "LowPowerModeNotifier.h"
 #include "MediaCanStartListener.h"
-#include "MediaRecorderProvider.h"
 #include "MemoryCache.h"
 #include "ModelPlayerProvider.h"
 #include "NavigationScheduler.h"
@@ -129,6 +129,7 @@
 #include "PluginViewBase.h"
 #include "PointerCaptureController.h"
 #include "PointerLockController.h"
+#include "ProcessSyncClient.h"
 #include "ProgressTracker.h"
 #include "Range.h"
 #include "RemoteFrame.h"
@@ -351,6 +352,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_settings(Settings::create(this))
     , m_cryptoClient(WTFMove(pageConfiguration.cryptoClient))
     , m_progress(makeUniqueRef<ProgressTracker>(*this, WTFMove(pageConfiguration.progressTrackerClient)))
+    , m_processSyncClient(WTFMove(pageConfiguration.processSyncClient))
     , m_backForwardController(makeUniqueRef<BackForwardController>(*this, WTFMove(pageConfiguration.backForwardClient)))
     , m_editorClient(WTFMove(pageConfiguration.editorClient))
     , m_mainFrame(createMainFrame(*this, WTFMove(pageConfiguration.mainFrameCreationParameters), WTFMove(pageConfiguration.mainFrameOpener), pageConfiguration.mainFrameIdentifier))
@@ -361,7 +363,6 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_speechSynthesisClient(WTFMove(pageConfiguration.speechSynthesisClient))
 #endif
     , m_speechRecognitionProvider((WTFMove(pageConfiguration.speechRecognitionProvider)))
-    , m_mediaRecorderProvider((WTFMove(pageConfiguration.mediaRecorderProvider)))
     , m_webRTCProvider(WTFMove(pageConfiguration.webRTCProvider))
     , m_rtcController(RTCController::create())
 #if PLATFORM(IOS_FAMILY)
@@ -543,7 +544,7 @@ void Page::firstTimeInitialization()
     });
 }
 
-void Page::clearPreviousItemFromAllPages(HistoryItem* item)
+void Page::clearPreviousItemFromAllPages(BackForwardItemIdentifier itemID)
 {
     for (auto& page : allPages()) {
         RefPtr localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
@@ -551,7 +552,7 @@ void Page::clearPreviousItemFromAllPages(HistoryItem* item)
             return;
 
         CheckedRef controller = localMainFrame->history();
-        if (item == controller->previousItem()) {
+        if (controller->previousItem() && controller->previousItem()->identifier() == itemID) {
             controller->clearPreviousItem();
             return;
         }
@@ -802,17 +803,15 @@ void Page::setOpenedByDOM()
     m_openedByDOM = true;
 }
 
-void Page::goToItem(Frame& frame, HistoryItem& item, FrameLoadType type, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
+void Page::goToItem(LocalFrame& frame, HistoryItem& item, FrameLoadType type, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
 {
     // stopAllLoaders may end up running onload handlers, which could cause further history traversals that may lead to the passed in HistoryItem
     // being deref()-ed. Make sure we can still use it with HistoryController::goToItem later.
     Ref protectedItem { item };
 
     ASSERT(frame.isRootFrame());
-    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame)) {
-        if (localFrame->checkedHistory()->shouldStopLoadingForHistoryItem(item))
-            localFrame->protectedLoader()->stopAllLoadersAndCheckCompleteness();
-    }
+    if (frame.checkedHistory()->shouldStopLoadingForHistoryItem(item))
+        frame.protectedLoader()->stopAllLoadersAndCheckCompleteness();
     frame.checkedHistory()->goToItem(item, type, shouldTreatAsContinuingLoad);
 }
 
@@ -1478,10 +1477,6 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
     if (mainFrameView && mainFrameView->scrollPosition() != origin) {
         if (mainFrameView->delegatedScrollingMode() != DelegatedScrollingMode::DelegatedToNativeScrollView)
             mainFrameView->setScrollPosition(origin);
-#if USE(COORDINATED_GRAPHICS)
-        else
-            mainFrameView->requestScrollToPosition(origin);
-#endif
     }
 
 #if ENABLE(VIDEO)
@@ -1847,15 +1842,19 @@ void Page::scheduleRenderingUpdateInternal()
 {
     if (!chrome().client().scheduleRenderingUpdate())
         renderingUpdateScheduler().scheduleRenderingUpdate();
+    m_renderingUpdateIsScheduled = true;
+}
 
+std::optional<MonotonicTime> Page::nextRenderingUpdateTimestamp() const
+{
+    if (!m_lastRenderingUpdateTimestamp)
+        return std::nullopt;
+    if (!m_renderingUpdateIsScheduled)
+        return std::nullopt;
+    auto interval = preferredRenderingUpdateInterval();
     auto now = MonotonicTime::now();
-    forEachWindowEventLoop([&](WindowEventLoop& windowEventLoop) {
-        auto interval = preferredRenderingUpdateInterval();
-        auto nextRenderingUpdateTime = m_lastRenderingUpdateTimestamp + interval;
-        if (nextRenderingUpdateTime < now)
-            nextRenderingUpdateTime = now + interval;
-        windowEventLoop.didScheduleRenderingUpdate(*this, nextRenderingUpdateTime);
-    });
+    ASSERT(now > m_lastRenderingUpdateTimestamp);
+    return m_lastRenderingUpdateTimestamp + std::floor((now + interval - m_lastRenderingUpdateTimestamp) / interval) * interval;
 }
 
 void Page::didScheduleRenderingUpdate()
@@ -1911,10 +1910,7 @@ void Page::updateRendering()
     }
 
     m_lastRenderingUpdateTimestamp = MonotonicTime::now();
-
-    forEachWindowEventLoop([&](WindowEventLoop& eventLoop) {
-        eventLoop.didStartRenderingUpdate(*this);
-    });
+    m_renderingUpdateIsScheduled = false;
 
     bool isSVGImagePage = chrome().client().isSVGImageChromeClient();
     if (!isSVGImagePage)
@@ -2859,7 +2855,7 @@ void Page::stopMediaCapture(MediaProducerMediaCaptureKind kind)
 bool Page::mediaPlaybackExists()
 {
 #if ENABLE(VIDEO)
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         return !platformMediaSessionManager->hasNoSession();
 #endif
     return false;
@@ -2868,7 +2864,7 @@ bool Page::mediaPlaybackExists()
 bool Page::mediaPlaybackIsPaused()
 {
 #if ENABLE(VIDEO)
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         return platformMediaSessionManager->mediaPlaybackIsPaused(mediaSessionGroupIdentifier());
 #endif
     return false;
@@ -2877,7 +2873,7 @@ bool Page::mediaPlaybackIsPaused()
 void Page::pauseAllMediaPlayback()
 {
 #if ENABLE(VIDEO)
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         platformMediaSessionManager->pauseAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
 #endif
 }
@@ -2889,7 +2885,7 @@ void Page::suspendAllMediaPlayback()
     if (m_mediaPlaybackIsSuspended)
         return;
 
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         platformMediaSessionManager->suspendAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
 
     // FIXME: We cannot set m_mediaPlaybackIsSuspended before, see https://bugs.webkit.org/show_bug.cgi?id=192829#c7.
@@ -2914,7 +2910,7 @@ void Page::resumeAllMediaPlayback()
         return;
     m_mediaPlaybackIsSuspended = false;
 
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         platformMediaSessionManager->resumeAllMediaPlaybackForGroup(mediaSessionGroupIdentifier());
 #endif
 }
@@ -2927,7 +2923,7 @@ void Page::suspendAllMediaBuffering()
         return;
     m_mediaBufferingIsSuspended = true;
 
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         platformMediaSessionManager->suspendAllMediaBufferingForGroup(mediaSessionGroupIdentifier());
 #endif
 }
@@ -2939,7 +2935,7 @@ void Page::resumeAllMediaBuffering()
         return;
     m_mediaBufferingIsSuspended = false;
 
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::singletonIfExists())
         platformMediaSessionManager->resumeAllMediaBufferingForGroup(mediaSessionGroupIdentifier());
 #endif
 }
@@ -3930,7 +3926,7 @@ void Page::setUseSystemAppearance(bool value)
     });
 }
 
-void Page::effectiveAppearanceDidChange(bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
+void Page::setUseColorAppearance(bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
 {
 #if ENABLE(DARK_MODE_CSS)
     if (m_useDarkAppearance == useDarkAppearance && m_useElevatedUserInterfaceLevel == useElevatedUserInterfaceLevel)
@@ -3958,16 +3954,22 @@ bool Page::useDarkAppearance() const
 {
 #if ENABLE(DARK_MODE_CSS)
     RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
-    RefPtr view = localMainFrame ? localMainFrame->view() : nullptr;
+
+    // FIXME: If this page is being printed, this function should return false.
+    // Currently remote mainFrame() does not have this information.
+    if (!localMainFrame)
+        return m_useDarkAppearance;
+
+    RefPtr view = localMainFrame->view();
     if (!view || view->mediaType() != screenAtom())
         return false;
+
     if (m_useDarkAppearanceOverride)
         return m_useDarkAppearanceOverride.value();
 
     if (RefPtr documentLoader = localMainFrame->loader().documentLoader()) {
-        auto colorSchemePreference = documentLoader->colorSchemePreference();
-        if (colorSchemePreference != ColorSchemePreference::NoPreference)
-            return colorSchemePreference == ColorSchemePreference::Dark;
+        if (documentLoader->colorSchemePreference() == ColorSchemePreference::Dark)
+            return true;
     }
 
     return m_useDarkAppearance;
@@ -4103,6 +4105,21 @@ void Page::forEachDocumentFromMainFrame(const Frame& mainFrame, const Function<v
 void Page::forEachDocument(const Function<void(Document&)>& functor) const
 {
     forEachDocumentFromMainFrame(protectedMainFrame(), functor);
+}
+
+bool Page::findMatchingLocalDocument(const Function<bool(Document&)>& functor) const
+{
+    for (RefPtr frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        RefPtr localFrame = dynamicDowncast<LocalFrame>(*frame);
+        if (!localFrame)
+            continue;
+        RefPtr document = localFrame->document();
+        if (!document)
+            continue;
+        if (functor(*document))
+            return true;
+    }
+    return false;
 }
 
 void Page::forEachRenderableDocument(const Function<void(Document&)>& functor) const
@@ -4359,7 +4376,7 @@ void Page::configureLoggingChannel(const String& channelName, WTFLogChannelState
 
 #if USE(LIBWEBRTC)
         RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-        if (channel == &LogWebRTC && localMainFrame && localMainFrame->document() && !sessionID().isEphemeral() && (m_settings->webCodecsVideoEnabled() || m_settings->peerConnectionEnabled()))
+        if (channel == &LogWebRTC && localMainFrame && localMainFrame->document() && isAlwaysOnLoggingAllowed() && (m_settings->webCodecsVideoEnabled() || m_settings->peerConnectionEnabled()))
             webRTCProvider().setLoggingLevel(LogWebRTC.level);
 #endif
     }
@@ -4843,15 +4860,15 @@ void Page::reloadExecutionContextsForOrigin(const ClientOrigin& origin, std::opt
             frame = frame->tree().traverseNext();
             continue;
         }
-        localFrame->checkedNavigationScheduler()->scheduleRefresh(*document);
+        localFrame->protectedNavigationScheduler()->scheduleRefresh(*document);
         frame = frame->tree().traverseNextSkippingChildren();
     }
 }
 
-void Page::opportunisticallyRunIdleCallbacks()
+void Page::opportunisticallyRunIdleCallbacks(MonotonicTime deadline)
 {
     forEachWindowEventLoop([&](auto& eventLoop) {
-        eventLoop.opportunisticallyRunIdleCallbacks();
+        eventLoop.opportunisticallyRunIdleCallbacks(deadline);
     });
 }
 
@@ -5001,14 +5018,19 @@ void Page::didBeginWritingToolsSession(const WritingTools::Session& session, con
     m_writingToolsController->didBeginWritingToolsSession(session, contexts);
 }
 
-void Page::proofreadingSessionDidReceiveSuggestions(const WritingTools::Session& session, const Vector<WritingTools::TextSuggestion>& suggestions, const WritingTools::Context& context, bool finished)
+void Page::proofreadingSessionDidReceiveSuggestions(const WritingTools::Session& session, const Vector<WritingTools::TextSuggestion>& suggestions, const CharacterRange& processedRange, const WritingTools::Context& context, bool finished)
 {
-    m_writingToolsController->proofreadingSessionDidReceiveSuggestions(session, suggestions, context, finished);
+    m_writingToolsController->proofreadingSessionDidReceiveSuggestions(session, suggestions, processedRange, context, finished);
 }
 
 void Page::proofreadingSessionDidUpdateStateForSuggestion(const WritingTools::Session& session, WritingTools::TextSuggestion::State state, const WritingTools::TextSuggestion& suggestion, const WritingTools::Context& context)
 {
     m_writingToolsController->proofreadingSessionDidUpdateStateForSuggestion(session, state, suggestion, context);
+}
+
+void Page::willEndWritingToolsSession(const WritingTools::Session& session, bool accepted)
+{
+    m_writingToolsController->willEndWritingToolsSession(session, accepted);
 }
 
 void Page::didEndWritingToolsSession(const WritingTools::Session& session, bool accepted)
@@ -5041,6 +5063,101 @@ void Page::respondToReappliedWritingToolsEditing(EditCommandComposition* command
     m_writingToolsController->respondToReappliedEditing(command);
 }
 
+Vector<FloatRect> Page::proofreadingSessionSuggestionTextRectsInRootViewCoordinates(const CharacterRange& enclosingRangeRelativeToSessionRange) const
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    return IntelligenceTextEffectsSupport::writingToolsTextSuggestionRectsInRootViewCoordinates(*document, *scope, enclosingRangeRelativeToSessionRange);
+}
+
+void Page::updateTextVisibilityForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange, bool visible, const WTF::UUID& identifier)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    IntelligenceTextEffectsSupport::updateTextVisibility(*document, *scope, rangeRelativeToSessionRange, visible, identifier);
+}
+
+std::optional<TextIndicatorData> Page::textPreviewDataForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return std::nullopt;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return std::nullopt;
+    }
+
+    return IntelligenceTextEffectsSupport::textPreviewDataForRange(*document, *scope, rangeRelativeToSessionRange);
+}
+
+void Page::decorateTextReplacementsForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    IntelligenceTextEffectsSupport::decorateWritingToolsTextReplacements(*document, *scope, rangeRelativeToSessionRange);
+}
+
+void Page::setSelectionForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto resolvedRange = resolveCharacterRange(*scope, rangeRelativeToSessionRange);
+    auto visibleSelection = VisibleSelection { resolvedRange };
+    if (visibleSelection.isNoneOrOrphaned())
+        return;
+
+    document->selection().setSelection(visibleSelection);
+}
+
 std::optional<SimpleRange> Page::contextRangeForActiveWritingToolsSession() const
 {
     return m_writingToolsController->activeSessionRange();
@@ -5060,7 +5177,7 @@ void Page::hasActiveNowPlayingSessionChanged()
 
 void Page::activeNowPlayingSessionUpdateTimerFired()
 {
-    bool hasActiveNowPlayingSession = PlatformMediaSessionManager::sharedManager().hasActiveNowPlayingSessionInGroup(mediaSessionGroupIdentifier());
+    bool hasActiveNowPlayingSession = PlatformMediaSessionManager::singleton().hasActiveNowPlayingSessionInGroup(mediaSessionGroupIdentifier());
     if (hasActiveNowPlayingSession == m_hasActiveNowPlayingSession)
         return;
 
@@ -5165,6 +5282,11 @@ void Page::applyWindowFeatures(const WindowFeatures& features)
     if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
         localFrame->setViewportArguments(arguments);
 #endif
+}
+
+bool Page::isAlwaysOnLoggingAllowed() const
+{
+    return m_sessionID.isAlwaysOnLoggingAllowed() || protectedSettings()->allowPrivacySensitiveOperationsInNonPersistentDataStores();
 }
 
 } // namespace WebCore

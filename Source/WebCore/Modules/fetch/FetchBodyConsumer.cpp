@@ -44,6 +44,8 @@
 #include <wtf/URLParser.h>
 #include <wtf/text/MakeString.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 static inline Ref<Blob> blobFromData(ScriptExecutionContext* context, Vector<uint8_t>&& data, const String& contentType)
@@ -62,12 +64,12 @@ static bool isHTTPQuotedStringTokenCodePoint(UChar c)
 struct MimeType {
     String type;
     String subtype;
-    UncheckedKeyHashMap<String, String> parameters;
+    HashMap<String, String> parameters;
 };
 
-static UncheckedKeyHashMap<String, String> parseParameters(StringView input, size_t position)
+static HashMap<String, String> parseParameters(StringView input, size_t position)
 {
-    UncheckedKeyHashMap<String, String> parameters;
+    HashMap<String, String> parameters;
     while (position < input.length()) {
         while (position < input.length() && isTabOrSpace(input[position]))
             position++;
@@ -512,3 +514,5 @@ FetchBodyConsumer FetchBodyConsumer::clone()
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -45,6 +45,8 @@
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(TimerBase);
@@ -65,7 +67,7 @@ static ThreadTimerHeap& threadGlobalTimerHeap()
 }
 #endif
 
-WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ThreadTimerHeapItem);
+WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(ThreadTimerHeapItem);
 
 inline ThreadTimerHeapItem::ThreadTimerHeapItem(TimerBase& timer, MonotonicTime time, unsigned insertionOrder)
     : time(time)
@@ -576,3 +578,4 @@ Seconds TimerBase::nextUnalignedFireInterval() const
 
 } // namespace WebCore
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

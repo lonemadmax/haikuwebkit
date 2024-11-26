@@ -174,6 +174,7 @@ CoordinatedGraphicsLayer::~CoordinatedGraphicsLayer()
     ASSERT(!m_imageBacking.store);
     ASSERT(!m_backingStore);
     ASSERT(!m_animatedBackingStoreClient);
+
     if (CoordinatedGraphicsLayer* parentLayer = downcast<CoordinatedGraphicsLayer>(parent()))
         parentLayer->didChangeChildren();
     willBeDestroyed();
@@ -816,8 +817,8 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
         if (!m_backingStore) {
             m_backingStore = CoordinatedBackingStoreProxy::create(effectiveContentsScale());
             m_pendingVisibleRectAdjustment = true;
+            m_nicosia.delta.backingStoreChanged = true;
         }
-        m_nicosia.delta.backingStoreChanged = true;
     } else if (m_backingStore) {
         m_backingStore = nullptr;
         m_nicosia.delta.backingStoreChanged = true;
@@ -952,7 +953,7 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
                     state.debugBorder = m_nicosia.debugBorder;
 
                 if (localDelta.backingStoreChanged)
-                    state.backingStore.shouldHaveBackingStore = !!m_backingStore;
+                    state.backingStore = m_backingStore;
                 if (localDelta.contentLayerChanged)
                     state.contentLayer = m_contentsLayer;
                 if (localDelta.imageBackingChanged) {
@@ -1079,13 +1080,14 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
         m_pendingContentsScaleAdjustment = false;
     }
 
+    // Bail if there's no painting recorded or enforced.
     if (!m_pendingVisibleRectAdjustment && !m_needsDisplay.completeLayer && m_needsDisplay.rects.isEmpty())
         return;
 
     IntRect contentsRect(IntPoint::zero(), IntSize(m_size));
-    Vector<IntRect> dirtyRegion;
+    Vector<IntRect, 1> dirtyRegion;
     if (!m_needsDisplay.completeLayer) {
-        dirtyRegion = m_needsDisplay.rects.map<Vector<IntRect>>([](const FloatRect& rect) {
+        dirtyRegion = m_needsDisplay.rects.map<Vector<IntRect, 1>>([](const FloatRect& rect) {
             return enclosingIntRect(rect);
         });
     } else
@@ -1095,27 +1097,21 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
 
     ASSERT(m_coordinator && m_coordinator->isFlushingLayerChanges());
 
-    auto update = m_backingStore->updateIfNeeded(transformedVisibleRectIncludingFuture(), contentsRect, m_pendingVisibleRectAdjustment, WTFMove(dirtyRegion), *this);
+    auto updateResult = m_backingStore->updateIfNeeded(transformedVisibleRectIncludingFuture(), contentsRect, m_pendingVisibleRectAdjustment, dirtyRegion, *this);
     m_pendingVisibleRectAdjustment = false;
 
     if (m_animatedBackingStoreClient)
         m_animatedBackingStoreClient->setCoverRect(m_backingStore->coverRect());
 
-    if (update) {
+    if (updateResult.contains(CoordinatedBackingStoreProxy::UpdateResult::TilesChanged)) {
         m_nicosia.performLayerSync |= true;
-        if (!update->tilesToUpdate().isEmpty())
+        if (updateResult.contains(CoordinatedBackingStoreProxy::UpdateResult::BuffersChanged))
             didUpdateTileBuffers();
     }
 
-    m_nicosia.layer->accessPending([&](auto& state) {
-        state.backingStore.update = update;
-        state.backingStore.scale = effectiveContentsScale();
-        state.delta.backingStoreChanged = true;
-    });
-
     // Request a new update immediately if some tiles are still pending creation. Do this on a timer
     // as we're in a layer flush and flush requests at this point would be discarded.
-    if (m_backingStore->hasPendingTileCreation()) {
+    if (updateResult.contains(CoordinatedBackingStoreProxy::UpdateResult::TilesPending)) {
         setNeedsVisibleRectAdjustment();
         m_requestPendingTileCreationTimer.startOneShot(0_s);
     }

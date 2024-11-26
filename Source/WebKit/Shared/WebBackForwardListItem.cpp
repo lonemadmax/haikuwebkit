@@ -63,10 +63,10 @@ WebBackForwardListItem::~WebBackForwardListItem()
     removeFromBackForwardCache();
 }
 
-UncheckedKeyHashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>& WebBackForwardListItem::allItems()
+HashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>& WebBackForwardListItem::allItems()
 {
     RELEASE_ASSERT(RunLoop::isMain());
-    static NeverDestroyed<UncheckedKeyHashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>> items;
+    static NeverDestroyed<HashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>> items;
     return items;
 }
 
@@ -173,12 +173,19 @@ void WebBackForwardListItem::wasRemovedFromBackForwardList()
 
 void WebBackForwardListItem::removeFromBackForwardCache()
 {
-    if (m_backForwardCacheEntry)
-        m_backForwardCacheEntry->backForwardCache().removeEntry(*this);
+    if (RefPtr backForwardCacheEntry = m_backForwardCacheEntry) {
+        if (RefPtr backForwardCache = backForwardCacheEntry->backForwardCache())
+            backForwardCache->removeEntry(*this);
+    }
     ASSERT(!m_backForwardCacheEntry);
 }
 
-void WebBackForwardListItem::setBackForwardCacheEntry(std::unique_ptr<WebBackForwardCacheEntry>&& backForwardCacheEntry)
+RefPtr<WebBackForwardCacheEntry> WebBackForwardListItem::protectedBackForwardCacheEntry() const
+{
+    return m_backForwardCacheEntry;
+}
+
+void WebBackForwardListItem::setBackForwardCacheEntry(RefPtr<WebBackForwardCacheEntry>&& backForwardCacheEntry)
 {
     m_backForwardCacheEntry = WTFMove(backForwardCacheEntry);
 }
@@ -195,7 +202,7 @@ WebCore::BackForwardItemIdentifier WebBackForwardListItem::itemID() const
 
 void WebBackForwardListItem::setRootFrameState(Ref<FrameState>&& mainFrameState)
 {
-    m_rootFrameItem->setFrameState(WTFMove(mainFrameState));
+    protectedRootFrameItem()->setFrameState(WTFMove(mainFrameState));
 }
 
 FrameState& WebBackForwardListItem::rootFrameState() const
@@ -227,6 +234,16 @@ const String& WebBackForwardListItem::title() const
 bool WebBackForwardListItem::wasCreatedByJSWithoutUserInteraction() const
 {
     return m_rootFrameItem->frameState().wasCreatedByJSWithoutUserInteraction;
+}
+
+void WebBackForwardListItem::setWasRestoredFromSession()
+{
+    protectedRootFrameItem()->setWasRestoredFromSession();
+}
+
+Ref<WebBackForwardListFrameItem> WebBackForwardListItem::protectedRootFrameItem()
+{
+    return m_rootFrameItem.get();
 }
 
 #if !LOG_DISABLED

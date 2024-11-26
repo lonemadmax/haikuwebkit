@@ -41,6 +41,7 @@ class HTMLElement;
 class HTMLVideoElement;
 class LayoutUnit;
 class LocalFrame;
+class Node;
 class PlatformMouseEvent;
 class RegistrableDomain;
 class SecurityOriginData;
@@ -75,6 +76,7 @@ public:
     bool needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const;
     bool shouldExposeShowModalDialog() const;
     bool shouldNavigatorPluginsBeEmpty() const;
+    bool returnNullPictureInPictureElementDuringFullscreenChange() const;
 
     bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscape() const;
     bool shouldFlipScreenDimensions() const;
@@ -96,7 +98,7 @@ public:
 
     WEBCORE_EXPORT bool shouldDisableWritingSuggestionsByDefault() const;
 
-    WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(UncheckedKeyHashMap<RegistrableDomain, String>&&);
+    WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&&);
     WEBCORE_EXPORT String storageAccessUserAgentStringQuirkForDomain(const URL&);
     WEBCORE_EXPORT static bool needsIPadMiniUserAgent(const URL&);
     WEBCORE_EXPORT static bool needsIPhoneUserAgent(const URL&);
@@ -114,6 +116,7 @@ public:
     bool needsPrimeVideoUserSelectNoneQuirk() const;
 
     bool needsScrollbarWidthThinDisabledQuirk() const;
+    bool needsBodyScrollbarWidthNoneDisabledQuirk() const;
 
     bool shouldOpenAsAboutBlank(const String&) const;
 
@@ -154,6 +157,13 @@ public:
     static bool isMicrosoftTeamsRedirectURL(const URL&);
     static bool hasStorageAccessForAllLoginDomains(const HashSet<RegistrableDomain>&, const RegistrableDomain&);
     StorageAccessResult requestStorageAccessAndHandleClick(CompletionHandler<void(ShouldDispatchClick)>&&) const;
+
+#if ENABLE(TOUCH_EVENTS)
+    WEBCORE_EXPORT static bool shouldOmitTouchEventDOMAttributesForDesktopWebsite(const URL&);
+    bool shouldDispatchPointerOutAfterHandlingSyntheticClick() const;
+#endif
+
+    WEBCORE_EXPORT void setTopDocumentURLForTesting(URL&&);
 
     static bool shouldOmitHTMLDocumentSupportedPropertyNames();
 
@@ -206,11 +216,27 @@ public:
 
     bool shouldHideCoarsePointerCharacteristics() const;
 
+    bool implicitMuteWhenVolumeSetToZero() const;
+
+    bool needsZeroMaxTouchPointsQuirk() const;
+    bool needsChromeMediaControlsPseudoElement() const;
+
+#if PLATFORM(IOS_FAMILY)
+    WEBCORE_EXPORT bool shouldIgnoreContentObservationForClick(const Node&) const;
+    WEBCORE_EXPORT bool shouldSynthesizeTouchEventsAfterNonSyntheticClick(const Node&) const;
+#endif
+
+    bool needsMozillaFileTypeForDataTransfer() const;
+
+    bool needsBingGestureEventQuirk(EventTarget*) const;
+
 private:
     bool needsQuirks() const;
     bool isDomain(const String&) const;
+    bool domainStartsWith(const String&) const;
     bool isEmbedDomain(const String&) const;
     bool isYoutubeEmbedDomain() const;
+    bool isYahooMail() const;
 
     bool isAmazon() const;
 #if ENABLE(TOUCH_EVENTS)
@@ -218,6 +244,8 @@ private:
 #endif
 
     RefPtr<Document> protectedDocument() const;
+
+    URL topDocumentURL() const;
 
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
 
@@ -231,6 +259,7 @@ private:
     mutable std::optional<bool> m_needsFullscreenDisplayNoneQuirk;
     mutable std::optional<bool> m_needsFullscreenObjectFitQuirk;
     mutable std::optional<bool> m_shouldAvoidPastingImagesAsWebContent;
+    mutable std::optional<bool> m_mayNeedToIgnoreContentObservation;
 #endif
 #if ENABLE(TOUCH_EVENTS)
     enum class ShouldDispatchSimulatedMouseEvents : uint8_t {
@@ -240,6 +269,7 @@ private:
         Yes,
     };
     mutable ShouldDispatchSimulatedMouseEvents m_shouldDispatchSimulatedMouseEventsQuirk { ShouldDispatchSimulatedMouseEvents::Unknown };
+    mutable std::optional<bool> m_shouldDispatchPointerOutAfterHandlingSyntheticClick;
 #endif
     mutable std::optional<bool> m_needsCanPlayAfterSeekedQuirk;
     mutable std::optional<bool> m_shouldBypassAsyncScriptDeferring;
@@ -277,9 +307,16 @@ private:
     mutable std::optional<bool> m_shouldIgnorePlaysInlineRequirementQuirk;
     mutable std::optional<bool> m_needsRelaxedCorsMixedContentCheckQuirk;
     mutable std::optional<bool> m_needsScrollbarWidthThinDisabledQuirk;
+    mutable std::optional<bool> m_needsBodyScrollbarWidthNoneDisabledQuirk;
     mutable std::optional<bool> m_needsPrimeVideoUserSelectNoneQuirk;
+    mutable std::optional<bool> m_implicitMuteWhenVolumeSetToZero;
+#if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
+    mutable std::optional<bool> m_needsZeroMaxTouchPointsQuirk;
+#endif
+    mutable std::optional<bool> m_needsChromeMediaControlsPseudoElementQuirk;
 
     Vector<RegistrableDomain> m_subFrameDomainsForStorageAccessQuirk;
+    URL m_topDocumentURLForTesting;
 };
 
 } // namespace WebCore

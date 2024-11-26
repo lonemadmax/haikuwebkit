@@ -113,10 +113,12 @@ public:
 
     bool operator==(const Option&) const;
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     ASCIILiteral name() const { return g_constMetaData[m_id].name; }
     ASCIILiteral description() const { return g_constMetaData[m_id].description; }
     Options::Type type() const { return g_constMetaData[m_id].type; }
     Options::Availability availability() const { return g_constMetaData[m_id].availability; }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     Option(Options::ID id, void* addressOfValue)
         : m_id(id)
@@ -158,6 +160,8 @@ static void releaseMetadata()
     g_metadata.get() = nullptr;
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 static const Option defaultFor(Options::ID id)
 {
     auto offset = g_constMetaData[id].offsetOfOption;
@@ -170,6 +174,8 @@ inline static void* addressOfOption(Options::ID id)
     auto offset = g_constMetaData[id].offsetOfOption;
     return reinterpret_cast<uint8_t*>(&g_jscConfig.options) + offset;
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static const Option optionFor(Options::ID id)
 {
@@ -384,6 +390,9 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
         return !!LLINT_TRACING;
     if (id == traceWasmLLIntExecutionID)
         return !!LLINT_TRACING;
+
+    if (id == validateVMEntryCalleeSavesID)
+        return !!ASSERT_ENABLED;
     return false;
 }
 
@@ -411,6 +420,8 @@ bool overrideOptionWithHeuristic(T& variable, Options::ID id, const char* name, 
     return false;
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 bool Options::overrideAliasedOptionWithHeuristic(const char* name)
 {
     const char* stringValue = getenv(name);
@@ -424,6 +435,8 @@ bool Options::overrideAliasedOptionWithHeuristic(const char* name)
     fprintf(stderr, "WARNING: failed to parse %s=%s\n", name, stringValue);
     return false;
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // !PLATFORM(COCOA)
 
@@ -455,6 +468,8 @@ bool Options::defaultTCSMValue()
 }
 
 const char* const OptionRange::s_nullRangeStr = "<null>";
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 bool OptionRange::init(const char* rangeString)
 {
@@ -502,6 +517,8 @@ bool OptionRange::init(const char* rangeString)
 
     return true;
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 bool OptionRange::isInRange(unsigned count) const
 {
@@ -629,24 +646,35 @@ void Options::setAllJITCodeValidations(bool value)
     Options::useJITAsserts() = value;
 }
 
-static inline void disableAllWasmOptions()
+static inline void disableAllWasmJITOptions()
 {
-    Options::useWasm() = false;
-    Options::useWasmIPInt() = false;
-    Options::useWasmLLInt() = false;
+    Options::useLLInt() = true;
+    Options::useWasmJIT() = false;
     Options::useBBQJIT() = false;
     Options::useOMGJIT() = false;
+
+    Options::useWasmSIMD() = false;
+
     Options::dumpWasmDisassembly() = false;
     Options::dumpBBQDisassembly() = false;
     Options::dumpOMGDisassembly() = false;
+}
+
+static inline void disableAllWasmOptions()
+{
+    disableAllWasmJITOptions();
+
+    Options::useWasm() = false;
+    Options::useWasmIPInt() = false;
+    Options::useWasmLLInt() = false;
     Options::failToCompileWasmCode() = true;
 
     Options::useWasmFastMemory() = false;
     Options::useWasmFaultSignalHandler() = false;
     Options::numberOfWasmCompilerThreads() = 0;
 
+    // SIMD is already disabled by JITOptions
     Options::useWasmGC() = false;
-    Options::useWasmSIMD() = false;
     Options::useWasmRelaxedSIMD() = false;
     Options::useWasmTailCalls() = false;
 }
@@ -655,17 +683,16 @@ static inline void disableAllJITOptions()
 {
     Options::useLLInt() = true;
     Options::useJIT() = false;
+    Options::useWasmJIT() = false;
+    disableAllWasmJITOptions();
+
     Options::useBaselineJIT() = false;
     Options::useDFGJIT() = false;
     Options::useFTLJIT() = false;
-    Options::useBBQJIT() = false;
-    Options::useOMGJIT() = false;
     Options::useDOMJIT() = false;
     Options::useRegExpJIT() = false;
     Options::useJITCage() = false;
     Options::useConcurrentJIT() = false;
-
-    Options::useWasmSIMD() = false;
 
     Options::usePollingTraps() = true;
 
@@ -675,9 +702,6 @@ static inline void disableAllJITOptions()
     Options::dumpDFGDisassembly() = false;
     Options::dumpFTLDisassembly() = false;
     Options::dumpRegExpDisassembly() = false;
-    Options::dumpWasmDisassembly() = false;
-    Options::dumpBBQDisassembly() = false;
-    Options::dumpOMGDisassembly() = false;
     Options::needDisassemblySupport() = false;
 }
 
@@ -720,6 +744,9 @@ void Options::executeDumpOptions()
     dataLog(builder.toString());
 }
 
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 void Options::notifyOptionsChanged()
 {
     AllowUnfinalizedAccessScope scope;
@@ -730,6 +757,7 @@ void Options::notifyOptionsChanged()
 
 #if !ENABLE(JIT)
     Options::useJIT() = false;
+    Options::useWasmJIT() = false;
 #endif
 #if !ENABLE(CONCURRENT_JS)
     Options::useConcurrentJIT() = false;
@@ -772,8 +800,14 @@ void Options::notifyOptionsChanged()
     if (!Options::allowDoubleShape())
         Options::useJIT() = false; // We don't support JIT with !allowDoubleShape. So disable it.
 
-    if (!Options::useWasm())
+    // When reenabling JITLess wasm we should unskip the tests disabled in https://bugs.webkit.org/show_bug.cgi?id=281857
+    if (!Options::useWasm() || !Options::useJIT())
         disableAllWasmOptions();
+
+    if (!Options::useJIT())
+        Options::useWasmJIT() = false;
+    if (!Options::useWasmJIT())
+        disableAllWasmJITOptions();
 
     if (!Options::useWasmLLInt() && !Options::useWasmIPInt())
         Options::thresholdForBBQOptimizeAfterWarmUp() = 0; // Trigger immediate BBQ tier up.
@@ -966,6 +1000,8 @@ void Options::notifyOptionsChanged()
     ASSERT(Options::criticalGCMemoryThreshold() > 0.0 && Options::criticalGCMemoryThreshold() < 1.0);
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 #if OS(WINDOWS)
 // FIXME: Use equalLettersIgnoringASCIICase.
 inline bool strncasecmp(const char* str1, const char* str2, size_t n)
@@ -973,6 +1009,8 @@ inline bool strncasecmp(const char* str1, const char* str2, size_t n)
     return _strnicmp(str1, str2, n);
 }
 #endif
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 void Options::initialize()
 {
@@ -1061,6 +1099,8 @@ void Options::initialize()
     });
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 void Options::finalize()
 {
     ASSERT(!g_jscConfig.options.allowUnfinalizedAccess);
@@ -1079,6 +1119,8 @@ static bool isSeparator(char c)
 {
     return isUnicodeCompatibleASCIIWhitespace(c) || (c == ',');
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 bool Options::setOptions(const char* optionsStr)
 {
@@ -1194,6 +1236,8 @@ bool Options::setOptionWithoutAlias(const char* arg, bool verify)
     return false; // No option matched.
 }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 static ASCIILiteral invertBoolOptionValue(const char* valueStr)
 {
     std::optional<OptionsStorage::Bool> value = parse<OptionsStorage::Bool>(valueStr);
@@ -1202,6 +1246,8 @@ static ASCIILiteral invertBoolOptionValue(const char* valueStr)
     return value.value() ? "false"_s : "true"_s;
 }
 
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 bool Options::setAliasedOption(const char* arg, bool verify)
 {
@@ -1238,6 +1284,8 @@ bool Options::setAliasedOption(const char* arg, bool verify)
 
     return false; // No option matched.
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 bool Options::setOption(const char* arg, bool verify)
 {
@@ -1338,6 +1386,8 @@ void Options::assertOptionsAreCoherent()
 
 namespace OptionsHelper {
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 void Option::initValue(void* addressOfValue)
 {
     Options::Type type = g_constMetaData[m_id].type;
@@ -1371,6 +1421,8 @@ void Option::initValue(void* addressOfValue)
         break;
     }
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 void Option::dump(StringBuilder& builder) const
 {

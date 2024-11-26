@@ -32,6 +32,7 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "HTTPServer.h"
 #import "WebExtensionUtilities.h"
 
 @interface NSLocale ()
@@ -171,6 +172,9 @@ TEST(WKWebExtensionAPILocalization, i18n)
 
 TEST(WKWebExtensionAPILocalization, i18nWithFallback)
 {
+    // Temporarily set the current locale to US English for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"en-US" ] } forName:NSArgumentDomain];
+
     NSArray<NSString *> *preferredLocaleIdentifiers = NSLocale.preferredLanguages;
     NSMutableOrderedSet<NSString *> *acceptedLanguages = [NSMutableOrderedSet orderedSetWithCapacity:preferredLocaleIdentifiers.count];
     for (NSString *localeIdentifier in preferredLocaleIdentifiers) {
@@ -529,6 +533,1004 @@ TEST(WKWebExtensionAPILocalization, CSSLocalization)
     [manager.get().defaultTab.webView loadRequest:[NSURLRequest requestWithURL:testPageURL]];
 
     [manager run];
+}
+
+TEST(WKWebExtensionAPILocalization, CSSLocalizationInContentScript)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *manifest = @{
+        @"manifest_version": @3,
+        @"default_locale": @"en",
+
+        @"name": @"Localization Test",
+        @"description": @"Localization Test",
+        @"version": @"1",
+
+        @"background": @{
+            @"scripts": @[ @"background.js" ],
+            @"type": @"module"
+        },
+
+        @"content_scripts": @[@{
+            @"matches": @[ @"<all_urls>" ],
+            @"css": @[ @"content.css" ],
+            @"js": @[ @"content.js" ]
+        }]
+    };
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.yield('Load Tab')"
+    ]);
+
+    auto *contentStyleSheet = Util::constructScript(@[
+        @"body {",
+        @"  content: '__MSG_@@extension_id__';",
+        @"  direction: '__MSG_@@bidi_dir__';",
+        @"  text-align: '__MSG_@@bidi_start_edge__';",
+        @"}"
+    ]);
+
+    auto *contentScript = Util::constructScript(@[
+        @"window.addEventListener('load', () => {",
+        @"  const bodyStyle = getComputedStyle(document.body)",
+        @"  browser.test.assertEq(bodyStyle.content, '\"76C788B8-3374-400D-8259-40E5B9DF79D3\"', 'CSS content should be')",
+        @"  browser.test.assertEq(bodyStyle.direction, 'ltr', 'CSS direction should be')",
+        @"  browser.test.assertEq(bodyStyle.textAlign, 'start', 'CSS text-align should be')",
+
+        @"  browser.test.notifyPass()",
+        @"})"
+    ]);
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"content.js": contentScript,
+        @"content.css": contentStyleSheet,
+        @"_locales/en/messages.json": messages
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:manifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+
+    // Set a base URL so it is a known value and not the default random one.
+    [WKWebExtensionMatchPattern registerCustomURLScheme:@"test-extension"];
+    manager.get().context.baseURL = [NSURL URLWithString:baseURLString];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.webView loadRequest:urlRequest];
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPILocalization, CSSLocalizationInRegisteredContentScript)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    static auto *localizationManifest = @{
+        @"manifest_version": @3,
+        @"default_locale": @"en",
+
+        @"name": @"Localization Test",
+        @"description": @"Localization Test",
+        @"version": @"1.0",
+
+        @"permissions": @[ @"scripting" ],
+
+        @"background": @{
+            @"scripts": @[ @"background.js" ],
+            @"type": @"module"
+        }
+    };
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"await browser.scripting.registerContentScripts([{",
+        @"  id: 'test',",
+        @"  matches: ['<all_urls>'],",
+        @"  css: ['content.css'],",
+        @"  js: ['content.js']",
+        @"}])",
+
+        @"browser.test.yield('Load Tab')"
+    ]);
+
+    auto *contentStyleSheet = Util::constructScript(@[
+        @"body {",
+        @"  content: '__MSG_@@extension_id__';",
+        @"  direction: '__MSG_@@bidi_dir__';",
+        @"  text-align: '__MSG_@@bidi_start_edge__';",
+        @"}"
+    ]);
+
+    auto *contentScript = Util::constructScript(@[
+        @"window.addEventListener('load', () => {",
+        @"  const bodyStyle = getComputedStyle(document.body)",
+        @"  browser.test.assertEq(bodyStyle.content, '\"76C788B8-3374-400D-8259-40E5B9DF79D3\"', 'CSS content should be')",
+        @"  browser.test.assertEq(bodyStyle.direction, 'ltr', 'CSS direction should be')",
+        @"  browser.test.assertEq(bodyStyle.textAlign, 'start', 'CSS text-align should be')",
+
+        @"  browser.test.notifyPass()",
+        @"})"
+    ]);
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"content.js": contentScript,
+        @"content.css": contentStyleSheet,
+        @"_locales/en/messages.json": messages
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+
+    // Set a base URL so it is a known value and not the default random one.
+    [WKWebExtensionMatchPattern registerCustomURLScheme:@"test-extension"];
+    manager.get().context.baseURL = [NSURL URLWithString:baseURLString];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.webView loadRequest:urlRequest];
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseSimplified)
+{
+    // Temporarily set the current locale to Simplified Chinese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hans-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '简体中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_CN/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_TW/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseSimplifiedOnly)
+{
+    // Temporarily set the current locale to Simplified Chinese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hans-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '简体中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_CN/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseSimplifiedScript)
+{
+    // Temporarily set the current locale to Simplified Chinese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hans-US", @"en-US", @"zh-HK" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '简体中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_Hans/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_Hant/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseTraditional)
+{
+    // Temporarily set the current locale to Traditional Chinese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hant-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '繁體中文擴展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_CN/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_TW/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseSimplifiedInTaiwan)
+{
+    // Temporarily set the current locale to Simplified Chinese with the Taiwan country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hans-TW" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '简体中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_CN/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_TW/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseTraditionalInChina)
+{
+    // Temporarily set the current locale to Traditional Chinese with the China country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hant-CN" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '繁體中文擴展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_CN/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_TW/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseSimplifiedInHongKong)
+{
+    // Temporarily set the current locale to Simplified Chinese with the Hong Kong country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hans-HK" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '简体中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *cantoneseMessages = @{
+        @"extension_name": @{
+            @"message": @"香港擴展",
+            @"description": @"The name of the extension in Cantonese (Hong Kong)."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_CN/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_TW/messages.json": traditionalChineseMessages,
+        @"_locales/zh_HK/messages.json": cantoneseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseTraditionalOnly)
+{
+    // Temporarily set the current locale to Traditional Chinese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hant-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '繁體中文擴展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_TW/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseTraditionalScript)
+{
+    // Temporarily set the current locale to Simplified Chinese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hant-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), '繁體中文擴展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *traditionalChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"繁體中文擴展",
+            @"description": @"The name of the extension in Traditional Chinese."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"extension_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh_Hans/messages.json": simplifiedChineseMessages,
+        @"_locales/zh_Hant/messages.json": traditionalChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nChineseLanguageFallback)
+{
+    // Temporarily set the current locale to Simplified Chinese in China for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"zh-Hans-CN" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('regional_name'), '简体中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('language_name'), '中文扩展')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *simplifiedChineseMessages = @{
+        @"regional_name": @{
+            @"message": @"简体中文扩展",
+            @"description": @"The name of the extension in Simplified Chinese."
+        }
+    };
+
+    auto *genericChineseMessages = @{
+        @"language_name": @{
+            @"message": @"中文扩展",
+            @"description": @"The name of the extension in generic Chinese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/zh/messages.json": genericChineseMessages,
+        @"_locales/zh_CN/messages.json": simplifiedChineseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nPortugueseBrazilian)
+{
+    // Temporarily set the current locale to Brazilian Portuguese for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"pt-BR" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensão Brasileira')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *brazilianPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Brasileira",
+            @"description": @"The name of the extension in Brazilian Portuguese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/pt_BR/messages.json": brazilianPortugueseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nPortugueseEuropean)
+{
+    // Temporarily set the current locale to European Portuguese for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"pt-PT" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensão Portuguesa')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *europeanPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Portuguesa",
+            @"description": @"The name of the extension in European Portuguese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/pt_PT/messages.json": europeanPortugueseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nPortugueseUnitedStates)
+{
+    // Temporarily set the current locale to Portuguese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"pt-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensão Portuguesa')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *europeanPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Portuguesa",
+            @"description": @"The name of the extension in European Portuguese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/pt_PT/messages.json": europeanPortugueseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nPortugueseUnitedStatesFallbackToBrazilian)
+{
+    // Temporarily set the current locale to Portuguese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"pt-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensão Brasileira')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *brazilianPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Brasileira",
+            @"description": @"The name of the extension in Brazilian Portuguese."
+        }
+    };
+
+    auto *europeanPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Portuguesa",
+            @"description": @"The name of the extension in European Portuguese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/pt_BR/messages.json": brazilianPortugueseMessages,
+        @"_locales/pt_PT/messages.json": europeanPortugueseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nPortugueseUnitedStatesFallbackToGeneric)
+{
+    // Temporarily set the current locale to Portuguese with the US country code for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"pt-US" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensão Portuguesa Genérica')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *genericPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Portuguesa Genérica",
+            @"description": @"The name of the extension in generic Portuguese."
+        }
+    };
+
+    auto *europeanPortugueseMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensão Portuguesa",
+            @"description": @"The name of the extension in European Portuguese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/pt/messages.json": genericPortugueseMessages,
+        @"_locales/pt_PT/messages.json": europeanPortugueseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nPortugueseLanguageFallback)
+{
+    // Temporarily set the current locale to Brazilian Portuguese for the test.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"pt-BR" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('regional_name'), 'Extensão Brasileira')",
+        @"browser.test.assertEq(browser.i18n.getMessage('language_name'), 'Extensão Portuguesa Genérica')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *brazilianPortugueseMessages = @{
+        @"regional_name": @{
+            @"message": @"Extensão Brasileira",
+            @"description": @"The name of the extension in Brazilian Portuguese."
+        }
+    };
+
+    auto *genericPortugueseMessages = @{
+        @"language_name": @{
+            @"message": @"Extensão Portuguesa Genérica",
+            @"description": @"The name of the extension in generic Portuguese."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/pt/messages.json": genericPortugueseMessages,
+        @"_locales/pt_BR/messages.json": brazilianPortugueseMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nSpanishLatinAmerica)
+{
+    // Temporarily set the current locale to Latin American Spanish.
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"es-419" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensión en español')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *latinAmericanSpanishMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensión en español",
+            @"description": @"The name of the extension in Latin American Spanish."
+        }
+    };
+
+    auto *castilianSpanishMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensión en castellano",
+            @"description": @"The name of the extension in Castilian Spanish."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/es_419/messages.json": latinAmericanSpanishMessages,
+        @"_locales/es_ES/messages.json": castilianSpanishMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+
+TEST(WKWebExtensionAPILocalization, i18nSpanishMexico)
+{
+    // Temporarily set the current locale to Spanish (Mexico).
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"es-MX" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensión en español')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *latinAmericanSpanishMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensión en español",
+            @"description": @"The name of the extension in Latin American Spanish."
+        }
+    };
+
+    auto *castilianSpanishMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensión en castellano",
+            @"description": @"The name of the extension in Castilian Spanish."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/es_419/messages.json": latinAmericanSpanishMessages,
+        @"_locales/es_ES/messages.json": castilianSpanishMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPILocalization, i18nSpanishSpain)
+{
+    // Temporarily set the current locale to Spanish (Spain).
+    [NSUserDefaults.standardUserDefaults setVolatileDomain:@{ @"AppleLanguages": @[ @"es-ES" ] } forName:NSArgumentDomain];
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(browser.i18n.getMessage('extension_name'), 'Extensión en castellano')",
+        @"browser.test.assertEq(browser.i18n.getMessage('default_name'), 'Default English String')",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto *defaultMessages = @{
+        @"default_name": @{
+            @"message": @"Default English String",
+            @"description": @"The default name in English."
+        }
+    };
+
+    auto *castilianSpanishMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensión en castellano",
+            @"description": @"The name of the extension in Castilian Spanish."
+        }
+    };
+
+    auto *latinAmericanSpanishMessages = @{
+        @"extension_name": @{
+            @"message": @"Extensión en español",
+            @"description": @"The name of the extension in Latin American Spanish."
+        }
+    };
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"_locales/en/messages.json": defaultMessages,
+        @"_locales/es_ES/messages.json": castilianSpanishMessages,
+        @"_locales/es_419/messages.json": latinAmericanSpanishMessages,
+    };
+
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:localizationManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager loadAndRun];
 }
 
 } // namespace TestWebKitAPI

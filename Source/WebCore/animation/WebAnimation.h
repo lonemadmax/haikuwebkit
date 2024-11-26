@@ -140,10 +140,11 @@ public:
     virtual void setBindingsFrameRate(std::variant<FramesPerSecond, AnimationFrameRatePreset>&&);
     std::optional<FramesPerSecond> frameRate() const { return m_effectiveFrameRate; }
 
-    TimelineRangeValue rangeStart() const { return m_rangeStart; }
-    TimelineRangeValue rangeEnd() const { return m_rangeEnd; }
-    void setRangeStart(TimelineRangeValue&& rangeStart) { m_rangeStart = WTFMove(rangeStart); }
-    void setRangeEnd(TimelineRangeValue&& rangeEnd) { m_rangeEnd = WTFMove(rangeEnd); }
+    TimelineRangeValue bindingsRangeStart() const { return m_timelineRange.start.serialize(); }
+    TimelineRangeValue bindingsRangeEnd() const { return m_timelineRange.end.serialize(); }
+    virtual void setBindingsRangeStart(TimelineRangeValue&&);
+    virtual void setBindingsRangeEnd(TimelineRangeValue&&);
+    void setRange(TimelineRange range) { m_timelineRange = range; }
 
     bool needsTick() const;
     virtual void tick();
@@ -251,8 +252,7 @@ private:
     TimeToRunPendingTask m_timeToRunPendingPauseTask { TimeToRunPendingTask::NotScheduled };
     ReplaceState m_replaceState { ReplaceState::Active };
     uint64_t m_globalPosition { 0 };
-    TimelineRangeValue m_rangeStart { "normal"_s };
-    TimelineRangeValue m_rangeEnd { "normal"_s };
+    TimelineRange m_timelineRange;
 };
 
 } // namespace WebCore

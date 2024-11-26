@@ -96,18 +96,18 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, const WGPUShaderModuleDescriptor& suppliedHints, String&& label)
 {
-    UncheckedKeyHashMap<String, Ref<PipelineLayout>> hints;
-    UncheckedKeyHashMap<String, WGSL::PipelineLayout*> wgslHints;
+    HashMap<String, Ref<PipelineLayout>> hints;
+    HashMap<String, WGSL::PipelineLayout*> wgslHints;
     Vector<WGSL::PipelineLayout> wgslPipelineLayouts;
     wgslPipelineLayouts.reserveCapacity(suppliedHints.hintCount);
     for (const auto& hint : suppliedHints.hintsSpan()) {
         if (hint.nextInChain)
             return nullptr;
         auto hintKey = fromAPI(hint.entryPoint);
-        auto& layout = WebGPU::fromAPI(hint.layout);
+        Ref layout = WebGPU::protectedFromAPI(hint.layout);
         hints.add(hintKey, layout);
         WGSL::PipelineLayout* convertedPipelineLayout = nullptr;
-        if (layout.numberOfBindGroupLayouts()) {
+        if (layout->numberOfBindGroupLayouts()) {
             wgslPipelineLayouts.append(ShaderModule::convertPipelineLayout(layout));
             convertedPipelineLayout = &wgslPipelineLayouts.last();
         }
@@ -119,7 +119,7 @@ static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::varian
     if (std::holds_alternative<WGSL::Error>(prepareResult))
         return nullptr;
     auto& result = std::get<WGSL::PrepareResult>(prepareResult);
-    UncheckedKeyHashMap<String, WGSL::ConstantValue> wgslConstantValues;
+    HashMap<String, WGSL::ConstantValue> wgslConstantValues;
     auto generationResult = WGSL::generate(shaderModule, result, wgslConstantValues);
     if (std::holds_alternative<WGSL::Error>(generationResult))
         return nullptr;
@@ -623,7 +623,7 @@ ShaderModule::FragmentInputs ShaderModule::parseFragmentInputs(const WGSL::AST::
     return result;
 }
 
-ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, UncheckedKeyHashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, UncheckedKeyHashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library, Device& device)
+ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, HashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, HashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library, Device& device)
     : m_checkResult(convertCheckResult(WTFMove(checkResult)))
     , m_pipelineLayoutHints(WTFMove(pipelineLayoutHints))
     , m_entryPointInformation(WTFMove(entryPointInformation))
@@ -977,10 +977,10 @@ WGSL::PipelineLayout ShaderModule::convertPipelineLayout(const PipelineLayout& p
 
     uint32_t maxVertexOffset = 0, maxFragmentOffset = 0, maxComputeOffset = 0;
     for (size_t i = 0; i < pipelineLayout.numberOfBindGroupLayouts(); ++i) {
-        auto& bindGroupLayout = pipelineLayout.bindGroupLayout(i);
+        Ref bindGroupLayout = pipelineLayout.bindGroupLayout(i);
         WGSL::BindGroupLayout wgslBindGroupLayout;
         auto vertexOffset = maxVertexOffset, fragmentOffset = maxFragmentOffset, computeOffset = maxComputeOffset;
-        for (auto& entry : bindGroupLayout.entries()) {
+        for (auto& entry : bindGroupLayout->entries()) {
             WGSL::BindGroupLayoutEntry wgslEntry;
             wgslEntry.binding = entry.value.binding;
             wgslEntry.visibility = wgslEntry.visibility.fromRaw(entry.value.visibility);
@@ -1075,19 +1075,19 @@ void wgpuShaderModuleRelease(WGPUShaderModule shaderModule)
 
 void wgpuShaderModuleGetCompilationInfo(WGPUShaderModule shaderModule, WGPUCompilationInfoCallback callback, void * userdata)
 {
-    WebGPU::fromAPI(shaderModule).getCompilationInfo([callback, userdata](WGPUCompilationInfoRequestStatus status, const WGPUCompilationInfo& compilationInfo) {
+    WebGPU::protectedFromAPI(shaderModule)->getCompilationInfo([callback, userdata](WGPUCompilationInfoRequestStatus status, const WGPUCompilationInfo& compilationInfo) {
         callback(status, &compilationInfo, userdata);
     });
 }
 
 void wgpuShaderModuleGetCompilationInfoWithBlock(WGPUShaderModule shaderModule, WGPUCompilationInfoBlockCallback callback)
 {
-    WebGPU::fromAPI(shaderModule).getCompilationInfo([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCompilationInfoRequestStatus status, const WGPUCompilationInfo& compilationInfo) {
+    WebGPU::protectedFromAPI(shaderModule)->getCompilationInfo([callback = WebGPU::fromAPI(WTFMove(callback))](WGPUCompilationInfoRequestStatus status, const WGPUCompilationInfo& compilationInfo) {
         callback(status, &compilationInfo);
     });
 }
 
 void wgpuShaderModuleSetLabel(WGPUShaderModule shaderModule, const char* label)
 {
-    WebGPU::fromAPI(shaderModule).setLabel(WebGPU::fromAPI(label));
+    WebGPU::protectedFromAPI(shaderModule)->setLabel(WebGPU::fromAPI(label));
 }

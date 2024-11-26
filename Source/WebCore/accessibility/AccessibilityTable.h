@@ -38,16 +38,11 @@ class HTMLTableElement;
 
 class AccessibilityTable : public AccessibilityRenderObject {
 public:
-    static Ref<AccessibilityTable> create(RenderObject&);
-    static Ref<AccessibilityTable> create(Node&);
+    static Ref<AccessibilityTable> create(AXID, RenderObject&);
+    static Ref<AccessibilityTable> create(AXID, Node&);
     virtual ~AccessibilityTable();
 
     void init() final;
-
-    // FIXME: Override roleValue(), updateRole(), and updateRoleAfterChildrenCreation() because this class does not use m_role. We should fix this so behavior is unified with other AccessibilityObject subclasses.
-    AccessibilityRole roleValue() const final;
-    void updateRole() final { }
-    void updateRoleAfterChildrenCreation() final { }
 
     virtual bool isAriaTable() const { return false; }
     bool hasGridAriaRole() const;
@@ -89,8 +84,8 @@ public:
     void setCellSlotsDirty();
 
 protected:
-    explicit AccessibilityTable(RenderObject&);
-    explicit AccessibilityTable(Node&);
+    explicit AccessibilityTable(AXID, RenderObject&);
+    explicit AccessibilityTable(AXID, Node&);
 
     AccessibilityChildrenVector m_rows;
     AccessibilityChildrenVector m_columns;
@@ -109,7 +104,8 @@ protected:
     void addRow(AccessibilityTableRow&, unsigned, unsigned& maxColumnCount);
 
 private:
-    virtual bool computeIsTableExposableThroughAccessibility() const;
+    AccessibilityRole determineAccessibilityRole() final;
+    virtual bool computeIsTableExposableThroughAccessibility() const { return isDataTable(); }
     void labelText(Vector<AccessibilityText>&) const final;
     HTMLTableElement* tableElement() const;
 

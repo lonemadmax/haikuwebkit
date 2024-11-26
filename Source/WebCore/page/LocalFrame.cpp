@@ -79,6 +79,7 @@
 #include "NodeList.h"
 #include "NodeTraversal.h"
 #include "Page.h"
+#include "ProcessSyncClient.h"
 #include "ProcessWarming.h"
 #include "RemoteFrame.h"
 #include "RenderLayerCompositor.h"
@@ -689,7 +690,7 @@ FloatSize LocalFrame::resizePageRectsKeepingRatio(const FloatSize& originalSize,
     if (!contentRenderer())
         return FloatSize();
 
-    if (contentRenderer()->style().isHorizontalWritingMode()) {
+    if (contentRenderer()->writingMode().isHorizontal()) {
         ASSERT(std::abs(originalSize.width()) > std::numeric_limits<float>::epsilon());
         float ratio = originalSize.height() / originalSize.width();
         resultSize.setWidth(floorf(expectedSize.width()));
@@ -904,10 +905,7 @@ std::optional<SimpleRange> LocalFrame::rangeForPoint(const IntPoint& framePoint)
     return std::nullopt;
 }
 
-void LocalFrame::createView(const IntSize& viewportSize, const std::optional<Color>& backgroundColor,
-    const IntSize& fixedLayoutSize, const IntRect& fixedVisibleContentRect,
-    bool useFixedLayout, ScrollbarMode horizontalScrollbarMode, bool horizontalLock,
-    ScrollbarMode verticalScrollbarMode, bool verticalLock)
+void LocalFrame::createView(const IntSize& viewportSize, const std::optional<Color>& backgroundColor, const IntSize& fixedLayoutSize, bool useFixedLayout, ScrollbarMode horizontalScrollbarMode, bool horizontalLock, ScrollbarMode verticalScrollbarMode, bool verticalLock)
 {
     ASSERT(page());
 
@@ -922,11 +920,6 @@ void LocalFrame::createView(const IntSize& viewportSize, const std::optional<Col
     if (isRootFrame) {
         frameView = LocalFrameView::create(*this, viewportSize);
         frameView->setFixedLayoutSize(fixedLayoutSize);
-#if USE(COORDINATED_GRAPHICS)
-        frameView->setFixedVisibleContentRect(fixedVisibleContentRect);
-#else
-        UNUSED_PARAM(fixedVisibleContentRect);
-#endif
         frameView->setUseFixedLayout(useFixedLayout);
     } else
         frameView = LocalFrameView::create(*this);
@@ -1250,7 +1243,7 @@ void LocalFrame::documentURLDidChange(const URL& url)
 {
     if (RefPtr page = this->page(); page && isMainFrame()) {
         page->setMainFrameURL(url);
-        protectedLoader()->client().broadcastMainFrameURLChangeToOtherProcesses(url);
+        page->processSyncClient().broadcastMainFrameURLChangeToOtherProcesses(url);
     }
 }
 

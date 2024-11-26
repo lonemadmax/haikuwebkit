@@ -86,12 +86,12 @@ enum class ProcessLaunchType {
 struct ProcessLaunchOptions {
     WebCore::ProcessIdentifier processIdentifier;
     ProcessLaunchType processType { ProcessLaunchType::Web };
-    UncheckedKeyHashMap<String, String> extraInitializationData { };
+    HashMap<String, String> extraInitializationData { };
     bool nonValidInjectedCodeAllowed { false };
     bool shouldMakeProcessLaunchFailForTesting { false };
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    UncheckedKeyHashMap<CString, SandboxPermission> extraSandboxPaths { };
+    HashMap<CString, SandboxPermission> extraSandboxPaths { };
 #if ENABLE(DEVELOPER_MODE)
     String processCmdPrefix { };
 #endif
@@ -136,10 +136,10 @@ public:
 #endif
 
         // CanMakeCheckedPtr.
-        virtual uint32_t ptrCount() const = 0;
-        virtual uint32_t ptrCountWithoutThreadCheck() const = 0;
-        virtual void incrementPtrCount() const = 0;
-        virtual void decrementPtrCount() const = 0;
+        virtual uint32_t checkedPtrCount() const = 0;
+        virtual uint32_t checkedPtrCountWithoutThreadCheck() const = 0;
+        virtual void incrementCheckedPtrCount() const = 0;
+        virtual void decrementCheckedPtrCount() const = 0;
     };
 
     static Ref<ProcessLauncher> create(Client* client, LaunchOptions&& launchOptions)

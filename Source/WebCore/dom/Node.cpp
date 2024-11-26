@@ -102,6 +102,8 @@
 #include "ContentChangeObserver.h"
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
@@ -2456,6 +2458,13 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomString& event
         document->addTouchEventHandler(*targetNode);
 #endif
 
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+    if (typeInfo.isInCategory(EventCategory::MouseMoveRelated)) {
+        if (WeakPtr observer = document->contentChangeObserverIfExists())
+            observer->didAddMouseMoveRelatedEventListener(eventType, *targetNode);
+    }
+#endif
+
     return true;
 }
 
@@ -3073,6 +3082,8 @@ TextStream& operator<<(TextStream& ts, const Node& node)
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #if ENABLE(TREE_DEBUGGING)
 

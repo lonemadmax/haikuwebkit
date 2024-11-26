@@ -172,8 +172,6 @@
 #import <pal/cocoa/WritingToolsUISoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 SOFT_LINK_FRAMEWORK(AVKit)
 SOFT_LINK_CLASS(AVKit, AVTouchBarPlaybackControlsProvider)
@@ -1827,68 +1825,32 @@ NSPrintOperation *WebViewImpl::printOperationWithPrintInfo(NSPrintInfo *printInf
 
 void WebViewImpl::setAutomaticallyAdjustsContentInsets(bool automaticallyAdjustsContentInsets)
 {
-    m_automaticallyAdjustsContentInsets = automaticallyAdjustsContentInsets;
-    updateContentInsetsIfAutomatic();
+    m_page->setAutomaticallyAdjustsContentInsets(automaticallyAdjustsContentInsets);
+}
+
+bool WebViewImpl::automaticallyAdjustsContentInsets() const
+{
+    return m_page->automaticallyAdjustsContentInsets();
 }
 
 void WebViewImpl::updateContentInsetsIfAutomatic()
 {
-    if (!m_automaticallyAdjustsContentInsets)
-        return;
-
-    m_pendingTopContentInset = std::nullopt;
-
-    scheduleSetTopContentInsetDispatch();
+    m_page->updateContentInsetsIfAutomatic();
 }
 
 CGFloat WebViewImpl::topContentInset() const
 {
-    return m_pendingTopContentInset.value_or(m_page->topContentInset());
+    return m_page->pendingOrActualTopContentInset();
 }
 
 void WebViewImpl::setTopContentInset(CGFloat contentInset)
 {
-    m_pendingTopContentInset = contentInset;
-
-    scheduleSetTopContentInsetDispatch();
+    m_page->setTopContentInsetAsync(contentInset);
 }
 
-void WebViewImpl::scheduleSetTopContentInsetDispatch()
+void WebViewImpl::flushPendingTopContentInset()
 {
-    if (m_didScheduleSetTopContentInsetDispatch)
-        return;
-
-    m_didScheduleSetTopContentInsetDispatch = true;
-
-    RunLoop::main().dispatch([weakThis = WeakPtr { *this }] {
-        if (!weakThis)
-            return;
-        weakThis->dispatchSetTopContentInset();
-    });
-}
-
-void WebViewImpl::dispatchSetTopContentInset()
-{
-    if (!m_didScheduleSetTopContentInsetDispatch)
-        return;
-
-    m_didScheduleSetTopContentInsetDispatch = false;
-
-    if (!m_pendingTopContentInset) {
-        if (!m_automaticallyAdjustsContentInsets)
-            return;
-
-        NSWindow *window = [m_view window];
-        if ((window.styleMask & NSWindowStyleMaskFullSizeContentView) && !window.titlebarAppearsTransparent && ![m_view enclosingScrollView]) {
-            NSRect contentLayoutRectInWebViewCoordinates = [m_view convertRect:window.contentLayoutRect fromView:nil];
-            m_pendingTopContentInset = std::max<CGFloat>(contentLayoutRectInWebViewCoordinates.origin.y, 0);
-        } else
-            m_pendingTopContentInset = 0;
-    }
-
-    m_page->setTopContentInset(*m_pendingTopContentInset);
-
-    m_pendingTopContentInset = std::nullopt;
+    m_page->dispatchSetTopContentInset();
 }
 
 void WebViewImpl::prepareContentInRect(CGRect rect)
@@ -2469,7 +2431,7 @@ void WebViewImpl::endDeferringViewInWindowChanges()
     m_shouldDeferViewInWindowChanges = false;
 
     if (m_viewInWindowChangeWasDeferred) {
-        dispatchSetTopContentInset();
+        flushPendingTopContentInset();
         m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow);
         m_viewInWindowChangeWasDeferred = false;
     }
@@ -2485,7 +2447,7 @@ void WebViewImpl::endDeferringViewInWindowChangesSync()
     m_shouldDeferViewInWindowChanges = false;
 
     if (m_viewInWindowChangeWasDeferred) {
-        dispatchSetTopContentInset();
+        flushPendingTopContentInset();
         m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow);
         m_viewInWindowChangeWasDeferred = false;
     }
@@ -2504,7 +2466,7 @@ void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, WTF::Function<v
     WeakPtr weakThis { *this };
     m_page->installActivityStateChangeCompletionHandler(WTFMove(completionHandler));
 
-    dispatchSetTopContentInset();
+    flushPendingTopContentInset();
     m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow, WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
     m_viewInWindowChangeWasDeferred = false;
 }
@@ -2651,7 +2613,7 @@ bool WebViewImpl::isEditable() const
     return m_page->isEditable();
 }
 
-typedef UncheckedKeyHashMap<SEL, String> SelectorNameMap;
+typedef HashMap<SEL, String> SelectorNameMap;
 
 // Map selectors into Editor command names.
 // This is not needed for any selectors that have the same name as the Editor command.
@@ -2694,11 +2656,10 @@ static String commandNameForSelector(SEL selector)
     // Remove the trailing colon.
     // No need to capitalize the command name since Editor command names are
     // not case sensitive.
-    const char* selectorName = sel_getName(selector);
-    size_t selectorNameLength = strlen(selectorName);
-    if (selectorNameLength < 2 || selectorName[selectorNameLength - 1] != ':')
+    auto selectorName = span(sel_getName(selector));
+    if (selectorName.size() < 2 || selectorName[selectorName.size() - 1] != ':')
         return String();
-    return String({ selectorName, selectorNameLength - 1 });
+    return String(selectorName.first(selectorName.size() - 1));
 }
 
 bool WebViewImpl::executeSavedCommandBySelector(SEL selector)
@@ -3452,7 +3413,7 @@ void WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly()
 bool WebViewImpl::hasContentRelativeChildViews() const
 {
 #if ENABLE(WRITING_TOOLS)
-    return [m_textAnimationTypeManager hasActiveTextAnimationType];
+    return [m_view _web_hasActiveIntelligenceTextEffects] || [m_textAnimationTypeManager hasActiveTextAnimationType];
 #else
     return false;
 #endif
@@ -3489,6 +3450,7 @@ void WebViewImpl::contentRelativeViewsHysteresisTimerFired(PAL::HysteresisState 
 void WebViewImpl::suppressContentRelativeChildViews()
 {
 #if ENABLE(WRITING_TOOLS)
+    [m_view _web_suppressContentRelativeChildViews];
     [m_textAnimationTypeManager suppressTextAnimationType];
 #endif
 }
@@ -3496,6 +3458,7 @@ void WebViewImpl::suppressContentRelativeChildViews()
 void WebViewImpl::restoreContentRelativeChildViews()
 {
 #if ENABLE(WRITING_TOOLS)
+    [m_view _web_restoreContentRelativeChildViews];
     [m_textAnimationTypeManager restoreTextAnimationType];
 #endif
 }
@@ -3736,9 +3699,9 @@ NSTrackingRectTag WebViewImpl::addTrackingRectWithTrackingNum(CGRect, id owner, 
     return TRACKING_RECT_TAG;
 }
 
-void WebViewImpl::addTrackingRectsWithTrackingNums(CGRect*, id owner, void** userDataList, bool assumeInside, NSTrackingRectTag *trackingNums, int count)
+void WebViewImpl::addTrackingRectsWithTrackingNums(Vector<CGRect> cgRects, id owner, void** userDataList, bool assumeInside, NSTrackingRectTag *trackingNums)
 {
-    ASSERT(count == 1);
+    ASSERT_UNUSED(cgRects, cgRects.size() == 1);
     ASSERT(trackingNums[0] == 0 || trackingNums[0] == TRACKING_RECT_TAG);
     ASSERT(!m_trackingRectOwner);
     m_trackingRectOwner = owner;
@@ -3767,10 +3730,9 @@ void WebViewImpl::removeTrackingRect(NSTrackingRectTag tag)
     ASSERT_NOT_REACHED();
 }
 
-void WebViewImpl::removeTrackingRects(NSTrackingRectTag *tags, int count)
+void WebViewImpl::removeTrackingRects(std::span<NSTrackingRectTag> tags)
 {
-    for (int i = 0; i < count; ++i) {
-        int tag = tags[i];
+    for (auto& tag : tags) {
         if (tag == 0)
             continue;
         ASSERT(tag == TRACKING_RECT_TAG);
@@ -4554,7 +4516,7 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
     CGWindowImageOption imageOptions = kCGWindowImageBoundsIgnoreFraming | kCGWindowImageShouldBeOpaque;
     if (captureAtNominalResolution)
         imageOptions |= kCGWindowImageNominalResolution;
-    return adoptCF(WebCore::cgWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, windowID, imageOptions));
+    return WebCore::cgWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, windowID, imageOptions);
 }
 
 RefPtr<ViewSnapshot> WebViewImpl::takeViewSnapshot()
@@ -4645,7 +4607,7 @@ void WebViewImpl::removeTextPlaceholder(NSTextPlaceholder *placeholder, bool wil
 
 #if ENABLE(WRITING_TOOLS)
 
-void WebViewImpl::showWritingTools()
+void WebViewImpl::showWritingTools(WTRequestedTool tool)
 {
     IntRect selectionRect;
 
@@ -4653,7 +4615,9 @@ void WebViewImpl::showWritingTools()
     if (editorState.selectionIsRange && editorState.hasPostLayoutData())
         selectionRect = editorState.postLayoutData->selectionBoundingRect;
 
-    [[PAL::getWTWritingToolsClass() sharedInstance] showPanelForSelectionRect:selectionRect ofView:m_view.getAutoreleased() forDelegate:(NSObject<WTWritingToolsDelegate> *)m_view.getAutoreleased()];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    [[PAL::getWTWritingToolsClass() sharedInstance] showTool:tool forSelectionRect:selectionRect ofView:m_view.getAutoreleased() forDelegate:(NSObject<WTWritingToolsDelegate> *)m_view.getAutoreleased()];
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 void WebViewImpl::addTextAnimationForAnimationID(WTF::UUID uuid, const WebCore::TextAnimationData& data)
@@ -6443,7 +6407,7 @@ void WebViewImpl::updateCursorAccessoryPlacement()
     }
 
     // Otherwise, the cursor accessory should be hidden if it will not show up in the correct position.
-    context.showsCursorAccessories = !postLayoutData.editableRootIsTransparentOrFullyClipped;
+    context.showsCursorAccessories = !postLayoutData.selectionIsTransparentOrFullyClipped;
 }
 #endif
 
@@ -6528,7 +6492,7 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
 
 bool WebViewImpl::canHandleContextMenuWritingTools() const
 {
-    return [PAL::getWTWritingToolsViewControllerClass() isAvailable] && m_page->writingToolsBehavior() != WebCore::WritingTools::Behavior::None;
+    return PAL::isWritingToolsUIFrameworkAvailable() && [PAL::getWTWritingToolsViewControllerClass() isAvailable] && m_page->writingToolsBehavior() != WebCore::WritingTools::Behavior::None;
 }
 
 #endif
@@ -6747,7 +6711,5 @@ Ref<WebPageProxy> WebViewImpl::protectedPage() const
 }
 
 } // namespace WebKit
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // PLATFORM(MAC)

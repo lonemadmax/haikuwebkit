@@ -360,11 +360,6 @@ void PageClientImpl::setCursorHiddenUntilMouseMoves(bool)
     notImplemented();
 }
 
-void PageClientImpl::didChangeViewportProperties(const ViewportAttributes&)
-{
-    notImplemented();
-}
-
 void PageClientImpl::registerEditCommand(Ref<WebEditCommandProxy>&& command, UndoOrRedo undoOrRedo)
 {
     auto actionName = command->label();
@@ -1252,6 +1247,11 @@ void PageClientImpl::pluginDidInstallPDFDocument(double initialScale)
     [webView() _pluginDidInstallPDFDocument:initialScale];
 }
 #endif
+
+bool PageClientImpl::isPotentialTapInProgress() const
+{
+    return [m_contentView isPotentialTapInProgress];
+}
 
 } // namespace WebKit
 

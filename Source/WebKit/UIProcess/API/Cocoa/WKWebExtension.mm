@@ -69,7 +69,6 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
 {
     NSParameterAssert([resourceBaseURL isKindOfClass:NSURL.class]);
     NSParameterAssert(resourceBaseURL.isFileURL);
-    NSParameterAssert(resourceBaseURL.hasDirectoryPath);
 
     // FIXME: <https://webkit.org/b/276194> Make the WebExtension class load data on a background thread.
     // Use an async dispatch in the meantime to prevent clients from expecting synchronous results.
@@ -119,7 +118,6 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
     if (resourceBaseURL) {
         NSParameterAssert([resourceBaseURL isKindOfClass:NSURL.class]);
         NSParameterAssert(resourceBaseURL.isFileURL);
-        NSParameterAssert(resourceBaseURL.hasDirectoryPath);
     }
 
     if (error)
@@ -188,7 +186,9 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
 
 - (NSLocale *)defaultLocale
 {
-    return self._protectedWebExtension->defaultLocale();
+    if (auto *defaultLocale = nsStringNilIfEmpty(self._protectedWebExtension->defaultLocale()))
+        return [NSLocale localeWithLocaleIdentifier:defaultLocale];
+    return nil;
 }
 
 - (NSString *)displayName
@@ -213,7 +213,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
 
 - (NSString *)displayActionLabel
 {
-    return self._protectedWebExtension->displayActionLabel();
+    return nsStringNilIfEmpty(self._protectedWebExtension->displayActionLabel());
 }
 
 - (NSString *)version
@@ -223,12 +223,12 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
 
 - (CocoaImage *)iconForSize:(CGSize)size
 {
-    return self._protectedWebExtension->icon(size);
+    return WebKit::toCocoaImage(self._protectedWebExtension->icon(WebCore::FloatSize(size)));
 }
 
 - (CocoaImage *)actionIconForSize:(CGSize)size
 {
-    return self._protectedWebExtension->actionIcon(size);
+    return WebKit::toCocoaImage(self._protectedWebExtension->actionIcon(WebCore::FloatSize(size)));
 }
 
 - (NSSet<WKWebExtensionPermission> *)requestedPermissions

@@ -249,7 +249,7 @@ private:
     void receivedPingSuccessMessage() WTF_REQUIRES_LOCK(m_mutex);
 #endif
 #if USE(INSPECTOR_SOCKET_SERVER)
-    UncheckedKeyHashMap<String, CallHandler>& dispatchMap() final;
+    HashMap<String, CallHandler>& dispatchMap() final;
     void didClose(RemoteInspectorSocketEndpoint&, ConnectionID) final;
 
     void sendWebInspectorEvent(const String&);

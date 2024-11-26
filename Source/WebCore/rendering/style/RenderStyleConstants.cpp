@@ -646,6 +646,7 @@ TextStream& operator<<(TextStream& ts, ItemPosition position)
     case ItemPosition::FlexEnd: ts << "flex-end"; break;
     case ItemPosition::Left: ts << "left"; break;
     case ItemPosition::Right: ts << "right"; break;
+    case ItemPosition::AnchorCenter: ts << "anchor-center"; break;
     }
     return ts;
 }
@@ -1177,15 +1178,6 @@ TextStream& operator<<(TextStream& ts, TextJustify justify)
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, TextOrientation orientation)
-{
-    switch (orientation) {
-    case TextOrientation::Mixed: ts << "mixed"; break;
-    case TextOrientation::Upright: ts << "upright"; break;
-    case TextOrientation::Sideways: ts << "sideways"; break;
-    }
-    return ts;
-}
 TextStream& operator<<(TextStream& ts, TextOverflow overflow)
 {
     switch (overflow) {

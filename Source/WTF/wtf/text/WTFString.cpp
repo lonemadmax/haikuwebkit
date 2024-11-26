@@ -37,6 +37,8 @@
 #include <wtf/unicode/CharacterNames.h>
 #include <wtf/unicode/UTF8Conversion.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WTF {
 
 // Construct a string with UTF-16 data.
@@ -241,15 +243,13 @@ String String::numberToStringFixedPrecision(double number, unsigned precision, T
 String String::number(float number)
 {
     NumberToStringBuffer buffer;
-    size_t length = numberToStringAndSize(number, buffer);
-    return String { std::span { buffer.data(), length } };
+    return String { numberToStringAndSize(number, buffer) };
 }
 
 String String::number(double number)
 {
     NumberToStringBuffer buffer;
-    size_t length = numberToStringAndSize(number, buffer);
-    return String { std::span { buffer.data(), length } };
+    return String { numberToStringAndSize(number, buffer) };
 }
 
 String String::numberToStringFixedWidth(double number, unsigned decimalPlaces)
@@ -449,9 +449,9 @@ CString String::utf8(ConversionMode mode) const
 
 String String::make8Bit(std::span<const UChar> source)
 {
-    LChar* destination;
+    std::span<LChar> destination;
     String result = String::createUninitialized(source.size(), destination);
-    StringImpl::copyCharacters(destination, source);
+    StringImpl::copyCharacters(destination.data(), source);
     return result;
 }
 
@@ -459,9 +459,9 @@ void String::convertTo16Bit()
 {
     if (isNull() || !is8Bit())
         return;
-    UChar* destination;
+    std::span<UChar> destination;
     auto convertedString = String::createUninitialized(length(), destination);
-    StringImpl::copyCharacters(destination, span8());
+    StringImpl::copyCharacters(destination.data(), span8());
     *this = WTFMove(convertedString);
 }
 
@@ -474,7 +474,7 @@ String fromUTF8Impl(std::span<const char8_t> string)
         return emptyString();
 
     if (charactersAreAllASCII(string))
-        return StringImpl::create(spanReinterpretCast<const LChar>(string));
+        return StringImpl::create(byteCast<LChar>(string));
 
     Vector<UChar, 1024> buffer(string.size());
  
@@ -508,7 +508,7 @@ String String::fromUTF8WithLatin1Fallback(std::span<const char8_t> string)
     if (!utf8) {
         // Do this assertion before chopping the size_t down to unsigned.
         RELEASE_ASSERT(string.size() <= String::MaxLength);
-        return spanReinterpretCast<const LChar>(string);
+        return byteCast<LChar>(string);
     }
     return utf8;
 }
@@ -631,3 +631,5 @@ Vector<char> asciiDebug(String& string)
 }
 
 #endif
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

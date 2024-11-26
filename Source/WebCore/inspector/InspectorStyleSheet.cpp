@@ -76,6 +76,8 @@
 
 using JSON::ArrayOf;
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 using namespace Inspector;
@@ -1474,7 +1476,7 @@ static inline bool isNotSpaceOrTab(UChar character)
 //
 // Canonicalizing is useful for generating the new style sheet text after some style edit;
 // it'd be hard to compute the replacement text if property declarations were scattered.
-static StringView computeCanonicalRuleText(const String& styleSheetText, const String& ruleStyleDeclarationText, const CSSRuleSourceData& logicalContainingRuleSourceData)
+static String computeCanonicalRuleText(const String& styleSheetText, const String& ruleStyleDeclarationText, const CSSRuleSourceData& logicalContainingRuleSourceData)
 {
     auto indentation = emptyString();
     auto startOfSecondLine = ruleStyleDeclarationText.find('\n');
@@ -1511,7 +1513,7 @@ static StringView computeCanonicalRuleText(const String& styleSheetText, const S
     if (closingIndentationLineStart != notFound)
         canonicalRuleText.appendSubstring(ruleStyleDeclarationText, closingIndentationLineStart);
 
-    return canonicalRuleText;
+    return canonicalRuleText.toString();
 }
 
 // This function updates the style declaration text of the rule given by `id`.
@@ -1552,7 +1554,7 @@ ExceptionOr<void> InspectorStyleSheet::setRuleStyleText(const InspectorCSSId& id
     cssStyleDeclaration->setCssText(newStyleDeclarationText);
 
     // Don't canonicalize the rule text if a `newRuleText` is provided, to allow for faithful undoing.
-    StringView replacementBodyText = newRuleText ? *newRuleText : computeCanonicalRuleText(styleSheetText, newStyleDeclarationText, *logicalContainingRuleSourceData);
+    String replacementBodyText = newRuleText ? *newRuleText : computeCanonicalRuleText(styleSheetText, newStyleDeclarationText, *logicalContainingRuleSourceData);
 
     m_parsedStyleSheet->setText(makeStringByReplacing(styleSheetText, bodyStart, bodyEnd - bodyStart, replacementBodyText));
     m_pageStyleSheet->clearHadRulesMutation();
@@ -1913,3 +1915,5 @@ Ref<CSSRuleSourceData> InspectorStyleSheetForInlineStyle::ruleSourceData() const
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

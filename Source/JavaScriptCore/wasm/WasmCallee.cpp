@@ -41,6 +41,8 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC::Wasm {
 
 WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(Callee);
@@ -454,7 +456,7 @@ JSEntrypointCallee::JSEntrypointCallee(TypeIndex typeIndex, bool usesSIMD)
     m_frameSize = totalFrameSize;
 
 #if ENABLE(JIT)
-    if (Options::useJIT()) {
+    if (Options::useWasmJIT()) {
 #else
     if (false) {
 #endif
@@ -481,7 +483,7 @@ JSEntrypointCallee::JSEntrypointCallee(TypeIndex typeIndex, bool usesSIMD)
 CodePtr<WasmEntryPtrTag> JSEntrypointCallee::entrypointImpl() const
 {
 #if ENABLE(JIT)
-    if (Options::useJIT())
+    if (Options::useWasmJIT())
         return createJSToWasmJITShared().retaggedCode<WasmEntryPtrTag>();
 #endif
     return LLInt::getCodeFunctionPtr<CFunctionPtrTag>(js_to_wasm_wrapper_entry);
@@ -534,5 +536,7 @@ BBQCallee::~BBQCallee()
 #endif
 
 } // namespace JSC::Wasm
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

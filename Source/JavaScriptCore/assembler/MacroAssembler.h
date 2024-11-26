@@ -25,6 +25,10 @@
 
 #pragma once
 
+#include <wtf/Compiler.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #if ENABLE(ASSEMBLER)
 
 #include "JSCJSValue.h"
@@ -2478,3 +2482,5 @@ public:
 } // namespace JSC
 
 #endif // ENABLE(ASSEMBLER)
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

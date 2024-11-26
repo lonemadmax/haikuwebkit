@@ -31,6 +31,15 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
+class PerActivityStateCPUUsageSampler;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebKit::PerActivityStateCPUUsageSampler> : std::true_type { };
+}
+
+namespace WebKit {
 
 class WebPageProxy;
 class WebProcessPool;
@@ -49,7 +58,7 @@ private:
 
     WeakRef<WebProcessPool> m_processPool;
     RunLoop::Timer m_loggingTimer;
-    typedef UncheckedKeyHashMap<WebCore::ActivityStateForCPUSampling, Seconds, WTF::IntHash<WebCore::ActivityStateForCPUSampling>, WTF::StrongEnumHashTraits<WebCore::ActivityStateForCPUSampling>> CPUTimeInActivityStateMap;
+    typedef HashMap<WebCore::ActivityStateForCPUSampling, Seconds, WTF::IntHash<WebCore::ActivityStateForCPUSampling>, WTF::StrongEnumHashTraits<WebCore::ActivityStateForCPUSampling>> CPUTimeInActivityStateMap;
     CPUTimeInActivityStateMap m_cpuTimeInActivityState;
     MonotonicTime m_lastCPUTime;
 };

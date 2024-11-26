@@ -47,7 +47,7 @@ namespace Metal {
 
 class FunctionDefinitionWriter : public AST::Visitor {
 public:
-    FunctionDefinitionWriter(ShaderModule& shaderModule, StringBuilder& stringBuilder, PrepareResult& prepareResult, const UncheckedKeyHashMap<String, ConstantValue>& constantValues)
+    FunctionDefinitionWriter(ShaderModule& shaderModule, StringBuilder& stringBuilder, PrepareResult& prepareResult, const HashMap<String, ConstantValue>& constantValues)
         : m_stringBuilder(stringBuilder)
         , m_shaderModule(shaderModule)
         , m_prepareResult(prepareResult)
@@ -143,7 +143,7 @@ private:
     AST::Continuing*m_continuing { nullptr };
     HashSet<AST::Function*> m_visitedFunctions;
     PrepareResult& m_prepareResult;
-    const UncheckedKeyHashMap<String, ConstantValue>& m_constantValues;
+    const HashMap<String, ConstantValue>& m_constantValues;
 };
 
 static ASCIILiteral serializeAddressSpace(AddressSpace addressSpace)
@@ -2222,25 +2222,19 @@ void FunctionDefinitionWriter::visit(AST::Unsigned32Literal& literal)
 void FunctionDefinitionWriter::visit(AST::AbstractFloatLiteral& literal)
 {
     NumberToStringBuffer buffer;
-    WTF::numberToStringWithTrailingPoint(literal.value(), buffer);
-
-    m_stringBuilder.append(span(&buffer[0]));
+    m_stringBuilder.append(WTF::numberToStringWithTrailingPoint(literal.value(), buffer));
 }
 
 void FunctionDefinitionWriter::visit(AST::Float32Literal& literal)
 {
     NumberToStringBuffer buffer;
-    WTF::numberToStringWithTrailingPoint(literal.value(), buffer);
-
-    m_stringBuilder.append(span(&buffer[0]));
+    m_stringBuilder.append(WTF::numberToStringWithTrailingPoint(literal.value(), buffer));
 }
 
 void FunctionDefinitionWriter::visit(AST::Float16Literal& literal)
 {
     NumberToStringBuffer buffer;
-    WTF::numberToStringWithTrailingPoint(literal.value(), buffer);
-
-    m_stringBuilder.append(span(&buffer[0]));
+    m_stringBuilder.append(WTF::numberToStringWithTrailingPoint(literal.value(), buffer));
 }
 
 void FunctionDefinitionWriter::visit(AST::Statement& statement)
@@ -2559,20 +2553,17 @@ void FunctionDefinitionWriter::serializeConstant(const Type* type, ConstantValue
                 break;
             case Primitive::AbstractFloat: {
                 NumberToStringBuffer buffer;
-                WTF::numberToStringWithTrailingPoint(std::get<double>(value), buffer);
-                m_stringBuilder.append(span(&buffer[0]));
+                m_stringBuilder.append(WTF::numberToStringWithTrailingPoint(std::get<double>(value), buffer));
                 break;
             }
             case Primitive::F32: {
                 NumberToStringBuffer buffer;
-                WTF::numberToStringWithTrailingPoint(std::get<float>(value), buffer);
-                m_stringBuilder.append(span(&buffer[0]));
+                m_stringBuilder.append(WTF::numberToStringWithTrailingPoint(std::get<float>(value), buffer));
                 break;
             }
             case Primitive::F16: {
                 NumberToStringBuffer buffer;
-                WTF::numberToStringWithTrailingPoint(std::get<half>(value), buffer);
-                m_stringBuilder.append(span(&buffer[0]), 'h');
+                m_stringBuilder.append(WTF::numberToStringWithTrailingPoint(std::get<half>(value), buffer), 'h');
                 break;
             }
             case Primitive::Bool:
@@ -2693,7 +2684,7 @@ void FunctionDefinitionWriter::serializeConstant(const Type* type, ConstantValue
         });
 }
 
-void emitMetalFunctions(StringBuilder& stringBuilder, ShaderModule& shaderModule, PrepareResult& prepareResult, const UncheckedKeyHashMap<String, ConstantValue>& constantValues)
+void emitMetalFunctions(StringBuilder& stringBuilder, ShaderModule& shaderModule, PrepareResult& prepareResult, const HashMap<String, ConstantValue>& constantValues)
 {
     FunctionDefinitionWriter functionDefinitionWriter(shaderModule, stringBuilder, prepareResult, constantValues);
     functionDefinitionWriter.write();

@@ -111,17 +111,21 @@ Cache::Cache(NetworkProcess& networkProcess, const String& storageDirectory, Ref
 {
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
     if (options.contains(CacheOption::SpeculativeRevalidation)) {
-        m_lowPowerModeNotifier = makeUnique<WebCore::LowPowerModeNotifier>([this](bool isLowPowerModeEnabled) {
+        m_lowPowerModeNotifier = makeUnique<WebCore::LowPowerModeNotifier>([weakThis = WeakPtr { *this }](bool isLowPowerModeEnabled) {
             ASSERT(WTF::RunLoop::isMain());
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+
             if (isLowPowerModeEnabled)
-                m_speculativeLoadManager = nullptr;
+                protectedThis->m_speculativeLoadManager = nullptr;
             else {
-                ASSERT(!m_speculativeLoadManager);
-                m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*this, m_storage.get());
+                ASSERT(!protectedThis->m_speculativeLoadManager);
+                protectedThis->m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*protectedThis, protectedThis->protectedStorage());
             }
         });
         if (!m_lowPowerModeNotifier->isLowPowerModeEnabled())
-            m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*this, m_storage.get());
+            m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*this, protectedStorage());
     }
 #endif
 
@@ -718,7 +722,7 @@ String Cache::recordsPathIsolatedCopy() const
 
 void Cache::fetchData(bool shouldComputeSize, CompletionHandler<void(Vector<WebsiteData::Entry>&&)>&& completionHandler)
 {
-    UncheckedKeyHashMap<WebCore::SecurityOriginData, uint64_t> originsAndSizes;
+    HashMap<WebCore::SecurityOriginData, uint64_t> originsAndSizes;
     traverse([protectedThis = Ref { *this }, shouldComputeSize, completionHandler = WTFMove(completionHandler), originsAndSizes = WTFMove(originsAndSizes)](auto* traversalEntry) mutable {
         if (traversalEntry) {
             auto url = traversalEntry->entry.response().url();

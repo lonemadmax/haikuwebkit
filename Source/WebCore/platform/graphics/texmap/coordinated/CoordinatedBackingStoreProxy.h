@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2024 Igalia S.L.
  * Copyright (C) 2010-2012 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -21,63 +20,65 @@
 #pragma once
 
 #if USE(COORDINATED_GRAPHICS)
+#include "FloatPoint.h"
+#include "IntPoint.h"
 #include "IntPointHash.h"
 #include "IntRect.h"
-#include <optional>
-#include <wtf/Function.h>
-#include <wtf/Noncopyable.h>
+#include <wtf/Assertions.h>
+#include <wtf/HashMap.h>
+#include <wtf/Lock.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 class CoordinatedGraphicsLayer;
 class CoordinatedTileBuffer;
 
-class CoordinatedBackingStoreProxy {
+class CoordinatedBackingStoreProxy final : public ThreadSafeRefCounted<CoordinatedBackingStoreProxy> {
     WTF_MAKE_TZONE_ALLOCATED(CoordinatedBackingStoreProxy);
-    WTF_MAKE_NONCOPYABLE(CoordinatedBackingStoreProxy);
 public:
-    static std::unique_ptr<CoordinatedBackingStoreProxy> create(float contentsScale, std::optional<IntSize> tileSize = std::nullopt);
-    CoordinatedBackingStoreProxy(float contentsScale, const IntSize& tileSize);
-    ~CoordinatedBackingStoreProxy() = default;
+    static Ref<CoordinatedBackingStoreProxy> create(float contentsScale, std::optional<IntSize> tileSize = std::nullopt);
+    ~CoordinatedBackingStoreProxy();
 
     bool setContentsScale(float);
     const IntRect& coverRect() const { return m_coverRect; }
-    bool hasPendingTileCreation() const { return m_pendingTileCreation; }
 
-    struct TileUpdate {
-        uint32_t tileID { 0 };
-        IntRect tileRect;
-        IntRect dirtyRect;
-        Ref<CoordinatedTileBuffer> buffer;
-    };
-
-    class Update final : public ThreadSafeRefCounted<Update> {
+    class Update {
+        WTF_MAKE_NONCOPYABLE(Update);
     public:
-        static RefPtr<Update> create(Vector<uint32_t>&& tilesToCreate, Vector<TileUpdate>&& tilesToUpdate, Vector<uint32_t>&& tilesToRemove)
-        {
-            if (tilesToCreate.isEmpty() && tilesToUpdate.isEmpty() && tilesToRemove.isEmpty())
-                return nullptr;
-            return adoptRef(new Update(WTFMove(tilesToCreate), WTFMove(tilesToUpdate), WTFMove(tilesToRemove)));
-        }
+        Update() = default;
+        Update(Update&&) = default;
+        Update& operator=(Update&&) = default;
         ~Update();
 
-        const Vector<uint32_t> tilesToCreate() const { return m_tilesToCreate; }
-        const Vector<TileUpdate>& tilesToUpdate() const { return m_tilesToUpdate; }
-        const Vector<uint32_t> tilesToRemove() const { return m_tilesToRemove; }
+        struct TileUpdate {
+            uint32_t tileID { 0 };
+            IntRect tileRect;
+            IntRect dirtyRect;
+            Ref<CoordinatedTileBuffer> buffer;
+        };
 
-        void appendUpdate(RefPtr<Update>&);
+        float scale() const { return m_scale; }
+        const Vector<uint32_t>& tilesToCreate() const { return m_tilesToCreate; }
+        const Vector<TileUpdate>& tilesToUpdate() const { return m_tilesToUpdate; }
+        const Vector<uint32_t>& tilesToRemove() const { return m_tilesToRemove; }
+
+        void appendUpdate(float, Vector<uint32_t>&&, Vector<TileUpdate>&&, Vector<uint32_t>&&);
 
     private:
-        Update(Vector<uint32_t>&&, Vector<TileUpdate>&&, Vector<uint32_t>&&);
-
+        float m_scale { 1 };
         Vector<uint32_t> m_tilesToCreate;
         Vector<TileUpdate> m_tilesToUpdate;
         Vector<uint32_t> m_tilesToRemove;
     };
 
-    RefPtr<Update> updateIfNeeded(const IntRect& unscaledVisibleRect, const IntRect& unscaledContentsRect, bool shouldCreateAndDestroyTiles, Vector<IntRect>&& dirtyRegion, CoordinatedGraphicsLayer&);
+    enum class UpdateResult : uint8_t {
+        BuffersChanged = 1 << 0,
+        TilesPending = 1 << 1,
+        TilesChanged = 1 << 2
+    };
+    OptionSet<UpdateResult> updateIfNeeded(const IntRect& unscaledVisibleRect, const IntRect& unscaledContentsRect, bool shouldCreateAndDestroyTiles, const Vector<IntRect, 1>&, CoordinatedGraphicsLayer&);
+    Update takePendingUpdate();
 
 private:
     struct Tile {
@@ -89,6 +90,10 @@ private:
             , dirtyRect(rect)
         {
         }
+        Tile(const Tile&) = delete;
+        Tile& operator=(const Tile&) = delete;
+        Tile(Tile&&) = default;
+        Tile& operator=(Tile&&) = default;
 
         void resize(const IntSize& size)
         {
@@ -102,19 +107,35 @@ private:
             dirtyRect.unite(tileDirtyRect);
         }
 
+        bool isDirty() const
+        {
+            return !dirtyRect.isEmpty();
+        }
+
+        void markClean()
+        {
+            dirtyRect = { };
+        }
+
         uint32_t id { 0 };
         IntPoint position;
         IntRect rect;
         IntRect dirtyRect;
     };
 
+    CoordinatedBackingStoreProxy(float contentsScale, const IntSize& tileSize);
+
+    void invalidateRegion(const Vector<IntRect, 1>&);
+    void createOrDestroyTiles(const IntRect& visibleRect, const IntRect& scaledContentsRect, float coverAreaMultiplier, Vector<uint32_t>& tilesToCreate, Vector<uint32_t>& tilesToRemove);
     std::pair<IntRect, IntRect> computeCoverAndKeepRect() const;
-    void invalidateRegion(const Vector<IntRect>&);
+
+    void adjustForContentsRect(IntRect&) const;
 
     IntRect mapToContents(const IntRect&) const;
     IntRect mapFromContents(const IntRect&) const;
     IntRect tileRectForPosition(const IntPoint&) const;
     IntPoint tilePositionForPoint(const IntPoint&) const;
+    void forEachTilePositionInRect(const IntRect&, Function<void(IntPoint&&)>&&);
 
     float m_contentsScale { 1 };
     IntSize m_tileSize;
@@ -125,6 +146,10 @@ private:
     IntRect m_coverRect;
     IntRect m_keepRect;
     UncheckedKeyHashMap<IntPoint, Tile> m_tiles;
+    struct {
+        Lock lock;
+        Update pending WTF_GUARDED_BY_LOCK(lock);
+    } m_update;
 };
 
 } // namespace WebCore

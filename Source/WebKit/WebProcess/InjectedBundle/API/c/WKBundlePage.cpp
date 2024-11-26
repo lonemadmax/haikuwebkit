@@ -55,7 +55,7 @@
 #include "WebFrame.h"
 #include "WebFullScreenManager.h"
 #include "WebImage.h"
-#include "WebInspector.h"
+#include "WebInspectorInternal.h"
 #include "WebPage.h"
 #include "WebPageGroupProxy.h"
 #include "WebPageOverlay.h"
@@ -342,11 +342,6 @@ WKStringRef WKBundlePageCopyRenderTreeExternalRepresentationForPrinting(WKBundle
     return WebKit::toCopiedAPI(WebKit::toImpl(pageRef)->renderTreeExternalRepresentationForPrinting());
 }
 
-void WKBundlePageClearMainFrameName(WKBundlePageRef pageRef)
-{
-    WebKit::toImpl(pageRef)->clearMainFrameName();
-}
-
 void WKBundlePageClose(WKBundlePageRef pageRef)
 {
     WebKit::toImpl(pageRef)->sendClose();
@@ -365,11 +360,6 @@ double WKBundlePageGetPageZoomFactor(WKBundlePageRef pageRef)
 WKStringRef WKBundlePageDumpHistoryForTesting(WKBundlePageRef page, WKStringRef directory)
 {
     return WebKit::toCopiedAPI(WebKit::toImpl(page)->dumpHistoryForTesting(WebKit::toWTFString(directory)));
-}
-
-void WKBundleClearHistoryForTesting(WKBundlePageRef page)
-{
-    WebKit::toImpl(page)->clearHistory();
 }
 
 WKBundleBackForwardListRef WKBundlePageGetBackForwardList(WKBundlePageRef pageRef)
@@ -543,19 +533,9 @@ void WKBundlePageSetPaintedObjectsCounterThreshold(WKBundlePageRef, uint64_t)
     // We should remove it as soon as we can.
 }
 
-void WKBundlePageSetTracksRepaints(WKBundlePageRef pageRef, bool trackRepaints)
-{
-    WebKit::toImpl(pageRef)->setTracksRepaints(trackRepaints);
-}
-
 bool WKBundlePageIsTrackingRepaints(WKBundlePageRef pageRef)
 {
     return WebKit::toImpl(pageRef)->isTrackingRepaints();
-}
-
-void WKBundlePageResetTrackedRepaints(WKBundlePageRef pageRef)
-{
-    WebKit::toImpl(pageRef)->resetTrackedRepaints();
 }
 
 WKArrayRef WKBundlePageCopyTrackedRepaintRects(WKBundlePageRef pageRef)
@@ -590,7 +570,7 @@ void WKBundlePageSetComposition(WKBundlePageRef pageRef, WKStringRef text, int f
         }
     }
 
-    UncheckedKeyHashMap<String, Vector<WebCore::CharacterRange>> annotations;
+    HashMap<String, Vector<WebCore::CharacterRange>> annotations;
     if (annotationData) {
         if (auto* annotationDataArray = WebKit::toImpl(annotationData)) {
             for (auto dictionary : annotationDataArray->elementsOfType<API::Dictionary>()) {
@@ -629,7 +609,7 @@ void WKBundlePageSetUseDarkAppearance(WKBundlePageRef pageRef, bool useDarkAppea
 {
     WebKit::WebPage* webPage = WebKit::toImpl(pageRef);
     if (WebCore::Page* page = webPage ? webPage->corePage() : nullptr)
-        page->effectiveAppearanceDidChange(useDarkAppearance, page->useElevatedUserInterfaceLevel());
+        page->setUseColorAppearance(useDarkAppearance, page->useElevatedUserInterfaceLevel());
 }
 
 bool WKBundlePageIsUsingDarkAppearance(WKBundlePageRef pageRef)
@@ -701,6 +681,32 @@ bool WKBundlePageRegisterScrollOperationCompletionCallback(WKBundlePageRef pageR
     return true;
 }
 
+class TimerOwner {
+public:
+    TimerOwner(WTF::Function<void (void*)>&& callback, void* context)
+        : m_timer(*this, &TimerOwner::timerFired)
+        , m_callback(WTFMove(callback))
+        , m_context(context)
+    {
+        m_timer.startOneShot(0_s);
+    }
+
+    void timerFired()
+    {
+        m_callback(m_context);
+        delete this;
+    }
+
+    WebCore::Timer m_timer;
+    WTF::Function<void (void*)> m_callback;
+    void* m_context;
+};
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<TimerOwner> : std::true_type { };
+}
+
 void WKBundlePageCallAfterTasksAndTimers(WKBundlePageRef pageRef, WKBundlePageTestNotificationCallback callback, void* context)
 {
     if (!callback)
@@ -718,27 +724,6 @@ void WKBundlePageCallAfterTasksAndTimers(WKBundlePageRef pageRef, WKBundlePageTe
     WebCore::Document* document = localMainFrame->document();
     if (!document)
         return;
-
-    class TimerOwner {
-    public:
-        TimerOwner(WTF::Function<void (void*)>&& callback, void* context)
-            : m_timer(*this, &TimerOwner::timerFired)
-            , m_callback(WTFMove(callback))
-            , m_context(context)
-        {
-            m_timer.startOneShot(0_s);
-        }
-        
-        void timerFired()
-        {
-            m_callback(m_context);
-            delete this;
-        }
-        
-        WebCore::Timer m_timer;
-        WTF::Function<void (void*)> m_callback;
-        void* m_context;
-    };
     
     document->postTask([=] (WebCore::ScriptExecutionContext&) {
         new TimerOwner(callback, context); // deletes itself when done.
@@ -827,23 +812,6 @@ WKCaptionUserPreferencesTestingModeTokenRef WKBundlePageCreateCaptionUserPrefere
     UNUSED_PARAM(page);
     return { };
 #endif
-}
-
-void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef page, WKEventThrottlingBehavior* behavior)
-{
-    std::optional<WebCore::EventThrottlingBehavior> behaviorValue;
-    if (behavior) {
-        switch (*behavior) {
-        case kWKEventThrottlingBehaviorResponsive:
-            behaviorValue = WebCore::EventThrottlingBehavior::Responsive;
-            break;
-        case kWKEventThrottlingBehaviorUnresponsive:
-            behaviorValue = WebCore::EventThrottlingBehavior::Unresponsive;
-            break;
-        }
-    }
-
-    WebKit::toImpl(page)->corePage()->setEventThrottlingBehaviorOverride(behaviorValue);
 }
 
 void WKBundlePageLayoutIfNeeded(WKBundlePageRef page)

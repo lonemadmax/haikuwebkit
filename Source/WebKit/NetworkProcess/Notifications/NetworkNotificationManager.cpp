@@ -33,7 +33,6 @@
 #include "Logging.h"
 #include "NetworkSession.h"
 #include "PushClientConnectionMessages.h"
-#include "WebProcessProxy.h"
 #include "WebPushDaemonConnectionConfiguration.h"
 #include "WebPushMessage.h"
 #include <WebCore/SecurityOriginData.h>
@@ -43,12 +42,6 @@ namespace WebKit {
 using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkNotificationManager);
-
-static inline Ref<NetworkConnectionToWebProcess> connectionToWebProcess(const IPC::Connection& connection)
-{
-    // FIXME: Check the type.
-    return static_cast<NetworkConnectionToWebProcess&>(*connection.client());
-}
 
 NetworkNotificationManager::NetworkNotificationManager(const String& webPushMachServiceName, WebPushD::WebPushDaemonConnectionConfiguration&& configuration)
 {
@@ -248,11 +241,6 @@ void NetworkNotificationManager::getPermissionState(WebCore::SecurityOriginData&
 void NetworkNotificationManager::getPermissionStateSync(WebCore::SecurityOriginData&& origin, CompletionHandler<void(WebCore::PushPermissionState)>&& completionHandler)
 {
     getPushPermissionStateImpl(protectedConnection().get(), WTFMove(origin), WTFMove(completionHandler));
-}
-
-std::optional<SharedPreferencesForWebProcess> NetworkNotificationManager::sharedPreferencesForWebProcess(const IPC::Connection& connection) const
-{
-    return connectionToWebProcess(connection)->sharedPreferencesForWebProcess();
 }
 
 RefPtr<WebPushD::Connection> NetworkNotificationManager::protectedConnection() const

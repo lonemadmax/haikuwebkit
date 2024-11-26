@@ -27,6 +27,7 @@
 #include "WebBackForwardListFrameItem.h"
 
 #include "SessionState.h"
+#include "WebBackForwardListItem.h"
 
 namespace WebKit {
 using namespace WebCore;
@@ -53,9 +54,9 @@ WebBackForwardListFrameItem::~WebBackForwardListFrameItem()
     allItems().remove(*m_frameState->identifier);
 }
 
-UncheckedKeyHashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListFrameItem>>& WebBackForwardListFrameItem::allItems()
+HashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListFrameItem>>& WebBackForwardListFrameItem::allItems()
 {
-    static MainThreadNeverDestroyed<UncheckedKeyHashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListFrameItem>>> items;
+    static MainThreadNeverDestroyed<HashMap<BackForwardItemIdentifier, WeakRef<WebBackForwardListFrameItem>>> items;
     return items;
 }
 
@@ -95,8 +96,16 @@ RefPtr<WebBackForwardListItem> WebBackForwardListFrameItem::protectedBackForward
     return m_backForwardListItem.get();
 }
 
-void WebBackForwardListFrameItem::addChild(Ref<FrameState>&& frameState)
+void WebBackForwardListFrameItem::setChild(Ref<FrameState>&& frameState)
 {
+    for (unsigned i = 0; i < m_children.size(); i++) {
+        if (m_children[i]->frameID() == frameState->frameID) {
+            ASSERT(m_frameState->children[i]->frameID == m_children[i]->frameID());
+            m_frameState->children[i] = frameState.copyRef();
+            m_children[i] = WebBackForwardListFrameItem::create(protectedBackForwardListItem().get(), this, WTFMove(frameState));
+            return;
+        }
+    }
     m_frameState->children.append(frameState.copyRef());
     m_children.append(WebBackForwardListFrameItem::create(protectedBackForwardListItem().get(), this, WTFMove(frameState)));
 }
@@ -107,6 +116,39 @@ WebBackForwardListFrameItem& WebBackForwardListFrameItem::rootFrame()
     while (rootFrame->m_parent && rootFrame->m_parent->identifier().processIdentifier() == identifier().processIdentifier())
         rootFrame = *rootFrame->m_parent;
     return rootFrame.get();
+}
+
+void WebBackForwardListFrameItem::setWasRestoredFromSession()
+{
+    m_frameState->wasRestoredFromSession = true;
+    for (auto& child : m_children)
+        child->setWasRestoredFromSession();
+}
+
+void WebBackForwardListFrameItem::updateChildFrameState(Ref<FrameState>&& frameState)
+{
+    auto& childrenState = m_frameState->children;
+    auto index = childrenState.findIf([&](auto& child) {
+        return child->identifier == frameState->identifier;
+    });
+
+    if (index != notFound) {
+        if (childrenState[index].ptr() != frameState.ptr())
+            childrenState[index] = WTFMove(frameState);
+    } else
+        childrenState.append(WTFMove(frameState));
+}
+
+void WebBackForwardListFrameItem::setFrameState(Ref<FrameState>&& frameState)
+{
+    m_children.clear();
+    m_frameState = WTFMove(frameState);
+
+    if (RefPtr parent = m_parent.get())
+        parent->updateChildFrameState(m_frameState.copyRef());
+
+    for (auto& childFrameState : m_frameState->children)
+        m_children.append(WebBackForwardListFrameItem::create(protectedBackForwardListItem().get(), this, childFrameState.copyRef()));
 }
 
 } // namespace WebKit

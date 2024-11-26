@@ -35,6 +35,7 @@
 #include <time.h>
 #include <utility>
 #include <wtf/Forward.h>
+#include <wtf/MallocSpan.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 #include <wtf/WallTime.h>
@@ -44,7 +45,9 @@
 #include <wtf/RetainPtr.h>
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+#if HAVE(MMAP)
+#include <wtf/Mmap.h>
+#endif
 
 #if USE(CF)
 typedef const struct __CFData* CFDataRef;
@@ -137,6 +140,7 @@ WTF_EXPORT_PRIVATE std::optional<uint32_t> volumeFileBlockSize(const String&);
 WTF_EXPORT_PRIVATE std::optional<int32_t> getFileDeviceId(const String&);
 WTF_EXPORT_PRIVATE bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath);
 WTF_EXPORT_PRIVATE String createTemporaryZipArchive(const String& directory);
+WTF_EXPORT_PRIVATE String extractTemporaryZipArchive(const String& filePath);
 
 enum class FileType { Regular, Directory, SymbolicLink };
 WTF_EXPORT_PRIVATE std::optional<FileType> fileType(const String&);
@@ -259,23 +263,27 @@ public:
     WTF_EXPORT_PRIVATE ~MappedFileData();
     MappedFileData& operator=(MappedFileData&&);
 
+#if HAVE(MMAP)
+    std::span<uint8_t> leakHandle() { return m_fileData.leakSpan(); }
+    explicit operator bool() const { return !!m_fileData; }
+    size_t size() const { return m_fileData.span().size(); }
+    std::span<const uint8_t> span() const { return m_fileData.span(); }
+    std::span<uint8_t> mutableSpan() { return m_fileData.mutableSpan(); }
+#elif OS(WINDOWS)
+    const Win32Handle& fileMapping() const { return m_fileMapping; }
     explicit operator bool() const { return !!m_fileData.data(); }
     size_t size() const { return m_fileData.size(); }
     std::span<const uint8_t> span() const { return m_fileData; }
     std::span<uint8_t> mutableSpan() { return m_fileData; }
-
-#if PLATFORM(COCOA)
-    std::span<uint8_t> leakHandle() { return std::exchange(m_fileData, { }); }
-#endif
-#if OS(WINDOWS)
-    const Win32Handle& fileMapping() const { return m_fileMapping; }
 #endif
 
 private:
     WTF_EXPORT_PRIVATE bool mapFileHandle(PlatformFileHandle, FileOpenMode, MappedFileMode);
 
+#if HAVE(MMAP)
+    MallocSpan<uint8_t, Mmap> m_fileData;
+#elif OS(WINDOWS)
     std::span<uint8_t> m_fileData;
-#if OS(WINDOWS)
     Win32Handle m_fileMapping;
 #endif
 };
@@ -348,5 +356,3 @@ WTF_EXPORT_PRIVATE void finalizeMappedFileData(MappedFileData&, size_t);
 } // namespace WTF
 
 namespace FileSystem = WTF::FileSystemImpl;
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -213,8 +213,8 @@ public:
 
     // Returns an uninitialized string. The characters needs to be written
     // into the buffer returned in data before the returned string is used.
-    static String createUninitialized(unsigned length, UChar*& data) { return StringImpl::createUninitialized(length, data); }
-    static String createUninitialized(unsigned length, LChar*& data) { return StringImpl::createUninitialized(length, data); }
+    static String createUninitialized(unsigned length, std::span<UChar>& data) { return StringImpl::createUninitialized(length, data); }
+    static String createUninitialized(unsigned length, std::span<LChar>& data) { return StringImpl::createUninitialized(length, data); }
 
     using SplitFunctor = WTF::Function<void(StringView)>;
 
@@ -571,13 +571,13 @@ inline namespace StringLiterals {
 #ifndef __swift__
 // Swift will import this as global and then all literals will be WTF.String
 // instead of Swift.String
-inline String operator"" _str(const char* characters, size_t)
+inline String operator""_str(const char* characters, size_t)
 {
     return ASCIILiteral::fromLiteralUnsafe(characters);
 }
 
 // FIXME: rdar://136156228
-inline String operator"" _str(const UChar* characters, size_t length)
+inline String operator""_str(const UChar* characters, size_t length)
 {
     return String({ characters, length });
 }

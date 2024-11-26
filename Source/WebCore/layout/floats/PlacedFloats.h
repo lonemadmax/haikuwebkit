@@ -27,7 +27,7 @@
 
 #include "LayoutBoxGeometry.h"
 #include "LayoutElementBox.h"
-#include "Shape.h"
+#include "LayoutShape.h"
 #include <wtf/OptionSet.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -51,14 +51,14 @@ public:
     class Item {
     public:
         // FIXME: This c'tor is only used by the render tree integation codepath.
-        enum class Position { Left, Right };
-        Item(Position, const BoxGeometry& absoluteBoxGeometry, LayoutPoint localTopLeft, const Shape*);
+        enum class Position { Start, End };
+        Item(Position, const BoxGeometry& absoluteBoxGeometry, LayoutPoint localTopLeft, const LayoutShape*);
         Item(const Box&, Position, const BoxGeometry& absoluteBoxGeometry, LayoutPoint localTopLeft, std::optional<size_t> line);
 
         ~Item();
 
-        bool isLeftPositioned() const { return m_position == Position::Left; }
-        bool isRightPositioned() const { return m_position == Position::Right; }
+        bool isStartPositioned() const { return m_position == Position::Start; }
+        bool isEndPositioned() const { return m_position == Position::End; }
         bool isInFormattingContextOf(const ElementBox& formattingContextRoot) const;
 
         BoxGeometry boxGeometry() const;
@@ -68,7 +68,7 @@ public:
         BoxGeometry::HorizontalEdges horizontalMargin() const { return m_absoluteBoxGeometry.horizontalMargin(); }
         PositionInContextRoot absoluteBottom() const { return { absoluteRectWithMargin().bottom() }; }
 
-        const Shape* shape() const { return m_shape.get(); }
+        const LayoutShape* shape() const { return m_shape.get(); }
         std::optional<size_t> placedByLine() const { return m_placedByLine; }
 
         const Box* layoutBox() const { return m_layoutBox.get(); }
@@ -78,7 +78,7 @@ public:
         Position m_position;
         BoxGeometry m_absoluteBoxGeometry;
         LayoutPoint m_localTopLeft;
-        RefPtr<const Shape> m_shape;
+        RefPtr<const LayoutShape> m_shape;
         std::optional<size_t> m_placedByLine;
     };
     using List = Vector<Item>;
@@ -90,13 +90,13 @@ public:
     void clear();
 
     bool isEmpty() const { return list().isEmpty(); }
-    bool hasLeftPositioned() const;
-    bool hasRightPositioned() const;
+    bool hasStartPositioned() const;
+    bool hasEndPositioned() const;
 
-    bool isLeftToRightDirection() const { return m_isLeftToRightDirection; }
-    // FIXME: This should always be placedFloats's root().style().isLeftToRightDirection() if we used the actual containing block of the intrusive
+    WritingMode writingMode() const { return m_writingMode; }
+    // FIXME: This should always be placedFloats's root().writingMode() if we used the actual containing block of the intrusive
     // floats to initiate the floating state in the integration codepath (i.e. when the float comes from the parent BFC).
-    void setIsLeftToRightDirection(bool isLeftToRightDirection) { m_isLeftToRightDirection = isLeftToRightDirection; }
+    void setWritingMode(WritingMode writingMode) { m_writingMode = writingMode; }
 
     void shrinkToFit();
 
@@ -104,11 +104,11 @@ private:
     CheckedRef<const ElementBox> m_blockFormattingContextRoot;
     List m_list;
     enum class PositionType {
-        Left = 1 << 0,
-        Right  = 1 << 1
+        Start = 1 << 0,
+        End  = 1 << 1
     };
     OptionSet<PositionType> m_positionTypes;
-    bool m_isLeftToRightDirection { true };
+    WritingMode m_writingMode;
 };
 
 inline bool PlacedFloats::remove(const Box& floatBox)
@@ -118,14 +118,14 @@ inline bool PlacedFloats::remove(const Box& floatBox)
     });
 }
 
-inline bool PlacedFloats::hasLeftPositioned() const
+inline bool PlacedFloats::hasStartPositioned() const
 {
-    return m_positionTypes.contains(PositionType::Left);
+    return m_positionTypes.contains(PositionType::Start);
 }
 
-inline bool PlacedFloats::hasRightPositioned() const
+inline bool PlacedFloats::hasEndPositioned() const
 {
-    return m_positionTypes.contains(PositionType::Right);
+    return m_positionTypes.contains(PositionType::End);
 }
 
 }

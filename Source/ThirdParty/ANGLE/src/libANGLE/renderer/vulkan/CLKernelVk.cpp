@@ -17,6 +17,7 @@
 #include "libANGLE/CLKernel.h"
 #include "libANGLE/CLProgram.h"
 #include "libANGLE/cl_utils.h"
+#include "spirv/unified1/NonSemanticClspvReflection.h"
 
 namespace rx
 {
@@ -34,10 +35,6 @@ CLKernelVk::CLKernelVk(const cl::Kernel &kernel,
 {
     mShaderProgramHelper.setShader(gl::ShaderType::Compute,
                                    mKernel.getProgram().getImpl<CLProgramVk>().getShaderModule());
-    for (DescriptorSetIndex index : angle::AllEnums<DescriptorSetIndex>())
-    {
-        mDescriptorSets[index] = VK_NULL_HANDLE;
-    }
 }
 
 CLKernelVk::~CLKernelVk()
@@ -84,8 +81,11 @@ angle::Result CLKernelVk::init()
             default:
                 continue;
         }
-        descriptorSetLayoutDesc.addBinding(arg.descriptorBinding, descType, 1,
-                                           VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+        if (descType != VK_DESCRIPTOR_TYPE_MAX_ENUM)
+        {
+            descriptorSetLayoutDesc.addBinding(arg.descriptorBinding, descType, 1,
+                                               VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+        }
     }
 
     if (usesPrintf())
@@ -112,8 +112,12 @@ angle::Result CLKernelVk::init()
     // push constant setup
     // push constant size must be multiple of 4
     pcRange.size = roundUpPow2(pcRange.size, 4u);
+    // set the pod arguments data to this size
+    mPodArgumentsData.resize(pcRange.size);
+
     // push constant offset must be multiple of 4, round down to ensure this
     pcRange.offset = roundDownPow2(pcRange.offset, 4u);
+
     mPipelineLayoutDesc.updatePushConstantRange(pcRange.stageFlags, pcRange.offset, pcRange.size);
 
     return angle::Result::Continue;
@@ -126,6 +130,14 @@ angle::Result CLKernelVk::setArg(cl_uint argIndex, size_t argSize, const void *a
     {
         arg.handle     = const_cast<void *>(argValue);
         arg.handleSize = argSize;
+
+        // For POD data, copy the contents as the app is free to delete the contents post this call.
+        if (arg.type == NonSemanticClspvReflectionArgumentPodPushConstant && argSize > 0 &&
+            argValue != nullptr)
+        {
+            ASSERT(mPodArgumentsData.size() >= arg.pushConstantSize + arg.pushConstOffset);
+            memcpy(&mPodArgumentsData[arg.pushConstOffset], argValue, argSize);
+        }
 
         if (arg.type == NonSemanticClspvReflectionArgumentWorkgroup)
         {
@@ -298,4 +310,12 @@ bool CLKernelVk::usesPrintf() const
            NonSemanticClspvReflectionMayUsePrintf;
 }
 
+angle::Result CLKernelVk::allocateDescriptorSet(
+    DescriptorSetIndex index,
+    angle::EnumIterator<DescriptorSetIndex> layoutIndex,
+    vk::OutsideRenderPassCommandBufferHelper *computePassCommands)
+{
+    return mProgram->allocateDescriptorSet(index, mDescriptorSetLayouts[*layoutIndex].get(),
+                                           computePassCommands, &mDescriptorSets[index]);
+}
 }  // namespace rx

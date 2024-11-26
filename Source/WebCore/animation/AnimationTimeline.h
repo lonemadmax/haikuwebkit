@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "TimelineRange.h"
 #include "WebAnimationTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
@@ -52,7 +53,7 @@ public:
     virtual void animationTimingDidChange(WebAnimation&);
     virtual void removeAnimation(WebAnimation&);
 
-    virtual std::optional<WebAnimationTime> currentTime() { return m_currentTime; }
+    virtual std::optional<WebAnimationTime> currentTime(const TimelineRange& = { }) { return m_currentTime; }
     virtual std::optional<WebAnimationTime> duration() const { return m_duration; }
 
     virtual void detachFromDocument();
@@ -66,13 +67,14 @@ public:
 
     virtual AnimationTimelinesController* controller() const { return nullptr; }
 
+    virtual TimelineRange defaultRange() const { return { }; }
+    static void updateGlobalPosition(WebAnimation&);
 protected:
     AnimationTimeline(std::optional<WebAnimationTime> = std::nullopt);
 
     AnimationCollection m_animations;
 
 private:
-    void updateGlobalPosition(WebAnimation&);
 
     std::optional<WebAnimationTime> m_currentTime;
     std::optional<WebAnimationTime> m_duration;

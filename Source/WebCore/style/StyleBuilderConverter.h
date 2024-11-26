@@ -29,9 +29,8 @@
 #pragma once
 
 #include "AnchorPositionEvaluator.h"
-#include "BasicShapeConversion.h"
 #include "BlockEllipsis.h"
-#include "CSSBasicShapes.h"
+#include "CSSBasicShapeValue.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCalcValue.h"
 #include "CSSContentDistributionValue.h"
@@ -47,6 +46,7 @@
 #include "CSSImageSetValue.h"
 #include "CSSImageValue.h"
 #include "CSSOffsetRotateValue.h"
+#include "CSSPathValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyParserConsumer+Font.h"
@@ -75,13 +75,18 @@
 #include "ScrollbarColor.h"
 #include "ScrollbarGutter.h"
 #include "Settings.h"
+#include "StyleBasicShape.h"
 #include "StyleBuilderState.h"
+#include "StylePathData.h"
+#include "StylePrimitiveNumericTypes+Conversions.h"
+#include "StyleRayFunction.h"
 #include "StyleReflection.h"
 #include "StyleResolveForFont.h"
 #include "StyleScrollSnapPoints.h"
 #include "StyleTextEdge.h"
 #include "TabSize.h"
 #include "TextSpacing.h"
+#include "TimelineRange.h"
 #include "TouchAction.h"
 #include "TransformOperationsBuilder.h"
 #include "ViewTimeline.h"
@@ -132,9 +137,8 @@ public:
     static OptionSet<TextEmphasisPosition> convertTextEmphasisPosition(const BuilderState&, const CSSValue&);
     static TextAlignMode convertTextAlign(const BuilderState&, const CSSValue&);
     static TextAlignLast convertTextAlignLast(const BuilderState&, const CSSValue&);
-    static RefPtr<BasicShapePath> convertSVGPath(const BuilderState&, const CSSValue&);
+    static RefPtr<StylePathData> convertDPath(const BuilderState&, const CSSValue&);
     static RefPtr<PathOperation> convertPathOperation(const BuilderState&, const CSSValue&);
-    static RefPtr<PathOperation> convertRayPathOperation(const BuilderState&, const CSSValue&);
     static Resize convertResize(const BuilderState&, const CSSValue&);
     static int convertMarqueeRepetition(const BuilderState&, const CSSValue&);
     static int convertMarqueeSpeed(const BuilderState&, const CSSValue&);
@@ -147,7 +151,7 @@ public:
     static IntSize convertInitialLetter(const BuilderState&, const CSSValue&);
     static float convertTextStrokeWidth(const BuilderState&, const CSSValue&);
     static OptionSet<LineBoxContain> convertLineBoxContain(const BuilderState&, const CSSValue&);
-    static RefPtr<ShapeValue> convertShapeValue(const BuilderState&, CSSValue&);
+    static RefPtr<ShapeValue> convertShapeValue(const BuilderState&, const CSSValue&);
     static ScrollSnapType convertScrollSnapType(const BuilderState&, const CSSValue&);
     static ScrollSnapAlign convertScrollSnapAlign(const BuilderState&, const CSSValue&);
     static ScrollSnapStop convertScrollSnapStop(const BuilderState&, const CSSValue&);
@@ -243,9 +247,10 @@ public:
 
     static TimelineScope convertTimelineScope(const BuilderState&, const CSSValue&);
 
-    static SingleTimelineRange convertAnimationRange(const BuilderState&, const CSSValue&, SingleTimelineRange::Type);
     static SingleTimelineRange convertAnimationRangeStart(const BuilderState&, const CSSValue&);
     static SingleTimelineRange convertAnimationRangeEnd(const BuilderState&, const CSSValue&);
+
+    template<CSSValueID, CSSValueID> static WebCore::Length convertPositionComponent(const BuilderState&, const CSSValue&);
 
 private:
     friend class BuilderCustom;
@@ -257,13 +262,13 @@ private:
     static void updateColorScheme(const CSSPrimitiveValue&, StyleColorScheme&);
 #endif
 
-    template<CSSValueID, CSSValueID> static WebCore::Length convertPositionComponent(const BuilderState&, const CSSValue&);
-
     static GridLength createGridTrackBreadth(const BuilderState&, const CSSPrimitiveValue&);
     static GridTrackSize createGridTrackSize(const BuilderState&, const CSSValue&);
     static std::optional<GridTrackList> createGridTrackList(const BuilderState&, const CSSValue&);
     static GridPosition createGridPosition(const BuilderState&, const CSSValue&);
     static NamedGridLinesMap createImplicitNamedGridLinesFromGridArea(const BuilderState&, const NamedGridAreaMap&, GridTrackSizingDirection);
+
+    static Style::BasicShape convertBasicShape(const BuilderState&, const CSSBasicShapeValue&, std::optional<float> zoom);
 
     static CSSToLengthConversionData cssToLengthConversionDataWithTextZoomFactor(const BuilderState&);
 };
@@ -716,9 +721,9 @@ inline TextAlignMode BuilderConverter::convertTextAlign(const BuilderState& buil
         if (element && element == builderState.document().documentElement())
             return TextAlignMode::Start;
         if (parentStyle.textAlign() == TextAlignMode::Start)
-            return parentStyle.isLeftToRightDirection() ? TextAlignMode::Left : TextAlignMode::Right;
+            return parentStyle.writingMode().isBidiLTR() ? TextAlignMode::Left : TextAlignMode::Right;
         if (parentStyle.textAlign() == TextAlignMode::End)
-            return parentStyle.isLeftToRightDirection() ? TextAlignMode::Right : TextAlignMode::Left;
+            return parentStyle.writingMode().isBidiLTR() ? TextAlignMode::Right : TextAlignMode::Left;
 
         return parentStyle.textAlign();
     }
@@ -736,49 +741,16 @@ inline TextAlignLast BuilderConverter::convertTextAlignLast(const BuilderState& 
 
     auto& parentStyle = builderState.parentStyle();
     if (parentStyle.textAlignLast() == TextAlignLast::Start)
-        return parentStyle.isLeftToRightDirection() ? TextAlignLast::Left : TextAlignLast::Right;
+        return parentStyle.writingMode().isBidiLTR() ? TextAlignLast::Left : TextAlignLast::Right;
     if (parentStyle.textAlignLast() == TextAlignLast::End)
-        return parentStyle.isLeftToRightDirection() ? TextAlignLast::Right : TextAlignLast::Left;
+        return parentStyle.writingMode().isBidiLTR() ? TextAlignLast::Right : TextAlignLast::Left;
     return parentStyle.textAlignLast();
 }
 
-inline RefPtr<PathOperation> BuilderConverter::convertRayPathOperation(const BuilderState& builderState, const CSSValue& value)
+inline RefPtr<StylePathData> BuilderConverter::convertDPath(const BuilderState& builderState, const CSSValue& value)
 {
-    auto& rayValue = downcast<CSSRayValue>(value);
-
-    auto size = RayPathOperation::Size::ClosestCorner;
-    switch (rayValue.size()) {
-    case CSSValueClosestCorner:
-        size = RayPathOperation::Size::ClosestCorner;
-        break;
-    case CSSValueClosestSide:
-        size = RayPathOperation::Size::ClosestSide;
-        break;
-    case CSSValueFarthestCorner:
-        size = RayPathOperation::Size::FarthestCorner;
-        break;
-    case CSSValueFarthestSide:
-        size = RayPathOperation::Size::FarthestSide;
-        break;
-    case CSSValueSides:
-        size = RayPathOperation::Size::Sides;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        return nullptr;
-    }
-
-    auto position = rayValue.position();
-    if (position)
-        return RayPathOperation::create(rayValue.angle()->resolveAsAngle(builderState.cssToLengthConversionData()), size, rayValue.isContaining(), convertPosition(builderState, *position));
-
-    return RayPathOperation::create(rayValue.angle()->resolveAsAngle(builderState.cssToLengthConversionData()), size, rayValue.isContaining());
-}
-
-inline RefPtr<BasicShapePath> BuilderConverter::convertSVGPath(const BuilderState& builderState, const CSSValue& value)
-{
-    if (auto* pathValue = dynamicDowncast<CSSPathValue>(value))
-        return basicShapePathForValue(*pathValue, builderState, 1);
+    if (RefPtr pathValue = dynamicDowncast<CSSPathValue>(value))
+        return StylePathData::create(Style::toStyle(pathValue->path(), builderState));
 
     ASSERT(is<CSSPrimitiveValue>(value));
     ASSERT(downcast<CSSPrimitiveValue>(value).valueID() == CSSValueNone);
@@ -804,17 +776,17 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(const Builde
         return nullptr;
     }
 
-    if (is<CSSRayValue>(value))
-        return convertRayPathOperation(builderState, value);
+    if (RefPtr ray = dynamicDowncast<CSSRayValue>(value))
+        return RayPathOperation::create(Style::toStyle(ray->ray(), builderState));
 
     RefPtr<PathOperation> operation;
     auto referenceBox = CSSBoxType::BoxMissing;
     auto processSingleValue = [&](const CSSValue& singleValue) {
         ASSERT(!is<CSSValueList>(singleValue));
-        if (is<CSSRayValue>(singleValue))
-            operation = convertRayPathOperation(builderState, singleValue);
-        else if (!singleValue.isValueID())
-            operation = ShapePathOperation::create(basicShapeForValue(singleValue, builderState));
+        if (RefPtr ray = dynamicDowncast<CSSRayValue>(singleValue))
+            operation = RayPathOperation::create(Style::toStyle(ray->ray(), builderState));
+        else if (RefPtr shape = dynamicDowncast<CSSBasicShapeValue>(singleValue))
+            operation = ShapePathOperation::create(convertBasicShape(builderState, *shape, std::nullopt));
         else
             referenceBox = fromCSSValue<CSSBoxType>(singleValue);
     };
@@ -833,6 +805,18 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(const Builde
     }
 
     return operation;
+}
+
+inline Style::BasicShape BuilderConverter::convertBasicShape(const BuilderState& builderState, const CSSBasicShapeValue& value, std::optional<float> zoom)
+{
+    return WTF::switchOn(value.shape(),
+        [&](const auto& shape) {
+            return Style::BasicShape { Style::toStyle(shape, builderState) };
+        },
+        [&](const CSS::PathFunction& path) {
+            return Style::BasicShape { Style::overrideToStyle(path, builderState, zoom) };
+        }
+    );
 }
 
 inline Resize BuilderConverter::convertResize(const BuilderState& builderState, const CSSValue& value)
@@ -1095,7 +1079,7 @@ inline OptionSet<LineBoxContain> BuilderConverter::convertLineBoxContain(const B
     return downcast<CSSLineBoxContainValue>(value).value();
 }
 
-inline RefPtr<ShapeValue> BuilderConverter::convertShapeValue(const BuilderState& builderState, CSSValue& value)
+inline RefPtr<ShapeValue> BuilderConverter::convertShapeValue(const BuilderState& builderState, const CSSValue& value)
 {
     if (is<CSSPrimitiveValue>(value)) {
         ASSERT(value.valueID() == CSSValueNone);
@@ -1105,11 +1089,11 @@ inline RefPtr<ShapeValue> BuilderConverter::convertShapeValue(const BuilderState
     if (value.isImage())
         return ShapeValue::create(builderState.createStyleImage(value).releaseNonNull());
 
-    RefPtr<BasicShape> shape;
+    std::optional<Style::BasicShape> shape;
     auto referenceBox = CSSBoxType::BoxMissing;
     auto processSingleValue = [&](const CSSValue& currentValue) {
-        if (!currentValue.isValueID())
-            shape = basicShapeForValue(currentValue, builderState, 1);
+        if (RefPtr shapeValue = dynamicDowncast<CSSBasicShapeValue>(currentValue))
+            shape = convertBasicShape(builderState, *shapeValue, 1);
         else
             referenceBox = fromCSSValue<CSSBoxType>(currentValue);
     };
@@ -1121,7 +1105,7 @@ inline RefPtr<ShapeValue> BuilderConverter::convertShapeValue(const BuilderState
 
     
     if (shape)
-        return ShapeValue::create(shape.releaseNonNull(), referenceBox);
+        return ShapeValue::create(WTFMove(*shape), referenceBox);
 
     if (referenceBox != CSSBoxType::BoxMissing)
         return ShapeValue::create(referenceBox);
@@ -2213,37 +2197,6 @@ inline TimelineScope BuilderConverter::convertTimelineScope(const BuilderState&,
     return { TimelineScope::Type::Ident, WTF::map(*list, [&](auto& item) {
         return AtomString { downcast<CSSPrimitiveValue>(item).stringValue() };
     }) };
-}
-
-inline SingleTimelineRange BuilderConverter::convertAnimationRange(const BuilderState& state, const CSSValue& value, SingleTimelineRange::Type type)
-{
-    if (RefPtr primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
-        if (SingleTimelineRange::isOffsetValue(*primitiveValue)) {
-            // <length-percentage>
-            return { SingleTimelineRange::Name::Omitted, convertLength(state, *primitiveValue) };
-        }
-        // <timeline-range-name> or Normal
-        return { SingleTimelineRange::timelineName(primitiveValue->valueID()), (type == SingleTimelineRange::Type::Start ? WebCore::Length(0, LengthType::Percent) : WebCore::Length(100, LengthType::Percent)) };
-    }
-    RefPtr pair = dynamicDowncast<CSSValuePair>(value);
-    if (!pair)
-        return { };
-
-    // <timeline-range-name> <length-percentage>
-    auto& primitiveValue = downcast<CSSPrimitiveValue>(pair->second());
-    ASSERT(SingleTimelineRange::isOffsetValue(primitiveValue));
-
-    return { SingleTimelineRange::timelineName(pair->first().valueID()), convertLength(state, primitiveValue) };
-}
-
-inline SingleTimelineRange BuilderConverter::convertAnimationRangeStart(const BuilderState& state, const CSSValue& value)
-{
-    return convertAnimationRange(state, value, SingleTimelineRange::Type::Start);
-}
-
-inline SingleTimelineRange BuilderConverter::convertAnimationRangeEnd(const BuilderState& state, const CSSValue& value)
-{
-    return convertAnimationRange(state, value, SingleTimelineRange::Type::End);
 }
 
 } // namespace Style

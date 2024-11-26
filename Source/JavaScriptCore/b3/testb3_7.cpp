@@ -26,6 +26,8 @@
 #include "config.h"
 #include "testb3.h"
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #if ENABLE(B3_JIT)
 
 void testPinRegisters()
@@ -578,7 +580,7 @@ void generateLoopNotBackwardsDominant(Procedure& proc, std::array<int, 100>& arr
                 loopHeader->appendNew<ConstPtrValue>(proc, Origin(), &array),
                 loopHeader->appendNew<Value>(
                     proc, Mul, Origin(),
-                    loopHeader->appendNew<Value>(proc, ZExt32, Origin(), index),
+                    is32Bit() ? index : loopHeader->appendNew<Value>(proc, ZExt32, Origin(), index),
                     loopHeader->appendNew<ConstPtrValue>(proc, Origin(), sizeof(int))))));
     loopHeader->setSuccessors(loopCall, loopFooter);
 
@@ -2645,3 +2647,5 @@ void testVectorExtractLane0Double()
 }
 
 #endif // ENABLE(B3_JIT)
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

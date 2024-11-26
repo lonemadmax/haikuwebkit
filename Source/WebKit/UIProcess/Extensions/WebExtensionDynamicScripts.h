@@ -98,14 +98,14 @@ private:
     WebExtensionRegisteredScriptParameters m_parameters;
     InjectedContentData m_injectedContent;
 
-    UncheckedKeyHashMap<String, UserScriptVector> m_userScriptsMap;
-    UncheckedKeyHashMap<String, UserStyleSheetVector> m_userStyleSheetsMap;
+    HashMap<String, UserScriptVector> m_userScriptsMap;
+    HashMap<String, UserStyleSheetVector> m_userStyleSheetsMap;
 
     void removeUserStyleSheets(const String& identifier);
     void removeUserScripts(const String& identifier);
 };
 
-std::optional<SourcePair> sourcePairForResource(String path, WebExtensionContext&);
+std::optional<SourcePair> sourcePairForResource(const String& path, WebExtensionContext&);
 SourcePairs getSourcePairsForParameters(const WebExtensionScriptInjectionParameters&, WebExtensionContext&);
 Vector<RetainPtr<_WKFrameTreeNode>> getFrames(_WKFrameTreeNode *, std::optional<Vector<WebExtensionFrameIdentifier>>);
 

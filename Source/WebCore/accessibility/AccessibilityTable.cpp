@@ -50,19 +50,21 @@
 
 #include <queue>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 using namespace HTMLNames;
 
-AccessibilityTable::AccessibilityTable(RenderObject& renderer)
-    : AccessibilityRenderObject(renderer)
+AccessibilityTable::AccessibilityTable(AXID axID, RenderObject& renderer)
+    : AccessibilityRenderObject(axID, renderer)
     , m_headerContainer(nullptr)
     , m_isExposable(true)
 {
 }
 
-AccessibilityTable::AccessibilityTable(Node& node)
-    : AccessibilityRenderObject(node)
+AccessibilityTable::AccessibilityTable(AXID axID, Node& node)
+    : AccessibilityRenderObject(axID, node)
     , m_headerContainer(nullptr)
     , m_isExposable(true)
 {
@@ -72,18 +74,21 @@ AccessibilityTable::~AccessibilityTable() = default;
 
 void AccessibilityTable::init()
 {
-    AccessibilityRenderObject::init();
+    // m_ariaRole must be setup before calling computeIsTableExposableThroughAccessibility for the first time
+    // because it relies on ARIA role to compute the value correctly.
+    m_ariaRole = determineAriaRoleAttribute();
     m_isExposable = computeIsTableExposableThroughAccessibility();
+    AccessibilityRenderObject::init();
 }
 
-Ref<AccessibilityTable> AccessibilityTable::create(RenderObject& renderer)
+Ref<AccessibilityTable> AccessibilityTable::create(AXID axID, RenderObject& renderer)
 {
-    return adoptRef(*new AccessibilityTable(renderer));
+    return adoptRef(*new AccessibilityTable(axID, renderer));
 }
 
-Ref<AccessibilityTable> AccessibilityTable::create(Node& node)
+Ref<AccessibilityTable> AccessibilityTable::create(AXID axID, Node& node)
 {
-    return adoptRef(*new AccessibilityTable(node));
+    return adoptRef(*new AccessibilityTable(axID, node));
 }
 
 bool AccessibilityTable::hasNonTableARIARole() const
@@ -127,6 +132,8 @@ static const RenderStyle* styleFrom(Element& element)
     return element.existingComputedStyle();
 }
 
+// The following is a heuristic used to determine if a <table> should be exposed as an AXTable.
+// The goal is to only show "data" tables.
 bool AccessibilityTable::isDataTable() const
 {
     WeakPtr cache = axObjectCache();
@@ -249,7 +256,7 @@ bool AccessibilityTable::isDataTable() const
                 if (isDataTableBasedOnRowColumnCount())
                     return true;
 
-                if (tableRow->getIntegralAttribute(aria_rowindexAttr) >= 1 || tableRow->getIntegralAttribute(aria_colindexAttr) || nodeHasRole(tableRow, "row"_s))
+                if (tableRow->getIntegralAttribute(aria_rowindexAttr) >= 1 || tableRow->getIntegralAttribute(aria_colindexAttr) || hasRole(*tableRow, "row"_s))
                     return true;
 
                 // For the first 5 rows, cache the background color so we can check if this table has zebra-striped rows.
@@ -279,7 +286,7 @@ bool AccessibilityTable::isDataTable() const
                 }
 
                 // In this case, the developer explicitly assigned a "data" table attribute.
-                if (!cell->headers().isEmpty() || !cell->abbr().isEmpty() || !cell->axis().isEmpty() || !cell->scope().isEmpty() || nodeHasCellRole(cell))
+                if (!cell->headers().isEmpty() || !cell->abbr().isEmpty() || !cell->axis().isEmpty() || !cell->scope().isEmpty() || nodeHasCellRole(*cell))
                     return true;
 
                 // If the author has used ARIA to specify a valid column or row index, assume they want us
@@ -382,17 +389,6 @@ bool AccessibilityTable::isDataTable() const
     return false;
 }
 
-// The following is a heuristic used to determine if a <table> should be exposed as an AXTable.
-// The goal is to only show "data" tables.
-bool AccessibilityTable::computeIsTableExposableThroughAccessibility() const
-{
-    // If it has a non-table ARIA role, it shouldn't be exposed as a table.
-    if (hasNonTableARIARole())
-        return false;
-
-    return isDataTable();
-}
-
 void AccessibilityTable::recomputeIsExposable()
 {
     // Make sure children are up-to-date, because if we do end up changing is-exposed state, we want to make
@@ -402,9 +398,8 @@ void AccessibilityTable::recomputeIsExposable()
     bool previouslyExposable = m_isExposable;
     m_isExposable = computeIsTableExposableThroughAccessibility();
     if (previouslyExposable != m_isExposable) {
-        // A table's role value is dependent on whether it's exposed, so notify the cache this has changed.
-        if (auto* cache = axObjectCache())
-            cache->handleRoleChanged(*this);
+        // A table's role value is dependent on whether it's exposed, so recompute it now.
+        updateRole();
 
         // Before resetting our existing children, possibly losing references to them, ensure we update their role (since a table cell's role is dependent on whether its parent table is exposable).
         updateChildrenRoles();
@@ -611,8 +606,7 @@ void AccessibilityTable::addChildren()
         yCurrent += 1;
     };
     auto needsToDescend = [&processedRows] (AXCoreObject& axObject) {
-        return (!axObject.isTableRow() || !axObject.node())
-            && !processedRows.contains(dynamicDowncast<AccessibilityObject>(axObject));
+        return !axObject.isTableRow() && !processedRows.contains(&downcast<AccessibilityObject>(axObject));
     };
     std::function<void(AXCoreObject*)> processRowDescendingIfNeeded = [&] (AXCoreObject* axObject) {
         if (!axObject)
@@ -648,7 +642,7 @@ void AccessibilityTable::addChildren()
                 processRow(tableRow.get());
             }
         } else if (RefPtr sectionAxObject = cache->getOrCreate(sectionElement)) {
-            ASSERT_WITH_MESSAGE(nodeHasRole(&sectionElement, "rowgroup"_s), "processRowGroup should only be called with native table section elements, or role=rowgroup elements");
+            ASSERT_WITH_MESSAGE(hasRole(sectionElement, "rowgroup"_s), "processRowGroup should only be called with native table section elements, or role=rowgroup elements");
             for (const auto& child : sectionAxObject->unignoredChildren())
                 processRowDescendingIfNeeded(child.get());
         }
@@ -682,8 +676,8 @@ void AccessibilityTable::addChildren()
         }
 
         auto* element = dynamicDowncast<Element>(node);
-        bool descendantIsRow = element && (element->hasTagName(trTag) || nodeHasRole(element, "row"_s));
-        bool descendantIsRowGroup = element && !descendantIsRow && (element->hasTagName(theadTag) || element->hasTagName(tbodyTag) || element->hasTagName(tfootTag) || nodeHasRole(element, "rowgroup"_s));
+        bool descendantIsRow = element && (element->hasTagName(trTag) || hasRole(*element, "row"_s));
+        bool descendantIsRowGroup = element && !descendantIsRow && (element->hasTagName(theadTag) || element->hasTagName(tbodyTag) || element->hasTagName(tfootTag) || hasRole(*element, "rowgroup"_s));
 
         if (descendantIsRowGroup)
             withinImplicitRowGroup = false;
@@ -875,12 +869,12 @@ bool AccessibilityTable::hasGridAriaRole() const
     return ariaRole == AccessibilityRole::Grid || ariaRole == AccessibilityRole::TreeGrid;
 }
 
-AccessibilityRole AccessibilityTable::roleValue() const
+AccessibilityRole AccessibilityTable::determineAccessibilityRole()
 {
     if (!isExposable())
-        return AccessibilityRenderObject::roleValue();
+        return AccessibilityRenderObject::determineAccessibilityRole();
 
-    AccessibilityRole ariaRole = ariaRoleAttribute();
+    auto ariaRole = ariaRoleAttribute();
     if (ariaRole == AccessibilityRole::Grid || ariaRole == AccessibilityRole::TreeGrid)
         return ariaRole;
 
@@ -966,3 +960,5 @@ void AccessibilityTable::ensureRowAndColumn(unsigned rowIndex, unsigned columnIn
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

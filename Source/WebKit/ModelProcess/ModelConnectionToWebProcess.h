@@ -99,6 +99,8 @@ public:
 
     static uint64_t objectCountForTesting() { return gObjectCountForTesting; }
 
+    bool isAlwaysOnLoggingAllowed() const;
+
 private:
     ModelConnectionToWebProcess(ModelProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, ModelProcessConnectionParameters&&);
 
@@ -135,7 +137,7 @@ private:
 #endif
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
-    UncheckedKeyHashMap<std::pair<WebPageProxyIdentifier, WebCore::PageIdentifier>, std::unique_ptr<LayerHostingContext>> m_visibilityPropagationContexts;
+    HashMap<std::pair<WebPageProxyIdentifier, WebCore::PageIdentifier>, std::unique_ptr<LayerHostingContext>> m_visibilityPropagationContexts;
 #endif
 
 #if ENABLE(IPC_TESTING_API)

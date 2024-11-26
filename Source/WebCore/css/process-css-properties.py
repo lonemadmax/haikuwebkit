@@ -372,20 +372,20 @@ class LogicalPropertyGroup:
 
     logical_property_group_resolvers = {
         "logical": {
-            # Order matches LogicalBoxAxis enum in Source/WebCore/platform/text/WritingMode.h.
+            # Order matches LogicalBoxAxis enum in Source/WebCore/platform/BoxSides.h.
             "axis": ["inline", "block"],
-            # Order matches LogicalBoxSide enum in Source/WebCore/platform/text/WritingMode.h.
+            # Order matches LogicalBoxSide enum in Source/WebCore/platform/BoxSides.h.
             "side": ["block-start", "inline-end", "block-end", "inline-start"],
-            # Order matches LogicalBoxCorner enum in Source/WebCore/platform/text/WritingMode.h.
+            # Order matches LogicalBoxCorner enum in Source/WebCore/platform/BoxSides.h.
             "corner": ["start-start", "start-end", "end-start", "end-end"],
         },
         "physical": {
-            # Order matches BoxAxis enum in Source/WebCore/platform/text/WritingMode.h.
+            # Order matches BoxAxis enum in Source/WebCore/platform/BoxSides.h.
             "axis": ["horizontal", "vertical"],
-            # Order matches BoxSide enum in Source/WebCore/platform/text/WritingMode.h.
+            # Order matches BoxSide enum in Source/WebCore/platform/BoxSides.h.
             "side": ["top", "right", "bottom", "left"],
-            # Order matches BoxCorner enum in Source/WebCore/platform/text/WritingMode.h.
-            "corner": ["top-left", "top-right", "bottom-right", "bottom-left"],
+            # Order matches BoxCorner enum in Source/WebCore/platform/BoxSides.h.
+            "corner": ["top-left", "top-right", "bottom-left", "bottom-right"],
         },
     }
 
@@ -2438,6 +2438,7 @@ class GenerateCSSPropertyNames:
         self.generation_context.generate_includes(
             to=to,
             headers=[
+                "BoxSides.h",
                 "CSSProperty.h",
                 "Settings.h",
             ],
@@ -2451,6 +2452,7 @@ class GenerateCSSPropertyNames:
 
         to.write_block("""
             IGNORE_WARNINGS_BEGIN("implicit-fallthrough")
+            WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
             // Older versions of gperf like to use the `register` keyword.
             #define register
@@ -2489,6 +2491,7 @@ class GenerateCSSPropertyNames:
             namespace="WebCore"
         )
 
+        to.write("WTF_ALLOW_UNSAFE_BUFFER_USAGE_END")
         to.write("IGNORE_WARNINGS_END")
 
     def _generate_gperf_declarations(self, *, to):
@@ -2581,7 +2584,6 @@ class GenerateCSSPropertyNames:
         to.write(f"{signature}")
         to.write(f"{{")
         with to.indent():
-            to.write(f"auto textflow = makeTextFlow(writingMode, direction);")
             to.write(f"switch (id) {{")
 
             for group_name, property_group in sorted(self.properties_and_descriptors.style_properties.logical_property_groups.items(), key=lambda x: x[0]):
@@ -2598,7 +2600,7 @@ class GenerateCSSPropertyNames:
                     to.write(f"case {property.id}: {{")
                     with to.indent():
                         to.write(f"static constexpr CSSPropertyID properties[{len(properties)}] = {{ {', '.join(properties)} }};")
-                        to.write(f"return properties[static_cast<size_t>(map{source_as_id}{kind_as_id}To{destination_as_id}{kind_as_id}(textflow, {resolver_enum}))];")
+                        to.write(f"return properties[static_cast<size_t>(map{kind_as_id}{source_as_id}To{destination_as_id}(writingMode, {resolver_enum}))];")
                     to.write(f"}}")
 
             to.write(f"default:")
@@ -2873,7 +2875,7 @@ class GenerateCSSPropertyNames:
 
             self._generate_physical_logical_conversion_function(
                 to=writer,
-                signature="CSSPropertyID CSSProperty::resolveDirectionAwareProperty(CSSPropertyID id, TextDirection direction, WritingMode writingMode)",
+                signature="CSSPropertyID CSSProperty::resolveDirectionAwareProperty(CSSPropertyID id, WritingMode writingMode)",
                 source="logical",
                 destination="physical",
                 resolver_enum_prefix="LogicalBox"
@@ -2881,7 +2883,7 @@ class GenerateCSSPropertyNames:
 
             self._generate_physical_logical_conversion_function(
                 to=writer,
-                signature="CSSPropertyID CSSProperty::unresolvePhysicalProperty(CSSPropertyID id, TextDirection direction, WritingMode writingMode)",
+                signature="CSSPropertyID CSSProperty::unresolvePhysicalProperty(CSSPropertyID id, WritingMode writingMode)",
                 source="physical",
                 destination="logical",
                 resolver_enum_prefix="Box"
@@ -3930,6 +3932,7 @@ class GenerateCSSPropertyParsing:
                     "CSSPropertyParser.h",
                     "CSSPropertyParserConsumer+Align.h",
                     "CSSPropertyParserConsumer+Angle.h",
+                    "CSSPropertyParserConsumer+Background.h",
                     "CSSPropertyParserConsumer+Color.h",
                     "CSSPropertyParserConsumer+CounterStyles.h",
                     "CSSPropertyParserConsumer+Filter.h",
@@ -3942,11 +3945,14 @@ class GenerateCSSPropertyParsing:
                     "CSSPropertyParserConsumer+LengthPercentage.h",
                     "CSSPropertyParserConsumer+List.h",
                     "CSSPropertyParserConsumer+Lists.h",
+                    "CSSPropertyParserConsumer+Masking.h",
+                    "CSSPropertyParserConsumer+Motion.h",
                     "CSSPropertyParserConsumer+Number.h",
                     "CSSPropertyParserConsumer+Percentage.h",
                     "CSSPropertyParserConsumer+Position.h",
                     "CSSPropertyParserConsumer+Primitives.h",
                     "CSSPropertyParserConsumer+Resolution.h",
+                    "CSSPropertyParserConsumer+Shapes.h",
                     "CSSPropertyParserConsumer+String.h",
                     "CSSPropertyParserConsumer+Time.h",
                     "CSSPropertyParserConsumer+Timeline.h",

@@ -304,8 +304,8 @@ static RetainPtr<WKWebView> createdWebView;
 
 @interface PSONScheme : NSObject <WKURLSchemeHandler> {
     const char* _bytes;
-    UncheckedKeyHashMap<String, String> _redirects;
-    UncheckedKeyHashMap<String, RetainPtr<NSData>> _dataMappings;
+    HashMap<String, String> _redirects;
+    HashMap<String, RetainPtr<NSData>> _dataMappings;
     HashSet<id <WKURLSchemeTask>> _runningTasks;
     bool _shouldRespondAsynchronously;
 }
@@ -774,7 +774,7 @@ TEST(ProcessSwap, PSONRedirectionToExternal)
 {
     TestWebKitAPI::HTTPServer server(std::initializer_list<std::pair<String, TestWebKitAPI::HTTPResponse>> { }, TestWebKitAPI::HTTPServer::Protocol::Https);
 
-    UncheckedKeyHashMap<String, String> redirectHeaders;
+    HashMap<String, String> redirectHeaders;
     redirectHeaders.add("location"_s, "other://test"_s);
     TestWebKitAPI::HTTPResponse redirectResponse(301, WTFMove(redirectHeaders));
 
@@ -4796,6 +4796,68 @@ TEST(ProcessSwap, ConcurrentHistoryNavigations)
     EXPECT_WK_STREQ(@"pson://www.apple.com/main.html", [backForwardList.forwardItem.URL absoluteString]);
 }
 
+TEST(ProcessSwap, CookieAccessAfterMultipleRedirects)
+{
+    using namespace TestWebKitAPI;
+    HTTPServer httpServer({
+        { "http://site2.example/prewarm"_s, { "Done."_s  } }, // Process 1
+        { "http://site1.example/start"_s, { "<script> function load() { window.location = 'http://site1.example/redirect'; } </script>"_s  } }, // Process 2
+        { "http://site1.example/redirect"_s, { 302, {{ "Location"_s, "http://site2.example/redirect"_s }}, "redirecting..."_s } }, // Process 2
+        { "http://site2.example/redirect"_s, { 302, {{ "Location"_s, "http://site1.example/end"_s }}, "redirecting..."_s } }, // Process 1
+        { "http://site1.example/end"_s, { "Done."_s  } }, // Process 3
+    }, HTTPServer::Protocol::Http);
+    auto storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+    [storeConfiguration setProxyConfiguration:@{
+        (NSString *)kCFStreamPropertyHTTPProxyHost: @"127.0.0.1",
+        (NSString *)kCFStreamPropertyHTTPProxyPort: @(httpServer.port()),
+    }];
+    auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]);
+    auto configuration = adoptNS([WKWebViewConfiguration new]);
+    [configuration setWebsiteDataStore:dataStore.get()];
+    auto processPoolConfiguration = psonProcessPoolConfiguration();
+    auto processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+    [configuration setProcessPool:processPool.get()];
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+    auto delegate = adoptNS([TestNavigationDelegate new]);
+
+    __block bool navigationFailed = false;
+    delegate.get().decidePolicyForNavigationAction = ^(WKNavigationAction *action, void (^completionHandler)(WKNavigationActionPolicy)) {
+        completionHandler(WKNavigationActionPolicyAllow);
+    };
+    delegate.get().didFailProvisionalNavigation = ^(WKWebView *, WKNavigation *, NSError *error) {
+        navigationFailed = true;
+        done = true;
+    };
+    delegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *) {
+        done = true;
+    };
+
+    done = false;
+    [webView setNavigationDelegate:delegate.get()];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://site2.example/prewarm"]]];
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_FALSE(navigationFailed);
+
+    done = false;
+    [webView setNavigationDelegate:delegate.get()];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://site1.example/start"]]];
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_FALSE(navigationFailed);
+
+    done = false;
+    [webView evaluateJavaScript:@"load()" completionHandler:nil];
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_FALSE(navigationFailed);
+
+    done = false;
+    [webView evaluateJavaScript:@"navigator.cookieEnabled" completionHandler:^(id result, NSError *error) {
+        EXPECT_TRUE(!!result);
+        EXPECT_NULL(error);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+}
+
 TEST(ProcessSwap, NavigateToInvalidURL)
 {
     auto processPoolConfiguration = psonProcessPoolConfiguration();
@@ -7834,6 +7896,68 @@ TEST(ProcessSwap, NavigateBackAfterNavigatingAwayFromCrossOriginOpenerPolicyUsin
     done = false;
 }
 
+TEST(ProcessSwap, NavigateBackAfterNavigatingAwayFromCrossOriginOpenerPolicyUsingBackForwardCache2)
+{
+    using namespace TestWebKitAPI;
+
+    auto processPoolConfiguration = psonProcessPoolConfiguration();
+    auto processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+
+    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [webViewConfiguration setProcessPool:processPool.get()];
+    auto handler = adoptNS([[PSONScheme alloc] init]);
+    [handler addMappingFromURLString:@"pson://www.webkit.org" toData:"<script>function navigateToApple() { window.location = 'pson://www.apple.com'; }</script>foo"];
+    [webViewConfiguration setURLSchemeHandler:handler.get() forURLScheme:@"PSON"];
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto navigationDelegate = adoptNS([[PSONNavigationDelegate alloc] init]);
+    navigationDelegate->didSameDocumentNavigationHandler = ^{
+        done = true;
+    };
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    done = false;
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.webkit.org"]]];
+    Util::run(&done);
+    done = false;
+
+    auto pid1 = [webView _webProcessIdentifier];
+
+    [webView _evaluateJavaScriptWithoutUserGesture:@"window.history.pushState({}, null, '/foo')" completionHandler:nil];
+    Util::run(&done);
+    done = false;
+
+    [webView goBack];
+    Util::run(&done);
+    done = false;
+
+    [webView _evaluateJavaScriptWithoutUserGesture:@"window.navigateToApple()" completionHandler:nil];
+    Util::run(&done);
+    done = false;
+
+    auto pid2 = [webView _webProcessIdentifier];
+    EXPECT_NE(pid1, pid2);
+
+    EXPECT_TRUE([webView canGoBack]);
+    EXPECT_FALSE([webView canGoForward]);
+
+    [webView goBack];
+    Util::run(&done);
+    done = false;
+
+    EXPECT_EQ(pid1, [webView _webProcessIdentifier]);
+    EXPECT_WK_STREQ([webView _committedURL].absoluteString, "pson://www.webkit.org");
+
+    [webView _evaluateJavaScriptWithoutUserGesture:@"document.body.innerHTML" completionHandler:^(id result, NSError* error) {
+        NSString* resultString = result;
+        EXPECT_TRUE(!error);
+        EXPECT_WK_STREQ(resultString, @"foo");
+        done = true;
+    }];
+    Util::run(&done);
+    done = false;
+}
+
 TEST(ProcessSwap, CommittedURLAfterNavigatingBackToCOOP)
 {
     using namespace TestWebKitAPI;
@@ -7901,14 +8025,14 @@ static void runCOOPProcessSwapTest(ASCIILiteral sourceCOOP, ASCIILiteral sourceC
 {
     using namespace TestWebKitAPI;
 
-    UncheckedKeyHashMap<String, String> sourceHeaders;
+    HashMap<String, String> sourceHeaders;
     sourceHeaders.add("Content-Type"_s, "text/html"_s);
     if (sourceCOOP)
         sourceHeaders.add("Cross-Origin-Opener-Policy"_s, sourceCOOP);
     if (sourceCOEP)
         sourceHeaders.add("Cross-Origin-Embedder-Policy"_s, sourceCOEP);
 
-    UncheckedKeyHashMap<String, String> destinationHeaders;
+    HashMap<String, String> destinationHeaders;
     destinationHeaders.add("Content-Type"_s, "text/html"_s);
     if (destinationCOOP)
         destinationHeaders.add("Cross-Origin-Opener-Policy"_s, destinationCOOP);
@@ -7923,7 +8047,7 @@ static void runCOOPProcessSwapTest(ASCIILiteral sourceCOOP, ASCIILiteral sourceC
     server.addResponse("/main.html"_s, HTTPResponse { WTFMove(sourceHeaders), WTFMove(popupSource) });
 
     if (doServerSideRedirect == DoServerSideRedirect::Yes) {
-        UncheckedKeyHashMap<String, String> redirectHeaders;
+        HashMap<String, String> redirectHeaders;
         String redirectionURL = isSameOrigin == IsSameOrigin::Yes ? makeString("https://127.0.0.1:"_s, server.port(), "/popup-after-redirection.html"_s) : makeString("https://localhost:"_s, server.port(), "/popup-after-redirection.html"_s);
         redirectHeaders.add("location"_s, WTFMove(redirectionURL));
         HTTPResponse redirectResponse(301, WTFMove(redirectHeaders));

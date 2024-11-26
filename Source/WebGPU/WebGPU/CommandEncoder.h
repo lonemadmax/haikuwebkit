@@ -25,6 +25,7 @@
 
 #pragma once
 
+#import "CommandBuffer.h"
 #import "CommandsMixin.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
@@ -86,11 +87,13 @@ public:
     void setLabel(String&&);
 
     Device& device() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_device; }
+    Ref<Device> protectedDevice() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_device; }
 
     bool isValid() const { return m_commandBuffer; }
     void lock(bool);
-    bool isLocked() const;
-    bool isFinished() const;
+    bool isLocked() const { return m_state == EncoderState::Locked; }
+
+    bool isFinished() const { return m_state == EncoderState::Ended; }
 
     id<MTLBlitCommandEncoder> ensureBlitCommandEncoder();
     void finalizeBlitCommandEncoder();
@@ -106,13 +109,14 @@ public:
     void setLastError(NSString*);
     bool waitForCommandBufferCompletion();
     bool encoderIsCurrent(id<MTLCommandEncoder>) const;
-    bool submitWillBeInvalid() const;
+    bool submitWillBeInvalid() const { return m_makeSubmitInvalid; }
     void addBuffer(id<MTLBuffer>);
     void addTexture(const Texture&);
     id<MTLCommandBuffer> commandBuffer() const;
     void setExistingEncoder(id<MTLCommandEncoder>);
     void generateInvalidEncoderStateError();
     bool validateClearBuffer(const Buffer&, uint64_t offset, uint64_t size);
+    static void trackEncoder(CommandEncoder&, WeakHashSet<CommandEncoder>&);
 
 private:
     CommandEncoder(id<MTLCommandBuffer>, Device&);
@@ -130,14 +134,13 @@ private:
     NSString* errorValidatingCopyTextureToBuffer(const WGPUImageCopyTexture&, const WGPUImageCopyBuffer&, const WGPUExtent3D&) const;
     void discardCommandBuffer();
 
+    RefPtr<CommandBuffer> protectedCachedCommandBuffer() const { return m_cachedCommandBuffer.get(); }
+
     id<MTLCommandBuffer> m_commandBuffer { nil };
     id<MTLSharedEvent> m_abortCommandBuffer { nil };
     id<MTLBlitCommandEncoder> m_blitCommandEncoder { nil };
     id<MTLCommandEncoder> m_existingCommandEncoder { nil };
-    struct PendingTimestampWrites {
-        Ref<QuerySet> querySet;
-        uint32_t queryIndex;
-    };
+
     uint64_t m_debugGroupStackSize { 0 };
     WeakPtr<CommandBuffer> m_cachedCommandBuffer;
     NSString* m_lastErrorString { nil };

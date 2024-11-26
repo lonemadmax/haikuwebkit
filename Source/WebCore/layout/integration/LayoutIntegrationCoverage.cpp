@@ -67,7 +67,7 @@ enum class AvoidanceReason : uint32_t {
     FlexBoxHasOutOfFlowChild            = 1U << 14,
     FlexBoxHasSVGChild                  = 1U << 15,
     FlexBoxHasNestedFlex                = 1U << 16,
-    FlexItemIsVertical                  = 1U << 17,
+    // Unused                           = 1U << 17,
     // Unused                           = 1U << 18,
     FlexItemHasNonFixedHeight           = 1U << 19,
     FlexItemHasIntrinsicFlexBasis       = 1U << 20,
@@ -118,7 +118,8 @@ static OptionSet<AvoidanceReason> canUseForFlexLayoutWithReason(const RenderFlex
         ADD_REASON_AND_RETURN_IF_NEEDED(FlexBoxNeedsBaseline, reasons, includeReasons);
 
     auto isColumnDirection = flexBoxStyle.flexDirection() == FlexDirection::Column || flexBoxStyle.flexDirection() == FlexDirection::ColumnReverse;
-    if (isColumnDirection && !flexBoxStyle.height().isFixed())
+    auto isHorizontalWritingMode = flexBoxStyle.writingMode().isHorizontal();
+    if (((isHorizontalWritingMode && isColumnDirection) || (!isHorizontalWritingMode && !isColumnDirection)) && !flexBoxStyle.height().isFixed())
         ADD_REASON_AND_RETURN_IF_NEEDED(FlexBoxHasNonFixedHeightInMainAxis, reasons, includeReasons);
 
     if (mayHaveScrollbarOrScrollableOverflow(flexBoxStyle))
@@ -141,9 +142,6 @@ static OptionSet<AvoidanceReason> canUseForFlexLayoutWithReason(const RenderFlex
             ADD_REASON_AND_RETURN_IF_NEEDED(FlexBoxHasNestedFlex, reasons, includeReasons);
 
         auto& flexItemStyle = flexItem.style();
-        if (!flexItemStyle.isHorizontalWritingMode())
-            ADD_REASON_AND_RETURN_IF_NEEDED(FlexItemIsVertical, reasons, includeReasons);
-
         if (!flexItemStyle.height().isFixed())
             ADD_REASON_AND_RETURN_IF_NEEDED(FlexItemHasNonFixedHeight, reasons, includeReasons);
 
@@ -227,9 +225,6 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
     case AvoidanceReason::FlexBoxHasNestedFlex:
         stream << "flex box has nested flex";
         break;
-    case AvoidanceReason::FlexItemIsVertical:
-        stream << "flex item has vertical writing mode";
-        break;
     case AvoidanceReason::FlexItemHasNonFixedHeight:
         stream << "flex item has non-fixed height value";
         break;
@@ -303,7 +298,7 @@ bool canUseForPreferredWidthComputation(const RenderBlockFlow& blockContainer)
         if (isFullySupportedRenderer)
             continue;
 
-        if (!renderer.isInFlow() || !renderer.style().isHorizontalWritingMode() || !renderer.style().logicalWidth().isFixed())
+        if (!renderer.isInFlow() || !renderer.writingMode().isHorizontal() || !renderer.style().logicalWidth().isFixed())
             return false;
 
         auto isNonSupportedFixedWidthContent = [&] {

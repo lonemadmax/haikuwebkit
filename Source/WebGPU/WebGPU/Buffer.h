@@ -87,14 +87,17 @@ public:
 
     id<MTLBuffer> buffer() const { return m_buffer; }
     id<MTLBuffer> indirectBuffer() const;
-    id<MTLBuffer> indirectIndexedBuffer() const;
+    id<MTLBuffer> indirectIndexedBuffer() const { return m_indirectIndexedBuffer; }
+
     uint64_t initialSize() const;
     uint64_t currentSize() const;
     WGPUBufferUsageFlags usage() const { return m_usage; }
     State state() const { return m_state; }
 
     Device& device() const { return m_device; }
-    bool isDestroyed() const;
+    Ref<Device> protectedDevice() const { return m_device; }
+    bool isDestroyed() const { return state() == State::Destroyed; }
+
     void setCommandEncoder(CommandEncoder&, bool mayModifyBuffer = false) const;
     std::span<uint8_t> getBufferContents();
     bool indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType, uint32_t firstInstance) const;

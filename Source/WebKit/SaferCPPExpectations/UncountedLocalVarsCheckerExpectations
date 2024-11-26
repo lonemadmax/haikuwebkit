@@ -1,7 +1,6 @@
 NetworkProcess/Classifier/ResourceLoadStatisticsStore.cpp
 NetworkProcess/NetworkLoad.cpp
 NetworkProcess/NetworkLoadScheduler.cpp
-NetworkProcess/NetworkSession.cpp
 NetworkProcess/PingLoad.h
 NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDatabase.cpp
 NetworkProcess/cache/NetworkCache.cpp
@@ -18,7 +17,6 @@ Shared/API/c/cg/WKImageCG.cpp
 Shared/APIWebArchive.mm
 Shared/Cocoa/APIObject.mm
 Shared/ContextMenuContextData.cpp
-Shared/WebBackForwardListFrameItem.cpp
 Shared/WebBackForwardListItem.cpp
 Shared/WebContextMenuItem.cpp
 Shared/WebHitTestResultData.cpp
@@ -96,8 +94,8 @@ WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.cpp
 WebProcess/InjectedBundle/InjectedBundlePageEditorClient.cpp
 WebProcess/InjectedBundle/InjectedBundleScriptWorld.cpp
 WebProcess/InjectedBundle/mac/InjectedBundleMac.mm
-WebProcess/Inspector/WebInspector.cpp
 WebProcess/Inspector/WebInspectorClient.cpp
+WebProcess/Inspector/WebInspectorInternal.cpp
 WebProcess/MediaStream/UserMediaPermissionRequestManager.cpp
 WebProcess/Model/mac/ARKitInlinePreviewModelPlayerMac.mm
 WebProcess/Network/NetworkProcessConnection.cpp
@@ -110,7 +108,6 @@ WebProcess/Network/webrtc/LibWebRTCProvider.cpp
 WebProcess/Network/webrtc/WebMDNSRegister.cpp
 WebProcess/Notifications/WebNotificationManager.cpp
 WebProcess/Plugins/PDF/PDFIncrementalLoader.mm
-WebProcess/Plugins/PDF/PDFPlugin.mm
 WebProcess/Plugins/PDF/PDFPluginAnnotation.mm
 WebProcess/Plugins/PDF/PDFPluginBase.mm
 WebProcess/Plugins/PDF/PDFPluginTextAnnotation.mm

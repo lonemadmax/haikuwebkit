@@ -627,7 +627,7 @@ inline void BuilderCustom::applyValueWebkitLocale(BuilderState& builderState, CS
 
 inline void BuilderCustom::applyValueWritingMode(BuilderState& builderState, CSSValue& value)
 {
-    builderState.setWritingMode(fromCSSValue<WritingMode>(value));
+    builderState.setWritingMode(fromCSSValue<StyleWritingMode>(value));
     builderState.style().setHasExplicitlySetWritingMode();
 }
 
@@ -1258,13 +1258,19 @@ inline void BuilderCustom::applyValueContent(BuilderState& builderState, CSSValu
             builderState.style().setHasAttrContent();
         else
             const_cast<RenderStyle&>(builderState.parentStyle()).setHasAttrContent();
-        QualifiedName attr(nullAtom(), primitiveValue.stringValue().impl(), nullAtom());
+
+        auto value = primitiveValue.cssAttrValue();
+        QualifiedName attr(nullAtom(), value->attributeName().impl(), nullAtom());
         const AtomString& attributeValue = builderState.element() ? builderState.element()->getAttribute(attr) : nullAtom();
 
         // Register the fact that the attribute value affects the style.
         builderState.registerContentAttribute(attr.localName());
 
-        return attributeValue.isNull() ? emptyAtom() : attributeValue.impl();
+        if (attributeValue.isNull()) {
+            auto fallback = dynamicDowncast<CSSPrimitiveValue>(value->fallback());
+            return fallback && fallback->isString() ? fallback->stringValue().impl() : emptyAtom();
+        }
+        return attributeValue.impl();
     };
 
     bool didSet = false;
@@ -1534,7 +1540,7 @@ inline float BuilderCustom::determineRubyTextSizeMultiplier(BuilderState& builde
     auto rubyPosition = builderState.style().rubyPosition();
     if (rubyPosition == RubyPosition::InterCharacter) {
         // If the writing mode of the enclosing ruby container is vertical, 'inter-character' value has the same effect as over.
-        return builderState.parentStyle().isHorizontalWritingMode() ? 0.3f : 0.5f;
+        return !builderState.parentStyle().writingMode().isVerticalTypographic() ? 0.3f : 0.5f;
     }
 
     // Legacy inter-character behavior.

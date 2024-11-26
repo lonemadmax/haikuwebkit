@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
  * Copyright (C) 2013 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +43,7 @@
 #include <wtf/GetPtr.h>
 #include <wtf/IterationStatus.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/TypeTraits.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -706,18 +708,11 @@ ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
 
 namespace WTF {
 
-template<typename T> class TypeHasRefMemberFunction {
-    template<typename> static std::false_type test(...);
-    template<typename U> static auto test(int) -> decltype(std::declval<U>().ref(), std::true_type());
-public:
-    static constexpr bool value = std::is_same<decltype(test<T>(0)), std::true_type>::value;
-};
-
 template<class T, class... Args>
 ALWAYS_INLINE decltype(auto) makeUnique(Args&&... args)
 {
     static_assert(std::is_same<typename T::WTFIsFastAllocated, int>::value, "T sould use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
-    static_assert(!TypeHasRefMemberFunction<T>::value, "T should not be RefCounted");
+    static_assert(!HasRefPtrMemberFunctions<T>::value, "T should not be RefCounted");
     return std::make_unique<T>(std::forward<Args>(args)...);
 }
 
@@ -731,7 +726,7 @@ ALWAYS_INLINE decltype(auto) makeUniqueWithoutRefCountedCheck(Args&&... args)
 template<class T, class... Args>
 ALWAYS_INLINE decltype(auto) makeUniqueWithoutFastMallocCheck(Args&&... args)
 {
-    static_assert(!TypeHasRefMemberFunction<T>::value, "T should not be RefCounted");
+    static_assert(!HasRefPtrMemberFunctions<T>::value, "T should not be RefCounted");
     return std::make_unique<T>(std::forward<Args>(args)...);
 }
 
@@ -749,7 +744,7 @@ constexpr auto constructFixedSizeArrayWithArguments(Args&&... args) -> decltype(
     return constructFixedSizeArrayWithArgumentsImpl<ResultType>(tuple, std::forward<Args>(args)...);
 }
 
-template<typename OptionalType, class Callback> typename OptionalType::value_type valueOrCompute(OptionalType optional, Callback callback) 
+template<typename OptionalType> typename OptionalType::value_type valueOrCompute(OptionalType optional, NOESCAPE const std::invocable<> auto& callback)
 {
     return optional ? *optional : callback();
 }
@@ -759,28 +754,39 @@ template<typename OptionalType> auto valueOrDefault(OptionalType&& optionalValue
     return optionalValue ? *std::forward<OptionalType>(optionalValue) : std::remove_reference_t<decltype(*optionalValue)> { };
 }
 
+// Less preferred helper function for converting an imported API into a span.
+// Use this when we can't edit the imported API and it doesn't offer
+// begin() / end() or a span accessor.
+template<typename T, std::size_t Extent = std::dynamic_extent>
+inline constexpr auto unsafeMakeSpan(T* ptr, size_t size)
+{
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+    return std::span<T, Extent> { ptr, size };
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
-template<typename T, typename U, std::size_t Extent>
+template<typename T, std::size_t Extent, typename U>
 constexpr std::span<T, Extent == std::dynamic_extent ? std::dynamic_extent : (sizeof(U) * Extent) / sizeof(T)> spanReinterpretCast(std::span<U, Extent> span)
 {
+    static_assert(std::is_const_v<T> || (!std::is_const_v<T> && !std::is_const_v<U>), "spanReinterpretCast will not remove constness from source");
+
     if constexpr (Extent == std::dynamic_extent) {
         if constexpr (sizeof(U) < sizeof(T) || sizeof(U) % sizeof(T))
             RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(!(span.size_bytes() % sizeof(T))); // Refuse to change size in bytes from source.
     } else
         static_assert(!((sizeof(U) * Extent) % sizeof(T)), "spanReinterpretCast will not change size in bytes from source");
 
-    static_assert(std::is_const_v<T> || (!std::is_const_v<T> && !std::is_const_v<U>), "spanReinterpretCast will not remove constness from source");
-
     using ReturnType = std::span<T, Extent == std::dynamic_extent ? std::dynamic_extent : (sizeof(U) * Extent) / sizeof(T)>;
     return ReturnType { reinterpret_cast<T*>(const_cast<std::remove_const_t<U>*>(span.data())), span.size_bytes() / sizeof(T) };
 }
 #pragma GCC diagnostic pop
 
-template<typename T, std::size_t Extent>
-std::span<T, Extent> spanConstCast(std::span<const T, Extent> span)
+template<typename U, typename T, std::size_t Extent>
+std::span<U, Extent> spanConstCast(std::span<T, Extent> span)
 {
-    return std::span<T, Extent> { const_cast<T*>(span.data()), span.size() };
+    return std::span<U, Extent> { const_cast<U*>(span.data()), span.size() };
 }
 
 template<typename T, std::size_t Extent>
@@ -793,6 +799,50 @@ template<typename T, std::size_t Extent>
 std::span<uint8_t, Extent == std::dynamic_extent ? std::dynamic_extent: Extent * sizeof(T)> asWritableBytes(std::span<T, Extent> span)
 {
     return std::span<uint8_t, Extent == std::dynamic_extent ? std::dynamic_extent: Extent * sizeof(T)> { reinterpret_cast<uint8_t*>(span.data()), span.size_bytes() };
+}
+
+template<typename T>
+std::span<const T> singleElementSpan(const T& object)
+{
+    return unsafeMakeSpan(std::addressof(object), 1);
+}
+
+template<typename T, std::size_t Extent = std::dynamic_extent>
+std::span<const uint8_t, Extent> asByteSpan(const T& input)
+{
+    return unsafeMakeSpan<const uint8_t, Extent>(reinterpret_cast<const uint8_t*>(&input), sizeof(input));
+}
+
+template<typename T, std::size_t Extent>
+std::span<const uint8_t> asByteSpan(std::span<T, Extent> input)
+{
+    return unsafeMakeSpan(reinterpret_cast<const uint8_t*>(input.data()), input.size_bytes());
+}
+
+template<typename T, std::size_t Extent = std::dynamic_extent>
+std::span<uint8_t, Extent> asMutableByteSpan(T& input)
+{
+    static_assert(!std::is_const_v<T>);
+    return unsafeMakeSpan<uint8_t, Extent>(reinterpret_cast<uint8_t*>(&input), sizeof(input));
+}
+
+template<typename T, std::size_t Extent>
+std::span<uint8_t> asMutableByteSpan(std::span<T, Extent> input)
+{
+    static_assert(!std::is_const_v<T>);
+    return unsafeMakeSpan(reinterpret_cast<uint8_t*>(input.data()), input.size_bytes());
+}
+
+template<typename T, std::size_t Extent>
+const T& reinterpretCastSpanStartTo(std::span<const uint8_t, Extent> span)
+{
+    return spanReinterpretCast<const T>(span.first(sizeof(T)))[0];
+}
+
+template<typename T, std::size_t Extent>
+T& reinterpretCastSpanStartTo(std::span<uint8_t, Extent> span)
+{
+    return spanReinterpretCast<T>(span.first(sizeof(T)))[0];
 }
 
 template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
@@ -821,17 +871,6 @@ void memsetSpan(std::span<T, Extent> destination, uint8_t byte)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     memset(destination.data(), byte, destination.size_bytes());
-}
-
-// Less preferred helper function for converting an imported API into a span.
-// Use this when we can't edit the imported API and it doesn't offer
-// begin() / end() or a span accessor.
-template<typename T, std::size_t Extent = std::dynamic_extent>
-inline constexpr auto unsafeForgeSpan(T* ptr, size_t size)
-{
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    return std::span<T, Extent> { ptr, size };
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 template<typename T> concept ByteType = sizeof(T) == 1 && ((std::is_integral_v<T> && !std::same_as<T, bool>) || std::same_as<T, std::byte>) && !std::is_const_v<T>;
@@ -909,6 +948,57 @@ constexpr decltype(auto) apply(F&& functor, T&& tupleLike)
     return apply_impl(std::forward<F>(functor), std::forward<T>(tupleLike), std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<T>>> { });
 }
 
+// Utility for "zippering" tuples and tuple-like objects. Implementation based off
+// https://stackoverflow.com/questions/11322095/how-to-make-a-function-that-zips-two-tuples-in-c11-stl
+// and extended to support tuple-like.
+//
+// Example usage:
+//
+//   std::tuple<int, string, double> foo = { 1,   "hello",   1.5  };
+//   std::tuple<double, char, float> bar = { 0.5, 'i',       0.1f };
+//   std::tuple<int, string, double> baz = { 2,   "goodbye", 3.0  };
+//
+//   auto result = WTF::tuple_zip(foo, bar, baz);
+//
+//   This leaves result transposed and equal to:
+//
+//      std::tuple {
+//          std::tuple<int, double, int>        { 1,       0.5,     2         },
+//          std::tuple<string, char, string>    { "hello", 'i',     "goodbye" },
+//          std::tuple<double, float, double>   { 1.5,     0.1f,    3.0       },
+//      }
+
+namespace detail {
+
+template<std::size_t I, typename... TupleLikes> using zip_tuple_at_index_t = std::tuple<std::tuple_element_t<I, std::decay_t<TupleLikes>>...>;
+
+template<std::size_t I, typename... TupleLikes> auto zip_tuple_at_index(TupleLikes&&... tupleLikes)
+{
+    return zip_tuple_at_index_t<I, TupleLikes...> { get<I>(std::forward<TupleLikes>(tupleLikes))... };
+}
+
+template<typename... TupleLikes, std::size_t... I> auto tuple_zip_impl(TupleLikes&& ... tupleLikes, std::index_sequence<I...>)
+{
+    return std::tuple<zip_tuple_at_index_t<I, TupleLikes...>...> {
+        zip_tuple_at_index<I>(std::forward<TupleLikes>(tupleLikes)...)...
+    };
+}
+
+} // namespace detail
+
+template<typename Head, typename... Tail> auto tuple_zip(Head&& head, Tail&& ...tail)
+{
+    constexpr std::size_t size = std::tuple_size_v<std::decay_t<Head>>;
+
+    static_assert(((std::tuple_size_v<std::decay_t<Tail>> == size) && ...), "Tuple size mismatch, can not zip.");
+
+    return detail::tuple_zip_impl<Head, Tail...>(
+        std::forward<Head>(head),
+        std::forward<Tail>(tail)...,
+        std::make_index_sequence<size>()
+    );
+}
+
 template<typename WordType, typename Func>
 ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, const Func& func)
 {
@@ -920,7 +1010,7 @@ ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, const
         size_t base = i * wordSize;
 
 #if CPU(X86_64) || CPU(ARM64)
-        // We should only use ctz() when we know that ctz() is implementated using
+        // We should only use ctz() when we know that ctz() is implemented using
         // a fast hardware instruction. Otherwise, this will actually result in
         // worse performance.
         while (word) {
@@ -1019,6 +1109,8 @@ using WTF::KB;
 using WTF::MB;
 using WTF::approximateBinarySearch;
 using WTF::asBytes;
+using WTF::asByteSpan;
+using WTF::asMutableByteSpan;
 using WTF::asWritableBytes;
 using WTF::binarySearch;
 using WTF::bitwise_cast;
@@ -1039,14 +1131,16 @@ using WTF::makeUniqueWithoutRefCountedCheck;
 using WTF::memcpySpan;
 using WTF::memsetSpan;
 using WTF::mergeDeduplicatedSorted;
+using WTF::reinterpretCastSpanStartTo;
 using WTF::roundUpToMultipleOf;
 using WTF::roundUpToMultipleOfNonPowerOfTwo;
 using WTF::roundDownToMultipleOf;
 using WTF::safeCast;
+using WTF::singleElementSpan;
 using WTF::spanConstCast;
 using WTF::spanReinterpretCast;
 using WTF::tryBinarySearch;
-using WTF::unsafeForgeSpan;
+using WTF::unsafeMakeSpan;
 using WTF::valueOrCompute;
 using WTF::valueOrDefault;
 using WTF::toTwosComplement;

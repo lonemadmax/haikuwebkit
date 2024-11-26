@@ -256,19 +256,31 @@ class GitHubMixin(object):
             defer.returnValue(data)
 
     @defer.inlineCallbacks
-    def get_number_of_prs_with_label(self, label):
+    def get_number_of_prs_with_label(self, label, retry=0):
         project = self.getProperty('project') or GITHUB_PROJECTS[0]
         owner, name = project.split('/', 1)
         query_body = '{repository(owner:"%s", name:"%s") { pullRequests(labels: "%s") { totalCount } } }' % (owner, name, label)
         query = {'query': query_body}
-        response = yield self.query_graph_ql(query)
-        if response:
-            num_prs = response['data']['repository']['pullRequests']['totalCount']
-            yield self._addToLog('stdio', 'There are {} PR(s) in safe-merge-queue.\n'.format(num_prs))
-            defer.returnValue(num_prs)
-        else:
-            yield self._addToLog('stdio', 'Failed to retrieve number of PRs.\n')
-            defer.returnValue(None)
+
+        for attempt in range(retry + 1):
+            try:
+                response = yield self.query_graph_ql(query)
+                if 'errors' in response:
+                    yield self._addToLog('stdio', response['errors'][0]['message'])
+                else:
+                    num_prs = response['data']['repository']['pullRequests']['totalCount']
+                    break
+            except Exception as e:
+                yield self._addToLog('stdio', 'Failed to retrieve number of PRs.\n')
+
+            if attempt > retry:
+                return defer.returnValue(None)
+            wait_for = (attempt + 1) * 15
+            yield self._addToLog('stdio', 'Backing off for {} seconds before retrying.\n'.format(wait_for))
+            yield task.deferLater(reactor, wait_for, lambda: None)
+
+        yield self._addToLog('stdio', 'There are {} PR(s) in safe-merge-queue.\n'.format(num_prs))
+        defer.returnValue(num_prs)
 
     @defer.inlineCallbacks
     def get_pr_json(self, pr_number, repository_url=None, retry=0):
@@ -2479,7 +2491,7 @@ class RetrievePRDataFromLabel(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
         project = self.getProperty('project')
         self.setProperty('repository', f'{GITHUB_URL}{project}')
 
-        num_prs = yield self.get_number_of_prs_with_label(self.label)
+        num_prs = yield self.get_number_of_prs_with_label(self.label, retry=3)
         if num_prs == 0:
             yield self._addToLog('stdio', f'Ending process as there are no PRs in {self.label}.\n')
             return defer.returnValue(SUCCESS)
@@ -3253,9 +3265,6 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
                 # this much faster than full debug info, and crash logs still have line numbers.
                 # Some projects (namely lldbWebKitTester) require full debug info, and may override this.
                 build_command += ['DEBUG_INFORMATION_FORMAT=dwarf-with-dsym', 'CLANG_DEBUG_INFORMATION_LEVEL=$(WK_OVERRIDE_DEBUG_INFORMATION_LEVEL:default=line-tables-only)']
-        if platform == 'gtk':
-            prefix = os.path.join("/app", "webkit", "WebKitBuild", self.getProperty("configuration"), "install")
-            build_command += [f'--prefix={prefix}']
 
         build_command += customBuildFlag(platform, self.getProperty('fullPlatform'))
 
@@ -3867,14 +3876,6 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep, AddToLogMixin):
             send_email_to_bot_watchers(email_subject, email_text, builder_name, 'preexisting-{}'.format(test_name))
         except Exception as e:
             print('Error in sending email for pre-existing failure: {}'.format(e))
-
-
-class InstallBuiltProduct(shell.ShellCommandNewStyle):
-    name = 'install-built-product'
-    description = ['Installing Built Product']
-    descriptionDone = ['Installed Built Product']
-    command = ["python3", "Tools/Scripts/install-built-product",
-               WithProperties("--platform=%(fullPlatform)s"), WithProperties("--%(configuration)s")]
 
 
 class CleanBuild(shell.Compile):
@@ -5901,7 +5902,7 @@ class PrintConfiguration(steps.ShellSequence):
         return 'Unknown'
 
     def parseAndValidate(self, logText):
-        os_version, xcode_version = '', ''
+        os_version, os_name, xcode_version = '', '', ''
         match = re.search('ProductVersion:[ \t]*(.+?)\n', logText)
         if match:
             os_version = match.group(1).strip()
@@ -5912,7 +5913,13 @@ class PrintConfiguration(steps.ShellSequence):
         if match:
             xcode_version = match.group(1).strip()
 
+        match = re.search('BuildVersion:[ \t]*(.+?)\n', logText)
+        if match:
+            build_version = match.group(1).strip()
+            self.setProperty('build_version', build_version)
+
         self.setProperty('os_version', os_version)
+        self.setProperty('os_name', os_name)
         self.setProperty('xcode_version', xcode_version)
         os_version_builder = self.getProperty('os_version_builder', '')
         xcode_version_builder = self.getProperty('xcode_version_builder', '')
@@ -7263,12 +7270,32 @@ class FindUnexpectedStaticAnalyzerResults(shell.ShellCommandNewStyle):
 
     @defer.inlineCallbacks
     def run(self):
+        api_key = os.getenv(RESULTS_SERVER_API_KEY)
+        if api_key:
+            self.env[RESULTS_SERVER_API_KEY] = api_key
+        else:
+            self._addToLog('stdio', 'No API key for {} found'.format(RESULTS_DB_URL))
+
         self.command = ['python3', 'Tools/Scripts/compare-static-analysis-results', os.path.join(self.getProperty('builddir'), 'build/new')]
         self.command += ['--build-output', SCAN_BUILD_OUTPUT_DIR]
         if not self.expectations:
             self.command += ['--archived-dir', os.path.join(self.getProperty('builddir'), 'build/baseline')]
             self.command += ['--scan-build-path', '../llvm-project/clang/tools/scan-build/bin/scan-build']  # Only generate results page on the second comparison
             self.command += ['--delete-results']
+            if CURRENT_HOSTNAME in EWS_BUILD_HOSTNAMES and self.getProperty('github.base.ref', DEFAULT_BRANCH) == DEFAULT_BRANCH:
+                self.command += [
+                    '--builder-name', self.getProperty('buildername', ''),
+                    '--build-number', self.getProperty('buildnumber', ''),
+                    '--buildbot-worker', self.getProperty('workername', ''),
+                    '--buildbot-master', CURRENT_HOSTNAME,
+                    '--report', RESULTS_DB_URL,
+                    '--architecture', self.getProperty('architecture', ''),
+                    '--platform', self.getProperty('platform', ''),
+                    '--version', self.getProperty('os_version', ''),
+                    '--version-name', self.getProperty('os_name', ''),
+                    '--style', self.getProperty('configuration', ''),
+                    '--sdk', self.getProperty('build_version', '')
+                ]
         else:
             self.command += ['--check-expectations']
 
@@ -7284,7 +7311,7 @@ class FindUnexpectedStaticAnalyzerResults(shell.ShellCommandNewStyle):
         unexpected_results = self.getProperty('unexpected_failing_files', 0) or self.getProperty('unexpected_new_issues', 0) or self.getProperty('unexpected_passing_files', 0)
         if self.expectations and unexpected_results:
             # If there are unexpected results, rebuild without changes to verify causation
-            self.build.addStepsAfterCurrentStep([RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()])
+            self.build.addStepsAfterCurrentStep([ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()])
         elif unexpected_results:
             # Only save the results if there are failures and it is not the first run
             self.build.addStepsAfterCurrentStep([ArchiveStaticAnalyzerResults(), UploadStaticAnalyzerResults(), ExtractStaticAnalyzerTestResults(), DisplaySaferCPPResults()])

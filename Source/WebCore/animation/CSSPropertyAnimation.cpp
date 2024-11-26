@@ -76,6 +76,8 @@
 #include <wtf/PointerComparison.h>
 #include <wtf/text/TextStream.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 #if !LOG_DISABLED
@@ -682,15 +684,13 @@ static inline GridTrackList blendFunc(const GridTrackList& from, const GridTrack
     return result;
 }
 
-static inline RefPtr<BasicShapePath> blendFunc(BasicShapePath* from, BasicShapePath* to, const CSSPropertyBlendingContext& context)
+static inline RefPtr<StylePathData> blendFunc(StylePathData* from, StylePathData* to, const CSSPropertyBlendingContext& context)
 {
     if (context.isDiscrete)
         return context.progress < 0.5 ? from : to;
     ASSERT(from && to);
-    auto blendedValue = to->blend(*from, context);
-    return &downcast<BasicShapePath>(blendedValue.leakRef());
+    return from->blend(*to, context);
 }
-
 
 class AnimationPropertyWrapperBase {
     WTF_MAKE_NONCOPYABLE(AnimationPropertyWrapperBase);
@@ -3663,7 +3663,7 @@ private:
 };
 
 
-class DWrapper final : public RefCountedPropertyWrapper<BasicShapePath> {
+class DWrapper final : public RefCountedPropertyWrapper<StylePathData> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
 public:
     DWrapper()
@@ -4384,7 +4384,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
             if (CSSProperty::isDescriptorOnly(property))
                 continue;
 
-            auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(property, RenderStyle::initialDirection(), RenderStyle::initialWritingMode());
+            auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(property, WritingMode());
             ASSERT_UNUSED(resolvedProperty, wrapperForProperty(resolvedProperty));
             break;
         }
@@ -4753,3 +4753,5 @@ int CSSPropertyAnimation::getNumProperties()
 }
 
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

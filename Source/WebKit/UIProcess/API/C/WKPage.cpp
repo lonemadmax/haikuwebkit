@@ -542,11 +542,11 @@ void WKPageTerminate(WKPageRef pageRef)
     protectedProcessProxy->requestTermination(ProcessTerminationReason::RequestedByClient);
 }
 
-void WKPageResetProcessState(WKPageRef pageRef)
+void WKPageResetStateBetweenTests(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
-    Ref<WebProcessProxy> protectedProcessProxy(toImpl(pageRef)->legacyMainFrameProcess());
-    protectedProcessProxy->resetState();
+    if (RefPtr pageForTesting = toImpl(pageRef)->pageForTesting())
+        pageForTesting->resetStateBetweenTests();
 }
 
 WKStringRef WKPageGetSessionHistoryURLValueType()
@@ -3032,7 +3032,7 @@ WKMediaState WKPageGetMediaState(WKPageRef page)
 void WKPageClearWheelEventTestMonitor(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
-    if (auto* pageForTesting = toImpl(pageRef)->pageForTesting())
+    if (RefPtr pageForTesting = toImpl(pageRef)->pageForTesting())
         pageForTesting->clearWheelEventTestMonitor();
 }
 
@@ -3050,6 +3050,11 @@ void WKPageSetIgnoresViewportScaleLimits(WKPageRef pageRef, bool ignoresViewport
 #if ENABLE(META_VIEWPORT)
     toImpl(pageRef)->setForceAlwaysUserScalable(ignoresViewportScaleLimits);
 #endif
+}
+
+void WKPageSetUseDarkAppearanceForTesting(WKPageRef pageRef, bool useDarkAppearance)
+{
+    toImpl(pageRef)->setUseDarkAppearanceForTesting(useDarkAppearance);
 }
 
 ProcessID WKPageGetProcessIdentifier(WKPageRef page)
@@ -3085,7 +3090,7 @@ void WKPageGetApplicationManifest(WKPageRef pageRef, void* context, WKPageGetApp
 void WKPageDumpPrivateClickMeasurement(WKPageRef pageRef, WKPageDumpPrivateClickMeasurementFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(nullptr, callbackContext);
 
@@ -3097,7 +3102,7 @@ void WKPageDumpPrivateClickMeasurement(WKPageRef pageRef, WKPageDumpPrivateClick
 void WKPageClearPrivateClickMeasurement(WKPageRef pageRef, WKPageClearPrivateClickMeasurementFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3109,7 +3114,7 @@ void WKPageClearPrivateClickMeasurement(WKPageRef pageRef, WKPageClearPrivateCli
 void WKPageSetPrivateClickMeasurementOverrideTimerForTesting(WKPageRef pageRef, bool value, WKPageSetPrivateClickMeasurementOverrideTimerForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3121,7 +3126,7 @@ void WKPageSetPrivateClickMeasurementOverrideTimerForTesting(WKPageRef pageRef, 
 void WKPageMarkAttributedPrivateClickMeasurementsAsExpiredForTesting(WKPageRef pageRef, WKPageMarkAttributedPrivateClickMeasurementsAsExpiredForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3133,7 +3138,7 @@ void WKPageMarkAttributedPrivateClickMeasurementsAsExpiredForTesting(WKPageRef p
 void WKPageSetPrivateClickMeasurementEphemeralMeasurementForTesting(WKPageRef pageRef, bool value, WKPageSetPrivateClickMeasurementEphemeralMeasurementForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3145,7 +3150,7 @@ void WKPageSetPrivateClickMeasurementEphemeralMeasurementForTesting(WKPageRef pa
 void WKPageSimulatePrivateClickMeasurementSessionRestart(WKPageRef pageRef, WKPageSimulatePrivateClickMeasurementSessionRestartFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3157,7 +3162,7 @@ void WKPageSimulatePrivateClickMeasurementSessionRestart(WKPageRef pageRef, WKPa
 void WKPageSetPrivateClickMeasurementTokenPublicKeyURLForTesting(WKPageRef pageRef, WKURLRef URLRef, WKPageSetPrivateClickMeasurementTokenPublicKeyURLForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3169,7 +3174,7 @@ void WKPageSetPrivateClickMeasurementTokenPublicKeyURLForTesting(WKPageRef pageR
 void WKPageSetPrivateClickMeasurementTokenSignatureURLForTesting(WKPageRef pageRef, WKURLRef URLRef, WKPageSetPrivateClickMeasurementTokenSignatureURLForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3181,7 +3186,7 @@ void WKPageSetPrivateClickMeasurementTokenSignatureURLForTesting(WKPageRef pageR
 void WKPageSetPrivateClickMeasurementAttributionReportURLsForTesting(WKPageRef pageRef, WKURLRef sourceURL, WKURLRef destinationURL, WKPageSetPrivateClickMeasurementAttributionReportURLsForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3193,7 +3198,7 @@ void WKPageSetPrivateClickMeasurementAttributionReportURLsForTesting(WKPageRef p
 void WKPageMarkPrivateClickMeasurementsAsExpiredForTesting(WKPageRef pageRef, WKPageMarkPrivateClickMeasurementsAsExpiredForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3205,7 +3210,7 @@ void WKPageMarkPrivateClickMeasurementsAsExpiredForTesting(WKPageRef pageRef, WK
 void WKPageSetPCMFraudPreventionValuesForTesting(WKPageRef pageRef, WKStringRef unlinkableToken, WKStringRef secretToken, WKStringRef signature, WKStringRef keyID, WKPageSetPCMFraudPreventionValuesForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3217,7 +3222,7 @@ void WKPageSetPCMFraudPreventionValuesForTesting(WKPageRef pageRef, WKStringRef 
 void WKPageSetPrivateClickMeasurementAppBundleIDForTesting(WKPageRef pageRef, WKStringRef appBundleIDForTesting, WKPageSetPrivateClickMeasurementAppBundleIDForTestingFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(callbackContext);
 
@@ -3293,7 +3298,7 @@ void WKPageSetMediaCaptureReportingDelayForTesting(WKPageRef pageRef, double del
 void WKPageDispatchActivityStateUpdateForTesting(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
-    if (auto* pageForTesting = toImpl(pageRef)->pageForTesting())
+    if (RefPtr pageForTesting = toImpl(pageRef)->pageForTesting())
         pageForTesting->dispatchActivityStateUpdate();
 }
 
@@ -3311,7 +3316,7 @@ void WKPageExecuteCommandForTesting(WKPageRef pageRef, WKStringRef command, WKSt
 
 bool WKPageIsEditingCommandEnabledForTesting(WKPageRef pageRef, WKStringRef command)
 {
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return false;
 
@@ -3320,13 +3325,13 @@ bool WKPageIsEditingCommandEnabledForTesting(WKPageRef pageRef, WKStringRef comm
 
 void WKPageSetPermissionLevelForTesting(WKPageRef pageRef, WKStringRef origin, bool allowed)
 {
-    if (auto* pageForTesting = toImpl(pageRef)->pageForTesting())
+    if (RefPtr pageForTesting = toImpl(pageRef)->pageForTesting())
         pageForTesting->setPermissionLevel(toImpl(origin)->string(), allowed);
 }
 
 void WKPageSetTopContentInsetForTesting(WKPageRef pageRef, float contentInset, void* context, WKPageSetTopContentInsetForTestingFunction callback)
 {
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
     if (!pageForTesting)
         return callback(context);
 
@@ -3338,6 +3343,39 @@ void WKPageSetTopContentInsetForTesting(WKPageRef pageRef, float contentInset, v
 void WKPageSetPageScaleFactorForTesting(WKPageRef pageRef, float scaleFactor, WKPoint point, void* context, WKPageSetPageScaleFactorForTestingFunction completionHandler)
 {
     toImpl(pageRef)->scalePage(scaleFactor, toIntPoint(point), [context, completionHandler] {
+        completionHandler(context);
+    });
+}
+
+void WKPageClearBackForwardListForTesting(WKPageRef pageRef, void* context, WKPageClearBackForwardListForTestingFunction completionHandler)
+{
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
+    if (!pageForTesting)
+        return completionHandler(context);
+
+    pageForTesting->clearBackForwardList([context, completionHandler] {
+        completionHandler(context);
+    });
+}
+
+void WKPageSetTracksRepaintsForTesting(WKPageRef pageRef, void* context, bool trackRepaints, WKPageSetTracksRepaintsForTestingFunction completionHandler)
+{
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
+    if (!pageForTesting)
+        return completionHandler(context);
+
+    pageForTesting->setTracksRepaints(trackRepaints, [context, completionHandler] {
+        completionHandler(context);
+    });
+}
+
+void WKPageDisplayAndTrackRepaintsForTesting(WKPageRef pageRef, void* context, WKPageDisplayAndTrackRepaintsForTestingFunction completionHandler)
+{
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
+    if (!pageForTesting)
+        return completionHandler(context);
+
+    pageForTesting->displayAndTrackRepaints([context, completionHandler] {
         completionHandler(context);
     });
 }

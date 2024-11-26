@@ -171,7 +171,6 @@ enum class AccessibilityRole : uint8_t {
     Image,
     ImageMap,
     ImageMapLink,
-    Incrementor,
     Insertion,
     Label,
     LandmarkBanner,
@@ -194,7 +193,6 @@ enum class AccessibilityRole : uint8_t {
     MathElement,
     Menu,
     MenuBar,
-    MenuButton,
     MenuItem,
     MenuItemCheckbox,
     MenuItemRadio,
@@ -367,8 +365,6 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "ImageMap"_s;
     case AccessibilityRole::ImageMapLink:
         return "ImageMapLink"_s;
-    case AccessibilityRole::Incrementor:
-        return "Incrementor"_s;
     case AccessibilityRole::Insertion:
         return "Insertion"_s;
     case AccessibilityRole::Label:
@@ -413,8 +409,6 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "Menu"_s;
     case AccessibilityRole::MenuBar:
         return "MenuBar"_s;
-    case AccessibilityRole::MenuButton:
-        return "MenuButton"_s;
     case AccessibilityRole::MenuItem:
         return "MenuItem"_s;
     case AccessibilityRole::MenuItemCheckbox:
@@ -732,8 +726,7 @@ public:
     virtual ~AXCoreObject() = default;
     virtual String dbg() const = 0;
 
-    void setObjectID(AXID axID) { m_id = axID; }
-    std::optional<AXID> objectID() const { return m_id; }
+    AXID objectID() const { return m_id; }
     virtual std::optional<AXID> treeID() const = 0;
     virtual ProcessID processID() const = 0;
 
@@ -769,7 +762,6 @@ public:
     bool isMenuRelated() const;
     bool isMenu() const { return roleValue() == AccessibilityRole::Menu; }
     bool isMenuBar() const { return roleValue() == AccessibilityRole::MenuBar; }
-    bool isMenuButton() const { return roleValue() == AccessibilityRole::MenuButton; }
     bool isMenuItem() const;
     virtual bool isInputImage() const = 0;
     bool isProgressIndicator() const { return roleValue() == AccessibilityRole::ProgressIndicator || roleValue() == AccessibilityRole::Meter; }
@@ -1388,8 +1380,8 @@ public:
 #endif
 
 protected:
-    AXCoreObject() = default;
-    explicit AXCoreObject(std::optional<AXID> axID)
+    AXCoreObject() = delete;
+    explicit AXCoreObject(AXID axID)
         : m_id(axID)
     { }
 
@@ -1398,7 +1390,7 @@ private:
     virtual void detachRemoteParts(AccessibilityDetachmentType) = 0;
     virtual void detachPlatformWrapper(AccessibilityDetachmentType) = 0;
 
-    Markable<AXID> m_id;
+    AXID m_id;
 #if PLATFORM(COCOA)
     RetainPtr<WebAccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(WIN)
@@ -1413,7 +1405,7 @@ private:
 inline Vector<AXID> axIDs(const AXCoreObject::AccessibilityChildrenVector& objects)
 {
     return WTF::map(objects, [](auto& object) {
-        return *object->objectID();
+        return object->objectID();
     });
 }
 

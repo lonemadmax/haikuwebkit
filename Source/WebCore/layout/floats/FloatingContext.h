@@ -64,20 +64,20 @@ public:
     bool isEmpty() const { return m_placedFloats.list().isEmpty(); }
 
     struct Constraints {
-        std::optional<PointInContextRoot> left;
-        std::optional<PointInContextRoot> right;
+        std::optional<PointInContextRoot> start;
+        std::optional<PointInContextRoot> end;
     };
     enum class MayBeAboveLastFloat : bool { No, Yes };
     Constraints constraints(LayoutUnit candidateTop, LayoutUnit candidateBottom, MayBeAboveLastFloat) const;
 
     PlacedFloats::Item makeFloatItem(const Box& floatBox, const BoxGeometry&, std::optional<size_t> line = { }) const;
 
-    bool isLogicalLeftPositioned(const Box& floatBox) const;
+    bool isStartPositioned(const Box& floatBox) const;
 
 private:
     std::optional<LayoutUnit> bottom(Clear) const;
 
-    bool isFloatingCandidateLeftPositionedInPlacedFloats(const Box&) const;
+    bool isFloatingCandidateStartPositionedInPlacedFloats(const Box&) const;
     Clear clearInPlacedFloats(const Box&) const;
 
     const ElementBox& root() const { return m_formattingContextRoot; }

@@ -354,7 +354,7 @@ struct FrameData {
     std::optional<Pose> floorTransform;
     StageParameters stageParameters;
     Vector<View> views;
-    UncheckedKeyHashMap<LayerHandle, UniqueRef<LayerData>> layers;
+    HashMap<LayerHandle, UniqueRef<LayerData>> layers;
     Vector<InputSource> inputSources;
 
     FrameData copy() const;
@@ -378,6 +378,7 @@ public:
     FeatureList enabledFeatures(SessionMode mode) const { return m_enabledFeaturesMap.get(mode); }
 
     virtual WebCore::IntSize recommendedResolution(SessionMode) { return { 1, 1 }; }
+    virtual double minimumNearClipPlane() const { return 0.1; }
 
     bool supportsOrientationTracking() const { return m_supportsOrientationTracking; }
     bool supportsViewportScaling() const { return m_supportsViewportScaling; }
@@ -430,7 +431,7 @@ protected:
     // https://immersive-web.github.io/webxr/#xr-device-concept
     // Each XR device has a list of enabled features for each XRSessionMode in its list of supported modes,
     // which is a list of feature descriptors which MUST be initially an empty list.
-    using FeaturesPerModeMap = UncheckedKeyHashMap<SessionMode, FeatureList, IntHash<SessionMode>, WTF::StrongEnumHashTraits<SessionMode>>;
+    using FeaturesPerModeMap = HashMap<SessionMode, FeatureList, IntHash<SessionMode>, WTF::StrongEnumHashTraits<SessionMode>>;
     FeaturesPerModeMap m_enabledFeaturesMap;
     FeaturesPerModeMap m_supportedFeaturesMap;
 

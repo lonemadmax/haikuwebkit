@@ -104,9 +104,16 @@
 #include <wtf/text/WTFString.h>
 #include <wtf/unicode/CharacterNames.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 using namespace HTMLNames;
+
+AccessibilityObject::AccessibilityObject(AXID axID)
+    : AXCoreObject(axID)
+{
+}
 
 AccessibilityObject::~AccessibilityObject()
 {
@@ -134,7 +141,7 @@ String AccessibilityObject::dbg() const
 
     return makeString(
         "{role: "_s, accessibilityRoleToString(roleValue()),
-        ", ID "_s, objectID() ? objectID()->loggingString() : ""_str,
+        ", ID "_s, objectID().loggingString(),
         isIgnored() ? ", ignored"_s : emptyString(),
         backingEntityDescription,
         '}'
@@ -641,6 +648,8 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
         }
     }
 
+#if USE(ATSPI)
+    // FIXME: Consider removing this ATSPI-only branch with https://bugs.webkit.org/show_bug.cgi?id=282117.
     RefPtr displayContentsParent = child->displayContentsParent();
     // To avoid double-inserting a child of a `display: contents` element, only insert if `this` is the rightful parent.
     if (displayContentsParent && displayContentsParent != this) {
@@ -657,6 +666,7 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
         if (!allowInsert)
             return;
     }
+#endif // USE(ATSPI)
 
     auto thisAncestorFlags = computeAncestorFlags();
     child->initializeAncestorFlags(thisAncestorFlags);
@@ -1748,7 +1758,7 @@ Vector<RetainPtr<id>> AccessibilityObject::modelElementChildren()
 }
 #endif
 
-// Finds a RenderListItem parent give a node.
+// Finds a RenderListItem parent given a node.
 static RenderListItem* renderListItemContainer(Node* node)
 {
     for (; node; node = node->parentNode()) {
@@ -1904,7 +1914,8 @@ InsideLink AccessibilityObject::insideLink() const
 // This only returns true if this is the element that actually has the contentEditable attribute set.
 bool AccessibilityObject::hasContentEditableAttributeSet() const
 {
-    return contentEditableAttributeIsEnabled(element());
+    auto* element = this->element();
+    return element && contentEditableAttributeIsEnabled(*element);
 }
 
 bool AccessibilityObject::dependsOnTextUnderElement() const
@@ -1924,7 +1935,6 @@ bool AccessibilityObject::dependsOnTextUnderElement() const
     // MacOS does not expect native <li> elements to expose label information, it only expects leaf node elements to do that.
     case AccessibilityRole::ListItem:
 #endif
-    case AccessibilityRole::MenuButton:
     case AccessibilityRole::MenuItem:
     case AccessibilityRole::MenuItemCheckbox:
     case AccessibilityRole::MenuItemRadio:
@@ -2001,12 +2011,9 @@ String AccessibilityObject::autoCompleteValue() const
     return "none"_s;
 }
 
-bool AccessibilityObject::contentEditableAttributeIsEnabled(Element* element)
+bool AccessibilityObject::contentEditableAttributeIsEnabled(Element& element)
 {
-    if (!element)
-        return false;
-    
-    const AtomString& contentEditableValue = element->attributeWithoutSynchronization(contenteditableAttr);
+    const AtomString& contentEditableValue = element.attributeWithoutSynchronization(contenteditableAttr);
     if (contentEditableValue.isNull())
         return false;
     
@@ -2933,11 +2940,6 @@ String AccessibilityObject::roleDescription() const
     return { };
 }
 
-bool nodeHasPresentationRole(Node& node)
-{
-    return nodeHasRole(&node, "presentation"_s) || nodeHasRole(&node, "none"_s);
-}
-    
 bool AccessibilityObject::supportsPressAction() const
 {
     if (isButton())
@@ -3059,7 +3061,7 @@ bool AccessibilityObject::isValueAutofillAvailable() const
         return false;
 
     RefPtr input = dynamicDowncast<HTMLInputElement>(node());
-    return input && (input->isAutoFillAvailable() || input->autoFillButtonType() != AutoFillButtonType::None);
+    return input && (input->autofillAvailable() || input->autofillButtonType() != AutoFillButtonType::None);
 }
 
 AutoFillButtonType AccessibilityObject::valueAutofillButtonType() const
@@ -3067,7 +3069,7 @@ AutoFillButtonType AccessibilityObject::valueAutofillButtonType() const
     if (!isValueAutofillAvailable())
         return AutoFillButtonType::None;
     
-    return downcast<HTMLInputElement>(*this->node()).autoFillButtonType();
+    return downcast<HTMLInputElement>(*this->node()).autofillButtonType();
 }
 
 bool AccessibilityObject::isSelected() const
@@ -4096,7 +4098,7 @@ bool AccessibilityObject::isIgnored() const
         attributeCache = axObjectCache->computedObjectAttributeCache();
     
     if (attributeCache) {
-        AccessibilityObjectInclusion ignored = attributeCache->getIgnored(*objectID());
+        AccessibilityObjectInclusion ignored = attributeCache->getIgnored(objectID());
         switch (ignored) {
         case AccessibilityObjectInclusion::IgnoreObject:
             return true;
@@ -4111,7 +4113,7 @@ bool AccessibilityObject::isIgnored() const
 
     // Refetch the attribute cache in case it was enabled as part of computing isIgnored.
     if (axObjectCache && (attributeCache = axObjectCache->computedObjectAttributeCache()))
-        attributeCache->setIgnored(*objectID(), ignored ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject);
+        attributeCache->setIgnored(objectID(), ignored ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject);
 
     return ignored;
 }
@@ -4134,7 +4136,7 @@ bool AccessibilityObject::isIgnoredWithoutCache(AXObjectCache* cache) const
 
 #if !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (becameIgnored)
-            cache->objectBecameIgnored(*objectID());
+            cache->objectBecameIgnored(objectID());
 #endif // !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (becameUnignored || becameIgnored)
             cache->childrenChanged(parentObject());
@@ -4523,3 +4525,5 @@ String roleToPlatformString(AccessibilityRole role)
 } // namespace Accessibility
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

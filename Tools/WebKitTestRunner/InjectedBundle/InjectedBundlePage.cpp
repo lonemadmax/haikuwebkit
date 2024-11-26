@@ -44,6 +44,7 @@
 #include <WebKit/WKBundleNodeHandlePrivate.h>
 #include <WebKit/WKBundlePagePrivate.h>
 #include <WebKit/WKBundlePrivate.h>
+#include <WebKit/WKBundleRangeHandlePrivate.h>
 #include <WebKit/WKSecurityOriginRef.h>
 #include <WebKit/WKURLRequest.h>
 #include <wtf/HashMap.h>
@@ -57,6 +58,7 @@
 
 #if USE(CF)
 #include "WebArchiveDumpSupport.h"
+#include <wtf/cf/VectorCF.h>
 #include <wtf/text/cf/StringConcatenateCF.h>
 #endif
 
@@ -106,33 +108,28 @@ static WTF::String dumpPath(JSGlobalContextRef context, JSObjectRef nodeValue)
     return name;
 }
 
-static WTF::String dumpPath(WKBundlePageRef page, WKBundleScriptWorldRef world, WKBundleNodeHandleRef node)
+static WTF::String dumpPath(WKBundleScriptWorldRef world, WKBundleNodeHandleRef node)
 {
     if (!node)
         return "(null)"_s;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WKBundleFrameRef frame = WKBundlePageGetMainFrame(page);
-    ALLOW_DEPRECATED_DECLARATIONS_END
-
-    JSGlobalContextRef context = WKBundleFrameGetJavaScriptContextForWorld(frame, world);
-    JSValueRef nodeValue = WKBundleFrameGetJavaScriptWrapperForNodeForWorld(frame, node, world);
+    auto frame = adoptWK(WKBundleNodeHandleCopyOwningDocumentFrame(node));
+    JSGlobalContextRef context = WKBundleFrameGetJavaScriptContextForWorld(frame.get(), world);
+    JSValueRef nodeValue = WKBundleFrameGetJavaScriptWrapperForNodeForWorld(frame.get(), node, world);
     ASSERT(JSValueIsObject(context, nodeValue));
     JSObjectRef nodeObject = (JSObjectRef)nodeValue;
 
     return dumpPath(context, nodeObject);
 }
 
-static WTF::String string(WKBundlePageRef page, WKBundleScriptWorldRef world, WKBundleRangeHandleRef rangeRef)
+static WTF::String string(WKBundleScriptWorldRef world, WKBundleRangeHandleRef rangeRef)
 {
     if (!rangeRef)
         return "(null)"_s;
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    auto frame = WKBundlePageGetMainFrame(page);
-    ALLOW_DEPRECATED_DECLARATIONS_END
-    auto context = WKBundleFrameGetJavaScriptContextForWorld(frame, world);
-    auto rangeValue = WKBundleFrameGetJavaScriptWrapperForRangeForWorld(frame, rangeRef, world);
+    auto frame = adoptWK(WKBundleRangeHandleCopyDocumentFrame(rangeRef));
+    auto context = WKBundleFrameGetJavaScriptContextForWorld(frame.get(), world);
+    auto rangeValue = WKBundleFrameGetJavaScriptWrapperForRangeForWorld(frame.get(), rangeRef, world);
     ASSERT(JSValueIsObject(context, rangeValue));
     auto rangeObject = (JSObjectRef)rangeValue;
 
@@ -201,9 +198,9 @@ WTF::String pathSuitableForTestResult(WKURLRef fileURL)
     return toWTFString(adoptWK(WKURLCopyLastPathComponent(fileURL))); // We lose some information here, but it's better than exposing a full path, which is always machine specific.
 }
 
-static UncheckedKeyHashMap<uint64_t, String>& assignedUrlsCache()
+static HashMap<uint64_t, String>& assignedUrlsCache()
 {
-    static NeverDestroyed<UncheckedKeyHashMap<uint64_t, String>> cache;
+    static NeverDestroyed<HashMap<uint64_t, String>> cache;
     return cache.get();
 }
 
@@ -215,9 +212,9 @@ static inline void dumpResourceURL(uint64_t identifier, StringBuilder& stringBui
         stringBuilder.append("<unknown>"_s);
 }
 
-static UncheckedKeyHashMap<WKBundlePageRef, InjectedBundlePage*>& bundlePageMap()
+static HashMap<WKBundlePageRef, InjectedBundlePage*>& bundlePageMap()
 {
-    static NeverDestroyed<UncheckedKeyHashMap<WKBundlePageRef, InjectedBundlePage*>> map;
+    static NeverDestroyed<HashMap<WKBundlePageRef, InjectedBundlePage*>> map;
     return map.get();
 }
 
@@ -346,23 +343,6 @@ InjectedBundlePage::~InjectedBundlePage()
 {
     ASSERT(bundlePageMap().contains(m_page));
     bundlePageMap().remove(m_page);
-}
-
-void InjectedBundlePage::prepare()
-{
-    WKBundlePageClearMainFrameName(m_page);
-
-    WKBundleClearHistoryForTesting(m_page);
-
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WKBundleFrameClearOpener(WKBundlePageGetMainFrame(m_page));
-    ALLOW_DEPRECATED_DECLARATIONS_END
-
-    WKBundlePageSetTracksRepaints(m_page, false);
-    
-    // Force consistent "responsive" behavior for WebPage::eventThrottlingDelay() for testing. Tests can override via internals.
-    WKEventThrottlingBehavior behavior = kWKEventThrottlingBehaviorResponsive;
-    WKBundlePageSetEventThrottlingBehaviorOverride(m_page, &behavior);
 }
 
 void InjectedBundlePage::resetAfterTest()
@@ -706,7 +686,7 @@ void InjectedBundlePage::dumpDOMAsWebArchive(WKBundleFrameRef frame, StringBuild
 {
 #if USE(CF)
     auto wkData = adoptWK(WKBundleFrameCopyWebArchive(frame));
-    auto cfData = adoptCF(CFDataCreate(0, WKDataGetBytes(wkData.get()), WKDataGetSize(wkData.get())));
+    RetainPtr cfData = toCFData(WKDataGetSpan(wkData.get()));
     stringBuilder.append(WebCoreTestSupport::createXMLStringFromWebArchiveData(cfData.get()).get());
 #endif
 }
@@ -1356,7 +1336,7 @@ bool InjectedBundlePage::shouldBeginEditing(WKBundleRangeHandleRef range)
         return true;
 
     if (testRunner->shouldDumpEditingCallbacks())
-        injectedBundle.outputText(makeString("EDITING DELEGATE: shouldBeginEditingInDOMRange:"_s, string(m_page, m_world.get(), range), '\n'));
+        injectedBundle.outputText(makeString("EDITING DELEGATE: shouldBeginEditingInDOMRange:"_s, string(m_world.get(), range), '\n'));
     return testRunner->shouldAllowEditing();
 }
 
@@ -1368,7 +1348,7 @@ bool InjectedBundlePage::shouldEndEditing(WKBundleRangeHandleRef range)
         return true;
 
     if (testRunner->shouldDumpEditingCallbacks())
-        injectedBundle.outputText(makeString("EDITING DELEGATE: shouldEndEditingInDOMRange:"_s, string(m_page, m_world.get(), range), '\n'));
+        injectedBundle.outputText(makeString("EDITING DELEGATE: shouldEndEditingInDOMRange:"_s, string(m_world.get(), range), '\n'));
     return testRunner->shouldAllowEditing();
 }
 
@@ -1387,8 +1367,8 @@ bool InjectedBundlePage::shouldInsertNode(WKBundleNodeHandleRef node, WKBundleRa
 
     if (testRunner->shouldDumpEditingCallbacks()) {
         injectedBundle.outputText(makeString("EDITING DELEGATE:"_s
-            " shouldInsertNode:"_s, dumpPath(m_page, m_world.get(), node),
-            " replacingDOMRange:"_s, string(m_page, m_world.get(), rangeToReplace),
+            " shouldInsertNode:"_s, dumpPath(m_world.get(), node),
+            " replacingDOMRange:"_s, string(m_world.get(), rangeToReplace),
             " givenAction:"_s, insertactionstring[action], '\n'));
     }
     return testRunner->shouldAllowEditing();
@@ -1410,7 +1390,7 @@ bool InjectedBundlePage::shouldInsertText(WKStringRef text, WKBundleRangeHandleR
     if (testRunner->shouldDumpEditingCallbacks()) {
         injectedBundle.outputText(makeString("EDITING DELEGATE:"_s
             " shouldInsertText:"_s, text,
-            " replacingDOMRange:"_s, string(m_page, m_world.get(), rangeToReplace),
+            " replacingDOMRange:"_s, string(m_world.get(), rangeToReplace),
             " givenAction:"_s, insertactionstring[action], '\n'));
     }
     return testRunner->shouldAllowEditing();
@@ -1424,7 +1404,7 @@ bool InjectedBundlePage::shouldDeleteRange(WKBundleRangeHandleRef range)
         return true;
 
     if (testRunner->shouldDumpEditingCallbacks())
-        injectedBundle.outputText(makeString("EDITING DELEGATE: shouldDeleteDOMRange:"_s, string(m_page, m_world.get(), range), '\n'));
+        injectedBundle.outputText(makeString("EDITING DELEGATE: shouldDeleteDOMRange:"_s, string(m_world.get(), range), '\n'));
     return testRunner->shouldAllowEditing();
 }
 
@@ -1442,8 +1422,8 @@ bool InjectedBundlePage::shouldChangeSelectedRange(WKBundleRangeHandleRef fromRa
 
     if (testRunner->shouldDumpEditingCallbacks()) {
         injectedBundle.outputText(makeString("EDITING DELEGATE:"_s
-            " shouldChangeSelectedDOMRange:"_s, string(m_page, m_world.get(), fromRange),
-            " toDOMRange:"_s, string(m_page, m_world.get(), toRange),
+            " shouldChangeSelectedDOMRange:"_s, string(m_world.get(), fromRange),
+            " toDOMRange:"_s, string(m_world.get(), toRange),
             " affinity:"_s, affinitystring[affinity],
             " stillSelecting:"_s, stillSelecting ? "TRUE"_s : "FALSE"_s, '\n'));
     }
@@ -1460,7 +1440,7 @@ bool InjectedBundlePage::shouldApplyStyle(WKBundleCSSStyleDeclarationRef style, 
     if (testRunner->shouldDumpEditingCallbacks()) {
         injectedBundle.outputText(makeString("EDITING DELEGATE:"
             " shouldApplyStyle:"_s, styleDecToStr(style),
-            " toElementsInDOMRange:"_s, string(m_page, m_world.get(), range), '\n'));
+            " toElementsInDOMRange:"_s, string(m_world.get(), range), '\n'));
     }
     return testRunner->shouldAllowEditing();
 }
@@ -1743,6 +1723,21 @@ void InjectedBundlePage::frameDidChangeLocation(WKBundleFrameRef frame)
         sendTestRenderedEvent(WKBundleFrameGetJavaScriptContext(frame));
     ALLOW_DEPRECATED_DECLARATIONS_END
     dumpAfterWaitAttributeIsRemoved(page->page());
+}
+
+void InjectedBundlePage::notifyDone()
+{
+    if (InjectedBundle::singleton().topLoadingFrame())
+        return;
+    forceImmediateCompletion();
+}
+
+void InjectedBundlePage::forceImmediateCompletion()
+{
+    RefPtr testRunner = InjectedBundle::singleton().testRunner();
+    if (!testRunner)
+        return;
+    dump(testRunner->shouldForceRepaint());
 }
 
 } // namespace WTR

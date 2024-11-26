@@ -58,7 +58,7 @@ struct SkippedSyncvalMessage
     const char *messageId;
     const char *messageContents1;
     const char *messageContents2                      = "";
-    bool isDueToNonConformantCoherentFramebufferFetch = false;
+    bool isDueToNonConformantCoherentColorFramebufferFetch = false;
 };
 
 class ImageMemorySuballocator : angle::NonCopyable
@@ -261,6 +261,7 @@ class Renderer : angle::NonCopyable
     const angle::FeaturesVk &getFeatures() const { return mFeatures; }
     uint32_t getMaxVertexAttribDivisor() const { return mMaxVertexAttribDivisor; }
     VkDeviceSize getMaxVertexAttribStride() const { return mMaxVertexAttribStride; }
+    uint32_t getMaxColorInputAttachmentCount() const { return mMaxColorInputAttachmentCount; }
 
     uint32_t getDefaultUniformBufferSize() const { return mDefaultUniformBufferSize; }
 
@@ -370,8 +371,8 @@ class Renderer : angle::NonCopyable
         return mSkippedSyncvalMessages;
     }
 
-    void onFramebufferFetchUsed();
-    bool isFramebufferFetchUsed() const { return mIsFramebufferFetchUsed; }
+    void onColorFramebufferFetchUse() { mIsColorFramebufferFetchUsed = true; }
+    bool isColorFramebufferFetchUsed() const { return mIsColorFramebufferFetchUsed; }
 
     uint64_t getMaxFenceWaitTimeNs() const;
 
@@ -629,70 +630,6 @@ class Renderer : angle::NonCopyable
     ANGLE_INLINE VkFilter getPreferredFilterForYUV(VkFilter defaultFilter)
     {
         return getFeatures().preferLinearFilterForYUV.enabled ? VK_FILTER_LINEAR : defaultFilter;
-    }
-
-    // Convenience helpers to check for dynamic state ANGLE features which depend on the more
-    // encompassing feature for support of the relevant extension.  When the extension-support
-    // feature is disabled, the derived dynamic state is automatically disabled.
-    ANGLE_INLINE bool useVertexInputBindingStrideDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useVertexInputBindingStrideDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useCullModeDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useCullModeDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useDepthCompareOpDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useDepthCompareOpDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useDepthTestEnableDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useDepthTestEnableDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useDepthWriteEnableDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useDepthWriteEnableDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useFrontFaceDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useFrontFaceDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useStencilOpDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useStencilOpDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useStencilTestEnableDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState.enabled &&
-               getFeatures().useStencilTestEnableDynamicState.enabled;
-    }
-    ANGLE_INLINE bool usePrimitiveRestartEnableDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState2.enabled &&
-               getFeatures().usePrimitiveRestartEnableDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useRasterizerDiscardEnableDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState2.enabled &&
-               getFeatures().useRasterizerDiscardEnableDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useDepthBiasEnableDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState2.enabled &&
-               getFeatures().useDepthBiasEnableDynamicState.enabled;
-    }
-    ANGLE_INLINE bool useLogicOpDynamicState()
-    {
-        return getFeatures().supportsExtendedDynamicState2.enabled &&
-               getFeatures().supportsLogicOpDynamicState.enabled;
     }
 
     angle::Result allocateScopedQueueSerialIndex(vk::ScopedQueueSerialIndex *indexOut);
@@ -978,9 +915,10 @@ class Renderer : angle::NonCopyable
     angle::PackedEnumMap<gl::ShadingRate, VkSampleCountFlags>
         mSupportedFragmentShadingRateSampleCounts;
     std::vector<VkQueueFamilyProperties> mQueueFamilyProperties;
-    uint32_t mMaxVertexAttribDivisor;
     uint32_t mCurrentQueueFamilyIndex;
+    uint32_t mMaxVertexAttribDivisor;
     VkDeviceSize mMaxVertexAttribStride;
+    mutable uint32_t mMaxColorInputAttachmentCount;
     uint32_t mDefaultUniformBufferSize;
     VkDevice mDevice;
     VkDeviceSize mMaxCopyBytesUsingCPUWhenPreservingBufferData;
@@ -1046,7 +984,7 @@ class Renderer : angle::NonCopyable
 
     // Whether framebuffer fetch has been used, for the purposes of more accurate syncval error
     // filtering.
-    bool mIsFramebufferFetchUsed;
+    bool mIsColorFramebufferFetchUsed;
 
     // How close to VkPhysicalDeviceLimits::maxMemoryAllocationCount we allow ourselves to get
     static constexpr double kPercentMaxMemoryAllocationCount = 0.3;

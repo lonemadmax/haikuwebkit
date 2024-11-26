@@ -36,6 +36,15 @@
 #include <wtf/WeakHashSet.h>
 
 namespace WebCore {
+class RenderLayerCompositor;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebCore::RenderLayerCompositor> : std::true_type { };
+}
+
+namespace WebCore {
 
 class DisplayRefreshMonitorFactory;
 class FixedPositionViewportConstraints;
@@ -204,6 +213,7 @@ public:
 
     // Update event regions, which only needs to happen once per rendering update.
     void updateEventRegions();
+    void updateEventRegionsRecursive(RenderLayer&);
 
     struct RequiresCompositingData {
         LayoutUpToDate layoutUpToDate { LayoutUpToDate::Yes };
@@ -306,6 +316,10 @@ public:
     static bool hasCompositedWidgetContents(const RenderObject&);
     static bool isCompositedPlugin(const RenderObject&);
 
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    static bool isSeparated(const RenderObject&);
+#endif
+
     static RenderLayerCompositor* frameContentsCompositor(RenderWidget&);
 
     struct WidgetLayerAttachment {
@@ -360,6 +374,8 @@ public:
     void updateSizeAndPositionForOverhangAreaLayer();
 #endif // HAVE(RUBBER_BANDING)
 
+    void updateRootContentsLayerBackgroundColor();
+
     // FIXME: make the coordinated/async terminology consistent.
     bool isViewportConstrainedFixedOrStickyLayer(const RenderLayer&) const;
     bool useCoordinatedScrollingForLayer(const RenderLayer&) const;
@@ -390,6 +406,8 @@ public:
     const Color& rootExtendedBackgroundColor() const { return m_rootExtendedBackgroundColor; }
 
     void updateRootContentLayerClipping();
+
+    void setRootElementCapturedInViewTransition(bool);
 
     void updateScrollSnapPropertiesWithFrameView(const LocalFrameView&) const;
 
@@ -459,8 +477,8 @@ private:
 
     void updateCompositingLayersTimerFired();
 
-    void computeCompositingRequirements(RenderLayer* ancestorLayer, RenderLayer&, LayerOverlapMap&, CompositingState&, BackingSharingState&, bool& descendantHas3DTransform);
-    void traverseUnchangedSubtree(RenderLayer* ancestorLayer, RenderLayer&, LayerOverlapMap&, CompositingState&, BackingSharingState&, bool& descendantHas3DTransform);
+    void computeCompositingRequirements(RenderLayer* ancestorLayer, RenderLayer&, LayerOverlapMap&, CompositingState&, BackingSharingState&);
+    void traverseUnchangedSubtree(RenderLayer* ancestorLayer, RenderLayer&, LayerOverlapMap&, CompositingState&, BackingSharingState&);
 
     enum class UpdateLevel {
         AllDescendants          = 1 << 0,
@@ -619,6 +637,7 @@ private:
     bool m_flushingLayers { false };
     bool m_shouldFlushOnReattach { false };
     bool m_forceCompositingMode { false };
+    bool m_rootElementCapturedInViewTransition { false };
 
     bool m_isTrackingRepaints { false }; // Used for testing.
 

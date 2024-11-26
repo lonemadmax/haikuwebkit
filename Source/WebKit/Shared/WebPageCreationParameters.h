@@ -137,9 +137,6 @@ struct WebPageCreationParameters {
     
     String userAgent { };
 
-    bool itemStatesWereRestoredByAPIRequest { false };
-    Vector<Ref<FrameState>> itemStates { };
-
     VisitedLinkTableIdentifier visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel { false };
     bool canRunModal { false };
@@ -249,7 +246,7 @@ struct WebPageCreationParameters {
     String overrideContentSecurityPolicy { };
     std::optional<double> cpuLimit { };
 
-    UncheckedKeyHashMap<String, WebURLSchemeHandlerIdentifier> urlSchemeHandlers { };
+    HashMap<String, WebURLSchemeHandlerIdentifier> urlSchemeHandlers { };
     Vector<String> urlSchemesWithLegacyCustomProtocolHandlers { };
 
 #if ENABLE(APPLICATION_MANIFEST)

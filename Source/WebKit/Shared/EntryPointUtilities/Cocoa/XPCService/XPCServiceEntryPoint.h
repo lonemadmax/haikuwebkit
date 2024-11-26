@@ -27,8 +27,6 @@
 
 #include <wtf/Compiler.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 #import "AuxiliaryProcess.h"
 #import "WebKit2Initialize.h"
 #import <JavaScriptCore/ExecutableAllocator.h>
@@ -46,8 +44,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #else
 extern "C" OS_NOTHROW void voucher_replace_default_voucher(void);
 #endif
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #define WEBCONTENT_SERVICE_INITIALIZER WebContentServiceInitializer
 #define NETWORK_SERVICE_INITIALIZER NetworkServiceInitializer
@@ -74,7 +70,7 @@ public:
     virtual bool getClientBundleIdentifier(String& clientBundleIdentifier);
     virtual bool getClientProcessName(String& clientProcessName);
     virtual bool getClientSDKAlignedBehaviors(SDKAlignedBehaviors&);
-    virtual bool getExtraInitializationData(UncheckedKeyHashMap<String, String>& extraInitializationData);
+    virtual bool getExtraInitializationData(HashMap<String, String>& extraInitializationData);
 
 protected:
     bool hasEntitlement(ASCIILiteral entitlement);

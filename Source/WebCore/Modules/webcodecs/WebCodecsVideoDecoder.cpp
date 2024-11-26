@@ -42,6 +42,7 @@
 #include "OffscreenCanvas.h"
 #include "SVGImageElement.h"
 #include "ScriptExecutionContext.h"
+#include <variant>
 #include "WebCodecsEncodedVideoChunk.h"
 #include "WebCodecsErrorCallback.h"
 #include "WebCodecsUtilities.h"
@@ -49,6 +50,8 @@
 #include "WebCodecsVideoFrameOutputCallback.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/TZoneMallocInlines.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebCore {
 
@@ -84,6 +87,9 @@ static bool isSupportedDecoderCodec(const String& codec, const Settings::Values&
 static bool isValidDecoderConfig(const WebCodecsVideoDecoderConfig& config)
 {
     if (StringView(config.codec).trim(isASCIIWhitespace<UChar>).isEmpty())
+        return false;
+
+    if (config.description && std::visit([](auto& view) { return view->isDetached(); }, *config.description))
         return false;
 
     if (!!config.codedWidth != !!config.codedHeight)
@@ -356,5 +362,7 @@ bool WebCodecsVideoDecoder::virtualHasPendingActivity() const
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEB_CODECS)

@@ -40,7 +40,7 @@
 #include "Display.h"
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GTK/WPE port
 
 #if !defined(MFD_ALLOW_SEALING) && HAVE(LINUX_MEMFD_H)
 #include <linux/memfd.h>
@@ -719,7 +719,7 @@ static std::optional<CString> directoryContainingDBusSocket(const char* dbusAddr
     return std::nullopt;
 }
 
-static void addExtraPaths(const UncheckedKeyHashMap<CString, SandboxPermission>& paths, Vector<CString>& args)
+static void addExtraPaths(const HashMap<CString, SandboxPermission>& paths, Vector<CString>& args)
 {
     for (const auto& pathAndPermission : paths) {
         args.appendVector(Vector<CString>({

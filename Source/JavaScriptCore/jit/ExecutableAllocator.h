@@ -26,6 +26,7 @@
 #pragma once
 
 #include <bit>
+#include "AssemblerCommon.h"
 #include "ExecutableMemoryHandle.h"
 #include "FastJITPermissions.h"
 #include "JITCompilationEffort.h"
@@ -205,6 +206,8 @@ static NEVER_INLINE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void dieByJumpingInto
     } while (false)
 #endif // ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n)
 {
 #if CPU(ARM64)
@@ -272,7 +275,7 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
 
         if (g_jscConfig.useFastJITPermissions) {
             threadSelfRestrict<MemoryRestriction::kRwxToRw>();
-            memcpy(dst, src, n);
+            memcpyAtomicIfPossible(dst, src, n);
             threadSelfRestrict<MemoryRestriction::kRwxToRx>();
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
             checkForZeroes();
@@ -294,16 +297,17 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
         }
 #endif
 
-        auto ret = memcpy(dst, src, n);
+        auto ret = memcpyAtomicIfPossible(dst, src, n);
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
         checkForZeroes();
 #endif
         return ret;
     }
 
-    // Use regular memcpy for writes outside the JIT region.
-    return memcpy(dst, src, n);
+    return memcpyAtomicIfPossible(dst, src, n);
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 class ExecutableAllocator : private ExecutableAllocatorBase {
     WTF_MAKE_TZONE_ALLOCATED(ExecutableAllocator);

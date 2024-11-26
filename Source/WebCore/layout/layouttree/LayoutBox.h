@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-class Shape;
+class LayoutShape;
 class RenderObject;
 
 namespace Layout {
@@ -177,6 +177,7 @@ public:
     void updateStyle(RenderStyle&& newStyle, std::unique_ptr<RenderStyle>&& newFirstLineStyle);
     const RenderStyle& style() const { return m_style; }
     const RenderStyle& firstLineStyle() const { return hasRareData() && rareData().firstLineStyle ? *rareData().firstLineStyle : m_style; }
+    WritingMode writingMode() const { return style().writingMode(); }
 
     // FIXME: Find a better place for random DOM things.
     void setRowSpan(size_t);
@@ -191,8 +192,8 @@ public:
     void setIsInlineIntegrationRoot() { m_isInlineIntegrationRoot = true; }
     void setIsFirstChildForIntegration(bool value) { m_isFirstChildForIntegration = value; }
 
-    const Shape* shape() const;
-    void setShape(RefPtr<const Shape>);
+    const LayoutShape* shape() const;
+    void setShape(RefPtr<const LayoutShape>);
 
     const ElementBox* associatedRubyAnnotationBox() const;
 
@@ -216,7 +217,7 @@ private:
         CellSpan tableCellSpan;
         std::optional<LayoutUnit> columnWidth;
         std::unique_ptr<RenderStyle> firstLineStyle;
-        RefPtr<const Shape> shape;
+        RefPtr<const LayoutShape> shape;
     };
 
     bool hasRareData() const { return m_hasRareData; }

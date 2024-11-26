@@ -100,30 +100,25 @@ static TextureMapperLayer& texmapLayer(Nicosia::CompositionLayer& compositionLay
     return *compositionState.layer;
 }
 
-static void updateBackingStore(TextureMapperLayer& layer, CoordinatedBackingStore& backingStore, RefPtr<CoordinatedBackingStoreProxy::Update>& update, float scale)
+static void updateBackingStore(TextureMapperLayer& layer, CoordinatedBackingStore& backingStore, const CoordinatedBackingStoreProxy::Update& update)
 {
     layer.setBackingStore(&backingStore);
-    backingStore.resize(layer.size(), scale);
+    backingStore.resize(layer.size(), update.scale());
 
-    if (!update)
-        return;
-
-    for (auto tileID : update->tilesToCreate())
+    for (auto tileID : update.tilesToCreate())
         backingStore.createTile(tileID);
-    for (const auto& tileUpdate : update->tilesToUpdate())
-        backingStore.updateTile(tileUpdate.tileID, tileUpdate.dirtyRect, tileUpdate.tileRect, tileUpdate.buffer.copyRef(), { });
-    for (auto tileID : update->tilesToRemove())
+    for (auto tileID : update.tilesToRemove())
         backingStore.removeTile(tileID);
+    for (const auto& tileUpdate : update.tilesToUpdate())
+        backingStore.updateTile(tileUpdate.tileID, tileUpdate.dirtyRect, tileUpdate.tileRect, tileUpdate.buffer.copyRef(), { });
 }
 
 void CoordinatedGraphicsScene::removeLayer(Nicosia::CompositionLayer& layer)
 {
-    layer.accessCommitted(
-        [](const Nicosia::CompositionLayer::LayerState& committed)
-        {
-            if (committed.contentLayer)
-                committed.contentLayer->invalidate();
-        });
+    layer.accessCommitted([](const Nicosia::CompositionLayer::LayerState& committed) {
+        if (committed.contentLayer)
+            committed.contentLayer->invalidate();
+    });
 
     auto& compositionState = layer.compositionState();
     m_backingStores.remove(compositionState.layer.get());
@@ -148,8 +143,7 @@ void CoordinatedGraphicsScene::updateSceneState()
     struct {
         struct BackingStore {
             std::reference_wrapper<TextureMapperLayer> layer;
-            RefPtr<CoordinatedBackingStoreProxy::Update> update;
-            float scale { 1 };
+            CoordinatedBackingStoreProxy::Update update;
         };
         Vector<BackingStore> backingStore;
 
@@ -293,9 +287,9 @@ void CoordinatedGraphicsScene::updateSceneState()
                             layer.setDebugBorderWidth(layerState.debugBorder.width);
                         }
 
-                        if (layerState.backingStore.shouldHaveBackingStore) {
+                        if (layerState.backingStore) {
                             layer.acceptDamageVisitor(*this);
-                            layersByBacking.backingStore.append({ std::ref(layer), layerState.backingStore.update, layerState.backingStore.scale });
+                            layersByBacking.backingStore.append({ std::ref(layer), layerState.backingStore->takePendingUpdate() });
                         } else {
                             layer.setBackingStore(nullptr);
                             m_backingStores.remove(&layer);
@@ -322,11 +316,6 @@ void CoordinatedGraphicsScene::updateSceneState()
                                 layer.invalidateDamage();
                         }
                     });
-
-                // We can't change the state from commitState, so reset the update from staging here.
-                compositionLayer->accessStaging([](auto& state) {
-                    state.backingStore.update = nullptr;
-                });
             }
         });
 
@@ -341,8 +330,10 @@ void CoordinatedGraphicsScene::updateSceneState()
             auto addResult = m_backingStores.ensure(&entry.layer.get(), [] {
                 return CoordinatedBackingStore::create();
             });
-            updateBackingStore(entry.layer.get(), addResult.iterator->value.get(), entry.update, entry.scale);
-            backingStoresWithPendingBuffers.add(addResult.iterator->value.get());
+
+            auto& backingStore = addResult.iterator->value.get();
+            updateBackingStore(entry.layer.get(), backingStore, entry.update);
+            backingStoresWithPendingBuffers.add(backingStore);
         }
 
         layersByBacking.backingStore = { };
@@ -406,14 +397,12 @@ void CoordinatedGraphicsScene::purgeGLResources()
     ASSERT(!m_client);
 
     if (m_nicosia.scene) {
-        m_nicosia.scene->accessState(
-            [this](Nicosia::Scene::State& state)
-            {
-                for (auto& layer : state.layers)
-                    removeLayer(*layer);
-                state.layers = { };
-                state.rootLayer = nullptr;
-            });
+        m_nicosia.scene->accessState([this](Nicosia::Scene::State& state) {
+            for (auto& layer : state.layers)
+                removeLayer(*layer);
+            state.layers = { };
+            state.rootLayer = nullptr;
+        });
         m_nicosia.scene = nullptr;
     }
 

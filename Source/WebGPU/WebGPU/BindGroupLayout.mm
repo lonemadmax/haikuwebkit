@@ -201,7 +201,7 @@ Ref<BindGroupLayout> Device::createBindGroupLayout(const WGPUBindGroupLayoutDesc
     std::array<size_t, stageCount> sizeOfDynamicOffsets { };
     std::array<uint32_t, stageCount> bindingOffset { };
     std::array<uint32_t, stageCount> bufferCounts { };
-    UncheckedKeyHashMap<uint32_t, uint64_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> slotForEntry;
+    HashMap<uint32_t, uint64_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> slotForEntry;
     const auto maxBindingIndex = limits().maxBindingsPerBindGroup;
     HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> usedBindingSlots;
     uint32_t dynamicUniformBuffers = 0;
@@ -455,7 +455,8 @@ NSString* BindGroupLayout::errorValidatingDynamicOffsets(std::span<const uint32_
         auto* buffer = group.dynamicBuffer(i);
         if (!buffer)
             return [NSString stringWithFormat:@"dynamicBuffer(%zu) is nil", i];
-        if (dynamicOffset + buffer->bindingSize > buffer->bufferSize)
+        auto dynamicOffsetPlusBindingSize = checkedSum<uint64_t>(dynamicOffset, buffer->bindingSize);
+        if (dynamicOffsetPlusBindingSize.hasOverflowed() || dynamicOffsetPlusBindingSize.value() > buffer->bufferSize)
             return [NSString stringWithFormat:@"dynamicBuffer(%zu): dynamicOffset(%u) + buffer->bindingSize(%llu) > buffer->bufferSize(%llu)", i, dynamicOffset, buffer->bindingSize, buffer->bufferSize];
 
         auto alignment = buffer->type == WGPUBufferBindingType_Uniform ? minUniformBufferOffsetAlignment : minStorageBufferOffsetAlignment;
@@ -727,5 +728,5 @@ void wgpuBindGroupLayoutRelease(WGPUBindGroupLayout bindGroupLayout)
 
 void wgpuBindGroupLayoutSetLabel(WGPUBindGroupLayout bindGroupLayout, const char* label)
 {
-    WebGPU::fromAPI(bindGroupLayout).setLabel(WebGPU::fromAPI(label));
+    WebGPU::protectedFromAPI(bindGroupLayout)->setLabel(WebGPU::fromAPI(label));
 }

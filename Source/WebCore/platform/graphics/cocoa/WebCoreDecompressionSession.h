@@ -74,6 +74,9 @@ public:
 
     RetainPtr<CVPixelBufferRef> decodeSampleSync(CMSampleBufferRef);
 
+    using DecodingPromise = NativePromise<RetainPtr<CMSampleBufferRef>, OSStatus>;
+    Ref<DecodingPromise> decodeSample(CMSampleBufferRef, bool displaying);
+
     void setTimebase(CMTimebaseRef);
     RetainPtr<CMTimebaseRef> timebase() const;
 
@@ -94,6 +97,8 @@ public:
 
     void setResourceOwner(const ProcessIdentity& resourceOwner) { m_resourceOwner = resourceOwner; }
 
+    static RetainPtr<CMBufferQueueRef> createBufferQueue();
+
 private:
     enum Mode {
         OpenGL,
@@ -105,8 +110,7 @@ private:
 
     void setTimebaseWithLockHeld(CMTimebaseRef);
     void enqueueCompressedSample(CMSampleBufferRef, bool displaying, uint32_t flushId);
-    using DecodingPromise = NativePromise<RetainPtr<CMSampleBufferRef>, OSStatus>;
-    Ref<DecodingPromise> decodeSample(CMSampleBufferRef, bool displaying);
+    Ref<DecodingPromise> decodeSampleInternal(CMSampleBufferRef, bool displaying);
     void enqueueDecodedSample(CMSampleBufferRef);
     void maybeDecodeNextSample();
     void handleDecompressionOutput(bool displaying, OSStatus, VTDecodeInfoFlags, CVImageBufferRef, CMTime presentationTimeStamp, CMTime presentationDuration);
@@ -128,7 +132,7 @@ private:
     void updateQosWithDecodeTimeStatistics(double ratio);
 
     bool isUsingVideoDecoder(CMSampleBufferRef) const;
-    Ref<MediaPromise> initializeVideoDecoder(FourCharCode);
+    Ref<MediaPromise> initializeVideoDecoder(FourCharCode, std::span<const uint8_t> description);
 
     static const CMItemCount kMaximumCapacity = 120;
     static const CMItemCount kHighWaterMark = 60;

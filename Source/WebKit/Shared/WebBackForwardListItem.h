@@ -56,7 +56,7 @@ public:
     virtual ~WebBackForwardListItem();
 
     static WebBackForwardListItem* itemForID(const WebCore::BackForwardItemIdentifier&);
-    static UncheckedKeyHashMap<WebCore::BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>& allItems();
+    static HashMap<WebCore::BackForwardItemIdentifier, WeakRef<WebBackForwardListItem>>& allItems();
 
     WebCore::BackForwardItemIdentifier itemID() const;
     WebPageProxyIdentifier pageID() const { return m_pageID; }
@@ -88,6 +88,8 @@ public:
     void wasRemovedFromBackForwardList();
 
     WebBackForwardCacheEntry* backForwardCacheEntry() const { return m_backForwardCacheEntry.get(); }
+    RefPtr<WebBackForwardCacheEntry> protectedBackForwardCacheEntry() const;
+
     SuspendedPageProxy* suspendedPage() const;
 
     void setNavigatedFrameID(WebCore::FrameIdentifier frameID) { m_navigatedFrameID = frameID; }
@@ -97,9 +99,12 @@ public:
     WebBackForwardListItem* childItemForProcessID(WebCore::ProcessIdentifier) const;
 
     WebBackForwardListFrameItem& rootFrameItem() { return m_rootFrameItem.get(); }
+    Ref<WebBackForwardListFrameItem> protectedRootFrameItem();
 
     void setIsRemoteFrameNavigation(bool isRemoteFrameNavigation) { m_isRemoteFrameNavigation = isRemoteFrameNavigation; }
     bool isRemoteFrameNavigation() const { return m_isRemoteFrameNavigation; }
+
+    void setWasRestoredFromSession();
 
 #if !LOG_DISABLED
     String loggingString();
@@ -112,7 +117,7 @@ private:
 
     // WebBackForwardCache.
     friend class WebBackForwardCache;
-    void setBackForwardCacheEntry(std::unique_ptr<WebBackForwardCacheEntry>&&);
+    void setBackForwardCacheEntry(RefPtr<WebBackForwardCacheEntry>&&);
 
     RefPtr<WebsiteDataStore> m_dataStoreForWebArchive;
 
@@ -121,7 +126,7 @@ private:
     WebPageProxyIdentifier m_pageID;
     WebCore::ProcessIdentifier m_lastProcessIdentifier;
     Markable<WebCore::FrameIdentifier> m_navigatedFrameID;
-    std::unique_ptr<WebBackForwardCacheEntry> m_backForwardCacheEntry;
+    RefPtr<WebBackForwardCacheEntry> m_backForwardCacheEntry;
 #if PLATFORM(COCOA) || PLATFORM(GTK)
     RefPtr<ViewSnapshot> m_snapshot;
 #endif

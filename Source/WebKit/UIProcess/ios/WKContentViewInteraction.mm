@@ -216,8 +216,6 @@
 #define UIWKDocumentRequestAutocorrectedRanges (1 << 7)
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 #if USE(BROWSERENGINEKIT)
 
 @interface WKUITextSelectionRect : UITextSelectionRect
@@ -325,6 +323,12 @@ static bool canAttemptTextRecognitionForNonImageElements(const WebKit::Interacti
 
 namespace WebKit {
 using namespace WebCore;
+
+enum class IgnoreTapGestureReason : uint8_t {
+    None,
+    ToggleEditMenu,
+    DeferToScrollView,
+};
 
 static NSArray<NSString *> *supportedPlainTextPasteboardTypes()
 {
@@ -1047,7 +1051,7 @@ inline static NSString *textRelativeToSelectionStart(WKRelativeTextRange *range,
 
 static WKDragSessionContext *existingLocalDragSessionContext(id <UIDragSession> session)
 {
-    return [session.localContext isKindOfClass:[WKDragSessionContext class]] ? (WKDragSessionContext *)session.localContext : nil;
+    return dynamic_objc_cast<WKDragSessionContext>(session.localContext);
 }
 
 static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> session)
@@ -1061,7 +1065,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     }
 
     session.localContext = adoptNS([[WKDragSessionContext alloc] init]).get();
-    return (WKDragSessionContext *)session.localContext;
+    return existingLocalDragSessionContext(session);
 }
 
 #endif // ENABLE(DRAG_SUPPORT)
@@ -2123,7 +2127,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
         return;
 
     auto& lastTouchEvent = gestureRecognizer.lastTouchEvent;
-    _lastInteractionLocation = lastTouchEvent.locationInDocumentCoordinates;
+    _lastInteractionLocation = lastTouchEvent.locationInRootViewCoordinates;
 
     if (lastTouchEvent.type == WebKit::WKTouchEventType::Begin) {
         if (!_failedTouchStartDeferringGestures)
@@ -2326,7 +2330,7 @@ static WebCore::FloatQuad inflateQuad(const WebCore::FloatQuad& quad, float infl
     //  p1------p4
 
     // 1) Sort the points horizontally.
-    WebCore::FloatPoint points[4] = { quad.p1(), quad.p4(), quad.p2(), quad.p3() };
+    std::array points { quad.p1(), quad.p4(), quad.p2(), quad.p3() };
     if (points[0].x() > points[1].x())
         std::swap(points[0], points[1]);
     if (points[2].x() > points[3].x())
@@ -2394,32 +2398,28 @@ static WebCore::FloatQuad inflateQuad(const WebCore::FloatQuad& quad, float infl
     return gestures;
 }
 
+static void appendRecognizerIfNonNull(RetainPtr<NSMutableArray>& array, const RetainPtr<WKDeferringGestureRecognizer>& recognizer)
+{
+    if (recognizer)
+        [array addObject:recognizer.get()];
+}
+
 - (NSArray<WKDeferringGestureRecognizer *> *)_touchStartDeferringGestures
 {
-    WKDeferringGestureRecognizer *recognizers[3];
-    NSUInteger count = 0;
-    auto add = [&] (const RetainPtr<WKDeferringGestureRecognizer>& recognizer) {
-        if (recognizer)
-            recognizers[count++] = recognizer.get();
-    };
-    add(_touchStartDeferringGestureRecognizerForImmediatelyResettableGestures);
-    add(_touchStartDeferringGestureRecognizerForDelayedResettableGestures);
-    add(_touchStartDeferringGestureRecognizerForSyntheticTapGestures);
-    return [NSArray arrayWithObjects:recognizers count:count];
+    RetainPtr recognizers = adoptNS([[NSMutableArray alloc] initWithCapacity:3]);
+    appendRecognizerIfNonNull(recognizers, _touchStartDeferringGestureRecognizerForImmediatelyResettableGestures);
+    appendRecognizerIfNonNull(recognizers, _touchStartDeferringGestureRecognizerForDelayedResettableGestures);
+    appendRecognizerIfNonNull(recognizers, _touchStartDeferringGestureRecognizerForSyntheticTapGestures);
+    return recognizers.autorelease();
 }
 
 - (NSArray<WKDeferringGestureRecognizer *> *)_touchEndDeferringGestures
 {
-    WKDeferringGestureRecognizer *recognizers[3];
-    NSUInteger count = 0;
-    auto add = [&] (const RetainPtr<WKDeferringGestureRecognizer>& recognizer) {
-        if (recognizer)
-            recognizers[count++] = recognizer.get();
-    };
-    add(_touchEndDeferringGestureRecognizerForImmediatelyResettableGestures);
-    add(_touchEndDeferringGestureRecognizerForDelayedResettableGestures);
-    add(_touchEndDeferringGestureRecognizerForSyntheticTapGestures);
-    return [NSArray arrayWithObjects:recognizers count:count];
+    RetainPtr recognizers = adoptNS([[NSMutableArray alloc] initWithCapacity:3]);
+    appendRecognizerIfNonNull(recognizers, _touchEndDeferringGestureRecognizerForImmediatelyResettableGestures);
+    appendRecognizerIfNonNull(recognizers, _touchEndDeferringGestureRecognizerForDelayedResettableGestures);
+    appendRecognizerIfNonNull(recognizers, _touchEndDeferringGestureRecognizerForSyntheticTapGestures);
+    return recognizers.autorelease();
 }
 
 - (void)_doneDeferringTouchStart:(BOOL)preventNativeGestures
@@ -3262,6 +3262,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!pointIsInSelectionRect)
         return NO;
 
+    if (!self.selectionHonorsOverflowScrolling)
+        return YES;
+
     RetainPtr hitView = [self hitTest:point withEvent:nil];
     if (!hitView)
         return NO;
@@ -3270,7 +3273,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return hitScroller && hitScroller == self._selectionContainerViewInternal._wk_parentScrollView;
 }
 
-- (BOOL)_shouldToggleSelectionCommandsAfterTapAt:(CGPoint)point
+- (BOOL)_shouldToggleEditMenuAfterTapAt:(CGPoint)point
 {
     if (_lastSelectionDrawingInfo.selectionGeometries.isEmpty())
         return NO;
@@ -3321,15 +3324,28 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     CGPoint point = [gestureRecognizer locationInView:self];
 
-    auto shouldAcknowledgeTap = [&](WKScrollViewTrackingTapGestureRecognizer *tapGesture) -> BOOL {
-        if ([self _shouldToggleSelectionCommandsAfterTapAt:point])
-            return NO;
-        auto scrollView = tapGesture.lastTouchedScrollView;
-        return ![self _isPanningScrollViewOrAncestor:scrollView] && ![self _isInterruptingDecelerationForScrollViewOrAncestor:scrollView];
+    auto ignoreTapGestureReason = [&](WKScrollViewTrackingTapGestureRecognizer *tapGesture) -> WebKit::IgnoreTapGestureReason {
+        if ([self _shouldToggleEditMenuAfterTapAt:point])
+            return WebKit::IgnoreTapGestureReason::ToggleEditMenu;
+
+        RetainPtr scrollView = [tapGesture lastTouchedScrollView];
+        if ([self _isPanningScrollViewOrAncestor:scrollView.get()] || [self _isInterruptingDecelerationForScrollViewOrAncestor:scrollView.get()])
+            return WebKit::IgnoreTapGestureReason::DeferToScrollView;
+
+        return WebKit::IgnoreTapGestureReason::None;
     };
 
-    if (gestureRecognizer == _singleTapGestureRecognizer)
-        return shouldAcknowledgeTap(_singleTapGestureRecognizer.get());
+    if (gestureRecognizer == _singleTapGestureRecognizer) {
+        switch (ignoreTapGestureReason(_singleTapGestureRecognizer.get())) {
+        case WebKit::IgnoreTapGestureReason::ToggleEditMenu:
+            _page->clearSelectionAfterTappingSelectionHighlightIfNeeded(point);
+            FALLTHROUGH;
+        case WebKit::IgnoreTapGestureReason::DeferToScrollView:
+            return NO;
+        case WebKit::IgnoreTapGestureReason::None:
+            return YES;
+        }
+    }
 
     if (gestureRecognizer == _keyboardDismissalGestureRecognizer) {
         auto tapIsInEditableRoot = [&] {
@@ -3339,7 +3355,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return self._hasFocusedElement
             && !self.hasHiddenContentEditable
             && !tapIsInEditableRoot()
-            && shouldAcknowledgeTap(_keyboardDismissalGestureRecognizer.get());
+            && ignoreTapGestureReason(_keyboardDismissalGestureRecognizer.get()) == WebKit::IgnoreTapGestureReason::None;
     }
 
     if (gestureRecognizer == _doubleTapGestureRecognizerForDoubleClick) {
@@ -3707,6 +3723,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RELEASE_LOG(ViewGestures, "Ending potential tap. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     _potentialTapInProgress = NO;
+}
+
+- (BOOL)isPotentialTapInProgress
+{
+    return _potentialTapInProgress;
 }
 
 - (void)_singleTapIdentified:(UITapGestureRecognizer *)gestureRecognizer
@@ -8890,13 +8911,13 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     if (!editorState.hasPostLayoutAndVisualData())
         return;
 
-    BOOL editableRootIsTransparentOrFullyClipped = NO;
+    BOOL selectionIsTransparentOrFullyClipped = NO;
     BOOL focusedElementIsTooSmall = NO;
     if (!editorState.selectionIsNone) {
         auto& postLayoutData = *editorState.postLayoutData;
         auto& visualData = *editorState.visualData;
-        if (postLayoutData.editableRootIsTransparentOrFullyClipped)
-            editableRootIsTransparentOrFullyClipped = YES;
+        if (postLayoutData.selectionIsTransparentOrFullyClipped)
+            selectionIsTransparentOrFullyClipped = YES;
 
         if (self._hasFocusedElement) {
             auto elementArea = visualData.editableRootBounds.area<RecordOverflow>();
@@ -8905,10 +8926,10 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         }
     }
 
-    if (editableRootIsTransparentOrFullyClipped)
-        [self _startSuppressingSelectionAssistantForReason:WebKit::EditableRootIsTransparentOrFullyClipped];
+    if (selectionIsTransparentOrFullyClipped)
+        [self _startSuppressingSelectionAssistantForReason:WebKit::SelectionIsTransparentOrFullyClipped];
     else
-        [self _stopSuppressingSelectionAssistantForReason:WebKit::EditableRootIsTransparentOrFullyClipped];
+        [self _stopSuppressingSelectionAssistantForReason:WebKit::SelectionIsTransparentOrFullyClipped];
 
     if (focusedElementIsTooSmall)
         [self _startSuppressingSelectionAssistantForReason:WebKit::FocusedElementIsTooSmall];
@@ -9087,7 +9108,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 
 - (BOOL)hasHiddenContentEditable
 {
-    return _suppressSelectionAssistantReasons.containsAny({ WebKit::EditableRootIsTransparentOrFullyClipped, WebKit::FocusedElementIsTooSmall });
+    return _suppressSelectionAssistantReasons.containsAny({ WebKit::SelectionIsTransparentOrFullyClipped, WebKit::FocusedElementIsTooSmall });
 }
 
 - (BOOL)_shouldSuppressSelectionCommands
@@ -15294,7 +15315,5 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 @end
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // PLATFORM(IOS_FAMILY)

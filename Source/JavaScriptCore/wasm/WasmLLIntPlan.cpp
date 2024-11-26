@@ -44,6 +44,8 @@
 #include <wtf/GraphNodeWorklist.h>
 #include <wtf/text/MakeString.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace Wasm {
 
 LLIntPlan::LLIntPlan(VM& vm, Vector<uint8_t>&& source, CompilerMode compilerMode, CompletionTask&& task)
@@ -134,7 +136,7 @@ void LLIntPlan::compileFunction(FunctionCodeIndex functionIndex)
         auto callee = LLIntCallee::create(*m_wasmInternalFunctions[functionIndex], functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace));
         ASSERT(!callee->entrypoint());
 
-        if (Options::useJIT()) {
+        if (Options::useWasmJIT()) {
 #if ENABLE(JIT)
             if (m_moduleInformation->usesSIMD(functionIndex))
                 callee->setEntrypoint(LLInt::wasmFunctionEntryThunkSIMD().retaggedCode<WasmEntryPtrTag>());
@@ -289,5 +291,7 @@ void LLIntPlan::computeTransitiveTailCalls() const
     }
 }
 } } // namespace JSC::Wasm
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

@@ -34,11 +34,6 @@ class ProgramPrelude : public TIntermTraverser
         mOut << "#include <metal_stdlib>\n\n";
         ALWAYS_INLINE();
         int_clamp();
-        if (ppc.hasStructEq)
-        {
-            equalVector();
-            equalMatrix();
-        }
 
         switch (ppc.shaderType)
         {
@@ -65,12 +60,7 @@ class ProgramPrelude : public TIntermTraverser
                 break;
         }
 
-#if 1
-        mOut << "#define ANGLE_tensor metal::array\n";
         mOut << "#pragma clang diagnostic ignored \"-Wunused-value\"\n";
-#else
-        tensor();
-#endif
     }
 
   private:
@@ -115,10 +105,6 @@ class ProgramPrelude : public TIntermTraverser
     void transform_feedback_guard();
 
     void enable_if();
-    void scalar_of();
-    void is_scalar();
-    void is_vector();
-    void is_matrix();
     void addressof();
     void distanceScalar();
     void faceforwardScalar();
@@ -127,6 +113,15 @@ class ProgramPrelude : public TIntermTraverser
     void degrees();
     void radians();
     void mod();
+    void div();
+    void imod();
+    void imul();
+    void iadd();
+    void isub();
+    void ilshift();
+    void ulshift();
+    void rshift();
+    void ftoi();
     void mixBool();
     void postIncrementMatrix();
     void preIncrementMatrix();
@@ -142,11 +137,8 @@ class ProgramPrelude : public TIntermTraverser
     void subMatrixScalar();
     void subScalarMatrix();
     void divMatrixScalar();
-    void divMatrixScalarFast();
     void divMatrixScalarAssign();
-    void divMatrixScalarAssignFast();
     void divScalarMatrix();
-    void tensor();
     void componentWiseDivide();
     void componentWiseDivideAssign();
     void componentWiseMultiply();
@@ -343,89 +335,6 @@ template <bool B>
 using ANGLE_enable_if_t = typename ANGLE_enable_if<B>::type;
 )")
 
-PROGRAM_PRELUDE_DECLARE(scalar_of, R"(
-template <typename T>
-struct ANGLE_scalar_of
-{
-    using type = T;
-};
-template <typename T>
-using ANGLE_scalar_of_t = typename ANGLE_scalar_of<T>::type;
-)")
-
-PROGRAM_PRELUDE_DECLARE(is_scalar, R"(
-template <typename T>
-struct ANGLE_is_scalar {};
-#define ANGLE_DEFINE_SCALAR(scalar) \
-    template <> struct ANGLE_is_scalar<scalar> { enum { value = true }; }
-ANGLE_DEFINE_SCALAR(bool);
-ANGLE_DEFINE_SCALAR(char);
-ANGLE_DEFINE_SCALAR(short);
-ANGLE_DEFINE_SCALAR(int);
-ANGLE_DEFINE_SCALAR(uchar);
-ANGLE_DEFINE_SCALAR(ushort);
-ANGLE_DEFINE_SCALAR(uint);
-ANGLE_DEFINE_SCALAR(half);
-ANGLE_DEFINE_SCALAR(float);
-)")
-
-PROGRAM_PRELUDE_DECLARE(is_vector,
-                        R"(
-template <typename T>
-struct ANGLE_is_vector
-{
-    enum { value = false };
-};
-#define ANGLE_DEFINE_VECTOR(scalar) \
-    template <> struct ANGLE_is_vector<metal::scalar ## 2> { enum { value = true }; }; \
-    template <> struct ANGLE_is_vector<metal::scalar ## 3> { enum { value = true }; }; \
-    template <> struct ANGLE_is_vector<metal::scalar ## 4> { enum { value = true }; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 2> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 3> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 4> { using type = scalar; }
-ANGLE_DEFINE_VECTOR(bool);
-ANGLE_DEFINE_VECTOR(char);
-ANGLE_DEFINE_VECTOR(short);
-ANGLE_DEFINE_VECTOR(int);
-ANGLE_DEFINE_VECTOR(uchar);
-ANGLE_DEFINE_VECTOR(ushort);
-ANGLE_DEFINE_VECTOR(uint);
-ANGLE_DEFINE_VECTOR(half);
-ANGLE_DEFINE_VECTOR(float);
-)",
-                        scalar_of())
-
-PROGRAM_PRELUDE_DECLARE(is_matrix,
-                        R"(
-template <typename T>
-struct ANGLE_is_matrix
-{
-    enum { value = false };
-};
-#define ANGLE_DEFINE_MATRIX(scalar) \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 2x2> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 2x3> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 2x4> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 3x2> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 3x3> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 3x4> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 4x2> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 4x3> { enum { value = true }; }; \
-    template <> struct ANGLE_is_matrix<metal::scalar ## 4x4> { enum { value = true }; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 2x2> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 2x3> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 2x4> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 3x2> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 3x3> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 3x4> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 4x2> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 4x3> { using type = scalar; }; \
-    template <> struct ANGLE_scalar_of<metal::scalar ## 4x4> { using type = scalar; }
-ANGLE_DEFINE_MATRIX(half);
-ANGLE_DEFINE_MATRIX(float);
-)",
-                        scalar_of())
-
 PROGRAM_PRELUDE_DECLARE(addressof,
                         R"(
 template <typename T>
@@ -528,6 +437,134 @@ template <typename X, typename Y>
 ANGLE_ALWAYS_INLINE X ANGLE_mod(X x, Y y)
 {
     return x - y * metal::floor(x / y);
+}
+)")
+
+// Avoid undefined behavior when:
+// - the divisor is 0
+// - the dividend is INT_MIN and the divisor is -1 (integer overflow)
+// When the behavior would be undefined the result is `x`.
+PROGRAM_PRELUDE_DECLARE(div,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_div(X x, Y y)
+{
+    auto predicate = X(y) == X(0);
+    if constexpr (metal::is_signed_v<X>)
+    {
+        predicate = predicate || (x == X(metal::numeric_limits<X>::lowest()) && X(y) == X(-1));
+    }
+    return x / metal::select(X(y), X(1), predicate);
+}
+)")
+
+// Avoid undefined behavior when:
+// - the divisor is 0
+// - the dividend is INT_MIN and the divisor is -1 (integer overflow)
+// - either of the operands is negative (undefined behavior in Metal)
+// When the behavior would be undefined the result is 0.
+PROGRAM_PRELUDE_DECLARE(imod,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_imod(X x, Y y)
+{
+    if constexpr (metal::is_signed_v<X>) {
+        X y_or_one = metal::select(X(y), X(1), ((X(y) == X(0)) | ((x == X(metal::numeric_limits<X>::lowest())) & (X(y) == X(-1)))));
+        if (metal::any((X(x | y_or_one) & X(2147483648u)) != X(0u)))
+        {
+            return as_type<X>(
+                as_type<metal::make_unsigned_t<X>>(x) - as_type<metal::make_unsigned_t<X>>(x / y_or_one) * as_type<metal::make_unsigned_t<X>>(y_or_one)
+            );
+        }
+        else
+        {
+            return x % y_or_one;
+        }
+    }
+    else
+    {
+        return x % metal::select(X(y), X(1u), X(y) == X(0u));
+    }
+}
+)")
+
+// Avoid undefined behavior when the operand is outside the range of values that can be represented.
+// When the behavior would be undefined the value is clamped to fit the target type.
+PROGRAM_PRELUDE_DECLARE(ftoi,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_ftoi(Y y)
+{
+    auto min = metal::numeric_limits<X>::min();
+    auto max = metal::numeric_limits<X>::max();
+    return X(metal::clamp(y, Y(min), Y(max)));
+}
+)")
+
+// Avoid undefined behavior due to integer overflow
+PROGRAM_PRELUDE_DECLARE(imul,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_imul(X x, Y y)
+{
+    return as_type<X>(as_type<metal::make_unsigned_t<X>>(x) * as_type<metal::make_unsigned_t<Y>>(y));
+}
+)")
+
+// Avoid undefined behavior due to integer overflow
+PROGRAM_PRELUDE_DECLARE(iadd,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_iadd(X x, Y y)
+{
+    return as_type<X>(as_type<metal::make_unsigned_t<X>>(x) + as_type<metal::make_unsigned_t<Y>>(y));
+}
+)")
+
+// Avoid undefined behavior due to integer underflow
+PROGRAM_PRELUDE_DECLARE(isub,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_isub(X x, Y y)
+{
+    return as_type<X>(as_type<metal::make_unsigned_t<X>>(x) - as_type<metal::make_unsigned_t<Y>>(y));
+}
+)")
+
+// Avoid undefined behavior in e1 << e2 when:
+// 1) e2 is larger than the bit width of the type
+// 2) e2 is a negative value.
+// 3) e1 is a negative value
+PROGRAM_PRELUDE_DECLARE(ilshift,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_ilshift(X x, Y y)
+{
+    return as_type<X>(metal::select(metal::make_unsigned_t<X>(0), as_type<metal::make_unsigned_t<X>>(x) << (y & Y(31)), as_type<metal::make_unsigned_t<Y>>(y) < metal::make_unsigned_t<Y>(32)));
+}
+)")
+
+// Avoid undefined behavior in e1 << e2 when:
+// 1) e2 is larger than the bit width of the type
+// 2) e2 is a negative value.
+PROGRAM_PRELUDE_DECLARE(ulshift,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_ulshift(X x, Y y)
+{
+    return metal::select(X(0), x << (y & Y(31)), as_type<metal::make_unsigned_t<Y>>(y) < metal::make_unsigned_t<Y>(32));
+}
+)")
+
+// Avoid undefined behavior in e1 >> e2 when:
+// 1) e2 is larger than the bit width of the type
+// 2) e2 is a negative value.
+PROGRAM_PRELUDE_DECLARE(rshift,
+                        R"(
+template <typename X, typename Y>
+ANGLE_ALWAYS_INLINE X ANGLE_rshift(X x, Y y)
+{
+    return metal::select(X(0), x >> (y & Y(31)), as_type<metal::make_unsigned_t<Y>>(y) < metal::make_unsigned_t<Y>(32));
 }
 )")
 
@@ -698,20 +735,6 @@ ANGLE_ALWAYS_INLINE metal::matrix<T, Cols, Rows> operator-(T x, metal::matrix<T,
 }
 )")
 
-PROGRAM_PRELUDE_DECLARE(divMatrixScalarAssignFast,
-                        R"(
-template <typename T, int Cols, int Rows>
-ANGLE_ALWAYS_INLINE thread metal::matrix<T, Cols, Rows> &operator/=(thread metal::matrix<T, Cols, Rows> &m, T x)
-{
-    x = T(1) / x;
-    for (size_t col = 0; col < Cols; ++col)
-    {
-        m[col] *= x;
-    }
-    return m;
-}
-)")
-
 PROGRAM_PRELUDE_DECLARE(divMatrixScalarAssign,
                         R"(
 template <typename T, int Cols, int Rows>
@@ -724,19 +747,6 @@ ANGLE_ALWAYS_INLINE thread metal::matrix<T, Cols, Rows> &operator/=(thread metal
     return m;
 }
 )")
-
-PROGRAM_PRELUDE_DECLARE(divMatrixScalarFast,
-                        R"(
-#if __METAL_VERSION__ <= 220
-template <typename T, int Cols, int Rows>
-ANGLE_ALWAYS_INLINE metal::matrix<T, Cols, Rows> operator/(metal::matrix<T, Cols, Rows> m, T x)
-{
-    m /= x;
-    return m;
-}
-#endif
-)",
-                        divMatrixScalarAssignFast())
 
 PROGRAM_PRELUDE_DECLARE(divMatrixScalar,
                         R"(
@@ -1270,42 +1280,6 @@ ANGLE_ALWAYS_INLINE metal::matrix<T, C1, R1> ANGLE_cast(metal::matrix<T, C2, R2>
                         enable_if(),
                         castVector())
 
-PROGRAM_PRELUDE_DECLARE(tensor, R"(
-template <typename T, size_t... DS>
-struct ANGLE_tensor_traits;
-template <typename T, size_t D>
-struct ANGLE_tensor_traits<T, D>
-{
-    enum : size_t { outer_dim = D };
-    using inner_type = T;
-    using outer_type = inner_type[D];
-};
-template <typename T, size_t D, size_t... DS>
-struct ANGLE_tensor_traits<T, D, DS...>
-{
-    enum : size_t { outer_dim = D };
-    using inner_type = typename ANGLE_tensor_traits<T, DS...>::outer_type;
-    using outer_type = inner_type[D];
-};
-template <size_t D, typename value_type_, typename inner_type_>
-struct ANGLE_tensor_impl
-{
-    enum : size_t { outer_dim = D };
-    using value_type = value_type_;
-    using inner_type = inner_type_;
-    using outer_type = inner_type[D];
-    outer_type _data;
-    ANGLE_ALWAYS_INLINE size_t size() const { return outer_dim; }
-    ANGLE_ALWAYS_INLINE inner_type &operator[](size_t i) { return _data[i]; }
-    ANGLE_ALWAYS_INLINE const inner_type &operator[](size_t i) const { return _data[i]; }
-};
-template <typename T, size_t... DS>
-using ANGLE_tensor = ANGLE_tensor_impl<
-    ANGLE_tensor_traits<T, DS...>::outer_dim,
-    T,
-    typename ANGLE_tensor_traits<T, DS...>::inner_type>;
-)")
-
 PROGRAM_PRELUDE_DECLARE(textureEnv,
                         R"(
 template <typename T>
@@ -1534,11 +1508,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture(
     metal::float3 const coord,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::bias(bias));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, coord.z);
-#endif
 }
 )",
                         textureEnv())
@@ -1561,11 +1531,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture(
     metal::float4 const coord,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::bias(bias));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w);
-#endif
 }
 )",
                         textureEnv())
@@ -1588,11 +1554,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_texture(
     metal::float4 const coord,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w, metal::bias(bias));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w);
-#endif
 }
 )",
                         textureEnv())
@@ -1921,7 +1883,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGrad(
     metal::float2 const dPdx,
     metal::float2 const dPdy)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::gradient2d(dPdx, dPdy));
@@ -1932,9 +1893,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGrad(
         const float lod = 0.5 * metal::log2(metal::max(metal::length_squared(dPdx * dims), metal::length_squared(dPdy * dims)));
         return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(lod));
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(0));
-#endif
 }
 )",
                         functionConstants(),
@@ -1948,7 +1906,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGrad(
     metal::float2 const dPdx,
     metal::float2 const dPdy)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::gradient2d(dPdx, dPdy));
@@ -1959,9 +1916,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGrad(
         const float lod = 0.5 * metal::log2(metal::max(metal::length_squared(dPdx * dims), metal::length_squared(dPdy * dims)));
         return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(lod));
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(0));
-#endif
 }
 )",
                         functionConstants(),
@@ -1975,7 +1929,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGrad(
     metal::float3 const dPdx,
     metal::float3 const dPdy)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w, metal::gradientcube(dPdx, dPdy));
@@ -1993,9 +1946,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGrad(
         const float lod = -1.0 + 0.5 * metal::log2(dim * dim * metal::max(metal::length_squared(d.xy), metal::length_squared(d.zw)));
         return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w, metal::level(lod));
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w, metal::level(0));
-#endif
 }
 )",
                         functionConstants(),
@@ -2055,7 +2005,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGradOffset(
     metal::float2 const dPdy,
     metal::int2 const offset)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::gradient2d(dPdx, dPdy), offset);
@@ -2066,9 +2015,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGradOffset(
         const float lod = 0.5 * metal::log2(metal::max(metal::length_squared(dPdx * dims), metal::length_squared(dPdy * dims)));
         return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(lod), offset);
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(0), offset);
-#endif
 }
 )",
                         functionConstants(),
@@ -2083,7 +2029,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGradOffset(
     metal::float2 const dPdy,
     metal::int2 const offset)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::gradient2d(dPdx, dPdy), offset);
@@ -2094,9 +2039,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureGradOffset(
         const float lod = 0.5 * metal::log2(metal::max(metal::length_squared(dPdx * dims), metal::length_squared(dPdy * dims)));
         return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(lod), offset);
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(0), offset);
-#endif
 }
 )",
                         functionConstants(),
@@ -2148,11 +2090,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureLod(
     metal::float3 const coord,
     float const level)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(level));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(0));
-#endif
 }
 )",
                         textureEnv())
@@ -2177,11 +2115,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureLod(
     metal::float4 const coord,
     float const level)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w, metal::level(level));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xyz, coord.w, metal::level(0));
-#endif
 }
 )",
                         textureEnv())
@@ -2193,11 +2127,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureLod(
     metal::float4 const coord,
     float const level)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(level));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(0));
-#endif
 }
 )",
                         textureEnv())
@@ -2238,11 +2168,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureLodOffset(
     float const level,
     int2 const offset)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(level), offset);
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::level(0), offset);
-#endif
 }
 )",
                         textureEnv())
@@ -2269,11 +2195,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureLodOffset(
     float const level,
     metal::int2 const offset)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(level), offset);
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::level(0), offset);
-#endif
 }
 )",
                         textureEnv())
@@ -2379,11 +2301,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureOffset(
     metal::int2 const offset,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, metal::bias(bias), offset);
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, coord.z, offset);
-#endif
 }
 )",
                         textureEnv())
@@ -2408,11 +2326,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureOffset(
     metal::int2 const offset,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, metal::bias(bias), offset);
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy, uint32_t(metal::round(coord.z)), coord.w, offset);
-#endif
 }
 )",
                         textureEnv())
@@ -2510,11 +2424,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProj(
     metal::float4 const coord,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::bias(bias));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w);
-#endif
 }
 )",
                         textureEnv())
@@ -2555,7 +2465,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjGrad(
     metal::float2 const dPdx,
     metal::float2 const dPdy)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::gradient2d(dPdx, dPdy));
@@ -2566,9 +2475,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjGrad(
         const float lod = 0.5 * metal::log2(metal::max(metal::length_squared(dPdx * dims), metal::length_squared(dPdy * dims)));
         return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(lod));
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(0));
-#endif
 }
 )",
                         functionConstants(),
@@ -2627,7 +2533,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjGradOffset(
     metal::float2 const dPdy,
     int2 const offset)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     if (ANGLEUseSampleCompareGradient)
     {
         return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::gradient2d(dPdx, dPdy), offset);
@@ -2638,9 +2543,6 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjGradOffset(
         const float lod = 0.5 * metal::log2(metal::max(metal::length_squared(dPdx * dims), metal::length_squared(dPdy * dims)));
         return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(lod), offset);
     }
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(0), offset);
-#endif
 }
 )",
                         functionConstants(),
@@ -2694,11 +2596,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjLod(
     metal::float4 const coord,
     float const level)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(level));
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(0));
-#endif
 }
 )",
                         textureEnv())
@@ -2752,11 +2650,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjLodOffset(
     float const level,
     int2 const offset)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(level), offset);
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::level(0), offset);
-#endif
 }
 )",
                         textureEnv())
@@ -2876,11 +2770,7 @@ ANGLE_ALWAYS_INLINE auto ANGLE_textureProjOffset(
     int2 const offset,
     float const bias)
 {
-#if defined(__METAL_IOS__) || (__METAL_VERSION__ >= 230)
     return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, metal::bias(bias), offset);
-#else
-    return env.texture->sample_compare(*env.sampler, coord.xy/coord.w, coord.z/coord.w, offset);
-#endif
 }
 )",
                         textureEnv())
@@ -3520,6 +3410,10 @@ void ProgramPrelude::visitOperator(TOperator op,
         case TOperator::EOpMod:
             mod();
             break;
+        case TOperator::EOpIModAssign:
+        case TOperator::EOpIMod:
+            imod();
+            break;
         case TOperator::EOpRefract:
             if (argType0->isScalar())
             {
@@ -3663,6 +3557,7 @@ void ProgramPrelude::visitOperator(TOperator op,
             break;
 
         case TOperator::EOpAdd:
+        case TOperator::EOpAddAssign:
             if (argType0->isMatrix() && argType1->isScalar())
             {
                 addMatrixScalar();
@@ -3671,16 +3566,14 @@ void ProgramPrelude::visitOperator(TOperator op,
             {
                 addScalarMatrix();
             }
-            break;
-
-        case TOperator::EOpAddAssign:
-            if (argType0->isMatrix() && argType1->isScalar())
+            if (argType0->isSignedIntegerValue())
             {
-                addMatrixScalarAssign();
+                iadd();
             }
             break;
 
         case TOperator::EOpSub:
+        case TOperator::EOpSubAssign:
             if (argType0->isMatrix() && argType1->isScalar())
             {
                 subMatrixScalar();
@@ -3689,16 +3582,22 @@ void ProgramPrelude::visitOperator(TOperator op,
             {
                 subScalarMatrix();
             }
+            if (argType0->isSignedIntegerValue())
+            {
+                isub();
+            }
             break;
 
-        case TOperator::EOpSubAssign:
-            if (argType0->isMatrix() && argType1->isScalar())
+        case TOperator::EOpMul:
+        case TOperator::EOpMulAssign:
+            if (argType0->isSignedIntegerValue())
             {
-                subMatrixScalarAssign();
+                imul();
             }
             break;
 
         case TOperator::EOpDiv:
+        case TOperator::EOpDivAssign:
             if (argType0->isMatrix())
             {
                 if (argType1->isMatrix())
@@ -3710,25 +3609,16 @@ void ProgramPrelude::visitOperator(TOperator op,
                     divMatrixScalar();
                 }
             }
-            if (argType0->isScalar() && argType1->isMatrix())
+            else if (op == TOperator::EOpDiv && argType0->isScalar() && argType1->isMatrix())
             {
                 divScalarMatrix();
             }
-            break;
-
-        case TOperator::EOpDivAssign:
-            if (argType0->isMatrix())
+            else
             {
-                if (argType1->isMatrix())
-                {
-                    componentWiseDivideAssign();
-                }
-                else if (argType1->isScalar())
-                {
-                    divMatrixScalarAssign();
-                }
+                div();
             }
             break;
+
 
         case TOperator::EOpMatrixCompMult:
             if (argType0->isMatrix() && argType1->isMatrix())
@@ -3797,20 +3687,31 @@ void ProgramPrelude::visitOperator(TOperator op,
             }
             break;
 
+        case TOperator::EOpBitShiftLeft:
+        case TOperator::EOpBitShiftLeftAssign:
+        {
+            if (argType0->isSignedIntegerValue())
+            {
+                ilshift();
+            }
+            else
+            {
+                ulshift();
+            }
+            break;
+        }
+
+        case TOperator::EOpBitShiftRight:
+        case TOperator::EOpBitShiftRightAssign:
+            rshift();
+            break;
+
         case TOperator::EOpComma:
         case TOperator::EOpAssign:
         case TOperator::EOpInitialize:
-        case TOperator::EOpMulAssign:
-        case TOperator::EOpIModAssign:
-        case TOperator::EOpBitShiftLeftAssign:
-        case TOperator::EOpBitShiftRightAssign:
         case TOperator::EOpBitwiseAndAssign:
         case TOperator::EOpBitwiseXorAssign:
         case TOperator::EOpBitwiseOrAssign:
-        case TOperator::EOpMul:
-        case TOperator::EOpIMod:
-        case TOperator::EOpBitShiftLeft:
-        case TOperator::EOpBitShiftRight:
         case TOperator::EOpBitwiseAnd:
         case TOperator::EOpBitwiseXor:
         case TOperator::EOpBitwiseOr:
@@ -3999,6 +3900,17 @@ bool ProgramPrelude::visitAggregate(Visit visit, TIntermAggregate *node)
     };
 
     const TFunction *func = node->getFunction();
+
+    if (node->isConstructor() && argCount == 1)
+    {
+        const TType &retType = node->getType();
+        const TType &argType = getArgType(0);
+        if (((retType.isScalar() || retType.isVector()) && IsInteger(retType.getBasicType())) &&
+            ((argType.isScalar() || argType.isVector()) && argType.getBasicType() == EbtFloat))
+        {
+            ftoi();
+        }
+    }
 
     switch (node->getChildCount())
     {

@@ -26,6 +26,8 @@
 #include "config.h"
 #include <wtf/threads/Signals.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #if OS(UNIX)
 
 #if HAVE(MACH_EXCEPTIONS)
@@ -92,7 +94,7 @@ void SignalHandlers::add(Signal signal, SignalHandler&& handler)
 }
 
 template<typename Func>
-inline void SignalHandlers::forEachHandler(Signal signal, const Func& func) const
+inline void SignalHandlers::forEachHandler(Signal signal, NOESCAPE const Func& func) const
 {
     size_t signalIndex = static_cast<size_t>(signal);
     size_t handlerIndex = numberOfHandlers[signalIndex];
@@ -610,3 +612,5 @@ void SignalHandlers::finalize()
 } // namespace WTF
 
 #endif // OS(UNIX)
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -141,16 +141,12 @@ public:
         WebCore::FloatRoundedRect backdropFiltersRect;
 
         RefPtr<WebCore::TextureMapperPlatformLayerProxy> contentLayer;
-        struct {
-            RefPtr<WebCore::CoordinatedBackingStoreProxy::Update> update;
-            bool shouldHaveBackingStore { false };
-            float scale { 1 };
-        } backingStore;
+        RefPtr<WebCore::CoordinatedBackingStoreProxy> backingStore;
+        RefPtr<WebCore::CoordinatedAnimatedBackingStoreClient> animatedBackingStoreClient;
         struct {
             RefPtr<WebCore::CoordinatedImageBackingStore> store;
             bool isVisible { false };
         } imageBacking;
-        RefPtr<WebCore::CoordinatedAnimatedBackingStoreClient> animatedBackingStoreClient;
 
         struct RepaintCounter {
             unsigned count { 0 };
@@ -232,17 +228,8 @@ public:
         if (pending.delta.eventRegionChanged)
             staging.eventRegion = pending.eventRegion;
 
-        if (pending.delta.backingStoreChanged) {
-            if (staging.backingStore.update)
-                staging.backingStore.update->appendUpdate(pending.backingStore.update);
-            else
-                staging.backingStore.update = pending.backingStore.update;
-            pending.backingStore.update = nullptr;
-
-            staging.backingStore.shouldHaveBackingStore = pending.backingStore.shouldHaveBackingStore;
-            staging.backingStore.scale = pending.backingStore.scale;
-        }
-
+        if (pending.delta.backingStoreChanged)
+            staging.backingStore = pending.backingStore;
         if (pending.delta.contentLayerChanged)
             staging.contentLayer = pending.contentLayer;
         if (pending.delta.imageBackingChanged)
@@ -270,13 +257,6 @@ public:
     {
         Locker locker { PlatformLayer::m_state.lock };
         functor(m_state.pending);
-    }
-
-    template<typename T>
-    void accessStaging(const T& functor)
-    {
-        Locker locker { PlatformLayer::m_state.lock };
-        functor(m_state.staging);
     }
 
     template<typename T>

@@ -199,12 +199,12 @@ private:
         return true;
     }
 
-    UncheckedKeyHashMap<WTF::String, bool> notificationPermissions() final
+    HashMap<WTF::String, bool> notificationPermissions() final
     {
         if (!m_hasNotificationPermissionsSelector || !m_delegate || !m_dataStore)
             return { };
 
-        UncheckedKeyHashMap<WTF::String, bool> result;
+        HashMap<WTF::String, bool> result;
         NSDictionary<NSString *, NSNumber *> *permissions = [m_delegate.getAutoreleased() notificationPermissionsForWebsiteDataStore:m_dataStore.getAutoreleased()];
         for (NSString *key in permissions) {
             NSNumber *value = permissions[key];
@@ -553,9 +553,9 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         uuid_t proxyIdentifier;
         nw_proxy_config_get_identifier(proxyConfig, proxyIdentifier);
 
-        configDataVector.append({ makeVector(agentData.get()), WTF::UUID(proxyIdentifier) });
+        configDataVector.append({ makeVector(agentData.get()), WTF::UUID(std::span<const uint8_t, 16> { proxyIdentifier }) });
     }
-    
+
     _websiteDataStore->setProxyConfigData(WTFMove(configDataVector));
 }
 
@@ -1416,6 +1416,14 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         RELEASE_LOG_ERROR(Push, "Unhandled webPushAction: %@", webPushAction);
         completionHandler();
     }
+}
+
+- (void)_runningOrTerminatingServiceWorkerCountForTesting:(void(^)(NSUInteger))completionHandler
+{
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    _websiteDataStore->runningOrTerminatingServiceWorkerCountForTesting([completionHandlerCopy = WTFMove(completionHandlerCopy)](auto result) {
+        completionHandlerCopy(result);
+    });
 }
 
 @end

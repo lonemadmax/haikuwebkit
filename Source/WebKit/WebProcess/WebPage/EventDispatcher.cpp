@@ -196,10 +196,10 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
-void EventDispatcher::gestureEvent(FrameIdentifier frameID, PageIdentifier pageID, const WebGestureEvent& gestureEvent, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<RemoteUserInputEventData>)>&& completionHandler)
+void EventDispatcher::gestureEvent(FrameIdentifier frameID, PageIdentifier pageID, const WebGestureEvent& gestureEvent)
 {
-    RunLoop::main().dispatch([this, frameID, pageID, gestureEvent, completionHandler = WTFMove(completionHandler)] () mutable {
-        dispatchGestureEvent(frameID, pageID, gestureEvent, WTFMove(completionHandler));
+    RunLoop::main().dispatch([this, frameID, pageID, gestureEvent] mutable {
+        dispatchGestureEvent(frameID, pageID, gestureEvent);
     });
 }
 #endif
@@ -252,7 +252,7 @@ void EventDispatcher::dispatchTouchEvents()
 {
     TraceScope traceScope(DispatchTouchEventsStart, DispatchTouchEventsEnd);
 
-    UncheckedKeyHashMap<PageIdentifier, UniqueRef<TouchEventQueue>> localCopy;
+    HashMap<PageIdentifier, UniqueRef<TouchEventQueue>> localCopy;
     {
         Locker locker { m_touchEventsLock };
         localCopy.swap(m_touchEvents);
@@ -290,15 +290,15 @@ void EventDispatcher::dispatchWheelEvent(PageIdentifier pageID, const WebWheelEv
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
-void EventDispatcher::dispatchGestureEvent(FrameIdentifier frameID, PageIdentifier pageID, const WebGestureEvent& gestureEvent, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<RemoteUserInputEventData>)>&& completionHandler)
+void EventDispatcher::dispatchGestureEvent(FrameIdentifier frameID, PageIdentifier pageID, const WebGestureEvent& gestureEvent)
 {
     ASSERT(RunLoop::isMain());
 
     RefPtr webPage = WebProcess::singleton().webPage(pageID);
     if (!webPage)
-        return completionHandler(gestureEvent.type(), false, std::nullopt);
+        return;
 
-    webPage->gestureEvent(frameID, gestureEvent, WTFMove(completionHandler));
+    webPage->gestureEvent(frameID, gestureEvent);
 }
 #endif
 

@@ -61,6 +61,7 @@
 #include "RenderSVGRoot.h"
 #include "RenderStyleInlines.h"
 #include "RenderTreeBuilder.h"
+#include "RenderViewTransitionRoot.h"
 #include "RenderWidget.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
@@ -110,8 +111,11 @@ void RenderView::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
 {
     RenderBlockFlow::styleDidChange(diff, oldStyle);
 
-    bool writingModeChanged = oldStyle && style().writingMode() != oldStyle->writingMode();
-    bool directionChanged = oldStyle && style().direction() != oldStyle->direction();
+    if (!oldStyle)
+        return;
+
+    bool writingModeChanged = writingMode().computedWritingMode() != oldStyle->writingMode().computedWritingMode();
+    bool directionChanged = writingMode().bidiDirection() != oldStyle->writingMode().bidiDirection();
 
     if ((writingModeChanged || directionChanged) && multiColumnFlow()) {
         if (protectedFrameView()->pagination().mode != Pagination::Mode::Unpaginated)
@@ -130,7 +134,7 @@ RenderBox::LogicalExtentComputedValues RenderView::computeLogicalHeight(LayoutUn
 
 inline int RenderView::viewLogicalWidth() const
 {
-    return style().isHorizontalWritingMode() ? viewWidth() : viewHeight();
+    return writingMode().isHorizontal() ? viewWidth() : viewHeight();
 }
 
 void RenderView::updateLogicalWidth()
@@ -231,7 +235,6 @@ LayoutUnit RenderView::pageOrViewLogicalHeight() const
 
 LayoutUnit RenderView::clientLogicalWidthForFixedPosition() const
 {
-    // FIXME: If the FrameView's fixedVisibleContentRect() is not empty, perhaps it should be consulted here too?
     Ref frameView = this->frameView();
     if (frameView->fixedElementsLayoutRelativeToFrame())
         return LayoutUnit((isHorizontalWritingMode() ? frameView->visibleWidth() : frameView->visibleHeight()) / frameView->frame().frameScaleFactor());
@@ -249,7 +252,6 @@ LayoutUnit RenderView::clientLogicalWidthForFixedPosition() const
 
 LayoutUnit RenderView::clientLogicalHeightForFixedPosition() const
 {
-    // FIXME: If the FrameView's fixedVisibleContentRect() is not empty, perhaps it should be consulted here too?
     Ref frameView = this->frameView();
     if (frameView->fixedElementsLayoutRelativeToFrame())
         return LayoutUnit((isHorizontalWritingMode() ? frameView->visibleHeight() : frameView->visibleWidth()) / frameView->frame().frameScaleFactor());
@@ -565,10 +567,10 @@ auto RenderView::computeVisibleRectsInContainer(const RepaintRects& rects, const
         return rects;
 
     auto adjustedRects = rects;
-    if (style().isFlippedBlocksWritingMode()) {
+    if (writingMode().isBlockFlipped()) {
         // We have to flip by hand since the view's logical height has not been determined.  We
         // can use the viewport width and height.
-        adjustedRects.flipForWritingMode(LayoutSize(viewWidth(), viewHeight()), style().isHorizontalWritingMode());
+        adjustedRects.flipForWritingMode(LayoutSize(viewWidth(), viewHeight()), writingMode().isHorizontal());
     }
 
     if (context.hasPositionFixedDescendant)
@@ -738,7 +740,7 @@ int RenderView::viewWidth() const
 
 int RenderView::viewLogicalHeight() const
 {
-    int height = style().isHorizontalWritingMode() ? viewHeight() : viewWidth();
+    int height = writingMode().isHorizontal() ? viewHeight() : viewWidth();
     return height;
 }
 
@@ -1109,12 +1111,12 @@ SingleThreadWeakHashSet<RenderCounter> RenderView::takeCountersNeedingUpdate()
     return std::exchange(m_countersNeedingUpdate, { });
 }
 
-SingleThreadWeakPtr<RenderElement> RenderView::viewTransitionRoot() const
+SingleThreadWeakPtr<RenderViewTransitionRoot> RenderView::viewTransitionRoot() const
 {
     return m_viewTransitionRoot;
 }
 
-void RenderView::setViewTransitionRoot(RenderElement& renderer)
+void RenderView::setViewTransitionRoot(RenderViewTransitionRoot& renderer)
 {
     m_viewTransitionRoot = renderer;
 }

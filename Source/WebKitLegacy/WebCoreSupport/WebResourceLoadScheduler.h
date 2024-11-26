@@ -40,6 +40,11 @@
 
 class WebResourceLoadScheduler;
 
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebResourceLoadScheduler> : std::true_type { };
+}
+
 WebResourceLoadScheduler& webResourceLoadScheduler();
 
 class WebResourceLoadScheduler final : public WebCore::LoaderStrategy {
@@ -121,7 +126,7 @@ private:
     CheckedPtr<HostInformation> hostForURL(const URL&, CreateHostPolicy = FindOnly);
     void servePendingRequests(CheckedRef<HostInformation>&&, WebCore::ResourceLoadPriority);
 
-    typedef UncheckedKeyHashMap<String, std::unique_ptr<HostInformation>, StringHash> HostMap;
+    typedef HashMap<String, std::unique_ptr<HostInformation>, StringHash> HostMap;
     HostMap m_hosts;
     UniqueRef<HostInformation> m_nonHTTPProtocolHost;
         

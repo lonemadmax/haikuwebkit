@@ -64,6 +64,8 @@
 
 IGNORE_WARNINGS_BEGIN("frame-address")
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 namespace Wasm {
 
@@ -703,6 +705,15 @@ void loadValuesIntoBuffer(Probe::Context& context, const StackMap& values, uint6
     for (unsigned index = 0; index < values.size(); ++index) {
         const OSREntryValue& value = values[index];
         dataLogLnIf(Options::verboseOSR() || WasmOperationsInternal::verbose, "OMG OSR entry values[", index, "] ", value.type(), " ", value);
+#if USE(JSVALUE32_64)
+        if (value.isRegPair(B3::ValueRep::OSRValueRep)) {
+            bitwise_cast<uint32_t*>(buffer + index * valueSize)[0] = context.gpr(value.gprLo(B3::ValueRep::OSRValueRep));
+            bitwise_cast<uint32_t*>(buffer + index * valueSize)[1] = context.gpr(value.gprHi(B3::ValueRep::OSRValueRep));
+            dataLogLnIf(WasmOperationsInternal::verbose, "GPR Pair for value ", index, " ",
+                value.gprLo(B3::ValueRep::OSRValueRep), " = ", context.gpr(value.gprLo(B3::ValueRep::OSRValueRep)), " ",
+                value.gprHi(B3::ValueRep::OSRValueRep), " = ", context.gpr(value.gprHi(B3::ValueRep::OSRValueRep)));
+        } else
+#endif
         if (value.isGPR()) {
             switch (value.type().kind()) {
             case B3::Float:
@@ -749,11 +760,12 @@ void loadValuesIntoBuffer(Probe::Context& context, const StackMap& values, uint6
             auto* baseLoad = bitwise_cast<uint8_t*>(context.fp()) + value.offsetFromFP();
             auto* baseStore = bitwise_cast<uint8_t*>(buffer + index * valueSize);
 
-            if (WasmOperationsInternal::verbose && (value.type().isFloat() || value.type().isVector())) {
-                dataLogLn("Stack float or vector for value ", index, " fp offset ", value.offsetFromFP(), " = ",
+            if (value.type().isFloat() || value.type().isVector()) {
+                dataLogLnIf(WasmOperationsInternal::verbose, "Stack float or vector for value ", index, " fp offset ", value.offsetFromFP(), " = ",
                     *bitwise_cast<v128_t*>(baseLoad),
                     " or double ", *bitwise_cast<double*>(baseLoad));
-            }
+            } else
+                dataLogLnIf(WasmOperationsInternal::verbose, "Stack for value ", index, " fp[", value.offsetFromFP(), "] = ", RawHex(*bitwise_cast<uint64_t*>(baseLoad)), " ", static_cast<int32_t>(*bitwise_cast<uint64_t*>(baseLoad)), " ", *bitwise_cast<int64_t*>(baseLoad));
 
             switch (value.type().kind()) {
             case B3::Float:
@@ -831,8 +843,10 @@ static void doOSREntry(JSWebAssemblyInstance* instance, Probe::Context& context,
     context.sp() = framePointer + 2;
     static_assert(prologueStackPointerDelta() == sizeof(void*) * 2);
 #elif CPU(ARM)
-    UNUSED_VARIABLE(framePointer);
-    UNREACHABLE_FOR_PLATFORM(); // Should not try to tier up yet
+    context.fp() = bitwise_cast<UCPURegister*>(*framePointer);
+    context.gpr(ARMRegisters::lr) = bitwise_cast<UCPURegister>(*(framePointer + 1));
+    context.sp() = framePointer + 2;
+    static_assert(prologueStackPointerDelta() == sizeof(void*) * 2);
 #else
 #error Unsupported architecture.
 #endif
@@ -1711,7 +1725,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayNew, EncodedJSValue, (JSWebA
     assertCalleeIsReferenced(callFrame, instance);
     VM& vm = instance->vm();
     NativeCallFrameTracer tracer(vm, callFrame);
-    return arrayNew(instance, typeIndex, size, value);
+    return JSValue::encode(arrayNew(instance, typeIndex, size, value));
 }
 
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayNewVector, EncodedJSValue, (JSWebAssemblyInstance* instance, uint32_t typeIndex, uint32_t size, uint64_t lane0, uint64_t lane1))
@@ -1720,7 +1734,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayNewVector, EncodedJSValue, (
     assertCalleeIsReferenced(callFrame, instance);
     VM& vm = instance->vm();
     NativeCallFrameTracer tracer(vm, callFrame);
-    return arrayNew(instance, typeIndex, size, v128_t { lane0, lane1 });
+    return JSValue::encode(arrayNew(instance, typeIndex, size, v128_t { lane0, lane1 }));
 }
 
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayNewData, EncodedJSValue, (JSWebAssemblyInstance* instance, uint32_t typeIndex, uint32_t dataSegmentIndex, uint32_t arraySize, uint32_t offset))
@@ -1908,5 +1922,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmRefCast, EncodedJSValue, (JSWebAs
 } // namespace JSC::Wasm
 
 IGNORE_WARNINGS_END
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

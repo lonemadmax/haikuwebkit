@@ -92,6 +92,8 @@
  * 
  */
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace Wasm {
 
 using ErrorType = String;
@@ -146,15 +148,15 @@ struct IPIntControlType {
     {
         ASSERT(i < branchTargetArity());
         if (blockType() == BlockType::Loop)
-            return m_signature->argumentType(i);
-        return m_signature->returnType(i);
+            return m_signature.m_signature->argumentType(i);
+        return m_signature.m_signature->returnType(i);
     }
 
     unsigned branchTargetArity() const
     {
         return isLoop(*this)
-            ? m_signature->argumentCount()
-            : m_signature->returnCount();
+            ? m_signature.m_signature->argumentCount()
+            : m_signature.m_signature->returnCount();
     }
 
 private:
@@ -1967,7 +1969,8 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addElse(ControlType& block, Sta
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addElseToUnreachable(ControlType& block)
 {
-    const FunctionSignature& signature = *block.signature();
+    auto blockSignature = block.signature();
+    const FunctionSignature& signature = *blockSignature.m_signature;
     m_stackSize = block.stackSize();
     changeStackSize(signature.argumentCount());
     auto ifIndex = block.m_index;
@@ -2262,7 +2265,8 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::endBlock(ControlEntry& entry, S
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntry& entry, Stack&)
 {
-    const FunctionSignature& signature = *entry.controlData.signature();
+    auto blockSignature = entry.controlData.signature();
+    const auto& signature = *blockSignature.m_signature;
     for (unsigned i = 0; i < signature.returnCount(); i ++)
         entry.enclosedExpressionStack.constructAndAppend(signature.returnType(i), Value { });
     auto block = entry.controlData;
@@ -2315,7 +2319,7 @@ auto IPIntGenerator::endTopLevel(BlockSignature signature, const Stack& expressi
 {
     if (m_usesSIMD)
         m_info.markUsesSIMD(m_metadata->functionIndex());
-    RELEASE_ASSERT(expressionStack.size() == signature->returnCount());
+    RELEASE_ASSERT(expressionStack.size() == signature.m_signature->returnCount());
     m_info.doneSeeingFunction(m_metadata->m_functionIndex);
     return { };
 }
@@ -2502,5 +2506,7 @@ void IPIntGenerator::dump(const ControlStack&, const Stack*)
 }
 
 } } // namespace JSC::Wasm
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEBASSEMBLY)

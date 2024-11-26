@@ -34,7 +34,7 @@
 
 namespace WebKit {
 
-constexpr uint64_t operator"" _kbps(unsigned long long kilobytesPerSecond)
+constexpr uint64_t operator""_kbps(unsigned long long kilobytesPerSecond)
 {
     return kilobytesPerSecond * 1024;
 }
@@ -68,6 +68,16 @@ DownloadMonitor::DownloadMonitor(Download& download)
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DownloadMonitor);
+
+void DownloadMonitor::ref() const
+{
+    m_download->ref();
+}
+
+void DownloadMonitor::deref() const
+{
+    m_download->deref();
+}
 
 double DownloadMonitor::measuredThroughputRate() const
 {
@@ -120,7 +130,7 @@ void DownloadMonitor::timerFired()
     RELEASE_ASSERT(m_interval < std::size(throughputIntervals));
     if (measuredThroughputRate() < throughputIntervals[m_interval].bytesPerSecond) {
         DOWNLOAD_MONITOR_RELEASE_LOG("timerFired: cancelling download (id = %" PRIu64 ")", m_download->downloadID().toUInt64());
-        m_download->cancel([](auto) { }, Download::IgnoreDidFailCallback::No);
+        Ref { m_download.get() }->cancel([](auto) { }, Download::IgnoreDidFailCallback::No);
     } else if (m_interval + 1 < std::size(throughputIntervals)) {
         DOWNLOAD_MONITOR_RELEASE_LOG("timerFired: sufficient throughput rate (id = %" PRIu64 ")", m_download->downloadID().toUInt64());
         m_timer.startOneShot(timeUntilNextInterval(m_interval++) / testSpeedMultiplier());

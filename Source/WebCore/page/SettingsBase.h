@@ -38,11 +38,11 @@
 #include "MediaPlayerEnums.h"
 #include "StorageBlockingPolicy.h"
 #include "StorageMap.h"
-#include "TextDirection.h"
 #include "TextDirectionSubmenuInclusionBehavior.h"
 #include "Timer.h"
 #include "TrustedFonts.h"
 #include "UserInterfaceDirectionPolicy.h"
+#include "WritingMode.h"
 #include <JavaScriptCore/RuntimeFlags.h>
 #include <unicode/uscript.h>
 #include <wtf/RefCounted.h>
@@ -54,6 +54,15 @@
 #if ENABLE(DATA_DETECTION)
 #include "DataDetectorType.h"
 #endif
+
+namespace WebCore {
+class SettingsBase;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedTimerSmartPointerException;
+template<> struct IsDeprecatedTimerSmartPointerException<WebCore::SettingsBase> : std::true_type { };
+}
 
 namespace WebCore {
 

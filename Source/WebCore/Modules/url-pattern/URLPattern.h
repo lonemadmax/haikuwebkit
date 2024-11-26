@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ExceptionOr.h"
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -36,14 +37,15 @@ namespace WebCore {
 struct URLPatternInit;
 struct URLPatternOptions;
 struct URLPatternResult;
+enum class BaseURLStringType : bool { Pattern, URL };
 
 class URLPattern final : public RefCounted<URLPattern> {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(URLPattern);
 public:
     using URLPatternInput = std::variant<String, URLPatternInit>;
 
-    static Ref<URLPattern> create(URLPatternInput&&, String&& baseURL, URLPatternOptions&&);
-    static Ref<URLPattern> create(std::optional<URLPatternInput>&&, URLPatternOptions&&);
+    static ExceptionOr<Ref<URLPattern>> create(URLPatternInput&&, String&& baseURL, URLPatternOptions&&);
+    static ExceptionOr<Ref<URLPattern>> create(std::optional<URLPatternInput>&&, URLPatternOptions&&);
     ~URLPattern();
 
     ExceptionOr<bool> test(std::optional<URLPatternInput>&&, String&& baseURL) const;
@@ -62,7 +64,7 @@ public:
     bool hasRegExpGroups() const { return m_hasRegExpGroups; }
 
 private:
-    URLPattern();
+    explicit URLPattern(URLPatternInit&& initInput);
 
     String m_protocol;
     String m_username;
@@ -74,7 +76,6 @@ private:
     String m_hash;
 
     bool m_hasRegExpGroups { false };
-    bool m_ignoreCase { false };
 };
 
 }

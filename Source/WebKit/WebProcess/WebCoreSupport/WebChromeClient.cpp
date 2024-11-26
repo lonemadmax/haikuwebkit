@@ -687,13 +687,6 @@ void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& rect)
     }
 
     page->pageDidScroll();
-#if USE(COORDINATED_GRAPHICS)
-    RefPtr frameView = page->localMainFrameView();
-    if (frameView && frameView->delegatesScrolling()) {
-        page->drawingArea()->scroll(rect, IntSize());
-        return;
-    }
-#endif
     page->drawingArea()->setNeedsDisplayInRect(rect);
 }
 
@@ -817,10 +810,10 @@ void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& hitTestResult
     page->send(Messages::WebPageProxy::MouseDidMoveOverElement(webHitTestResultData, wkModifiers, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 }
 
-static constexpr unsigned maxTitleLength = 1000; // Closest power of 10 above the W3C recommendation for Title length.
-
 void WebChromeClient::print(LocalFrame& frame, const StringWithDirection& title)
 {
+    static constexpr unsigned maxTitleLength = 1000; // Closest power of 10 above the W3C recommendation for Title length.
+
     auto webFrame = WebFrame::fromCoreFrame(frame);
     ASSERT(webFrame);
 
@@ -1942,6 +1935,16 @@ void WebChromeClient::getImageBufferResourceLimitsForTesting(CompletionHandler<v
 bool WebChromeClient::requiresScriptTelemetryForURL(const URL& url, const SecurityOrigin& topOrigin) const
 {
     return WebProcess::singleton().requiresScriptTelemetryForURL(url, topOrigin);
+}
+
+void WebChromeClient::callAfterPendingSyntheticClick(CompletionHandler<void(SyntheticClickResult)>&& completion)
+{
+    protectedPage()->callAfterPendingSyntheticClick(WTFMove(completion));
+}
+
+void WebChromeClient::didSwallowClickEvent(const PlatformMouseEvent& event, Node& node)
+{
+    protectedPage()->didSwallowClickEvent(event, node);
 }
 
 } // namespace WebKit

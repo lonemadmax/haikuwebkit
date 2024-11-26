@@ -44,10 +44,6 @@ class SkiaThreadedPaintingPool;
 }
 #endif
 
-namespace Nicosia {
-class PaintingEngine;
-}
-
 namespace WebCore {
 class CoordinatedAnimatedBackingStoreClient;
 class CoordinatedBackingStoreProxy;
@@ -55,6 +51,11 @@ class CoordinatedGraphicsLayer;
 class CoordinatedImageBackingStore;
 class CoordinatedTileBuffer;
 class TextureMapperPlatformLayerProxy;
+#if USE(CAIRO)
+namespace Cairo {
+class PaintingEngine;
+}
+#endif
 
 class CoordinatedGraphicsLayerClient {
 public:
@@ -63,7 +64,7 @@ public:
     virtual void detachLayer(CoordinatedGraphicsLayer*) = 0;
     virtual void attachLayer(CoordinatedGraphicsLayer*) = 0;
 #if USE(CAIRO)
-    virtual Nicosia::PaintingEngine& paintingEngine() = 0;
+    virtual Cairo::PaintingEngine& paintingEngine() = 0;
 #elif USE(SKIA)
     virtual BitmapTexturePool* skiaAcceleratedBitmapTexturePool() const = 0;
     virtual SkiaThreadedPaintingPool* skiaThreadedPaintingPool() const = 0;
@@ -164,7 +165,6 @@ public:
 
     Vector<std::pair<String, double>> acceleratedAnimationsForTesting(const Settings&) const final;
 
-    Ref<CoordinatedTileBuffer> paintTile(const IntRect&);
 #if USE(SKIA)
     void paintIntoGraphicsContext(GraphicsContext&, const IntRect&) const;
 #endif
@@ -172,6 +172,8 @@ public:
     float effectiveContentsScale() const;
 
     static void clampToContentsRectIfRectIsInfinite(FloatRect&, const FloatSize&);
+
+    Ref<CoordinatedTileBuffer> paintTile(const IntRect& dirtyRect);
 
 private:
     enum class FlushNotification {
@@ -252,7 +254,7 @@ private:
         bool performLayerSync { false };
     } m_nicosia;
 
-    std::unique_ptr<CoordinatedBackingStoreProxy> m_backingStore;
+    RefPtr<CoordinatedBackingStoreProxy> m_backingStore;
     RefPtr<CoordinatedAnimatedBackingStoreClient> m_animatedBackingStoreClient;
 
     RefPtr<NativeImage> m_pendingContentsImage;

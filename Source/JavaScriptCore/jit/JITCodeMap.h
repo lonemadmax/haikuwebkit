@@ -29,8 +29,11 @@
 
 #include "BytecodeIndex.h"
 #include "CodeLocation.h"
+#include <wtf/MallocPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
@@ -97,5 +100,7 @@ private:
 };
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(JIT)

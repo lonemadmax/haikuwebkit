@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "IDBIndexIdentifier.h"
 #include "IDBObjectStoreIdentifier.h"
 #include "IDBObjectStoreInfo.h"
 #include <wtf/ArgumentCoder.h>
@@ -36,7 +37,7 @@ namespace WebCore {
 class IDBDatabaseInfo {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(IDBDatabaseInfo, WEBCORE_EXPORT);
 public:
-    WEBCORE_EXPORT explicit IDBDatabaseInfo(const String& name, uint64_t version, uint64_t maxIndexID, UncheckedKeyHashMap<IDBObjectStoreIdentifier, IDBObjectStoreInfo>&& objectStoreMap = { });
+    WEBCORE_EXPORT explicit IDBDatabaseInfo(const String& name, uint64_t version, uint64_t maxIndexID, HashMap<IDBObjectStoreIdentifier, IDBObjectStoreInfo>&& objectStoreMap = { });
     IDBDatabaseInfo() = default;
 
     enum IsolatedCopyTag { IsolatedCopy };
@@ -60,13 +61,13 @@ public:
     void renameObjectStore(IDBObjectStoreIdentifier, const String& newName);
 
     Vector<String> objectStoreNames() const;
-    const UncheckedKeyHashMap<IDBObjectStoreIdentifier, IDBObjectStoreInfo>& objectStoreMap() const { return m_objectStoreMap; }
+    const HashMap<IDBObjectStoreIdentifier, IDBObjectStoreInfo>& objectStoreMap() const { return m_objectStoreMap; }
 
     void deleteObjectStore(const String& objectStoreName);
     void deleteObjectStore(IDBObjectStoreIdentifier);
 
     void setMaxIndexID(uint64_t maxIndexID);
-    uint64_t generateNextIndexID() { return ++m_maxIndexID; }
+    IDBIndexIdentifier generateNextIndexID() { return IDBIndexIdentifier { ++m_maxIndexID }; }
 
 #if !LOG_DISABLED
     String loggingString() const;
@@ -81,7 +82,7 @@ private:
     uint64_t m_version { 0 };
     uint64_t m_maxIndexID { 0 };
 
-    UncheckedKeyHashMap<IDBObjectStoreIdentifier, IDBObjectStoreInfo> m_objectStoreMap;
+    HashMap<IDBObjectStoreIdentifier, IDBObjectStoreInfo> m_objectStoreMap;
 };
 
 } // namespace WebCore

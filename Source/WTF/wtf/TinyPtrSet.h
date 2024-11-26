@@ -29,6 +29,8 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/StdLibExtras.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC { namespace DFG {
 class StructureAbstractValue;
 } } // namespace JSC::DFG
@@ -168,7 +170,7 @@ public:
         return mergeOtherOutOfLine(other);
     }
     
-    void forEach(const Invocable<void(const T&)> auto& functor) const
+    void forEach(NOESCAPE const Invocable<void(const T&)> auto& functor) const
     {
         if (isThin()) {
             if (!singleEntry())
@@ -182,7 +184,7 @@ public:
             functor(list->list()[i]);
     }
         
-    void genericFilter(const Invocable<bool(const T&)> auto& functor)
+    void genericFilter(NOESCAPE const Invocable<bool(const T&)> auto& functor)
     {
         if (isThin()) {
             if (!singleEntry())
@@ -519,3 +521,5 @@ private:
 } // namespace WTF
 
 using WTF::TinyPtrSet;
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

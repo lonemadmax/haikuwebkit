@@ -30,7 +30,7 @@
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSScrollValue.h"
 #include "CSSValuePool.h"
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "Element.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderView.h"
@@ -101,7 +101,7 @@ ScrollTimeline::ScrollTimeline(Scroller scroller, ScrollAxis axis)
     m_scroller = scroller;
 }
 
-void ScrollTimeline::setSource(Element* source)
+void ScrollTimeline::setSource(const Element* source)
 {
     if (source == m_source)
         return;
@@ -170,6 +170,24 @@ AnimationTimeline::ShouldUpdateAnimationsAndSendEvents ScrollTimeline::documentW
     return AnimationTimeline::ShouldUpdateAnimationsAndSendEvents::No;
 }
 
+Element* ScrollTimeline::sourceElementForProgressCalculation() const
+{
+    switch (m_scroller) {
+    case Scroller::Nearest: {
+        CheckedPtr subjectRenderer = m_source->renderer();
+        if (!subjectRenderer)
+            return nullptr;
+        return subjectRenderer->enclosingScrollableContainer()->element();
+    }
+    case Scroller::Root:
+        return m_source->protectedDocument()->documentElement();
+    case Scroller::Self:
+        return m_source.get();
+    }
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
 ScrollableArea* ScrollTimeline::scrollableAreaForSourceRenderer(RenderElement* renderer, Ref<Document> document)
 {
     CheckedPtr renderBox = dynamicDowncast<RenderBox>(renderer);
@@ -189,15 +207,21 @@ float ScrollTimeline::floatValueForOffset(const Length& offset, float maxValue)
     return floatValueForLength(offset, maxValue);
 }
 
+TimelineRange ScrollTimeline::defaultRange() const
+{
+    return TimelineRange::defaultForScrollTimeline();
+}
+
 ScrollTimeline::Data ScrollTimeline::computeTimelineData(const TimelineRange& range) const
 {
-    ASSERT(range.start.name == SingleTimelineRange::Name::Normal || range.start.name == SingleTimelineRange::Name::Omitted);
-    ASSERT(range.end.name == SingleTimelineRange::Name::Normal || range.end.name == SingleTimelineRange::Name::Omitted);
-
-    if (!m_source)
+    if ((range.start.name != SingleTimelineRange::Name::Normal && range.start.name != SingleTimelineRange::Name::Omitted) || (range.end.name != SingleTimelineRange::Name::Normal && range.end.name != SingleTimelineRange::Name::Omitted))
         return { };
 
-    auto* sourceScrollableArea = scrollableAreaForSourceRenderer(m_source->renderer(), m_source->document());
+    RefPtr source = sourceElementForProgressCalculation();
+    if (!source)
+        return { };
+
+    auto* sourceScrollableArea = scrollableAreaForSourceRenderer(source->renderer(), source->document());
     if (!sourceScrollableArea)
         return { };
 
@@ -209,15 +233,16 @@ ScrollTimeline::Data ScrollTimeline::computeTimelineData(const TimelineRange& ra
     if (maxScrollOffset > 0)
         scrollOffset = std::clamp(scrollOffset, 0.f, maxScrollOffset);
 
-    return { scrollOffset, floatValueForOffset(range.start.offset, maxScrollOffset), maxScrollOffset - floatValueForOffset(range.end.offset, maxScrollOffset) };
+    return { scrollOffset, floatValueForOffset(range.start.offset, maxScrollOffset), floatValueForOffset(range.end.offset, maxScrollOffset) };
 }
 
-std::optional<WebAnimationTime> ScrollTimeline::currentTime()
+std::optional<WebAnimationTime> ScrollTimeline::currentTime(const TimelineRange& timelineRange)
 {
     // https://drafts.csswg.org/scroll-animations-1/#scroll-timeline-progress
     // Progress (the current time) for a scroll progress timeline is calculated as:
     // scroll offset ÷ (scrollable overflow size − scroll container size)
-    auto data = computeTimelineData();
+    auto timelineRangeOrDefault = timelineRange.isDefault() ? defaultRange() : timelineRange;
+    auto data = computeTimelineData(timelineRangeOrDefault);
     auto range = data.rangeEnd - data.rangeStart;
     if (!range)
         return std::nullopt;

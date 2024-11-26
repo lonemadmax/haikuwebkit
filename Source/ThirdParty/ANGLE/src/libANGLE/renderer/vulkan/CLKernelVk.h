@@ -122,9 +122,19 @@ class CLKernelVk : public CLKernelImpl
 
     const vk::PipelineLayoutDesc &getPipelineLayoutDesc() { return mPipelineLayoutDesc; }
 
-    VkDescriptorSet &getDescriptorSet(DescriptorSetIndex index) { return mDescriptorSets[index]; }
+    VkDescriptorSet getDescriptorSet(DescriptorSetIndex index)
+    {
+        return mDescriptorSets[index]->getDescriptorSet();
+    }
+
+    std::vector<uint8_t> &getPodArgumentsData() { return mPodArgumentsData; }
 
     bool usesPrintf() const;
+
+    angle::Result allocateDescriptorSet(
+        DescriptorSetIndex index,
+        angle::EnumIterator<DescriptorSetIndex> layoutIndex,
+        vk::OutsideRenderPassCommandBufferHelper *computePassCommands);
 
   private:
     static constexpr std::array<size_t, 3> kEmptyWorkgroupSize = {0, 0, 0};
@@ -134,13 +144,17 @@ class CLKernelVk : public CLKernelImpl
     std::string mName;
     std::string mAttributes;
     CLKernelArguments mArgs;
+
+    // Copy of the pod data
+    std::vector<uint8_t> mPodArgumentsData;
+
     vk::ShaderProgramHelper mShaderProgramHelper;
     vk::ComputePipelineCache mComputePipelineCache;
     KernelSpecConstants mSpecConstants;
     vk::AtomicBindingPointer<vk::PipelineLayout> mPipelineLayout;
     vk::DescriptorSetLayoutPointerArray mDescriptorSetLayouts{};
 
-    vk::DescriptorSetArray<VkDescriptorSet> mDescriptorSets;
+    vk::DescriptorSetArray<vk::DescriptorSetPointer> mDescriptorSets;
 
     vk::DescriptorSetArray<vk::DescriptorSetLayoutDesc> mDescriptorSetLayoutDescs;
     vk::PipelineLayoutDesc mPipelineLayoutDesc;

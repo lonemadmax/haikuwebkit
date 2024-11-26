@@ -66,7 +66,7 @@ public:
     void removeProxy(RemoteLegacyCDMIdentifier);
 
     void addSession(RemoteLegacyCDMSessionIdentifier, std::unique_ptr<RemoteLegacyCDMSessionProxy>&&);
-    void removeSession(RemoteLegacyCDMSessionIdentifier);
+    void removeSession(RemoteLegacyCDMSessionIdentifier, CompletionHandler<void()>&&);
     RemoteLegacyCDMSessionProxy* getSession(const RemoteLegacyCDMSessionIdentifier&) const;
 
     RefPtr<GPUConnectionToWebProcess> gpuConnectionToWebProcess() { return m_gpuConnectionToWebProcess.get(); }
@@ -91,8 +91,8 @@ private:
     void supportsKeySystem(const String& keySystem, std::optional<String> mimeType, CompletionHandler<void(bool)>&&);
 
     WeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
-    UncheckedKeyHashMap<RemoteLegacyCDMIdentifier, std::unique_ptr<RemoteLegacyCDMProxy>> m_proxies;
-    UncheckedKeyHashMap<RemoteLegacyCDMSessionIdentifier, std::unique_ptr<RemoteLegacyCDMSessionProxy>> m_sessions;
+    HashMap<RemoteLegacyCDMIdentifier, std::unique_ptr<RemoteLegacyCDMProxy>> m_proxies;
+    HashMap<RemoteLegacyCDMSessionIdentifier, std::unique_ptr<RemoteLegacyCDMSessionProxy>> m_sessions;
 
 #if !RELEASE_LOG_DISABLED
     mutable RefPtr<Logger> m_logger;

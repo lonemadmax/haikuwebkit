@@ -74,13 +74,13 @@ private:
 
     WebCore::TextureMapperLayer* rootLayer() { return m_rootLayer.get(); }
 
+    void removeLayer(Nicosia::CompositionLayer&);
+
     void updateViewport();
 
     void ensureRootLayer();
 
     void onNewBufferAvailable() override;
-
-    void removeLayer(Nicosia::CompositionLayer&);
 
     struct {
         RefPtr<Nicosia::Scene> scene;
@@ -100,7 +100,7 @@ private:
 
     Nicosia::PlatformLayer::LayerID m_rootLayerID { 0 };
 
-    UncheckedKeyHashMap<WebCore::TextureMapperLayer*, Ref<WebCore::CoordinatedBackingStore>> m_backingStores;
+    HashMap<WebCore::TextureMapperLayer*, Ref<WebCore::CoordinatedBackingStore>> m_backingStores;
 
     WebCore::TextureMapperFPSCounter m_fpsCounter;
 };

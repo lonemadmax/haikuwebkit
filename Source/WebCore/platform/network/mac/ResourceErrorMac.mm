@@ -32,6 +32,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/URL.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/WTFString.h>
 
 @interface NSError (WebExtras)
@@ -172,6 +173,7 @@ ResourceError::ErrorRecoveryMethod ResourceError::errorRecoveryMethod() const
         case NSURLErrorNetworkConnectionLost:
         case NSURLErrorHTTPTooManyRedirects:
         case NSURLErrorResourceUnavailable:
+        case NSURLErrorNotConnectedToInternet:
         case NSURLErrorRedirectToNonExistentLocation:
         case NSURLErrorBadServerResponse:
         case NSURLErrorZeroByteResource:

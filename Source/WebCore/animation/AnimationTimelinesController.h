@@ -34,15 +34,21 @@
 #include <wtf/Markable.h>
 #include <wtf/Seconds.h>
 #include <wtf/WeakHashSet.h>
+#include <wtf/text/AtomStringHash.h>
 
 namespace WebCore {
 
 class AnimationTimeline;
 class CSSTransition;
 class Document;
+class Element;
 class ScrollTimeline;
 class ViewTimeline;
 class WebAnimation;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+class AcceleratedEffectStackUpdater;
+#endif
 
 struct ViewTimelineInsets;
 
@@ -67,22 +73,30 @@ public:
     WEBCORE_EXPORT void resumeAnimations();
     bool animationsAreSuspended() const { return m_isSuspended; }
 
-    void registerNamedScrollTimeline(const AtomString&, Element&, ScrollAxis);
-    void unregisterNamedScrollTimeline(const AtomString&);
-    ScrollTimeline* scrollTimelineForName(const AtomString&) const;
+    void registerNamedScrollTimeline(const AtomString&, const Element&, ScrollAxis);
+    void registerNamedViewTimeline(const AtomString&, const Element&, ScrollAxis, ViewTimelineInsets&&);
+    void unregisterNamedTimeline(const AtomString&, const Element&);
+    AnimationTimeline* timelineForName(const AtomString&, const Element&) const;
 
-    void registerNamedViewTimeline(const AtomString&, Element&, ScrollAxis, ViewTimelineInsets&&);
-    void unregisterNamedViewTimelineForSubject(const AtomString&, const Element&);
-    ViewTimeline* viewTimelineForNameAndSubject(const AtomString&, const Element&) const;
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    AcceleratedEffectStackUpdater* existingAcceleratedEffectStackUpdater() const { return m_acceleratedEffectStackUpdater.get(); }
+    AcceleratedEffectStackUpdater& acceleratedEffectStackUpdater();
+#endif
 
 private:
     ReducedResolutionSeconds liveCurrentTime() const;
     void cacheCurrentTime(ReducedResolutionSeconds);
     void maybeClearCachedCurrentTime();
 
+    Vector<Ref<ScrollTimeline>>& timelinesForName(const AtomString&);
+
+    UncheckedKeyHashMap<AtomString, Vector<Ref<ScrollTimeline>>> m_nameToTimelineMap;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    std::unique_ptr<AcceleratedEffectStackUpdater> m_acceleratedEffectStackUpdater;
+#endif
+
     UncheckedKeyHashMap<FramesPerSecond, ReducedResolutionSeconds> m_animationFrameRateToLastTickTimeMap;
-    UncheckedKeyHashMap<AtomString, Ref<ScrollTimeline>> m_nameToScrollTimelineMap;
-    UncheckedKeyHashMap<AtomString, Vector<Ref<ViewTimeline>>> m_nameToViewTimelinesMap;
     WeakHashSet<AnimationTimeline> m_timelines;
     TaskCancellationGroup m_currentTimeClearingTaskCancellationGroup;
     Document& m_document;

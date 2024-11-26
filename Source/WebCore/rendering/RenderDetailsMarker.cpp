@@ -31,6 +31,8 @@
 #include "RenderBoxModelObjectInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -80,21 +82,21 @@ static Path createRightArrowPath()
 
 RenderDetailsMarker::Orientation RenderDetailsMarker::orientation() const
 {
-    switch (style().blockFlowDirection()) {
+    switch (writingMode().blockDirection()) {
     case FlowDirection::TopToBottom:
-        if (style().isLeftToRightDirection())
+        if (writingMode().isInlineLeftToRight())
             return isOpen() ? Down : Right;
         return isOpen() ? Down : Left;
     case FlowDirection::RightToLeft:
-        if (style().isLeftToRightDirection())
+        if (writingMode().isInlineTopToBottom())
             return isOpen() ? Left : Down;
         return isOpen() ? Left : Up;
     case FlowDirection::LeftToRight:
-        if (style().isLeftToRightDirection())
+        if (writingMode().isInlineTopToBottom())
             return isOpen() ? Right : Down;
         return isOpen() ? Right : Up;
     case FlowDirection::BottomToTop:
-        if (style().isLeftToRightDirection())
+        if (writingMode().isInlineLeftToRight())
             return isOpen() ? Up : Right;
         return isOpen() ? Up : Left;
     }
@@ -157,3 +159,5 @@ bool RenderDetailsMarker::isOpen() const
 }
 
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

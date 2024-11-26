@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2020 Alexey Shvayka <shvaikalesh@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,8 @@
 
 // Turn this on to log information about fastStringify usage, with a focus on why it failed.
 #define FAST_STRINGIFY_LOG_USAGE 0
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
@@ -290,7 +292,7 @@ String Stringifier::stringify(JSGlobalObject& globalObject, JSValue value, JSVal
         object->putDirect(vm, vm.propertyNames->emptyIdentifier, value);
     }
 
-    StringBuilder result(StringBuilder::OverflowHandler::RecordOverflow);
+    StringBuilder result(OverflowPolicy::RecordOverflow);
     Holder root(Holder::RootHolder, object);
     auto stringifyResult = stringifier.appendStringifiedValue(result, value, root, emptyPropertyName);
     RETURN_IF_EXCEPTION(scope, { });
@@ -1788,3 +1790,5 @@ String JSONStringify(JSGlobalObject* globalObject, JSValue value, unsigned inden
 }
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

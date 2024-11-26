@@ -100,6 +100,11 @@ bool GStreamerMediaEndpoint::initializePipeline()
     m_pipeline = gst_pipeline_new(pipelineName.ascii().data());
     registerActivePipeline(m_pipeline);
 
+    auto clock = adoptGRef(gst_system_clock_obtain());
+    gst_pipeline_use_clock(GST_PIPELINE(m_pipeline.get()), clock.get());
+    gst_element_set_base_time(m_pipeline.get(), 0);
+    gst_element_set_start_time(m_pipeline.get(), GST_CLOCK_TIME_NONE);
+
     connectSimpleBusMessageCallback(m_pipeline.get(), [this](GstMessage* message) {
         handleMessage(message);
     });
@@ -108,6 +113,9 @@ bool GStreamerMediaEndpoint::initializePipeline()
     m_webrtcBin = makeGStreamerElement("webrtcbin", binName.ascii().data());
     if (!m_webrtcBin)
         return false;
+
+    // Lower default latency from 200ms to 40ms.
+    g_object_set(m_webrtcBin.get(), "latency", 40, nullptr);
 
     auto rtpBin = adoptGRef(gst_bin_get_by_name(GST_BIN_CAST(m_webrtcBin.get()), "rtpbin"));
     if (!rtpBin) {
@@ -1780,42 +1788,6 @@ void GStreamerMediaEndpoint::collectTransceivers()
     }
 }
 
-#if !RELEASE_LOG_DISABLED
-void GStreamerMediaEndpoint::gatherStatsForLogging()
-{
-    auto* holder = createGStreamerMediaEndpointHolder();
-    holder->endPoint = this;
-    g_signal_emit_by_name(m_webrtcBin.get(), "get-stats", nullptr, gst_promise_new_with_change_func([](GstPromise* rawPromise, gpointer userData) {
-        auto promise = adoptGRef(rawPromise);
-        auto result = gst_promise_wait(promise.get());
-        if (result != GST_PROMISE_RESULT_REPLIED)
-            return;
-
-        const auto* reply = gst_promise_get_reply(promise.get());
-        ASSERT(reply);
-        if (gst_structure_has_field(reply, "error"))
-            return;
-
-        auto* holder = static_cast<GStreamerMediaEndpointHolder*>(userData);
-        callOnMainThreadAndWait([holder, reply] {
-            auto stats = holder->endPoint->preprocessStats(nullptr, reply);
-            holder->endPoint->onStatsDelivered(WTFMove(stats));
-        });
-    }, holder, reinterpret_cast<GDestroyNotify>(destroyGStreamerMediaEndpointHolder)));
-}
-
-class RTCStatsLogger {
-public:
-    explicit RTCStatsLogger(const GstStructure* stats)
-        : m_stats(stats)
-    { }
-
-    String toJSONString() const { return gstStructureToJSONString(m_stats); }
-
-private:
-    const GstStructure* m_stats;
-};
-
 GUniquePtr<GstStructure> GStreamerMediaEndpoint::preprocessStats(const GRefPtr<GstPad>& pad, const GstStructure* stats)
 {
     ASSERT(isMainThread());
@@ -1914,6 +1886,42 @@ GUniquePtr<GstStructure> GStreamerMediaEndpoint::preprocessStats(const GRefPtr<G
     return result;
 }
 
+#if !RELEASE_LOG_DISABLED
+void GStreamerMediaEndpoint::gatherStatsForLogging()
+{
+    auto* holder = createGStreamerMediaEndpointHolder();
+    holder->endPoint = this;
+    g_signal_emit_by_name(m_webrtcBin.get(), "get-stats", nullptr, gst_promise_new_with_change_func([](GstPromise* rawPromise, gpointer userData) {
+        auto promise = adoptGRef(rawPromise);
+        auto result = gst_promise_wait(promise.get());
+        if (result != GST_PROMISE_RESULT_REPLIED)
+            return;
+
+        const auto* reply = gst_promise_get_reply(promise.get());
+        ASSERT(reply);
+        if (gst_structure_has_field(reply, "error"))
+            return;
+
+        auto* holder = static_cast<GStreamerMediaEndpointHolder*>(userData);
+        callOnMainThreadAndWait([holder, reply] {
+            auto stats = holder->endPoint->preprocessStats(nullptr, reply);
+            holder->endPoint->onStatsDelivered(WTFMove(stats));
+        });
+    }, holder, reinterpret_cast<GDestroyNotify>(destroyGStreamerMediaEndpointHolder)));
+}
+
+class RTCStatsLogger {
+public:
+    explicit RTCStatsLogger(const GstStructure* stats)
+        : m_stats(stats)
+    { }
+
+    String toJSONString() const { return gstStructureToJSONString(m_stats); }
+
+private:
+    const GstStructure* m_stats;
+};
+
 void GStreamerMediaEndpoint::processStatsItem(const GValue* value)
 {
     if (!GST_VALUE_HOLDS_STRUCTURE(value))
@@ -1958,9 +1966,7 @@ void GStreamerMediaEndpoint::onStatsDelivered(GUniquePtr<GstStructure>&& stats)
         });
     });
 }
-#endif
 
-#if !RELEASE_LOG_DISABLED
 void GStreamerMediaEndpoint::startLoggingStats()
 {
     if (m_statsLogTimer.isActive())

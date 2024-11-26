@@ -92,7 +92,7 @@ static String fromStdFileSystemPath(const std::filesystem::path& path)
 //     - Pipe              (7C)
 //     - Delete            (7F)
 
-static const bool needsEscaping[128] = {
+constexpr std::array<bool, 128> needsEscaping = {
     true,  true,  true,  true,  true,  true,  true,  true,  /* 00-07 */
     true,  true,  true,  true,  true,  true,  true,  true,  /* 08-0F */
 
@@ -320,13 +320,7 @@ MappedFileData::MappedFileData(const String& filePath, MappedFileMode mapMode, b
 
 #if HAVE(MMAP)
 
-MappedFileData::~MappedFileData()
-{
-    if (!m_fileData.data())
-        return;
-
-    munmap(m_fileData.data(), m_fileData.size());
-}
+MappedFileData::~MappedFileData() = default;
 
 bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openMode, MappedFileMode mapMode)
 {
@@ -363,11 +357,11 @@ bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openM
 #endif
     }
 
-    auto* data = mmap(0, size, pageProtection, MAP_FILE | (mapMode == MappedFileMode::Shared ? MAP_SHARED : MAP_PRIVATE), fd, 0);
-    if (data == MAP_FAILED)
+    auto fileData = MallocSpan<uint8_t, Mmap>::mmap(size, pageProtection, MAP_FILE | (mapMode == MappedFileMode::Shared ? MAP_SHARED : MAP_PRIVATE), fd);
+    if (!fileData)
         return false;
 
-    m_fileData = { static_cast<uint8_t*>(data), size };
+    m_fileData = WTFMove(fileData);
     return true;
 }
 #endif
@@ -412,6 +406,11 @@ bool makeSafeToUseMemoryMapForPath(const String&)
 #if !PLATFORM(COCOA)
 
 String createTemporaryZipArchive(const String&)
+{
+    return { };
+}
+
+String extractTemporaryZipArchive(const String&)
 {
     return { };
 }

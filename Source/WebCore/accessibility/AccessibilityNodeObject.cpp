@@ -37,6 +37,7 @@
 #include "AccessibilityListBox.h"
 #include "AccessibilitySpinButton.h"
 #include "AccessibilityTable.h"
+#include "ComposedTreeIterator.h"
 #include "DateComponents.h"
 #include "Editing.h"
 #include "ElementAncestorIteratorInlines.h"
@@ -97,8 +98,8 @@ using namespace HTMLNames;
 static String accessibleNameForNode(Node&, Node* labelledbyNode = nullptr);
 static void appendNameToStringBuilder(StringBuilder&, String&&, bool prependSpace = true);
 
-AccessibilityNodeObject::AccessibilityNodeObject(Node* node)
-    : AccessibilityObject()
+AccessibilityNodeObject::AccessibilityNodeObject(AXID axID, Node* node)
+    : AccessibilityObject(axID)
     , m_node(node)
 {
 }
@@ -117,9 +118,9 @@ void AccessibilityNodeObject::init()
     AccessibilityObject::init();
 }
 
-Ref<AccessibilityNodeObject> AccessibilityNodeObject::create(Node& node)
+Ref<AccessibilityNodeObject> AccessibilityNodeObject::create(AXID axID, Node& node)
 {
-    return adoptRef(*new AccessibilityNodeObject(&node));
+    return adoptRef(*new AccessibilityNodeObject(axID, &node));
 }
 
 void AccessibilityNodeObject::detachRemoteParts(AccessibilityDetachmentType detachmentType)
@@ -186,11 +187,6 @@ AccessibilityObject* AccessibilityNodeObject::nextSibling() const
     return objectCache ? objectCache->getOrCreate(*nextSibling) : nullptr;
 }
 
-AccessibilityObject* AccessibilityNodeObject::parentObjectIfExists() const
-{
-    return parentObject();
-}
-
 AccessibilityObject* AccessibilityNodeObject::ownerParentObject() const
 {
     auto owners = this->owners();
@@ -200,20 +196,20 @@ AccessibilityObject* AccessibilityNodeObject::ownerParentObject() const
 
 AccessibilityObject* AccessibilityNodeObject::parentObject() const
 {
-    if (!node())
+    RefPtr node = this->node();
+    if (!node)
         return nullptr;
 
     if (auto* ownerParent = ownerParentObject())
         return ownerParent;
 
-    Node* parentObj = node()->parentNode();
-    if (!parentObj)
-        return nullptr;
-
-    if (AXObjectCache* cache = axObjectCache())
-        return cache->getOrCreate(*parentObj);
-
-    return nullptr;
+    CheckedPtr cache = axObjectCache();
+#if !USE(ATSPI)
+    return cache ? cache->getOrCreate(composedParentIgnoringDocumentFragments(*node)) : nullptr;
+#else
+    // FIXME: Consider removing this ATSPI-only branch with https://bugs.webkit.org/show_bug.cgi?id=282117.
+    return cache ? cache->getOrCreate(node->parentNode()) : nullptr;
+#endif // !USE(ATSPI)
 }
 
 LayoutRect AccessibilityNodeObject::checkboxOrRadioRect() const
@@ -586,7 +582,7 @@ void AccessibilityNodeObject::addChildren()
         m_subtreeDirty = false;
     });
 
-    WeakPtr node = this->node();
+    RefPtr node = this->node();
     if (!node || !canHaveChildren())
         return;
 
@@ -594,12 +590,20 @@ void AccessibilityNodeObject::addChildren()
     if (renderer() && !node->hasTagName(canvasTag))
         return;
 
-    auto objectCache = axObjectCache();
-    if (!objectCache)
+    CheckedPtr cache = axObjectCache();
+    if (!cache)
         return;
 
+#if !USE(ATSPI)
+    if (auto* containerNode = dynamicDowncast<ContainerNode>(*node)) {
+        for (Ref child : composedTreeChildren(*containerNode))
+            addChild(cache->getOrCreate(child.get()));
+    }
+#else
+    // FIXME: Consider removing this ATSPI-only branch with https://bugs.webkit.org/show_bug.cgi?id=282117.
     for (auto* child = node->firstChild(); child; child = child->nextSibling())
-        addChild(objectCache->getOrCreate(*child));
+        addChild(cache->getOrCreate(*child));
+#endif // !USE(ATSPI)
 
     updateOwnedChildren();
 }
@@ -944,7 +948,6 @@ bool AccessibilityNodeObject::supportsRequiredAttribute() const
     case AccessibilityRole::ComboBox:
     case AccessibilityRole::Grid:
     case AccessibilityRole::GridCell:
-    case AccessibilityRole::Incrementor:
     case AccessibilityRole::ListBox:
     case AccessibilityRole::PopUpButton:
     case AccessibilityRole::RadioButton:
@@ -1632,62 +1635,6 @@ String AccessibilityNodeObject::ariaAccessibilityDescription() const
     return String();
 }
 
-static Element* siblingWithAriaRole(Node* node, ASCIILiteral role)
-{
-    // FIXME: Either we should add a null check here or change the function to take a reference instead of a pointer.
-    ContainerNode* parent = node->parentNode();
-    if (!parent)
-        return nullptr;
-
-    for (auto& sibling : childrenOfType<Element>(*parent)) {
-        // FIXME: Should skip sibling that is the same as the node.
-        if (equalIgnoringASCIICase(sibling.attributeWithoutSynchronization(roleAttr), role))
-            return &sibling;
-    }
-
-    return nullptr;
-}
-
-Element* AccessibilityNodeObject::menuElementForMenuButton() const
-{
-    if (ariaRoleAttribute() != AccessibilityRole::MenuButton)
-        return nullptr;
-
-    return siblingWithAriaRole(node(), "menu"_s);
-}
-
-AccessibilityObject* AccessibilityNodeObject::menuForMenuButton() const
-{
-    if (AXObjectCache* cache = axObjectCache())
-        return cache->getOrCreate(menuElementForMenuButton());
-    return nullptr;
-}
-
-Element* AccessibilityNodeObject::menuItemElementForMenu() const
-{
-    if (ariaRoleAttribute() != AccessibilityRole::Menu)
-        return nullptr;
-
-    return siblingWithAriaRole(node(), "menuitem"_s);
-}
-
-AccessibilityObject* AccessibilityNodeObject::menuButtonForMenu() const
-{
-    AXObjectCache* cache = axObjectCache();
-    if (!cache)
-        return nullptr;
-
-    Element* menuItem = menuItemElementForMenu();
-
-    if (menuItem) {
-        // ARIA just has generic menu items. AppKit needs to know if this is a top level items like MenuBarButton or MenuBarItem
-        AccessibilityObject* menuItemAX = cache->getOrCreate(*menuItem);
-        if (menuItemAX && menuItemAX->isMenuButton())
-            return menuItemAX;
-    }
-    return nullptr;
-}
-
 AccessibilityObject* AccessibilityNodeObject::captionForFigure() const
 {
     if (!isFigureElement())
@@ -2204,9 +2151,12 @@ void AccessibilityNodeObject::setIsExpanded(bool expand)
 // we should include the inner text of this given descendant object or skip it.
 static bool shouldUseAccessibilityObjectInnerText(AccessibilityObject& object, TextUnderElementMode mode)
 {
+#if USE(ATSPI)
+    // Only ATSPI ever sets IncludeAllChildren.
     // Do not use any heuristic if we are explicitly asking to include all the children.
     if (mode.childrenInclusion == TextUnderElementMode::Children::IncludeAllChildren)
         return true;
+#endif // USE(ATSPI)
 
     // Consider this hypothetical example:
     // <div tabindex=0>
@@ -2434,7 +2384,6 @@ String AccessibilityNodeObject::title() const
     case AccessibilityRole::Checkbox:
     case AccessibilityRole::ListBoxOption:
     case AccessibilityRole::ListItem:
-    case AccessibilityRole::MenuButton:
     case AccessibilityRole::MenuItem:
     case AccessibilityRole::MenuItemCheckbox:
     case AccessibilityRole::MenuItemRadio:

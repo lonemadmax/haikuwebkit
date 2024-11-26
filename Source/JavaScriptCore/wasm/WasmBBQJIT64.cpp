@@ -26,6 +26,8 @@
 #include "config.h"
 #include "WasmBBQJIT64.h"
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 #include "WasmBBQJIT.h"
 
 #if ENABLE(WEBASSEMBLY_BBQJIT)
@@ -3045,11 +3047,12 @@ void BBQJIT::emitCatchTableImpl(ControlData& entryData, ControlType::TryTableTar
     m_exceptionHandlers.append({ handlerType, entryData.tryStart(), m_callSiteIndex, 0, m_tryCatchDepth, target.tag });
     emitCatchPrologue();
 
+    auto& targetControl = m_parser->resolveControlRef(target.target).controlData;
     if (target.type == CatchKind::CatchRef || target.type == CatchKind::CatchAllRef) {
-        if (target.target->targetLocations().last().isGPR())
-            m_jit.move(GPRInfo::returnValueGPR, target.target->targetLocations().last().asGPR());
+        if (targetControl.targetLocations().last().isGPR())
+            m_jit.move(GPRInfo::returnValueGPR, targetControl.targetLocations().last().asGPR());
         else
-            m_jit.storePtr(GPRInfo::returnValueGPR, target.target->targetLocations().last().asAddress());
+            m_jit.storePtr(GPRInfo::returnValueGPR, targetControl.targetLocations().last().asAddress());
     }
 
     if (target.type == CatchKind::Catch || target.type == CatchKind::CatchRef) {
@@ -3059,7 +3062,7 @@ void BBQJIT::emitCatchTableImpl(ControlData& entryData, ControlType::TryTableTar
             unsigned offset = 0;
             for (unsigned i = 0; i < signature->argumentCount(); ++i) {
                 Type type = signature->argumentType(i);
-                Location slot = target.target->targetLocations()[i];
+                Location slot = targetControl.targetLocations()[i];
                 switch (type.kind) {
                 case TypeKind::I32:
                     if (slot.isGPR())
@@ -3120,7 +3123,7 @@ void BBQJIT::emitCatchTableImpl(ControlData& entryData, ControlType::TryTableTar
     }
 
     // jump to target
-    target.target->addBranch(m_jit.jump());
+    targetControl.addBranch(m_jit.jump());
 }
 
 PartialResult WARN_UNUSED_RETURN BBQJIT::addThrowRef(Value exception, Stack&)
@@ -3239,21 +3242,27 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addFusedIfCompare(OpType op, Expression
     if (foldResult == BranchNotFolded) {
         if (!operand.isConst())
             operandLocation = loadIfNecessary(operand);
-        else if (operand.isFloat())
-            emitMove(operand, operandLocation = Location::fromFPR(scratches.fpr(0)));
+        else if (operand.isFloat()) {
+            operandLocation = Location::fromFPR(scratches.fpr(0));
+            emitMove(operand, operandLocation);
+        }
+
         if (operandLocation.isGPR())
             liveScratchGPRs.add(operandLocation.asGPR(), IgnoreVectors);
         else
             liveScratchFPRs.add(operandLocation.asFPR(), operand.type() == TypeKind::V128 ? Width128 : Width64);
     }
+    if (!liveScratchFPRs.contains(scratches.fpr(0), IgnoreVectors))
+        scratches.unbindEarly();
+
     consume(operand);
 
-    result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->argumentCount(), liveScratchGPRs, liveScratchFPRs);
+    result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount(), liveScratchGPRs, liveScratchFPRs);
 
     // Despite being conditional, if doesn't need to worry about diverging expression stacks at block boundaries, so it doesn't need multiple exits.
     currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
 
-    LOG_INSTRUCTION("IfCompare", makeString(op).characters(), *signature, operand, operandLocation);
+    LOG_INSTRUCTION("IfCompare", makeString(op).characters(), *signature.m_signature, operand, operandLocation);
     LOG_INDENT();
     splitStack(signature, enclosingStack, newStack);
 
@@ -3514,12 +3523,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addFusedIfCompare(OpType op, Expression
     consume(right);
 
 
-    result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature->argumentCount(), liveScratchGPRs, liveScratchFPRs);
+    result = ControlData(*this, BlockType::If, signature, currentControlData().enclosedHeight() + currentControlData().implicitSlots() + enclosingStack.size() - signature.m_signature->argumentCount(), liveScratchGPRs, liveScratchFPRs);
 
     // Despite being conditional, if doesn't need to worry about diverging expression stacks at block boundaries, so it doesn't need multiple exits.
     currentControlData().flushAndSingleExit(*this, result, enclosingStack, true, false);
 
-    LOG_INSTRUCTION("IfCompare", makeString(op).characters(), *signature, left, leftLocation, right, rightLocation);
+    LOG_INSTRUCTION("IfCompare", makeString(op).characters(), *signature.m_signature, left, leftLocation, right, rightLocation);
     LOG_INDENT();
     splitStack(signature, enclosingStack, newStack);
 
@@ -5141,3 +5150,5 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& origin
 
 #endif // USE(JSVALUE64)
 #endif // ENABLE(WEBASSEMBLY_BBQJIT)
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

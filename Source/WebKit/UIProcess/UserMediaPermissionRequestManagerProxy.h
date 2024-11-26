@@ -60,6 +60,7 @@ OBJC_CLASS WKRotationCoordinatorObserver;
 
 namespace WebKit {
 
+class WebFrameProxy;
 class WebPageProxy;
 
 enum class MediaDevicePermissionRequestIdentifierType { };
@@ -96,7 +97,7 @@ public:
 
     void requestUserMediaPermissionForFrame(WebCore::UserMediaRequestIdentifier, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&&  userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, WebCore::MediaStreamRequest&&);
 
-    void resetAccess(std::optional<WebCore::FrameIdentifier> mainFrameID = { });
+    void resetAccess(WebFrameProxy* = nullptr);
     void didCommitLoadForFrame(WebCore::FrameIdentifier);
     void viewIsBecomingVisible();
 
@@ -207,7 +208,7 @@ private:
 
     Vector<Ref<UserMediaPermissionRequestProxy>> m_pregrantedRequests;
     Vector<Ref<UserMediaPermissionRequestProxy>> m_grantedRequests;
-    UncheckedKeyHashMap<WebCore::FrameIdentifier, String> m_frameEphemeralHashSalts;
+    HashMap<WebCore::FrameIdentifier, String> m_frameEphemeralHashSalts;
 
     Vector<DeniedRequest> m_deniedRequests;
 

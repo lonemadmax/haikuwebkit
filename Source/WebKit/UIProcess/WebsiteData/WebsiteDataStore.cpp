@@ -111,16 +111,16 @@ void WebsiteDataStore::allowWebsiteDataRecordsForAllOrigins()
     allowsWebsiteDataRecordsForAllOrigins = true;
 }
 
-static UncheckedKeyHashMap<String, PAL::SessionID>& activeGeneralStorageDirectories()
+static HashMap<String, PAL::SessionID>& activeGeneralStorageDirectories()
 {
-    static MainThreadNeverDestroyed<UncheckedKeyHashMap<String, PAL::SessionID>> directoryToSessionMap;
+    static MainThreadNeverDestroyed<HashMap<String, PAL::SessionID>> directoryToSessionMap;
     return directoryToSessionMap;
 }
 
-static UncheckedKeyHashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>& allDataStores()
+static HashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>& allDataStores()
 {
     RELEASE_ASSERT(isUIThread());
-    static NeverDestroyed<UncheckedKeyHashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>> map;
+    static NeverDestroyed<HashMap<PAL::SessionID, WeakRef<WebsiteDataStore>>> map;
     return map;
 }
 
@@ -692,7 +692,7 @@ private:
         Ref<WorkQueue> m_queue;
         Function<void(Vector<WebsiteDataRecord>)> m_apply;
 
-        UncheckedKeyHashMap<String, WebsiteDataRecord> m_websiteDataRecords;
+        HashMap<String, WebsiteDataRecord> m_websiteDataRecords;
         Ref<WebsiteDataStore> m_protectedDataStore;
     };
 
@@ -846,7 +846,7 @@ void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, WallTime
         for (RefPtr processPool : processPools()) {
             // Clear back/forward cache first as processes removed from the back/forward cache will likely
             // be added to the WebProcess cache.
-            processPool->checkedBackForwardCache()->removeEntriesForSession(sessionID());
+            processPool->protectedBackForwardCache()->removeEntriesForSession(sessionID());
             processPool->checkedWebProcessCache()->clearAllProcessesForSession(sessionID());
         }
 
@@ -992,6 +992,11 @@ void WebsiteDataStore::resetServiceWorkerTimeoutForTesting()
 bool WebsiteDataStore::hasServiceWorkerBackgroundActivityForTesting() const
 {
     return WTF::anyOf(WebProcessPool::allProcessPools(), [](auto& pool) { return pool->hasServiceWorkerBackgroundActivityForTesting(); });
+}
+
+void WebsiteDataStore::runningOrTerminatingServiceWorkerCountForTesting(CompletionHandler<void(unsigned)>&& completionHandler)
+{
+    protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::RunningOrTerminatingServiceWorkerCountForTesting(sessionID()), WTFMove(completionHandler));
 }
 
 void WebsiteDataStore::setMaxStatisticsEntries(size_t maximumEntryCount, CompletionHandler<void()>&& completionHandler)
@@ -1344,7 +1349,7 @@ void WebsiteDataStore::setStorageAccessPromptQuirkForTesting(String&& topFrameDo
     auto registrableTopFrameDomainString = registrableTopFrameDomain.string();
     Vector<WebCore::OrganizationStorageAccessPromptQuirk> quirk { {
         WTFMove(registrableTopFrameDomainString)
-        , UncheckedKeyHashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> { {
+        , HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> { {
             KeyValuePair { WTFMove(registrableTopFrameDomain),
                 subFrameDomains.map([](auto& domain) { return WebCore::RegistrableDomain::fromRawString(String { domain }); })
             },

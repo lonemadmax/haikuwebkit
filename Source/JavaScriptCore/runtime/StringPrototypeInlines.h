@@ -32,6 +32,8 @@
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringSearch.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 inline Structure* StringPrototype::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -217,7 +219,7 @@ ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, 
     if constexpr (substitutions == StringReplaceSubstitutions::Yes) {
         size_t dollarSignPosition = replacement.find('$');
         if (dollarSignPosition != WTF::notFound) {
-            StringBuilder builder(StringBuilder::OverflowHandler::RecordOverflow);
+            StringBuilder builder(OverflowPolicy::RecordOverflow);
             int ovector[2] = { static_cast<int>(matchStart),  static_cast<int>(matchEnd) };
             substituteBackreferencesSlow(builder, replacement, string, ovector, nullptr, dollarSignPosition);
             if (UNLIKELY(builder.hasOverflowed())) {
@@ -271,7 +273,7 @@ ALWAYS_INLINE JSString* stringReplaceAllStringString(JSGlobalObject* globalObjec
 
     auto resultLength = CheckedSize { string.length() + matchStarts.size() * (replacement.length() - searchLength) };
 
-    StringBuilder resultBuilder(StringBuilder::OverflowHandler::RecordOverflow);
+    StringBuilder resultBuilder(OverflowPolicy::RecordOverflow);
     resultBuilder.reserveCapacity(resultLength);
 
     size_t lastMatchEnd = 0;
@@ -404,3 +406,5 @@ inline JSString* tryReplaceOneCharUsingString(JSGlobalObject* globalObject, JSSt
 }
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

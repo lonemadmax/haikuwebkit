@@ -132,12 +132,12 @@ static inline NSDictionary *toWebAPI(const WebExtensionCookieParameters& cookieP
     } mutableCopy];
 
     if (cookie.expires)
-        result[expirationDateKey] = @(cookie.expires.value());
+        result[expirationDateKey] = @(Seconds::fromMilliseconds(cookie.expires.value()).seconds());
 
     return [result copy];
 }
 
-static inline NSArray *toWebAPI(const UncheckedKeyHashMap<PAL::SessionID, Vector<WebExtensionTabIdentifier>>& stores)
+static inline NSArray *toWebAPI(const HashMap<PAL::SessionID, Vector<WebExtensionTabIdentifier>>& stores)
 {
     auto *result = [NSMutableArray arrayWithCapacity:stores.size()];
 
@@ -317,7 +317,7 @@ void WebExtensionAPICookies::set(NSDictionary *details, Ref<WebExtensionCallback
     cookie.created = WallTime::now().secondsSinceEpoch().milliseconds();
 
     if (auto *expirationNumber = objectForKey<NSNumber>(details, expirationDateKey); expirationNumber.doubleValue > 0)
-        cookie.expires = expirationNumber.doubleValue;
+        cookie.expires = WallTime::fromRawSeconds(expirationNumber.doubleValue).secondsSinceEpoch().milliseconds();
     else
         cookie.session = true;
 
@@ -368,7 +368,7 @@ void WebExtensionAPICookies::getAllCookieStores(Ref<WebExtensionCallbackHandler>
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/cookies/getAllCookieStores
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::CookiesGetAllCookieStores(), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<UncheckedKeyHashMap<PAL::SessionID, Vector<WebExtensionTabIdentifier>>, WebExtensionError>&& result) {
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::CookiesGetAllCookieStores(), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<HashMap<PAL::SessionID, Vector<WebExtensionTabIdentifier>>, WebExtensionError>&& result) {
         if (!result) {
             callback->reportError(result.error());
             return;

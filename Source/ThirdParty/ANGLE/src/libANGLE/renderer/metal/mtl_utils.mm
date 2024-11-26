@@ -855,12 +855,7 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
                     case 2:
                         return MTLLanguageVersion2_2;
                     case 3:
-                        if (@available(macOS 11.0, *))
-                        {
-                            return MTLLanguageVersion2_3;
-                        }
-                        assert(0 && "MSL 2.3 requires macOS 11.");
-                        break;
+                        return MTLLanguageVersion2_3;
                     case 4:
                         if (@available(macOS 12.0, *))
                         {
@@ -918,27 +913,9 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         auto options     = [[[MTLCompileOptions alloc] init] ANGLE_MTL_AUTORELEASE];
 
         // Mark all positions in VS with attribute invariant as non-optimizable
-        bool canPreserveInvariance = false;
-        if (@available(macOS 11.0, *))
-        {
-            canPreserveInvariance      = true;
-            options.preserveInvariance = usesInvariance;
-        }
+        options.preserveInvariance = usesInvariance;
 
-        // If either:
-        //   - fastmath is force-disabled
-        // or:
-        //   - preserveInvariance is not available when compiling from
-        //     source, and the sources use invariance
-        // Disable fastmath.
-        //
-        // Write this logic out as if-tests rather than a nested
-        // logical expression to make it clearer.
         if (disableFastMath)
-        {
-            options.fastMathEnabled = false;
-        }
-        else if (usesInvariance && !canPreserveInvariance)
         {
             options.fastMathEnabled = false;
         }
@@ -1086,16 +1063,15 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromBinary(id<MTLDevice> metalDev
         NSError *nsError = nil;
         auto shaderSourceData =
             dispatch_data_create(binarySource, binarySourceLen, dispatch_get_main_queue(),
-                                 ^{
-                                 });
+                                 DISPATCH_DATA_DESTRUCTOR_DEFAULT);
 
-        auto library = [metalDevice newLibraryWithData:shaderSourceData error:&nsError];
+        auto library = adoptObjCObj([metalDevice newLibraryWithData:shaderSourceData error:&nsError]);
 
         dispatch_release(shaderSourceData);
 
         *errorOut = std::move(nsError);
 
-        return [library ANGLE_MTL_AUTORELEASE];
+        return library;
     }
 }
 

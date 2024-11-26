@@ -1563,7 +1563,7 @@ void RenderObject::mapLocalToContainer(const RenderLayerModelObject* ancestorCon
     LayoutPoint centerPoint(transformState.mappedPoint());
     if (auto* parentAsBox = dynamicDowncast<RenderBox>(*parent)) {
         if (mode.contains(ApplyContainerFlip)) {
-            if (parentAsBox->style().isFlippedBlocksWritingMode())
+            if (parentAsBox->writingMode().isBlockFlipped())
                 transformState.move(parentAsBox->flipForWritingMode(LayoutPoint(transformState.mappedPoint())) - centerPoint);
             mode.remove(ApplyContainerFlip);
         }
@@ -1832,9 +1832,10 @@ void RenderObject::setCapturedInViewTransition(bool captured)
         m_stateBitfields.setFlag(StateFlag::CapturedInViewTransition, captured);
 
         CheckedPtr<RenderLayer> layerToInvalidate;
-        if (isDocumentElementRenderer())
+        if (isDocumentElementRenderer()) {
             layerToInvalidate = view().layer();
-        else if (hasLayer())
+            view().compositor().setRootElementCapturedInViewTransition(captured);
+        } else if (hasLayer())
             layerToInvalidate = downcast<RenderLayerModelObject>(*this).layer();
 
         if (layerToInvalidate) {
@@ -1843,6 +1844,9 @@ void RenderObject::setCapturedInViewTransition(bool captured)
             // Invalidate transform applied by `RenderLayerBacking::updateTransform`.
             layerToInvalidate->setNeedsCompositingGeometryUpdate();
         }
+
+        if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*this))
+            renderBox->invalidateAncestorBackgroundObscurationStatus();
     }
 }
 
@@ -2653,7 +2657,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
 {
     Vector<SelectionGeometry> geometries;
     Vector<SelectionGeometry> newGeometries;
-    bool hasFlippedWritingMode = range.start.container->renderer() && range.start.container->renderer()->style().isFlippedBlocksWritingMode();
+    bool hasFlippedWritingMode = range.start.container->renderer() && range.start.container->renderer()->writingMode().isBlockFlipped();
     bool containsDifferentWritingModes = false;
     bool hasAnyRightToLeftText = false;
     for (Ref node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
@@ -2662,7 +2666,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
         if (renderer && !renderer->firstChildSlow() && renderer->style().usedUserSelect() != UserSelect::None) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
-            if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())
+            if (hasFlippedWritingMode != renderer->writingMode().isBlockFlipped())
                 containsDifferentWritingModes = true;
             // FIXME: Sending 0 for the startOffset is a weird way of telling the renderer that the selection
             // doesn't start inside it, since we'll also send 0 if the selection *does* start in it, at offset 0.
@@ -2692,7 +2696,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     if (containsDifferentWritingModes) {
         if (RefPtr ancestor = commonInclusiveAncestor<ComposedTree>(range)) {
             if (CheckedPtr renderer = ancestor->renderer())
-                hasFlippedWritingMode = renderer->style().isFlippedBlocksWritingMode();
+                hasFlippedWritingMode = renderer->writingMode().isBlockFlipped();
         }
     }
 

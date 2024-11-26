@@ -80,8 +80,6 @@
 #define GET_ALLOWED_BUNDLE_IDENTIFIER_ADDITIONS_1
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 #if PLATFORM(IOS)
 
 // FIXME: This is only here temporarily for staging purposes.
@@ -109,6 +107,8 @@ using WebCore::PushSubscriptionSetIdentifier;
 using WebCore::SecurityOriginData;
 
 namespace WebPushD {
+
+static unsigned s_protocolVersion = protocolVersionValue;
 
 static constexpr Seconds s_incomingPushTransactionTimeout { 10_s };
 
@@ -295,7 +295,7 @@ void WebPushDaemon::connectionEventHandler(xpc_object_t request)
         return;
 
     auto version = xpc_dictionary_get_uint64(request, protocolVersionKey);
-    if (version != protocolVersionValue) {
+    if (version != s_protocolVersion) {
         RELEASE_LOG_ERROR(Push, "Received request with protocol version %llu not matching daemon protocol version %llu", version, protocolVersionValue);
         tryCloseRequestConnection(request);
         return;
@@ -735,6 +735,9 @@ void WebPushDaemon::getPendingPushMessages(PushClientConnection& connection, Com
     WEBPUSHDAEMON_RELEASE_LOG(Push, "Fetched %zu push messages, %zu remaining", result.size(), m_pendingPushMessages.size());
 
     replySender(WTFMove(result));
+
+    if (m_pendingPushMessages.isEmpty())
+        releaseIncomingPushTransaction();
 }
 
 void WebPushDaemon::getPushTopicsForTesting(PushClientConnection& connection, CompletionHandler<void(Vector<String>, Vector<String>)>&& completionHandler)
@@ -1189,8 +1192,12 @@ void WebPushDaemon::getAppBadgeForTesting(PushClientConnection& connection, Comp
 
 #endif // HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
 
-} // namespace WebPushD
+void WebPushDaemon::setProtocolVersionForTesting(PushClientConnection& connection, unsigned version, CompletionHandler<void()>&& completionHandler)
+{
+    s_protocolVersion = version;
+    completionHandler();
+}
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+} // namespace WebPushD
 
 #endif // ENABLE(WEB_PUSH_NOTIFICATIONS)

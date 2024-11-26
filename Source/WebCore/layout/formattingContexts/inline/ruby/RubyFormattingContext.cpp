@@ -51,7 +51,7 @@ static RubyPosition rubyPosition(const Box& rubyBaseLayoutBox)
 {
     ASSERT(rubyBaseLayoutBox.isRubyBase());
     auto computedRubyPosition = rubyBaseLayoutBox.style().rubyPosition();
-    if (rubyBaseLayoutBox.style().isHorizontalWritingMode())
+    if (!rubyBaseLayoutBox.writingMode().isVerticalTypographic())
         return computedRubyPosition;
     // inter-character: If the writing mode of the enclosing ruby container is vertical, this value has the same effect as over.
     return rubyBaseLayoutBox.style().isInterCharacterRubyPosition() ? RubyPosition::Over : computedRubyPosition;
@@ -60,11 +60,11 @@ static RubyPosition rubyPosition(const Box& rubyBaseLayoutBox)
 static inline InlineRect annotationMarginBoxVisualRect(const Box& annotationBox, InlineLayoutUnit lineHeight, InlineFormattingContext& inlineFormattingContext)
 {
     auto marginBoxLogicalRect = InlineRect { BoxGeometry::marginBoxRect(inlineFormattingContext.geometryForBox(annotationBox)) };
-    auto& rootStyle = inlineFormattingContext.root().style();
-    if (rootStyle.isHorizontalWritingMode())
+    auto writingMode = inlineFormattingContext.root().writingMode();
+    if (writingMode.isHorizontal())
         return marginBoxLogicalRect;
     auto visualTopLeft = marginBoxLogicalRect.topLeft().transposedPoint();
-    if (rootStyle.isFlippedBlocksWritingMode())
+    if (writingMode.isBlockFlipped())
         return InlineRect { visualTopLeft, marginBoxLogicalRect.size().transposedSize() };
     visualTopLeft.move(lineHeight - marginBoxLogicalRect.height(), { });
     return InlineRect { visualTopLeft, marginBoxLogicalRect.size().transposedSize() };
@@ -109,122 +109,6 @@ static bool annotationOverlapCheck(const InlineDisplay::Box& adjacentDisplayBox,
     // Adjacent ruby may have overlapping annotation.
     if (adjacentLayoutBox.isRubyBase() && adjacentLayoutBox.associatedRubyAnnotationBox())
         return annotationMarginBoxVisualRect(*adjacentLayoutBox.associatedRubyAnnotationBox(), lineLogicalHeight, inlineFormattingContext).intersects(overhangingRect);
-    return false;
-}
-
-static bool canBreakBefore(UChar character)
-{
-    auto lineBreak = (ULineBreak)u_getIntPropertyValue(character, UCHAR_LINE_BREAK);
-    // UNICODE LINE BREAKING ALGORITHM
-    // http://www.unicode.org/reports/tr14/
-    // And Requirements for Japanese Text Layout, 3.1.7 Characters Not Starting a Line
-    // https://www.w3.org/TR/jlreq/#characters_not_starting_a_line
-    switch (lineBreak) {
-    case U_LB_NONSTARTER:
-    case U_LB_CLOSE_PARENTHESIS:
-    case U_LB_CLOSE_PUNCTUATION:
-    case U_LB_EXCLAMATION:
-    case U_LB_BREAK_SYMBOLS:
-    case U_LB_INFIX_NUMERIC:
-    case U_LB_ZWSPACE:
-    case U_LB_WORD_JOINER:
-        return false;
-    default:
-        break;
-    }
-    // Special care for Requirements for Japanese Text Layout
-    switch (character) {
-    case 0x2019: // RIGHT SINGLE QUOTATION MARK
-    case 0x201D: // RIGHT DOUBLE QUOTATION MARK
-    case 0x00BB: // RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
-    case 0x2010: // HYPHEN
-    case 0x2013: // EN DASH
-    case 0x300C: // LEFT CORNER BRACKET
-        return false;
-    default:
-        break;
-    }
-    return true;
-}
-
-static bool canBreakAfter(UChar character)
-{
-    // https://www.w3.org/TR/jlreq/#characters_not_ending_a_line
-    switch (character) {
-    case 0x2018: // LEFT SINGLE QUOTATION MARK
-    case 0x201C: // LEFT DOUBLE QUOTATION MARK
-    case 0x0028: // LEFT PARENTHESIS
-    case 0x3014: // LEFT TORTOISE SHELL BRACKET
-    case 0x005B: // LEFT SQUARE BRACKET
-    case 0x007B: // LEFT CURLY BRACKET
-    case 0x3008: // LEFT ANGLE BRACKET
-    case 0x300A: // LEFT DOUBLE ANGLE BRACKET
-    case 0x300C: // LEFT CORNER BRACKET
-    case 0x300E: // LEFT WHITE CORNER BRACKET
-    case 0x3010: // LEFT BLACK LENTICULAR BRACKET
-    case 0x2985: // LEFT WHITE PARENTHESIS
-    case 0x3018: // LEFT WHITE TORTOISE SHELL BRACKET
-    case 0x3016: // LEFT WHITE LENTICULAR BRACKET
-    case 0x00AB: // LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
-    case 0x301D: // REVERSED DOUBLE PRIME QUOTATION MARK
-        return false;
-    default:
-        break;
-    }
-    return true;
-}
-
-bool RubyFormattingContext::isAtSoftWrapOpportunity(const InlineItem& previous, const InlineItem& current)
-{
-    auto& previousLayoutBox = previous.layoutBox();
-    auto& currentLayoutBox = current.layoutBox();
-    ASSERT(previousLayoutBox.isRubyInlineBox() || currentLayoutBox.isRubyInlineBox());
-
-    if (currentLayoutBox.isRuby()) {
-        ASSERT((!previous.isInlineBoxStart() && !previous.isInlineBoxEnd()) || previous.layoutBox().isRubyInlineBox());
-
-        if (current.isInlineBoxStart()) {
-            // At the beginning of <ruby>.
-            auto* leadingTextItem = dynamicDowncast<InlineTextItem>(previous);
-            if (!leadingTextItem)
-                return true;
-            if (!leadingTextItem->length()) {
-                // FIXME: This needs to know prior context.
-                return true;
-            }
-            auto lastCharacter = leadingTextItem->inlineTextBox().content()[leadingTextItem->end() - 1];
-            return canBreakAfter(lastCharacter);
-        }
-        // Don't break between base end and <ruby> end.
-        return false;
-    }
-
-    if (currentLayoutBox.isRubyBase() || previousLayoutBox.isRubyBase()) {
-        // There's always a soft wrap opportunity between two bases.
-        return currentLayoutBox.isRubyBase() && previousLayoutBox.isRubyBase();
-    }
-
-    if (previousLayoutBox.isRuby()) {
-        ASSERT((!current.isInlineBoxStart() && !current.isInlineBoxEnd()) || current.layoutBox().isRuby());
-
-        if (previous.isInlineBoxEnd()) {
-            // At the end of <ruby>
-            auto* trailingTextItem = dynamicDowncast<InlineTextItem>(current);
-            if (!trailingTextItem)
-                return true;
-            if (!trailingTextItem->length()) {
-                // FIXME: This should be turned into one of those "can't decide it yet" cases.
-                return true;
-            }
-            auto firstCharacter = trailingTextItem->inlineTextBox().content()[trailingTextItem->start()];
-            return canBreakBefore(firstCharacter);
-        }
-        // We should handled this case already when looking at current: base, previous: ruby.
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-
-    ASSERT_NOT_REACHED();
     return false;
 }
 
@@ -506,7 +390,7 @@ InlineLayoutUnit RubyFormattingContext::overhangForAnnotationBefore(const Box& r
         ASSERT_NOT_REACHED();
         return { };
     }
-    auto isHorizontalWritingMode = inlineFormattingContext.root().style().isHorizontalWritingMode();
+    auto isHorizontalWritingMode = inlineFormattingContext.root().writingMode().isHorizontal();
     auto baseContentStart = baseContentIndex(rubyBaseStart, boxes);
     if (baseContentStart >= boxes.size()) {
         ASSERT_NOT_REACHED();
@@ -551,7 +435,7 @@ InlineLayoutUnit RubyFormattingContext::overhangForAnnotationAfter(const Box& ru
     if (!rubyBaseRange || rubyBaseRange.distance() == 1 || rubyBaseRange.end() == boxes.size())
         return { };
 
-    auto isHorizontalWritingMode = inlineFormattingContext.root().style().isHorizontalWritingMode();
+    auto isHorizontalWritingMode = inlineFormattingContext.root().writingMode().isHorizontal();
     // FIXME: Usually the last content box is visually the rightmost, but negative margin may override it.
     // FIXME: Currently justified content always expands producing 0 value for gapBetweenBaseEndAndContent.
     auto rubyBaseContentEnd = rubyBaseRange.end() - 1;
@@ -593,7 +477,7 @@ bool RubyFormattingContext::hasInterlinearAnnotation(const Box& rubyBaseLayoutBo
 bool RubyFormattingContext::hasInterCharacterAnnotation(const Box& rubyBaseLayoutBox)
 {
     ASSERT(rubyBaseLayoutBox.isRubyBase());
-    if (!rubyBaseLayoutBox.style().isHorizontalWritingMode()) {
+    if (!rubyBaseLayoutBox.writingMode().isHorizontal()) {
         // If the writing mode of the enclosing ruby container is vertical, this value has the same effect as over.
         return false;
     }
@@ -609,7 +493,7 @@ void RubyFormattingContext::applyRubyOverhang(InlineFormattingContext& parentFor
     if (interlinearRubyColumnRangeList.isEmpty())
         return;
 
-    auto isHorizontalWritingMode = parentFormattingContext.root().style().isHorizontalWritingMode();
+    auto isHorizontalWritingMode = parentFormattingContext.root().writingMode().isHorizontal();
     for (auto startEndPair : interlinearRubyColumnRangeList) {
         ASSERT(startEndPair);
         if (startEndPair.distance() == 1)

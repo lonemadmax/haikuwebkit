@@ -418,6 +418,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/IDBDatabaseNameAndVersionRequest.h
     Modules/indexeddb/IDBGetAllResult.h
     Modules/indexeddb/IDBGetResult.h
+    Modules/indexeddb/IDBIndexIdentifier.h
     Modules/indexeddb/IDBKey.h
     Modules/indexeddb/IDBKeyData.h
     Modules/indexeddb/IDBKeyPath.h
@@ -470,8 +471,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/shared/IDBResourceIdentifier.h
     Modules/indexeddb/shared/IDBResultData.h
     Modules/indexeddb/shared/IDBTransactionInfo.h
-
-    Modules/mediarecorder/MediaRecorderProvider.h
 
     Modules/mediasession/NavigatorMediaSession.h
     Modules/mediasession/MediaSession.h
@@ -598,11 +597,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/system-preview/ARKitBadgeSystemImage.h
 
-    Modules/url-pattern/URLPattern.h
-    Modules/url-pattern/URLPatternInit.h
-    Modules/url-pattern/URLPatternOptions.h
-    Modules/url-pattern/URLPatternResult.h
-
     Modules/web-locks/WebLock.h
     Modules/web-locks/WebLockIdentifier.h
     Modules/web-locks/WebLockManagerSnapshot.h
@@ -704,7 +698,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/isolatedtree/AXIsolatedObject.h
     accessibility/isolatedtree/AXIsolatedTree.h
 
-    animation/AcceleratedTimeline.h
+    animation/AcceleratedEffectStackUpdater.h
+    animation/AnimationMalloc.h
     animation/AnimationFrameRatePreset.h
     animation/AnimationTimeline.h
     animation/AnimationTimelinesController.h
@@ -854,6 +849,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     crypto/SerializedCryptoKeyWrap.h
     crypto/WrappedCryptoKey.h
 
+    css/CSSAttrValue.h
     css/CSSConditionRule.h
     css/CSSCounterStyle.h
     css/CSSCounterStyleDescriptors.h
@@ -949,8 +945,28 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/typedom/numeric/CSSNumericBaseType.h
     css/typedom/numeric/CSSNumericType.h
 
-    css/values/CSSPrimitiveNumericTypes.h
-    css/values/CSSUnevaluatedCalc.h
+    css/values/backgrounds/CSSBorderRadius.h
+    css/values/backgrounds/CSSMinimallySerializingRectEdges.h
+
+    css/values/images/CSSGradient.h
+
+    css/values/motion/CSSRayFunction.h
+
+    css/values/primitives/CSSPosition.h
+    css/values/primitives/CSSPrimitiveNumericTypes.h
+    css/values/primitives/CSSUnevaluatedCalc.h
+
+    css/values/shapes/CSSBasicShape.h
+    css/values/shapes/CSSCircleFunction.h
+    css/values/shapes/CSSEllipseFunction.h
+    css/values/shapes/CSSFillRule.h
+    css/values/shapes/CSSInsetFunction.h
+    css/values/shapes/CSSPathFunction.h
+    css/values/shapes/CSSPolygonFunction.h
+    css/values/shapes/CSSRectFunction.h
+    css/values/shapes/CSSShapeFunction.h
+    css/values/shapes/CSSXywhFunction.h
+
     css/values/CSSValueTypes.h
 
     cssjit/CompiledSelector.h
@@ -1619,6 +1635,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PointerLockController.h
     page/PrewarmInformation.h
     page/PrintContext.h
+    page/ProcessSyncClient.h
     page/ProcessWarming.h
     page/Quirks.h
     page/ReducedResolutionSeconds.h
@@ -1722,6 +1739,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/AbortableTaskQueue.h
     platform/AudioSampleFormat.h
+    platform/BoxSides.h
     platform/CaretAnimator.h
     platform/CPUMonitor.h
     platform/ColorChooser.h
@@ -1857,6 +1875,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/StyleAppearance.h
     platform/SuddenTermination.h
     platform/Supplementable.h
+    platform/SyntheticClickResult.h
     platform/SystemSoundDelegate.h
     platform/TextRecognitionOptions.h
     platform/ThemeTypes.h
@@ -2398,12 +2417,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/text/TextCheckerClient.h
     platform/text/TextChecking.h
     platform/text/TextCheckingRequestIdentifier.h
-    platform/text/TextDirection.h
     platform/text/TextFlags.h
     platform/text/TextSpacing.h
     platform/text/UnicodeBidi.h
     platform/text/WritingMode.h
 
+    platform/video-codecs/BitReader.h
     platform/video-codecs/VideoCodecType.h
 
     platform/xr/PlatformXR.h
@@ -2491,10 +2510,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/line/LineWidth.h
     rendering/line/TrailingObjects.h
 
-    rendering/shapes/Shape.h
+    rendering/shapes/LayoutShape.h
     rendering/shapes/ShapeOutsideInfo.h
 
-    rendering/style/BasicShapes.h
     rendering/style/BlockEllipsis.h
     rendering/style/BorderData.h
     rendering/style/BorderValue.h
@@ -2576,7 +2594,29 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/StyleValidity.h
     style/Styleable.h
 
-    style/values/StylePrimitiveNumericTypes.h
+    style/values/backgrounds/StyleBorderRadius.h
+    style/values/backgrounds/StyleMinimallySerializingRectEdges.h
+
+    style/values/images/StyleGradient.h
+
+    style/values/motion/StyleRayFunction.h
+
+    style/values/primitives/StylePosition.h
+    style/values/primitives/StylePrimitiveNumericTypes.h
+
+    style/values/shapes/StyleBasicShape.h
+    style/values/shapes/StyleCircleFunction.h
+    style/values/shapes/StyleEllipseFunction.h
+    style/values/shapes/StyleFillRule.h
+    style/values/shapes/StyleInsetFunction.h
+    style/values/shapes/StylePathComputation.h
+    style/values/shapes/StylePathFunction.h
+    style/values/shapes/StylePolygonFunction.h
+    style/values/shapes/StyleRectFunction.h
+    style/values/shapes/StyleShapeFunction.h
+    style/values/shapes/StyleWindRuleComputation.h
+    style/values/shapes/StyleXywhFunction.h
+
     style/values/StyleValueTypes.h
 
     svg/SVGElement.h

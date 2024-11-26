@@ -513,7 +513,8 @@
       "name" : "Alexsander Borges Damaceno",
       "nicks" : [
          "alexbdamac"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -3228,7 +3229,7 @@
       ],
       "github" : "squelart",
       "name" : "Gerald Squelart",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -3923,6 +3924,7 @@
    },
    {
       "emails" : [
+         "jani@kodegood.com",
          "jani@igalia.com"
       ],
       "github" : "zhani",
@@ -8258,7 +8260,8 @@
          "yoel@apple.com"
       ],
       "github" : "yoelhawa",
-      "name" : "Yoel Hawa"
+      "name" : "Yoel Hawa",
+      "status" : "committer"
    },
    {
       "emails" : [

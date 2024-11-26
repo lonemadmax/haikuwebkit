@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include <WebCore/DOMCacheEngine.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
@@ -40,10 +41,10 @@ struct ClientOrigin;
 
 namespace WebKit {
 class CacheStorageCache;
+class CacheStorageRecordInformation;
 class CacheStorageRegistry;
 class CacheStorageStore;
 struct CacheStorageRecord;
-struct CacheStorageRecordInformation;
 
 
 class CacheStorageManager : public RefCountedAndCanMakeWeakPtr<CacheStorageManager> {
@@ -95,8 +96,8 @@ private:
     Ref<CacheStorageRegistry> m_registry;
     QuotaCheckFunction m_quotaCheckFunction;
     Vector<Ref<CacheStorageCache>> m_caches;
-    UncheckedKeyHashMap<WebCore::DOMCacheIdentifier, Ref<CacheStorageCache>> m_removedCaches;
-    UncheckedKeyHashMap<WebCore::DOMCacheIdentifier, Vector<IPC::Connection::UniqueID>> m_cacheRefConnections;
+    HashMap<WebCore::DOMCacheIdentifier, Ref<CacheStorageCache>> m_removedCaches;
+    HashMap<WebCore::DOMCacheIdentifier, Vector<IPC::Connection::UniqueID>> m_cacheRefConnections;
     HashSet<IPC::Connection::UniqueID> m_activeConnections;
     Ref<WorkQueue> m_queue;
     Deque<std::pair<uint64_t, CompletionHandler<void(bool)>>> m_pendingSpaceRequests;

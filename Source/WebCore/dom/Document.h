@@ -269,10 +269,6 @@ class ContentChangeObserver;
 class DOMTimerHoldingTank;
 #endif
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-class AcceleratedTimeline;
-#endif
-
 struct ApplicationManifest;
 struct BoundaryPoint;
 struct CSSParserContext;
@@ -502,9 +498,6 @@ public:
     WEBCORE_EXPORT ViewportArguments viewportArguments() const;
 
     OptionSet<DisabledAdaptations> disabledAdaptations() const { return m_disabledAdaptations; }
-#if ASSERT_ENABLED
-    bool didDispatchViewportPropertiesChanged() const { return m_didDispatchViewportPropertiesChanged; }
-#endif
 
     WEBCORE_EXPORT DocumentType* doctype() const;
 
@@ -543,11 +536,11 @@ public:
 
     WEBCORE_EXPORT String defaultCharsetForLegacyBindings() const;
 
-    inline String charset() const;
-    WEBCORE_EXPORT String characterSetWithUTF8Fallback() const;
+    inline ASCIILiteral charset() const;
+    WEBCORE_EXPORT ASCIILiteral characterSetWithUTF8Fallback() const;
     inline PAL::TextEncoding textEncoding() const;
 
-    WEBCORE_EXPORT AtomString encoding() const;
+    inline ASCIILiteral encoding() const;
 
     WEBCORE_EXPORT void setCharset(const String&); // Used by ObjC / GOBject bindings only.
 
@@ -593,6 +586,7 @@ public:
     bool isTimerThrottlingEnabled() const { return m_isTimerThrottlingEnabled; }
 
     void setVisibilityHiddenDueToDismissal(bool);
+    void clearRevealForReactivation();
 
     WEBCORE_EXPORT ExceptionOr<Ref<Node>> adoptNode(Node& source);
 
@@ -685,7 +679,7 @@ public:
     const CSSCounterStyleRegistry& counterStyleRegistry() const;
     CSSCounterStyleRegistry& counterStyleRegistry();
 
-    CSSParserContext cssParserContext() const;
+    WEBCORE_EXPORT CSSParserContext cssParserContext() const;
     void invalidateCachedCSSParserContext();
 
     bool gotoAnchorNeededAfterStylesheetsLoad() { return m_gotoAnchorNeededAfterStylesheetsLoad; }
@@ -1092,6 +1086,7 @@ public:
 #endif
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
+    ContentChangeObserver* contentChangeObserverIfExists() { return m_contentChangeObserver.get(); }
     WEBCORE_EXPORT ContentChangeObserver& contentChangeObserver();
 
     DOMTimerHoldingTank* domTimerHoldingTankIfExists() { return m_domTimerHoldingTank.get(); }
@@ -1242,7 +1237,7 @@ public:
 
     ScriptRunner* scriptRunnerIfExists() { return m_scriptRunner.get(); }
     inline ScriptRunner& scriptRunner();
-    CheckedRef<ScriptRunner> checkedScriptRunner();
+    Ref<ScriptRunner> protectedScriptRunner();
     inline ScriptModuleLoader& moduleLoader();
 
     Element* currentScript() const { return !m_currentScriptStack.isEmpty() ? m_currentScriptStack.last().get() : nullptr; }
@@ -1457,7 +1452,8 @@ public:
 
     int requestIdleCallback(Ref<IdleRequestCallback>&&, Seconds timeout);
     void cancelIdleCallback(int id);
-    IdleCallbackController* idleCallbackController() { return m_idleCallbackController.get(); }
+    bool hasPendingIdleCallback() const;
+    IdleCallbackController* idleCallbackController() const { return m_idleCallbackController.get(); }
 
     EventTarget* errorEventTarget() final;
     void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, RefPtr<Inspector::ScriptCallStack>&&) final;
@@ -1606,6 +1602,7 @@ public:
     SecurityOrigin& securityOrigin() const { return *SecurityContext::securityOrigin(); }
     inline Ref<SecurityOrigin> protectedSecurityOrigin() const; // Defined in DocumentInlines.h.
     WEBCORE_EXPORT SecurityOrigin& topOrigin() const final;
+    URL topURL() const;
     Ref<SecurityOrigin> protectedTopOrigin() const;
     inline ClientOrigin clientOrigin() const;
 
@@ -1724,6 +1721,7 @@ public:
 
     bool renderingIsSuppressedForViewTransition() const;
     void setRenderingIsSuppressedForViewTransitionAfterUpdateRendering();
+    void setRenderingIsSuppressedForViewTransitionImmediately();
     void clearRenderingIsSuppressedForViewTransition();
     void flushDeferredRenderingIsSuppressedForViewTransitionChanges();
 
@@ -1802,11 +1800,6 @@ public:
     WEBCORE_EXPORT AnimationTimelinesController& ensureTimelinesController();
     void keyframesRuleDidChange(const String& name);
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    AcceleratedTimeline* existingAcceleratedTimeline() const { return m_acceleratedTimeline.get(); }
-    AcceleratedTimeline& acceleratedTimeline();
-#endif
-
     void addTopLayerElement(Element&);
     void removeTopLayerElement(Element&);
     const ListHashSet<Ref<Element>>& topLayerElements() const { return m_topLayerElements; }
@@ -1819,6 +1812,7 @@ public:
 
     void hideAllPopoversUntil(HTMLElement*, FocusPreviousElement, FireEvents);
     void handlePopoverLightDismiss(const PointerEvent&, Node&);
+    bool needsPointerEventHandlingForPopover() const { return !m_autoPopoverList.isEmpty(); }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     void registerAttachmentIdentifier(const String&, const AttachmentAssociatedElement&);
@@ -2632,10 +2626,6 @@ private:
 
     bool m_updateTitleTaskScheduled { false };
 
-#if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    std::unique_ptr<AcceleratedTimeline> m_acceleratedTimeline;
-#endif
-
     bool m_isRunningUserScripts { false };
     bool m_shouldPreventEnteringBackForwardCacheForTesting { false };
     bool m_hasLoadedThirdPartyScript { false };
@@ -2668,7 +2658,6 @@ private:
 
 #if ASSERT_ENABLED
     bool m_inHitTesting { false };
-    bool m_didDispatchViewportPropertiesChanged { false };
 #endif
     bool m_isDirAttributeDirty { false };
 

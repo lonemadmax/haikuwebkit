@@ -60,7 +60,8 @@ public:
 
 #if ENABLE(WEBDRIVER_BIDI)
     using BrowserTerminatedObserver = WTF::Observer<void(const String&)>;
-    void addBrowserTerminatedObserver(const BrowserTerminatedObserver&);
+    static void addBrowserTerminatedObserver(const BrowserTerminatedObserver&);
+    static void removeBrowserTerminatedObserver(const BrowserTerminatedObserver&);
 #endif
 
     void setHostAddress(const String& ip, uint16_t port) { m_targetIp = ip; m_targetPort = port; }
@@ -103,7 +104,7 @@ private:
     void setTargetList(uint64_t connectionID, Vector<Target>&&);
     void sendMessageToFrontend(uint64_t connectionID, uint64_t targetID, const char* message);
 #elif USE(INSPECTOR_SOCKET_SERVER)
-    UncheckedKeyHashMap<String, CallHandler>& dispatchMap() override;
+    HashMap<String, CallHandler>& dispatchMap() override;
     void didClose(Inspector::RemoteInspectorSocketEndpoint&, Inspector::ConnectionID) final;
     void sendWebInspectorEvent(const String&);
 
@@ -121,7 +122,7 @@ private:
     uint64_t m_connectionID { 0 };
     Target m_target;
 
-    UncheckedKeyHashMap<long, Function<void (CommandResponse&&)>> m_commandRequests;
+    HashMap<long, Function<void (CommandResponse&&)>> m_commandRequests;
 
     String m_targetIp;
     uint16_t m_targetPort { 0 };

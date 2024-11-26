@@ -37,13 +37,9 @@
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/text/StringToIntegerConversion.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebKit {
 
-XPCServiceInitializerDelegate::~XPCServiceInitializerDelegate()
-{
-}
+XPCServiceInitializerDelegate::~XPCServiceInitializerDelegate() = default;
 
 bool XPCServiceInitializerDelegate::checkEntitlements()
 {
@@ -114,7 +110,7 @@ bool XPCServiceInitializerDelegate::getClientProcessName(String& clientProcessNa
     return !clientProcessName.isEmpty();
 }
 
-bool XPCServiceInitializerDelegate::getExtraInitializationData(UncheckedKeyHashMap<String, String>& extraInitializationData)
+bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, String>& extraInitializationData)
 {
     xpc_object_t extraDataInitializationDataObject = xpc_dictionary_get_value(m_initializerMessage, "extra-initialization-data");
 
@@ -238,5 +234,3 @@ void XPCServiceExit()
 }
 
 } // namespace WebKit
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -43,6 +43,7 @@
 #include <WebKit/WKDragDestinationAction.h>
 #include <WebKit/_WKOverlayScrollbarStyle.h>
 #include <pal/spi/cocoa/AVKitSPI.h>
+#include <pal/spi/cocoa/WritingToolsSPI.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
@@ -166,6 +167,10 @@ enum class ReplacementBehavior : uint8_t;
 - (void)_didHandleAcceptedCandidate;
 - (void)_didUpdateCandidateListVisibility:(BOOL)visible;
 
+- (BOOL)_web_hasActiveIntelligenceTextEffects;
+- (void)_web_suppressContentRelativeChildViews;
+- (void)_web_restoreContentRelativeChildViews;
+
 @end
 
 namespace WebCore {
@@ -196,7 +201,7 @@ enum class UndoOrRedo : bool;
 
 typedef id <NSValidatedUserInterfaceItem> ValidationItem;
 typedef Vector<RetainPtr<ValidationItem>> ValidationVector;
-typedef UncheckedKeyHashMap<String, ValidationVector> ValidationMap;
+typedef HashMap<String, ValidationVector> ValidationMap;
 
 class WebViewImpl final : public CanMakeWeakPtr<WebViewImpl>, public CanMakeCheckedPtr<WebViewImpl> {
     WTF_MAKE_NONCOPYABLE(WebViewImpl);
@@ -263,10 +268,11 @@ public:
     NSPrintOperation *printOperationWithPrintInfo(NSPrintInfo *, WebFrameProxy&);
 
     void setAutomaticallyAdjustsContentInsets(bool);
-    bool automaticallyAdjustsContentInsets() const { return m_automaticallyAdjustsContentInsets; }
+    bool automaticallyAdjustsContentInsets() const;
     void updateContentInsetsIfAutomatic();
     void setTopContentInset(CGFloat);
     CGFloat topContentInset() const;
+    void flushPendingTopContentInset();
 
     void prepareContentInRect(CGRect);
     void updateViewExposedRect();
@@ -484,9 +490,9 @@ public:
 
     NSTrackingRectTag addTrackingRect(CGRect, id owner, void* userData, bool assumeInside);
     NSTrackingRectTag addTrackingRectWithTrackingNum(CGRect, id owner, void* userData, bool assumeInside, int tag);
-    void addTrackingRectsWithTrackingNums(CGRect*, id owner, void** userDataList, bool assumeInside, NSTrackingRectTag *trackingNums, int count);
+    void addTrackingRectsWithTrackingNums(Vector<CGRect>, id owner, void** userDataList, bool assumeInside, NSTrackingRectTag *trackingNums);
     void removeTrackingRect(NSTrackingRectTag);
-    void removeTrackingRects(NSTrackingRectTag *, int count);
+    void removeTrackingRects(std::span<NSTrackingRectTag>);
     NSString *stringForToolTip(NSToolTipTag tag);
     void toolTipChanged(const String& oldToolTip, const String& newToolTip);
 
@@ -745,7 +751,7 @@ public:
 #endif
 
 #if ENABLE(WRITING_TOOLS)
-    void showWritingTools();
+    void showWritingTools(WTRequestedTool = WTRequestedToolIndex);
 
     void addTextAnimationForAnimationID(WTF::UUID, const WebCore::TextAnimationData&);
     void removeTextAnimationForAnimationID(WTF::UUID);
@@ -801,9 +807,6 @@ private:
 
     bool supportsArbitraryLayoutModes() const;
     float intrinsicDeviceScaleFactor() const;
-
-    void scheduleSetTopContentInsetDispatch();
-    void dispatchSetTopContentInset();
 
     void sendToolTipMouseExited();
     void sendToolTipMouseEntered();
@@ -876,10 +879,6 @@ private:
     bool m_didScheduleWindowAndViewFrameUpdate { false };
     bool m_windowOcclusionDetectionEnabled { true };
 
-    bool m_automaticallyAdjustsContentInsets { false };
-    std::optional<CGFloat> m_pendingTopContentInset;
-    bool m_didScheduleSetTopContentInsetDispatch { false };
-    
     CGSize m_scrollOffsetAdjustment { 0, 0 };
 
     CGSize m_intrinsicContentSize { 0, 0 };
@@ -898,7 +897,7 @@ private:
     RetainPtr<WKFullScreenWindowController> m_fullScreenWindowController;
 #endif
 
-    UncheckedKeyHashMap<WebKit::PDFPluginIdentifier, RetainPtr<WKPDFHUDView>> _pdfHUDViews;
+    HashMap<WebKit::PDFPluginIdentifier, RetainPtr<WKPDFHUDView>> _pdfHUDViews;
 
     RetainPtr<WKShareSheet> _shareSheet;
 

@@ -134,6 +134,9 @@ void RenderMathMLRow::computePreferredLogicalWidths()
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = preferredLogicalWidthOfRowItems();
 
+    auto sizes = sizeAppliedToMathContent(LayoutPhase::CalculatePreferredLogicalWidth);
+    applySizeToMathContent(LayoutPhase::CalculatePreferredLogicalWidth, sizes);
+
     adjustPreferredLogicalWidthsForBorderAndPadding();
 
     setPreferredLogicalWidthsDirty(false);
@@ -146,7 +149,7 @@ void RenderMathMLRow::layoutRowItems(LayoutUnit width, LayoutUnit ascent)
         horizontalOffset += child->marginStart();
         LayoutUnit childVerticalOffset = ascent - ascentForChild(*child);
         LayoutUnit childWidth = child->logicalWidth();
-        LayoutUnit childHorizontalOffset = style().isLeftToRightDirection() ? horizontalOffset : width - horizontalOffset - childWidth;
+        LayoutUnit childHorizontalOffset = writingMode().isBidiLTR() ? horizontalOffset : width - horizontalOffset - childWidth;
         auto repaintRect = child->checkForRepaintDuringLayout() ? std::make_optional(child->frameRect()) : std::nullopt;
         child->setLocation(LayoutPoint(childHorizontalOffset, childVerticalOffset));
         if (repaintRect) {
@@ -171,8 +174,6 @@ void RenderMathMLRow::layoutBlock(bool relayoutChildren, LayoutUnit)
     recomputeLogicalWidth();
     computeAndSetBlockDirectionMarginsOfChildren();
 
-    setLogicalHeight(borderAndPaddingLogicalHeight() + scrollbarLogicalHeight());
-
     LayoutUnit width, ascent, descent;
     stretchVerticalOperatorsAndLayoutChildren();
     getContentBoundingBox(width, ascent, descent);
@@ -180,9 +181,11 @@ void RenderMathMLRow::layoutBlock(bool relayoutChildren, LayoutUnit)
     setLogicalWidth(width);
     setLogicalHeight(ascent + descent);
 
-    adjustLayoutForBorderAndPadding();
+    auto sizes = sizeAppliedToMathContent(LayoutPhase::Layout);
+    auto shift = applySizeToMathContent(LayoutPhase::Layout, sizes);
+    shiftInFlowChildren(shift, 0);
 
-    updateLogicalHeight();
+    adjustLayoutForBorderAndPadding();
 
     layoutPositionedObjects(relayoutChildren);
 

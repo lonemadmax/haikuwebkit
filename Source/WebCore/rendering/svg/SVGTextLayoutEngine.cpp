@@ -36,6 +36,8 @@
 // Set to a value > 0 to dump the text fragments
 #define DUMP_SVG_TEXT_LAYOUT_FRAGMENTS 0
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 SVGTextLayoutEngine::SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes*>& layoutAttributes)
@@ -223,7 +225,7 @@ void SVGTextLayoutEngine::layoutInlineTextBox(InlineIterator::SVGTextBoxIterator
 
     const RenderStyle& style = text.style();
 
-    m_isVerticalText = style.isVerticalWritingMode();
+    m_isVerticalText = style.writingMode().isVertical();
     layoutTextOnLineOrPath(textBox, text, style);
 
     if (m_inPathLayout) {
@@ -684,3 +686,5 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(InlineIterator::SVGTextBoxItera
 }
 
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

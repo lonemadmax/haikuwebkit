@@ -37,6 +37,8 @@
 #include "TypeError.h"
 #include <wtf/Assertions.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace JSC {
 
 struct CompactHashIndex {
@@ -551,8 +553,8 @@ inline void reifyStaticProperty(VM& vm, const ClassInfo* classInfo, const Proper
     thisObj.putDirectCustomAccessor(vm, propertyName, customGetterSetter, attributesForStructure(value.attributes()));
 }
 
-template<unsigned numberOfValues>
-inline void reifyStaticProperties(VM& vm, const ClassInfo* classInfo, const HashTableValue (&values)[numberOfValues], JSObject& thisObj)
+template<typename ArrayType>
+inline void reifyStaticProperties(VM& vm, const ClassInfo* classInfo, const ArrayType& values, JSObject& thisObj)
 {
     BatchedTransitionOptimizer transitionOptimizer(vm, &thisObj);
     for (auto& value : values) {
@@ -564,3 +566,5 @@ inline void reifyStaticProperties(VM& vm, const ClassInfo* classInfo, const Hash
 }
 
 } // namespace JSC
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

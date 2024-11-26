@@ -46,9 +46,10 @@
 #include "CSSParserFastPaths.h"
 #include "CSSParserIdioms.h"
 #include "CSSPendingSubstitutionValue.h"
-#include "CSSPrimitiveValueMappings.h"
+#include "CSSPrimitiveNumericTypes+CSSValueCreation.h"
 #include "CSSPropertyParserConsumer+Align.h"
 #include "CSSPropertyParserConsumer+Angle.h"
+#include "CSSPropertyParserConsumer+Background.h"
 #include "CSSPropertyParserConsumer+Color.h"
 #include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserConsumer+Grid.h"
@@ -88,6 +89,8 @@
 #include <memory>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebCore {
 
@@ -170,7 +173,7 @@ CSSPropertyID cssPropertyID(StringView string)
     
     return string.is8Bit() ? cssPropertyID(string.span8()) : cssPropertyID(string.span16());
 }
-    
+
 using namespace CSSPropertyParserHelpers;
 
 CSSPropertyParser::CSSPropertyParser(const CSSParserTokenRange& range, const CSSParserContext& context, Vector<CSSProperty, 256>* parsedProperties, bool consumeWhitespace)
@@ -1678,6 +1681,19 @@ bool CSSPropertyParser::consume4ValueShorthand(const StylePropertyShorthand& sho
     return m_range.atEnd();
 }
 
+bool CSSPropertyParser::consumeBorderRadius(CSSPropertyID property, bool important)
+{
+    auto borderRadius = property == CSSPropertyWebkitBorderRadius ? consumeUnresolvedWebKitBorderRadius(m_range, m_context) : consumeUnresolvedBorderRadius(m_range, m_context);
+    if (!borderRadius)
+        return false;
+
+    addProperty(CSSPropertyBorderTopLeftRadius, CSSPropertyBorderRadius, WebCore::CSS::createCSSValue(borderRadius->topLeft()), important);
+    addProperty(CSSPropertyBorderTopRightRadius, CSSPropertyBorderRadius, WebCore::CSS::createCSSValue(borderRadius->topRight()), important);
+    addProperty(CSSPropertyBorderBottomRightRadius, CSSPropertyBorderRadius, WebCore::CSS::createCSSValue(borderRadius->bottomRight()), important);
+    addProperty(CSSPropertyBorderBottomLeftRadius, CSSPropertyBorderRadius, WebCore::CSS::createCSSValue(borderRadius->bottomLeft()), important);
+    return true;
+}
+
 bool CSSPropertyParser::consumeBorderImage(CSSPropertyID property, bool important)
 {
     RefPtr<CSSValue> source;
@@ -2775,38 +2791,46 @@ bool CSSPropertyParser::consumeWhiteSpaceShorthand(bool important)
 
 bool CSSPropertyParser::consumeAnimationRangeShorthand(bool important)
 {
-    // FIXME: Add extra handling for animation range sequences.
-    RefPtr start = consumeAnimationRangeStart(m_range, m_context);
-    if (!start)
+    CSSValueListBuilder startList;
+    CSSValueListBuilder endList;
+    do {
+        RefPtr start = consumeAnimationRange(m_range, m_context, SingleTimelineRange::Type::Start);
+        if (!start)
+            return false;
+
+        RefPtr<CSSValue> end;
+        m_range.consumeWhitespace();
+        if (m_range.atEnd() || m_range.peek().type() == CommaToken) {
+            // From the spec: If <'animation-range-end'> is omitted and <'animation-range-start'> includes a component, then
+            // animation-range-end is set to that same and 100%. Otherwise, any omitted longhand is set to its initial value.
+            auto rangeEndValueForStartValue = [](const CSSValue& value) {
+                RefPtr primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+                if (primitiveValue && SingleTimelineRange::isOffsetValue(downcast<CSSPrimitiveValue>(value)))
+                    return CSSPrimitiveValue::create(CSSValueNormal);
+                return CSSPrimitiveValue::create(value.valueID());
+            };
+
+            if (RefPtr startPrimitiveValue = dynamicDowncast<CSSPrimitiveValue>(start))
+                end = rangeEndValueForStartValue(*startPrimitiveValue);
+            else {
+                RefPtr startPair = downcast<CSSValuePair>(start);
+                end = rangeEndValueForStartValue(startPair->first());
+            }
+        } else {
+            end = consumeAnimationRange(m_range, m_context, SingleTimelineRange::Type::End);
+            m_range.consumeWhitespace();
+            if (!end)
+                return false;
+        }
+        startList.append(start.releaseNonNull());
+        endList.append(end.releaseNonNull());
+    } while (consumeCommaIncludingWhitespace(m_range));
+
+    if (!m_range.atEnd())
         return false;
 
-    RefPtr<CSSValue> end;
-    m_range.consumeWhitespace();
-    if (m_range.atEnd()) {
-        // From the spec: If <'animation-range-end'> is omitted and <'animation-range-start'> includes a component, then
-        // animation-range-end is set to that same and 100%. Otherwise, any omitted longhand is set to its initial value.
-        auto rangeEndValueForStartValue = [](const CSSValue& value) {
-            RefPtr primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
-            if (primitiveValue && SingleTimelineRange::isOffsetValue(downcast<CSSPrimitiveValue>(value)))
-                return CSSPrimitiveValue::create(CSSValueNormal);
-            return CSSPrimitiveValue::create(value.valueID());
-        };
-
-        if (RefPtr startPrimitiveValue = dynamicDowncast<CSSPrimitiveValue>(start))
-            end = rangeEndValueForStartValue(*startPrimitiveValue);
-        else {
-            RefPtr startPair = downcast<CSSValuePair>(start);
-            end = rangeEndValueForStartValue(startPair->first());
-        }
-    } else {
-        end = consumeAnimationRangeEnd(m_range, m_context);
-        m_range.consumeWhitespace();
-        if (!m_range.atEnd() || !end)
-            return false;
-    }
-
-    addProperty(CSSPropertyAnimationRangeStart, CSSPropertyAnimationRange, WTFMove(start), important);
-    addProperty(CSSPropertyAnimationRangeEnd, CSSPropertyAnimationRange, WTFMove(end), important);
+    addProperty(CSSPropertyAnimationRangeStart, CSSPropertyAnimationRange, CSSValueList::createCommaSeparated(WTFMove(startList)), important);
+    addProperty(CSSPropertyAnimationRangeEnd, CSSPropertyAnimationRange, CSSValueList::createCommaSeparated(WTFMove(endList)), important);
     return true;
 }
 
@@ -2997,17 +3021,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyListStyle:
         return consumeListStyleShorthand(important);
     case CSSPropertyBorderRadius:
-    case CSSPropertyWebkitBorderRadius: {
-        std::array<RefPtr<CSSValue>, 4> horizontalRadii;
-        std::array<RefPtr<CSSValue>, 4> verticalRadii;
-        if (!consumeRadii(horizontalRadii, verticalRadii, m_range, m_context, property == CSSPropertyWebkitBorderRadius))
-            return false;
-        addProperty(CSSPropertyBorderTopLeftRadius, CSSPropertyBorderRadius, CSSValuePair::create(horizontalRadii[0].releaseNonNull(), verticalRadii[0].releaseNonNull()), important);
-        addProperty(CSSPropertyBorderTopRightRadius, CSSPropertyBorderRadius, CSSValuePair::create(horizontalRadii[1].releaseNonNull(), verticalRadii[1].releaseNonNull()), important);
-        addProperty(CSSPropertyBorderBottomRightRadius, CSSPropertyBorderRadius, CSSValuePair::create(horizontalRadii[2].releaseNonNull(), verticalRadii[2].releaseNonNull()), important);
-        addProperty(CSSPropertyBorderBottomLeftRadius, CSSPropertyBorderRadius, CSSValuePair::create(horizontalRadii[3].releaseNonNull(), verticalRadii[3].releaseNonNull()), important);
-        return true;
-    }
+    case CSSPropertyWebkitBorderRadius:
+        return consumeBorderRadius(property, important);
     case CSSPropertyBorderColor:
         return consume4ValueShorthand(borderColorShorthand(), important);
     case CSSPropertyBorderStyle:
@@ -3120,3 +3135,5 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
 }
 
 } // namespace WebCore
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

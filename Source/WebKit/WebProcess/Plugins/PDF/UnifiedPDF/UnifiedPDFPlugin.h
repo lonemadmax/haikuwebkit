@@ -49,9 +49,9 @@ class TextStream;
 
 namespace WebCore {
 class FrameView;
-class KeyboardScrollingAnimator;
 class PageOverlay;
 class PlatformWheelEvent;
+class ShadowRoot;
 
 enum class DelegatedScrollingMode : uint8_t;
 
@@ -322,8 +322,6 @@ private:
     [[maybe_unused]] bool performCopyEditingOperation() const;
     void performCopyLinkOperation(const WebCore::IntPoint& contextMenuEventRootViewPoint) const;
 
-    void animatedScrollDidEnd() final;
-
     void setDisplayMode(PDFDocumentLayout::DisplayMode);
     void setDisplayModeAndUpdateLayout(PDFDocumentLayout::DisplayMode);
 
@@ -517,6 +515,9 @@ private:
     void resetZoom();
 #endif
 
+    bool supportsPasswordForm() const;
+    void installAnnotationContainer();
+
     std::optional<PDFDocumentLayout::PageIndex> pageIndexForAnnotation(PDFAnnotation *) const;
     std::optional<PDFDocumentLayout::PageIndex> pageIndexWithHoveredAnnotation() const;
     void paintHoveredAnnotationOnPage(PDFDocumentLayout::PageIndex, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect);
@@ -625,16 +626,13 @@ private:
     RefPtr<PDFPluginPasswordField> m_passwordField;
     RefPtr<PDFPluginPasswordForm> m_passwordForm;
 
-#if PLATFORM(MAC)
-    bool m_isScrollingWithAnimationToPageExtent { false };
-    std::optional<WebCore::ScrollDirection> m_animatedKeyboardScrollingDirection;
-#endif
-
     PDFPageCoverage m_findMatchRects;
 
 #if ENABLE(UNIFIED_PDF_DATA_DETECTION)
     std::unique_ptr<PDFDataDetectorOverlayController> m_dataDetectorOverlayController;
 #endif
+
+    RefPtr<WebCore::ShadowRoot> m_shadowRoot;
 
     // FIXME: We should rationalize these with the values in ViewGestureController.
     // For now, we'll leave them differing as they do in PDFPlugin.

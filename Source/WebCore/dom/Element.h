@@ -274,7 +274,6 @@ public:
     WEBCORE_EXPORT int clientTop();
     WEBCORE_EXPORT int clientWidth();
     WEBCORE_EXPORT int clientHeight();
-    double currentCSSZoom();
 
     virtual int scrollLeft();
     virtual int scrollTop();
@@ -399,7 +398,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<ShadowRoot&> attachShadow(const ShadowRootInit&);
     ExceptionOr<ShadowRoot&> attachDeclarativeShadow(ShadowRootMode, ShadowRootDelegatesFocus, ShadowRootClonable, ShadowRootSerializable);
 
-    ShadowRoot* userAgentShadowRoot() const;
+    WEBCORE_EXPORT ShadowRoot* userAgentShadowRoot() const;
     RefPtr<ShadowRoot> protectedUserAgentShadowRoot() const;
     WEBCORE_EXPORT ShadowRoot& ensureUserAgentShadowRoot();
     WEBCORE_EXPORT ShadowRoot& createUserAgentShadowRoot();
@@ -822,6 +821,9 @@ public:
 
     void updateEffectiveTextDirection();
     void updateEffectiveTextDirectionIfNeeded();
+
+    AtomString viewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>&) const;
+    void setViewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>&, AtomString);
 
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);

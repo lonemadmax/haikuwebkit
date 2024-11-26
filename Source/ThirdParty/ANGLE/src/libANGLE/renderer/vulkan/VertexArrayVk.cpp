@@ -96,6 +96,12 @@ angle::Result StreamVertexData(ContextVk *contextVk,
 {
     vk::Renderer *renderer = contextVk->getRenderer();
 
+    // If the source pointer is null, it should not be accessed.
+    if (srcData == nullptr)
+    {
+        return angle::Result::Continue;
+    }
+
     uint8_t *dst = dstBufferHelper->getMappedMemory() + dstOffset;
 
     if (vertexLoadFunction != nullptr)
@@ -316,7 +322,7 @@ VertexArrayVk::VertexArrayVk(ContextVk *contextVk, const gl::VertexArrayState &s
     mCurrentArrayBufferDivisors.fill(0);
 
     mBindingDirtyBitsRequiresPipelineUpdate.set(gl::VertexArray::DIRTY_BINDING_DIVISOR);
-    if (!contextVk->getRenderer()->useVertexInputBindingStrideDynamicState())
+    if (!contextVk->getFeatures().useVertexInputBindingStrideDynamicState.enabled)
     {
         mBindingDirtyBitsRequiresPipelineUpdate.set(gl::VertexArray::DIRTY_BINDING_STRIDE);
     }
@@ -750,7 +756,7 @@ angle::Result VertexArrayVk::syncState(const gl::Context *context,
                 // If vertex array was not observing while unbound, we need to check buffer's
                 // internal storage and take action if buffer storage has changed while not
                 // observing.
-                if (contextVk->getRenderer()->getFeatures().compressVertexData.enabled ||
+                if (contextVk->getFeatures().compressVertexData.enabled ||
                     mContentsObservers->any())
                 {
                     // We may have lost buffer content change when it became non-current. In that
@@ -1424,6 +1430,10 @@ angle::Result VertexArrayVk::handleLineLoop(ContextVk *contextVk,
 
         mLineLoopBufferFirstIndex = firstVertex;
         mLineLoopBufferLastIndex  = lastVertex;
+    }
+    else
+    {
+        *indexBufferOut = mLineLoopHelper.getCurrentIndexBuffer();
     }
     *indexCountOut = vertexOrIndexCount + 1;
 

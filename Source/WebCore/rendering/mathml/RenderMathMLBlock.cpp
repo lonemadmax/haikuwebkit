@@ -87,7 +87,7 @@ LayoutUnit RenderMathMLBlock::mathAxisHeight() const
 
 LayoutUnit RenderMathMLBlock::mirrorIfNeeded(LayoutUnit horizontalOffset, LayoutUnit boxWidth) const
 {
-    if (style().direction() == TextDirection::RTL)
+    if (writingMode().isBidiRTL())
         return logicalWidth() - boxWidth - horizontalOffset;
 
     return horizontalOffset;
@@ -184,7 +184,7 @@ void RenderMathMLBlock::layoutItems(bool relayoutChildren)
         horizontalOffset += child->marginStart();
 
         LayoutUnit childHorizontalExtent = child->width();
-        LayoutPoint childLocation(style().isLeftToRightDirection() ? horizontalOffset : width() - horizontalOffset - childHorizontalExtent,
+        LayoutPoint childLocation(writingMode().isBidiLTR() ? horizontalOffset : width() - horizontalOffset - childHorizontalExtent,
             verticalOffset + child->marginBefore());
 
         child->setLocation(childLocation);
@@ -281,6 +281,51 @@ void RenderMathMLBlock::adjustLayoutForBorderAndPadding()
     setLogicalWidth(logicalWidth() + borderAndPaddingLogicalWidth());
     setLogicalHeight(logicalHeight() + borderAndPaddingLogicalHeight());
     shiftInFlowChildren(style().isLeftToRightDirection() ? borderAndPaddingStart() : borderAndPaddingEnd(), borderAndPaddingBefore());
+}
+
+RenderMathMLBlock::SizeAppliedToMathContent RenderMathMLBlock::sizeAppliedToMathContent(LayoutPhase phase)
+{
+    SizeAppliedToMathContent sizes;
+    // FIXME: Resolve percentages.
+    // https://github.com/w3c/mathml-core/issues/76
+    if (style().logicalWidth().isFixed())
+        sizes.logicalWidth = style().logicalWidth().value();
+
+    // FIXME: Resolve percentages.
+    // https://github.com/w3c/mathml-core/issues/77
+    if (phase == LayoutPhase::Layout && style().logicalHeight().isFixed())
+        sizes.logicalHeight = style().logicalHeight().value();
+
+    return sizes;
+}
+
+LayoutUnit RenderMathMLBlock::applySizeToMathContent(LayoutPhase phase, const SizeAppliedToMathContent& sizes)
+{
+    if (phase == LayoutPhase::CalculatePreferredLogicalWidth) {
+        ASSERT(preferredLogicalWidthsDirty());
+        if (sizes.logicalWidth) {
+            m_minPreferredLogicalWidth = *sizes.logicalWidth;
+            m_maxPreferredLogicalWidth = *sizes.logicalWidth;
+        }
+        return LayoutUnit();
+    }
+
+    ASSERT(phase == LayoutPhase::Layout);
+
+    LayoutUnit inlineShift;
+    if (sizes.logicalWidth) {
+        auto oldWidth = logicalWidth();
+        if (isMathContentCentered()) {
+            inlineShift = (*sizes.logicalWidth - oldWidth) / 2;
+        } else if (!style().isLeftToRightDirection())
+            inlineShift = *sizes.logicalWidth - oldWidth;
+        setLogicalWidth(*sizes.logicalWidth);
+    }
+
+    if (sizes.logicalHeight)
+        setLogicalHeight(*sizes.logicalHeight);
+
+    return inlineShift;
 }
 
 }

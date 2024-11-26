@@ -113,7 +113,7 @@ protected:
 
     ProcessState& processStateForConnection(IPC::Connection&);
     const ProcessState& processStateForIdentifier(WebCore::ProcessIdentifier) const;
-    IPC::Connection& connectionForIdentifier(WebCore::ProcessIdentifier);
+    IPC::Connection* connectionForIdentifier(WebCore::ProcessIdentifier);
     void forEachProcessState(Function<void(ProcessState&, WebProcessProxy&)>&&);
 
 private:
@@ -129,6 +129,8 @@ private:
 
     virtual void scheduleDisplayRefreshCallbacks() { }
     virtual void pauseDisplayRefreshCallbacks() { }
+
+    virtual void dispatchSetTopContentInset() { }
 
     float indicatorScale(WebCore::IntSize contentsSize) const;
     void updateDebugIndicator() final;
@@ -163,7 +165,7 @@ private:
 
     void willCommitLayerTree(IPC::Connection&, TransactionID);
     void commitLayerTreeNotTriggered(IPC::Connection&, TransactionID);
-    void commitLayerTree(IPC::Connection&, const Vector<std::pair<RemoteLayerTreeTransaction, RemoteScrollingCoordinatorTransaction>>&, UncheckedKeyHashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&&);
+    void commitLayerTree(IPC::Connection&, const Vector<std::pair<RemoteLayerTreeTransaction, RemoteScrollingCoordinatorTransaction>>&, HashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&&);
     void commitLayerTreeTransaction(IPC::Connection&, const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&);
     virtual void didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&) { }
 
@@ -179,7 +181,7 @@ private:
     bool maybePauseDisplayRefreshCallbacks();
 
     ProcessState m_webPageProxyProcessState;
-    UncheckedKeyHashMap<WebCore::ProcessIdentifier, ProcessState> m_remotePageProcessState;
+    HashMap<WebCore::ProcessIdentifier, ProcessState> m_remotePageProcessState;
 
     WebCore::IntSize m_lastSentSize;
     WebCore::IntSize m_lastSentMinimumSizeForAutoLayout;

@@ -257,18 +257,9 @@ header: <WebCore/AttributedString.h>
 
 struct WebCore::AttributedString {
     String string;
-    [Validator='WebCore::AttributedString::rangesAreSafe(*string, *attributes)'] Vector<std::pair<WebCore::AttributedString::Range, UncheckedKeyHashMap<String, WebCore::AttributedString::AttributeValue>>> attributes;
-    std::optional<UncheckedKeyHashMap<String, WebCore::AttributedString::AttributeValue>> documentAttributes;
+    [Validator='WebCore::AttributedString::rangesAreSafe(*string, *attributes)'] Vector<std::pair<WebCore::AttributedString::Range, HashMap<String, WebCore::AttributedString::AttributeValue>>> attributes;
+    std::optional<HashMap<String, WebCore::AttributedString::AttributeValue>> documentAttributes;
 };
-
-#if ENABLE(MEDIA_RECORDER)
-struct WebCore::MediaRecorderPrivateOptions {
-    String mimeType;
-    std::optional<unsigned> audioBitsPerSecond;
-    std::optional<unsigned> videoBitsPerSecond;
-    std::optional<unsigned> bitsPerSecond;
-};
-#endif // ENABLE(MEDIA_RECORDER)
 
 [Nested] class WebCore::ProtectionSpace::PlatformData {
     RetainPtr<NSURLProtectionSpace> nsSpace;

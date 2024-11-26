@@ -60,8 +60,6 @@
 #        include "libANGLE/renderer/gl/apple/DisplayApple_api.h"
 #    elif ANGLE_ENABLE_CGL
 #        include "libANGLE/renderer/gl/cgl/DisplayCGL.h"
-#    elif ANGLE_ENABLE_EAGL
-#        include "libANGLE/renderer/gl/eagl/DisplayEAGL.h"
 #    elif defined(ANGLE_PLATFORM_LINUX) || defined(__HAIKU__)
 #        include "libANGLE/renderer/gl/egl/DisplayEGL.h"
 #        if defined(ANGLE_USE_X11)
@@ -412,10 +410,6 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
 
 #    elif ANGLE_ENABLE_CGL
             impl = new rx::DisplayCGL(state);
-            break;
-
-#    elif ANGLE_ENABLE_EAGL
-            impl = new rx::DisplayEAGL(state);
             break;
 
 #    elif defined(ANGLE_PLATFORM_LINUX) || defined(__HAIKU__)
@@ -2137,10 +2131,6 @@ static ClientExtensions GenerateClientExtensions()
     extensions.platformANGLEDeviceTypeEGLANGLE = true;
 #endif
 
-#if defined(ANGLE_ENABLE_EAGL)
-    extensions.platformANGLEDeviceContextVolatileEagl = true;
-#endif
-
 #if defined(ANGLE_ENABLE_CGL)
     extensions.platformANGLEDeviceContextVolatileCgl = true;
 #endif
@@ -2499,16 +2489,16 @@ const char *Display::queryStringi(const EGLint name, const EGLint index)
             result = angle::FeatureCategoryToString(mFeatures[index]->category);
             break;
         case EGL_FEATURE_DESCRIPTION_ANGLE:
-            result = mFeatures[index]->description;
+            result = "";
             break;
         case EGL_FEATURE_BUG_ANGLE:
-            result = mFeatures[index]->bug;
+            result = "";
             break;
         case EGL_FEATURE_STATUS_ANGLE:
             result = angle::FeatureStatusToString(mFeatures[index]->enabled);
             break;
         case EGL_FEATURE_CONDITION_ANGLE:
-            result = mFeatures[index]->condition;
+            result = "";
             break;
         default:
             UNREACHABLE();

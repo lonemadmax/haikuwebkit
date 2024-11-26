@@ -39,6 +39,8 @@
 #include <wtf/unicode/CharacterNames.h>
 #include <wtf/unicode/icu/ICUHelpers.h>
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace PAL {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(TextCodecICU);
@@ -263,8 +265,8 @@ static void urlEscapedEntityCallback(const void* context, UConverterFromUnicodeA
     if (reason == UCNV_UNASSIGNED) {
         *error = U_ZERO_ERROR;
         UnencodableReplacementArray entity;
-        int entityLen = TextCodec::getUnencodableReplacement(codePoint, UnencodableHandling::URLEncodedEntities, entity);
-        ucnv_cbFromUWriteBytes(fromUArgs, entity.data(), entityLen, 0, error);
+        auto span = TextCodec::getUnencodableReplacement(codePoint, UnencodableHandling::URLEncodedEntities, entity);
+        ucnv_cbFromUWriteBytes(fromUArgs, span.data(), span.size(), 0, error);
     } else
         UCNV_FROM_U_CALLBACK_ESCAPE(context, fromUArgs, codeUnits, length, codePoint, reason, error);
 }
@@ -322,3 +324,5 @@ Vector<uint8_t> TextCodecICU::encode(StringView string, UnencodableHandling hand
 }
 
 } // namespace PAL
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

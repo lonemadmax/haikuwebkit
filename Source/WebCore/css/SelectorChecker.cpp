@@ -53,6 +53,8 @@
 #include "TypedElementDescendantIteratorInlines.h"
 #include "ViewTransition.h"
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -1082,10 +1084,8 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
             return matchesAnimatingFullscreenTransitionPseudoClass(element);
         case CSSSelector::PseudoClass::InternalFullscreenDocument:
             return matchesFullscreenDocumentPseudoClass(element);
-#if ENABLE(VIDEO)
         case CSSSelector::PseudoClass::InternalInWindowFullscreen:
             return matchesInWindowFullscreenPseudoClass(element);
-#endif
 #endif
 #if ENABLE(PICTURE_IN_PICTURE_API)
         case CSSSelector::PseudoClass::PictureInPicture:
@@ -1633,3 +1633,5 @@ unsigned SelectorChecker::determineLinkMatchType(const CSSSelector* selector)
 }
 
 }
+
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
