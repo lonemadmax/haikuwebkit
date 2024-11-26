@@ -129,7 +129,7 @@ void ChromeClientHaiku::focusedFrameChanged(Frame*)
     notImplemented();
 }
 
-Page* ChromeClientHaiku::createWindow(LocalFrame& /*frame*/, const WindowFeatures& features, const NavigationAction& /*action*/)
+RefPtr<Page> ChromeClientHaiku::createWindow(LocalFrame& /*frame*/, const WTF::String&, const WindowFeatures& features, const NavigationAction& /*action*/)
 {
 	// FIXME: I believe the frame is important for cloning session information.
 	// From looking through the Chromium port code, it is passed to the
@@ -160,12 +160,8 @@ Page* ChromeClientHaiku::createWindow(LocalFrame& /*frame*/, const WindowFeature
 	if (features.height)
 		windowFrame.bottom = windowFrame.top + *features.height - 1;
 
-	WebCore::Page* page = m_webPage->createNewPage(windowFrame, *features.dialog,
+	return m_webPage->createNewPage(windowFrame, *features.dialog,
 		*features.resizable, true, m_webPage->GetContext());
-	if (!page)
-		return 0;
-
-	return page;
 }
 
 void ChromeClientHaiku::show()
@@ -280,10 +276,10 @@ bool ChromeClientHaiku::runJavaScriptPrompt(LocalFrame&, const String& /*message
 }
 
 
-std::unique_ptr<ColorChooser> ChromeClientHaiku::createColorChooser(
+RefPtr<ColorChooser> ChromeClientHaiku::createColorChooser(
     ColorChooserClient& client, const Color& color)
 {
-    return std::make_unique<ColorChooserHaiku>(&client, color);
+    return adoptRef(* new ColorChooserHaiku(&client, color));
 }
 
 KeyboardUIMode ChromeClientHaiku::keyboardUIMode()
@@ -521,9 +517,9 @@ WebCore::IntRect ChromeClientHaiku::rootViewToAccessibilityScreen(WebCore::IntRe
 }
 
 
-std::unique_ptr<WebCore::DateTimeChooser> ChromeClientHaiku::createDateTimeChooser(WebCore::DateTimeChooserClient& client)
+RefPtr<WebCore::DateTimeChooser> ChromeClientHaiku::createDateTimeChooser(WebCore::DateTimeChooserClient& client)
 {
-    return std::make_unique<DateTimeChooserHaiku>(&client);
+    return adoptRef(* new DateTimeChooserHaiku(&client));
 }
 
 void ChromeClientHaiku::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)

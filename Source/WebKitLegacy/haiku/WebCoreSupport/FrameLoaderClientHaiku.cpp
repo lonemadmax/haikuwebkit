@@ -639,7 +639,7 @@ void FrameLoaderClientHaiku::setMainFrameDocumentReady(bool)
     // this is only interesting once we provide an external API for the DOM
 }
 
-void FrameLoaderClientHaiku::startDownload(const ResourceRequest& request, const String& /*suggestedName*/)
+void FrameLoaderClientHaiku::startDownload(const ResourceRequest& request, const String&, FromDownloadAttribute)
 {
     m_webPage->requestDownload(request);
 }
@@ -689,6 +689,10 @@ void FrameLoaderClientHaiku::updateGlobalHistoryRedirectLinks()
     updateGlobalHistory();
 }
 
+void FrameLoaderClientHaiku::updateOpener(const WebCore::Frame& newOpener)
+{
+}
+
 bool FrameLoaderClientHaiku::shouldGoToHistoryItem(WebCore::HistoryItem&) const
 {
     // FIXME: Should probably be refuse to go to the item when it contains
@@ -708,7 +712,7 @@ void FrameLoaderClientHaiku::didRunInsecureContent(WebCore::SecurityOrigin&)
 void FrameLoaderClientHaiku::convertMainResourceLoadToDownload(DocumentLoader*,
     const ResourceRequest& request, const ResourceResponse&)
 {
-    startDownload(request);
+startDownload(request, {}, FromDownloadAttribute::No);
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::cancelledError(const WebCore::ResourceRequest& request) const

@@ -43,12 +43,14 @@ public:
     //void goBack() override;
     //void goForward() override;
     void goToItem(WebCore::HistoryItem&) override;
+    void goToProvisionalItem(const WebCore::HistoryItem&) final;
+    void clearProvisionalItem(const WebCore::HistoryItem&) final;
 
     //WebCore::HistoryItem& backItem() override;
     //WebCore::HistoryItem& currentItem() override;
     //WebCore::HistoryItem& forwardItem() override;
-	RefPtr<WebCore::HistoryItem> itemAtIndex(int, WebCore::FrameIdentifier) override;
-	void setChildItem(WebCore::BackForwardItemIdentifier, WTF::Ref<WebCore::HistoryItem>&&) override {};
+    RefPtr<WebCore::HistoryItem> itemAtIndex(int, WebCore::FrameIdentifier) override;
+    void setChildItem(WebCore::BackForwardItemIdentifier, WTF::Ref<WebCore::HistoryItem>&&) override {};
 
     //void backListWithLimit(int, HistoryItemVector&) override;
     //void forwardListWithLimit(int, HistoryItemVector&) override;
@@ -73,6 +75,7 @@ private:
     HistoryItemVector m_entries;
     HistoryItemHashSet m_entryHash;
     unsigned m_current;
+    unsigned m_provisional;
     unsigned m_capacity;
     bool m_closed;
     bool m_enabled;

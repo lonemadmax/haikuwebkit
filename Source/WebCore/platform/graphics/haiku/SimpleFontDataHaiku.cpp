@@ -87,6 +87,13 @@ RefPtr<Font> Font::platformCreateScaledFont(const FontDescription& fontDescripti
     return Font::create(FontPlatformData::cloneWithSize(m_platformData, scaledSize));
 }
 
+RefPtr<Font> Font::platformCreateHalfWidthFont() const
+{
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=281333 : implement half width font for this platform.
+    notImplemented();
+    return nullptr;
+}
+
 void Font::determinePitch()
 {
     m_treatAsFixedPitch = m_platformData.font() && m_platformData.font()->IsFixed();

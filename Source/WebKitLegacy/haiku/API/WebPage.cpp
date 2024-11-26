@@ -301,7 +301,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
         WebCore::PageConfiguration::LocalMainFrameCreationParameters {
             CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> { [this] (WebCore::LocalFrame&, auto& frameLoader) {
-                return makeUniqueRef<FrameLoaderClientHaiku>(frameLoader, this);
+                return makeUniqueRefWithoutRefCountedCheck<FrameLoaderClientHaiku>(frameLoader, this);
             } },
             WebCore::SandboxFlags {}
         },

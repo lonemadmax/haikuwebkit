@@ -25,6 +25,8 @@
  */
 #include "config.h"
 
+#include "wtf/RefCounted.h"
+
 #include "WebCore/DateTimeChooser.h"
 #include "WebCore/DateTimeChooserClient.h"
 #include "WebCore/InputTypeNames.h"
@@ -273,8 +275,9 @@ private:
     DateTimeChooserClient* m_client;
 };
 
-class DateTimeChooserHaiku: public DateTimeChooser
+class DateTimeChooserHaiku: public RefCounted<DateTimeChooserHaiku>, public DateTimeChooser
 {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(DateTimeChooserHaiku);
 public:
     DateTimeChooserHaiku(DateTimeChooserClient* client)
         : m_window(new DateTimeChooserWindow(client))
@@ -285,6 +288,9 @@ public:
     {
         m_window->PostMessage(B_QUIT_REQUESTED);
     }
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     void showChooser(const WebCore::DateTimeChooserParameters& params) override
     {

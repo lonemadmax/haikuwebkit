@@ -68,7 +68,7 @@ namespace WebCore {
         void focusedElementChanged(Element*) override;
         void focusedFrameChanged(Frame*) override;
 
-        Page* createWindow(LocalFrame&, const WindowFeatures&, const NavigationAction&) override;
+        RefPtr<Page> createWindow(LocalFrame&, const WTF::String&, const WindowFeatures&, const NavigationAction&) override;
         void closeWindow() override;
 
         void show() override;
@@ -99,7 +99,7 @@ namespace WebCore {
         void runJavaScriptAlert(LocalFrame&, const String&) override;
         bool runJavaScriptConfirm(LocalFrame&, const String&) override;
         bool runJavaScriptPrompt(LocalFrame&, const String& message, const String& defaultValue, String& result) override;
-        std::unique_ptr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) override;
+        RefPtr<ColorChooser> createColorChooser(ColorChooserClient&, const Color&) override;
 
         KeyboardUIMode keyboardUIMode() override;
 
@@ -183,7 +183,7 @@ namespace WebCore {
         WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&) const override;
         WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) const override;
 
-        std::unique_ptr<WebCore::DateTimeChooser> createDateTimeChooser(WebCore::DateTimeChooserClient&) override;
+        RefPtr<WebCore::DateTimeChooser> createDateTimeChooser(WebCore::DateTimeChooserClient&) override;
 
         void setTextIndicator(const TextIndicatorData&) const final {};
 

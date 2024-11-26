@@ -142,8 +142,9 @@ private:
 };
 
 
-class ColorChooserHaiku: public ColorChooser
+class ColorChooserHaiku: public RefCounted<ColorChooserHaiku>, public ColorChooser
 {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ColorChooserHaiku);
 public:
     ColorChooserHaiku(ColorChooserClient* client, const Color& color)
         : m_window(new ColorChooserWindow(*client))
@@ -157,6 +158,8 @@ public:
         m_window->PostMessage(B_QUIT_REQUESTED);
     }
 
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     void reattachColorChooser(const Color& color) override
     {

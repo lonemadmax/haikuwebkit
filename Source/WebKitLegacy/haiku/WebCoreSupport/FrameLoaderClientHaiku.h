@@ -141,7 +141,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 
     void setMainFrameDocumentReady(bool) override;
 
-    void startDownload(const ResourceRequest&, const String& suggestedName = String()) override;
+    void startDownload(const ResourceRequest&, const String&, FromDownloadAttribute) override;
 
     void willChangeTitle(DocumentLoader*) override;
     void didChangeTitle(DocumentLoader*) override;
@@ -153,6 +153,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void finishedLoading(DocumentLoader*) override;
     void updateGlobalHistory() override;
     void updateGlobalHistoryRedirectLinks() override;
+    void updateOpener(const WebCore::Frame&) override;
 
     bool shouldGoToHistoryItem(HistoryItem&) const override;
 
