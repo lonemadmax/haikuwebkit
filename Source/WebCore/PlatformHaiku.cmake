@@ -42,6 +42,10 @@ else()
 
 endif()
 
+list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+    ${WEBCORE_DIR}/platform/video-codecs
+)
+
 list(APPEND WebCore_INCLUDE_DIRECTORIES
   "${THIRDPARTY_DIR}/ANGLE/"
   "${THIRDPARTY_DIR}/ANGLE/include/KHR"

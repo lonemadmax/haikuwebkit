@@ -138,9 +138,6 @@ private:
 			void				SetOffscreenViewClean(BRect cleanRect,
 									bool immediate);
 
-			void				EnterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
-			void				ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
-
 private:
             void                _ResizeOffscreenView(int width, int height);
 			void				_DispatchMouseEvent(const BPoint& where,
@@ -159,8 +156,6 @@ private:
 
 			UserData*			fUserData;
             BWebView*           fInspectorView;
-
-			std::unique_ptr<FullscreenVideoController> fFullScreenVideoController;
 };
 
 #endif // _WEB_VIEW_H_

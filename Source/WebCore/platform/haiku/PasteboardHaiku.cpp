@@ -284,7 +284,7 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(LocalFrame& frame, const S
     const char* buffer = 0;
     ssize_t bufferLength;
     if (data->FindData("text/html", B_MIME_TYPE, reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK) {
-        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create(ASCIILiteral::fromLiteralUnsafe("text/plain"), "UTF-8", true);
+        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create(ASCIILiteral::fromLiteralUnsafe("text/plain"), PAL::UTF8Encoding(), true);
         StringBuilder html;
         html.append(decoder->decode(std::span<const unsigned char>((const unsigned char*)buffer, bufferLength)));
         html.append(decoder->flush());

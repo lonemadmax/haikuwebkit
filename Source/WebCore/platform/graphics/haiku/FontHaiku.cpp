@@ -125,6 +125,11 @@ Path Font::platformPathForGlyph(Glyph glyph) const
 	return Path();
 }
 
+bool FontCascade::canUseGlyphDisplayList(const RenderStyle&)
+{
+    return true;
+}
+
 ResolvedEmojiPolicy FontCascade::resolveEmojiPolicy(FontVariantEmoji fontVariantEmoji, char32_t)
 {
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=259205 We can't return RequireText or RequireEmoji

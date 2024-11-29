@@ -86,6 +86,7 @@
 #include "WebCore/PlatformWheelEvent.h"
 #include "WebCore/PluginInfoProvider.h"
 #include "WebCore/PointerLockController.h"
+#include "WebCore/ProcessSyncClient.h"
 #include "WebCore/ProgressTracker.h"
 #include "WebCore/ProgressTrackerClient.h"
 #include "WebCore/RemoteFrameClient.h"
@@ -308,7 +309,6 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         WebCore::FrameIdentifier::generate(),
         nullptr,
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
-        makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
@@ -316,7 +316,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         LegacyHistoryItemClient::singleton(),
         makeUniqueRef<ContextMenuClientHaiku>(this),
         makeUniqueRef<ChromeClientHaiku>(this, webView),
-        makeUniqueRef<WebCryptoClient>()
+        makeUniqueRef<WebCryptoClient>(),
+        makeUniqueRef<WebCore::ProcessSyncClient>()
     );
 
     // alternativeText

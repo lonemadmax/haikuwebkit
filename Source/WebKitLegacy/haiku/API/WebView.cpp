@@ -29,7 +29,6 @@
 #include <config.h>
 #include "WebView.h"
 
-#include "FullscreenVideoController.h"
 #include "WebCore/Frame.h"
 #include "WebCore/GraphicsContextHaiku.h"
 #include "WebCore/InspectorController.h"
@@ -94,7 +93,7 @@ BWebView::BWebView(const char* name, BPrivate::Network::BUrlContext* urlContext)
     // Default value for dark mode depending on the document background color
     rgb_color background = ui_color(B_DOCUMENT_BACKGROUND_COLOR);
     if (background.Brightness() < 127)
-        fWebPage->page()->effectiveAppearanceDidChange(true, false);
+        fWebPage->page()->setUseColorAppearance(true, false);
 
     // doesn't seem to affect the "background" for css, but it does fix the glaring
     // white screen between page loads (or when no page is open)
@@ -466,7 +465,7 @@ void BWebView::FindString(const char* string, bool forward ,
 
 void BWebView::SetDarkMode(bool dark)
 {
-	fWebPage->page()->effectiveAppearanceDidChange(dark, false);
+	fWebPage->page()->setUseColorAppearance(dark, false);
 }
 
 void BWebView::SetAutoHidePointer(bool doIt)
@@ -519,37 +518,6 @@ void BWebView::SetOffscreenViewClean(BRect cleanRect, bool immediate)
     }
 }
 
-
-void BWebView::EnterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement)
-{
-    if (fFullScreenVideoController) {
-        if (fFullScreenVideoController->videoElement() == &videoElement) {
-            // The backend may just warn us that the underlaying plaftormMovie()
-            // has changed. Just force an update.
-            fFullScreenVideoController->setVideoElement(&videoElement);
-            return; // No more to do.
-        }
-
-        // First exit Fullscreen for the old videoElement.
-        fFullScreenVideoController->videoElement()->exitFullscreen();
-        // This previous call has to trigger exitFullscreen,
-        // which has to clear fFullScreenVideoController.
-        ASSERT(!fFullScreenVideoController);
-    }
-
-    fFullScreenVideoController = makeUnique<FullscreenVideoController>();
-    fFullScreenVideoController->setVideoElement(&videoElement);
-    fFullScreenVideoController->enterFullscreen();
-}
-
-void BWebView::ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&)
-{
-    if (!fFullScreenVideoController)
-        return;
-    
-    fFullScreenVideoController->exitFullscreen();
-    fFullScreenVideoController = nullptr;
-}
 
 // #pragma mark - private
 

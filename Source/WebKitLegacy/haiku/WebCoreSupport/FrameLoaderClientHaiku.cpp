@@ -408,7 +408,7 @@ void FrameLoaderClientHaiku::dispatchDidReceiveTitle(const StringWithDirection& 
 
     BMessage message(TITLE_CHANGED);
     message.AddString("title", title.string);
-    message.AddBool("ltr", isLeftToRightDirection(title.direction));
+    message.AddBool("ltr", title.direction == TextDirection::LTR);
     dispatchMessage(message);
 }
 

@@ -34,6 +34,7 @@
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RunLoop.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 #include <wtf/text/StringHash.h>
@@ -55,7 +56,7 @@ public:
     virtual void didFinishURLImport() { }
 };
 
-class IconDatabase {
+class IconDatabase: public RefCounted<IconDatabase> {
     WTF_MAKE_FAST_ALLOCATED;
 
 private:
@@ -173,7 +174,7 @@ private:
         int m_retainCount { 0 };
     };
 
-    class MainThreadNotifier {
+    class MainThreadNotifier: public RefCounted<MainThreadNotifier> {
     public:
         MainThreadNotifier()
             : m_timer(RunLoop::main(), this, &MainThreadNotifier::timerFired)

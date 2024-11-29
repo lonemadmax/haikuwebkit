@@ -99,7 +99,7 @@ private:
     int m_dragStartOffset;
 };
 
-class FullscreenVideoController /*: WebCore::MediaPlayerPrivateFullscreenClient*/ {
+class FullscreenVideoController : public RefCounted<FullscreenVideoController> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(FullscreenVideoController);
 public:

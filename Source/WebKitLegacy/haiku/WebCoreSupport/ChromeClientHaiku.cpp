@@ -527,5 +527,37 @@ void ChromeClientHaiku::requestCookieConsent(CompletionHandler<void(CookieConsen
     completion(CookieConsentDecisionResult::NotSupported);
 }
 
+void ChromeClientHaiku::EnterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement)
+{
+    if (m_fullScreenVideoController) {
+        if (m_fullScreenVideoController->videoElement() == &videoElement) {
+            // The backend may just warn us that the underlaying plaftormMovie()
+            // has changed. Just force an update.
+            m_fullScreenVideoController->setVideoElement(&videoElement);
+            return; // No more to do.
+        }
+
+        // First exit Fullscreen for the old videoElement.
+        m_fullScreenVideoController->videoElement()->exitFullscreen();
+        // This previous call has to trigger exitFullscreen,
+        // which has to clear m_fullScreenVideoController.
+        ASSERT(!m_fullScreenVideoController);
+    }
+
+    m_fullScreenVideoController = adoptRef(*new FullscreenVideoController());
+    m_fullScreenVideoController->setVideoElement(&videoElement);
+    m_fullScreenVideoController->enterFullscreen();
+}
+
+void ChromeClientHaiku::ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&)
+{
+    if (!m_fullScreenVideoController)
+        return;
+
+    m_fullScreenVideoController->exitFullscreen();
+    m_fullScreenVideoController = nullptr;
+}
+
+
 } // namespace WebCore
 

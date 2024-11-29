@@ -34,6 +34,8 @@
 #include <WebCore/NotImplemented.h>
 #include "wtf/URL.h"
 
+#include "FullscreenVideoController.h"
+
 #include <Entry.h>
 
 #include <wtf/RefCounted.h>
@@ -190,13 +192,18 @@ namespace WebCore {
         bool supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) override { return true; }
         void enterVideoFullscreenForVideoElement(HTMLVideoElement& element, HTMLMediaElementEnums::VideoFullscreenMode, bool) override
         {
-            m_webView->EnterVideoFullscreenForVideoElement(element);
+            EnterVideoFullscreenForVideoElement(element);
         }
         void exitVideoFullscreenForVideoElement(HTMLVideoElement& element, CompletionHandler<void(bool)>&& completionHandler) override
         {
-            m_webView->ExitVideoFullscreenForVideoElement(element);
+            ExitVideoFullscreenForVideoElement(element);
             completionHandler(true);
         }
+
+    private:
+        void EnterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
+        void ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
+
     private:
         BWebPage* m_webPage;
         BWebView* m_webView;
@@ -206,6 +213,8 @@ namespace WebCore {
         String lastHoverContent;
 
         entry_ref m_filePanelDirectory;
+
+        RefPtr<FullscreenVideoController> m_fullScreenVideoController;
     };
 
 } // namespace WebCore
