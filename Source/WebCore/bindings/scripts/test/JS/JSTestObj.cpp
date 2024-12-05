@@ -157,9 +157,9 @@ template<> std::optional<TestObj::EnumType> parseEnumerationFromString<TestObj::
     if (stringValue.isEmpty())
         return TestObj::EnumType::EmptyString;
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumType>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "EnumValue2", TestObj::EnumType::EnumValue2 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "EnumValue3", TestObj::EnumType::EnumValue3 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "enumValue1", TestObj::EnumType::EnumValue1 },
+        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "EnumValue2"_s, TestObj::EnumType::EnumValue2 },
+        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "EnumValue3"_s, TestObj::EnumType::EnumValue3 },
+        std::pair<ComparableASCIILiteral, TestObj::EnumType> { "enumValue1"_s, TestObj::EnumType::EnumValue1 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -197,8 +197,8 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumTrailingComma e
 template<> std::optional<TestObj::EnumTrailingComma> parseEnumerationFromString<TestObj::EnumTrailingComma>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> { "enumValue1", TestObj::EnumTrailingComma::EnumValue1 },
-        std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> { "enumValue2", TestObj::EnumTrailingComma::EnumValue2 },
+        std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> { "enumValue1"_s, TestObj::EnumTrailingComma::EnumValue1 },
+        std::pair<ComparableASCIILiteral, TestObj::EnumTrailingComma> { "enumValue2"_s, TestObj::EnumTrailingComma::EnumValue2 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -242,9 +242,9 @@ template<> std::optional<TestObj::Optional> parseEnumerationFromString<TestObj::
     if (stringValue.isEmpty())
         return TestObj::Optional::EmptyString;
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Optional>, 3> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue1", TestObj::Optional::OptionalValue1 },
-        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue2", TestObj::Optional::OptionalValue2 },
-        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue3", TestObj::Optional::OptionalValue3 },
+        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue1"_s, TestObj::Optional::OptionalValue1 },
+        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue2"_s, TestObj::Optional::OptionalValue2 },
+        std::pair<ComparableASCIILiteral, TestObj::Optional> { "OptionalValue3"_s, TestObj::Optional::OptionalValue3 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -282,8 +282,8 @@ template<> JSString* convertEnumerationToJS(VM& vm, AlternateEnumName enumeratio
 template<> std::optional<AlternateEnumName> parseEnumerationFromString<AlternateEnumName>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, AlternateEnumName>, 2> mappings {
-        std::pair<ComparableASCIILiteral, AlternateEnumName> { "EnumValue2", AlternateEnumName::EnumValue2 },
-        std::pair<ComparableASCIILiteral, AlternateEnumName> { "enumValue1", AlternateEnumName::EnumValue1 },
+        std::pair<ComparableASCIILiteral, AlternateEnumName> { "EnumValue2"_s, AlternateEnumName::EnumValue2 },
+        std::pair<ComparableASCIILiteral, AlternateEnumName> { "enumValue1"_s, AlternateEnumName::EnumValue1 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -321,7 +321,7 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumA enumerationVa
 template<> std::optional<TestObj::EnumA> parseEnumerationFromString<TestObj::EnumA>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumA>, 1> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumA> { "A", TestObj::EnumA::A },
+        std::pair<ComparableASCIILiteral, TestObj::EnumA> { "A"_s, TestObj::EnumA::A },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -361,7 +361,7 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumB enumerationVa
 template<> std::optional<TestObj::EnumB> parseEnumerationFromString<TestObj::EnumB>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumB>, 1> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumB> { "B", TestObj::EnumB::B },
+        std::pair<ComparableASCIILiteral, TestObj::EnumB> { "B"_s, TestObj::EnumB::B },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -401,7 +401,7 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::EnumC enumerationVa
 template<> std::optional<TestObj::EnumC> parseEnumerationFromString<TestObj::EnumC>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::EnumC>, 1> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::EnumC> { "C", TestObj::EnumC::C },
+        std::pair<ComparableASCIILiteral, TestObj::EnumC> { "C"_s, TestObj::EnumC::C },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -441,8 +441,8 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::Kind enumerationVal
 template<> std::optional<TestObj::Kind> parseEnumerationFromString<TestObj::Kind>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Kind>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Kind> { "dead", TestObj::Kind::Dead },
-        std::pair<ComparableASCIILiteral, TestObj::Kind> { "quick", TestObj::Kind::Quick },
+        std::pair<ComparableASCIILiteral, TestObj::Kind> { "dead"_s, TestObj::Kind::Dead },
+        std::pair<ComparableASCIILiteral, TestObj::Kind> { "quick"_s, TestObj::Kind::Quick },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -480,8 +480,8 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::Size enumerationVal
 template<> std::optional<TestObj::Size> parseEnumerationFromString<TestObj::Size>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Size>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Size> { "much-much-larger", TestObj::Size::MuchMuchLarger },
-        std::pair<ComparableASCIILiteral, TestObj::Size> { "small", TestObj::Size::Small },
+        std::pair<ComparableASCIILiteral, TestObj::Size> { "much-much-larger"_s, TestObj::Size::MuchMuchLarger },
+        std::pair<ComparableASCIILiteral, TestObj::Size> { "small"_s, TestObj::Size::Small },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -519,8 +519,8 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestObj::Confidence enumerat
 template<> std::optional<TestObj::Confidence> parseEnumerationFromString<TestObj::Confidence>(const String& stringValue)
 {
     static constexpr std::array<std::pair<ComparableASCIILiteral, TestObj::Confidence>, 2> mappings {
-        std::pair<ComparableASCIILiteral, TestObj::Confidence> { "high", TestObj::Confidence::High },
-        std::pair<ComparableASCIILiteral, TestObj::Confidence> { "kinda-low", TestObj::Confidence::KindaLow },
+        std::pair<ComparableASCIILiteral, TestObj::Confidence> { "high"_s, TestObj::Confidence::High },
+        std::pair<ComparableASCIILiteral, TestObj::Confidence> { "kinda-low"_s, TestObj::Confidence::KindaLow },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
     if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
@@ -994,6 +994,19 @@ template<> ConversionResult<IDLDictionary<TestObj::Dictionary>> convertDictionar
             return ConversionResultException { };
         result.stringWithoutDefault = stringWithoutDefaultConversionResult.releaseReturnValue();
     }
+    JSValue undefinedUnionMemberValue;
+    if (isNullOrUndefined)
+        undefinedUnionMemberValue = jsUndefined();
+    else {
+        undefinedUnionMemberValue = object->get(&lexicalGlobalObject, Identifier::fromString(vm, "undefinedUnionMember"_s));
+        RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
+    }
+    if (!undefinedUnionMemberValue.isUndefined()) {
+        auto undefinedUnionMemberConversionResult = convert<IDLUnion<IDLUndefined, IDLInterface<Node>>>(lexicalGlobalObject, undefinedUnionMemberValue);
+        if (UNLIKELY(undefinedUnionMemberConversionResult.hasException(throwScope)))
+            return ConversionResultException { };
+        result.undefinedUnionMember = undefinedUnionMemberConversionResult.releaseReturnValue();
+    }
     JSValue unionMemberValue;
     if (isNullOrUndefined)
         unionMemberValue = jsUndefined();
@@ -1257,6 +1270,11 @@ JSC::JSObject* convertDictionaryToJS(JSC::JSGlobalObject& lexicalGlobalObject, J
         auto stringWithoutDefaultValue = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, IDLDOMString::extractValueFromNullable(dictionary.stringWithoutDefault));
         RETURN_IF_EXCEPTION(throwScope, { });
         result->putDirect(vm, JSC::Identifier::fromString(vm, "stringWithoutDefault"_s), stringWithoutDefaultValue);
+    }
+    if (!IDLUnion<IDLUndefined, IDLInterface<Node>>::isNullValue(dictionary.undefinedUnionMember)) {
+        auto undefinedUnionMemberValue = toJS<IDLUnion<IDLUndefined, IDLInterface<Node>>>(lexicalGlobalObject, globalObject, throwScope, IDLUnion<IDLUndefined, IDLInterface<Node>>::extractValueFromNullable(dictionary.undefinedUnionMember));
+        RETURN_IF_EXCEPTION(throwScope, { });
+        result->putDirect(vm, JSC::Identifier::fromString(vm, "undefinedUnionMember"_s), undefinedUnionMemberValue);
     }
     if (!IDLUnion<IDLLong, IDLInterface<Node>>::isNullValue(dictionary.unionMember)) {
         auto unionMemberValue = toJS<IDLUnion<IDLLong, IDLInterface<Node>>>(lexicalGlobalObject, globalObject, throwScope, IDLUnion<IDLLong, IDLInterface<Node>>::extractValueFromNullable(dictionary.unionMember));
@@ -3991,7 +4009,7 @@ static inline JSValue jsTestObj_annotatedTypeInUnionAttrGetter(JSGlobalObject& l
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
-    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnion<IDLDOMString, IDLClampAdaptor<IDLLong>>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.annotatedTypeInUnionAttr())));
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnion<IDLDOMString, IDLClampAdaptor<IDLLong>, IDLUndefined>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.annotatedTypeInUnionAttr())));
 }
 
 JSC_DEFINE_CUSTOM_GETTER(jsTestObj_annotatedTypeInUnionAttr, (JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName attributeName))
@@ -4005,7 +4023,7 @@ static inline bool setJSTestObj_annotatedTypeInUnionAttrSetter(JSGlobalObject& l
     UNUSED_PARAM(vm);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
-    auto nativeValueConversionResult = convert<IDLUnion<IDLDOMString, IDLClampAdaptor<IDLLong>>>(lexicalGlobalObject, value);
+    auto nativeValueConversionResult = convert<IDLUnion<IDLDOMString, IDLClampAdaptor<IDLLong>, IDLUndefined>>(lexicalGlobalObject, value);
     if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {

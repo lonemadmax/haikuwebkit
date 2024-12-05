@@ -502,7 +502,7 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
     uint32_t textureWidth = 0, textureHeight = 0, sampleCount = 0;
     using SliceSet = HashSet<uint64_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
     HashMap<void*, SliceSet> depthSlices;
-    for (auto [ i, attachment ] : IndexedRange(descriptor.colorAttachmentsSpan())) {
+    for (auto [ i, attachment ] : indexedRange(descriptor.colorAttachmentsSpan())) {
         if (!attachment.view)
             continue;
 
@@ -661,7 +661,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             return RenderPassEncoder::createInvalid(*this, m_device, @"depth clear value is invalid");
 
         if (zeroColorTargets) {
-            mtlDescriptor.defaultRasterSampleCount = textureView->sampleCount();
+            mtlDescriptor.defaultRasterSampleCount = metalDepthStencilTexture.sampleCount;
             if (!mtlDescriptor.defaultRasterSampleCount)
                 return RenderPassEncoder::createInvalid(*this, m_device, @"no color targets and depth-stencil texture is nil");
             mtlDescriptor.renderTargetWidth = metalDepthStencilTexture.width;
@@ -2115,13 +2115,20 @@ void CommandEncoder::resolveQuerySet(const QuerySet& querySet, uint32_t firstQue
     if (querySet.isDestroyed() || destination.isDestroyed() || !queryCount)
         return;
 
-    ensureBlitCommandEncoder();
     switch (querySet.type()) {
     case WGPUQueryType_Occlusion: {
+        ensureBlitCommandEncoder();
         [m_blitCommandEncoder copyFromBuffer:querySet.visibilityBuffer() sourceOffset:sizeof(uint64_t) * firstQuery toBuffer:destination.buffer() destinationOffset:destinationOffset size:sizeof(uint64_t) * queryCount];
         break;
     }
     case WGPUQueryType_Timestamp: {
+        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=283385 - https://bugs.webkit.org/show_bug.cgi?id=283088 should be reverted when the blocking issue is resolved
+        finalizeBlitCommandEncoder();
+        id<MTLSharedEvent> workaround = m_device->resolveTimestampsSharedEvent();
+        // The signal value does not matter, the event alone prevents reordering
+        [m_commandBuffer encodeSignalEvent:workaround value:1];
+        [m_commandBuffer encodeWaitForEvent:workaround value:1];
+        ensureBlitCommandEncoder();
         [m_blitCommandEncoder resolveCounters:querySet.counterSampleBuffer() inRange:NSMakeRange(0, querySet.count()) destinationBuffer:destination.buffer() destinationOffset:destinationOffset];
         break;
     }
@@ -2170,18 +2177,6 @@ void CommandEncoder::lock(bool shouldLock)
 
 void CommandEncoder::trackEncoder(CommandEncoder& commandEncoder, WeakHashSet<CommandEncoder>& encoderHashSet)
 {
-    bool removedItem;
-    do {
-        removedItem = false;
-        for (Ref commandEncoder : encoderHashSet) {
-            if (!commandEncoder->isValid()) {
-                encoderHashSet.remove(commandEncoder.get());
-                removedItem = true;
-                break;
-            }
-        }
-    } while (removedItem);
-
     encoderHashSet.add(commandEncoder);
 }
 

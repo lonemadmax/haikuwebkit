@@ -230,6 +230,7 @@ public:
 
     bool rendererIsNeeded(const RenderStyle&) final;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
+    bool isReplaced(const RenderStyle&) const final;
     void willAttachRenderers() final;
     void didAttachRenderers() final;
     void didDetachRenderers() final;
@@ -257,6 +258,7 @@ public:
     WEBCORE_EXPORT bool multiple() const;
 
     // AutoFill.
+    using AutofillButtonType = WebCore::AutoFillButtonType;
     bool autofilled() const { return m_isAutoFilled; }
     WEBCORE_EXPORT void setAutofilled(bool = true);
     bool autofilledAndViewable() const { return m_isAutoFilledAndViewable; }
@@ -269,6 +271,13 @@ public:
     bool hasAutofillStrongPasswordButton() const  { return autofillButtonType() == AutoFillButtonType::StrongPassword; }
     bool autofillAvailable() const { return m_isAutoFillAvailable; }
     void setAutofillAvailable(bool autoFillAvailable) { m_isAutoFillAvailable = autoFillAvailable; }
+    enum class AutofillVisibility : uint8_t {
+        Normal,
+        Visible,
+        Hidden,
+    };
+    AutofillVisibility autofillVisibility() const;
+    void setAutofillVisibility(AutofillVisibility);
 
 #if ENABLE(DRAG_SUPPORT)
     // Returns true if the given DragData has more than one dropped file.

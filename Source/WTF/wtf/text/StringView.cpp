@@ -33,13 +33,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/ZippedRange.h>
 #include <wtf/text/AdaptiveStringSearcher.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/text/TextBreakIterator.h>
 #include <wtf/unicode/icu/ICUHelpers.h>
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WTF {
 
@@ -316,24 +315,25 @@ AtomString StringView::convertToASCIILowercaseAtom() const
     return convertASCIILowercaseAtom(span16());
 }
 
+
 template<typename DestinationCharacterType, typename SourceCharacterType>
-void getCharactersWithASCIICaseInternal(StringView::CaseConvertType type, DestinationCharacterType* destination, std::span<const SourceCharacterType> source)
+void getCharactersWithASCIICaseInternal(StringView::CaseConvertType type, std::span<DestinationCharacterType> destination, std::span<const SourceCharacterType> source)
 {
     static_assert(std::is_same<SourceCharacterType, LChar>::value || std::is_same<SourceCharacterType, UChar>::value);
     static_assert(std::is_same<DestinationCharacterType, LChar>::value || std::is_same<DestinationCharacterType, UChar>::value);
     static_assert(sizeof(DestinationCharacterType) >= sizeof(SourceCharacterType));
     auto caseConvert = (type == StringView::CaseConvertType::Lower) ? toASCIILower<SourceCharacterType> : toASCIIUpper<SourceCharacterType>;
-    for (auto character : source)
-        *destination++ = caseConvert(character);
+    for (auto [destinationCharacter, character] : zippedRange(destination, source))
+        destinationCharacter = caseConvert(character);
 }
 
-void StringView::getCharactersWithASCIICase(CaseConvertType type, LChar* destination) const
+void StringView::getCharactersWithASCIICase(CaseConvertType type, std::span<LChar> destination) const
 {
     ASSERT(is8Bit());
     getCharactersWithASCIICaseInternal(type, destination, span8());
 }
 
-void StringView::getCharactersWithASCIICase(CaseConvertType type, UChar* destination) const
+void StringView::getCharactersWithASCIICase(CaseConvertType type, std::span<UChar> destination) const
 {
     if (is8Bit()) {
         getCharactersWithASCIICaseInternal(type, destination, span8());
@@ -610,5 +610,3 @@ std::atomic<int> wtfStringCopyCount;
 #endif
 
 } // namespace WTF
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

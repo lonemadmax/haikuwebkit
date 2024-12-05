@@ -25,7 +25,6 @@
 #include "config.h"
 #include "CSSPolygonFunction.h"
 
-#include "CSSCalcValue.h"
 #include "CSSPrimitiveNumericTypes+Serialization.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -38,7 +37,7 @@ void Serialize<Polygon>::operator()(StringBuilder& builder, const Polygon& value
 
     // FIXME: Add support the "round" clause.
 
-    if (value.fillRule && std::holds_alternative<Evenodd>(*value.fillRule)) {
+    if (value.fillRule && std::holds_alternative<CSS::Keyword::Evenodd>(*value.fillRule)) {
         serializationForCSS(builder, *value.fillRule);
         builder.append(", "_s);
     }

@@ -524,6 +524,12 @@ struct FeaturesVk : FeatureSetBase
         &members,
     };
 
+    FeatureInfo exposeES32ForTesting = {
+        "exposeES32ForTesting",
+        FeatureCategory::VulkanWorkarounds,
+        &members,
+    };
+
     FeatureInfo emulateR32fImageAtomicExchange = {
         "emulateR32fImageAtomicExchange",
         FeatureCategory::VulkanWorkarounds,
@@ -1390,6 +1396,18 @@ struct FeaturesVk : FeatureSetBase
 
     FeatureInfo descriptorSetCache = {
         "descriptorSetCache",
+        FeatureCategory::VulkanFeatures,
+        &members,
+    };
+
+    FeatureInfo supportsImageCompressionControl = {
+        "supportsImageCompressionControl",
+        FeatureCategory::VulkanFeatures,
+        &members,
+    };
+
+    FeatureInfo supportsAstcSliced3d = {
+        "supportsAstcSliced3d",
         FeatureCategory::VulkanFeatures,
         &members,
     };

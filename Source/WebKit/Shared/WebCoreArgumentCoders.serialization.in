@@ -2516,7 +2516,6 @@ class WebCore::SelectionGeometry {
     bool containsStart();
     bool containsEnd();
     bool isHorizontal();
-    bool mayAppearLogicallyDiscontiguous();
 };
 #endif
 
@@ -3056,26 +3055,24 @@ class WebCore::SVGPathByteStream {
 
 header: <WebCore/StylePrimitiveNumericTypes.h>
 [CustomHeader, Nested] struct WebCore::Style::Angle<WebCore::CSS::Nonnegative> {
-    float value;
+    double value;
 };
 [CustomHeader, Nested] struct WebCore::Style::Angle<WebCore::CSS::All> {
-    float value;
+    double value;
 };
 
 [CustomHeader, Nested] struct WebCore::Style::Length<WebCore::CSS::Nonnegative> {
     float value;
-    bool quirk;
 };
 [CustomHeader, Nested] struct WebCore::Style::Length<WebCore::CSS::All> {
     float value;
-    bool quirk;
 };
 
 [CustomHeader, Nested] struct WebCore::Style::Percentage<WebCore::CSS::Nonnegative> {
-    float value;
+    double value;
 };
 [CustomHeader, Nested] struct WebCore::Style::Percentage<WebCore::CSS::All> {
-    float value;
+    double value;
 };
 
 [CustomHeader, Nested] struct WebCore::Style::LengthPercentage<WebCore::CSS::All> {
@@ -3139,21 +3136,21 @@ header: <WebCore/StylePosition.h>
 };
 
 header: <WebCore/StyleGradient.h>
-using WebCore::Style::ClosestCorner = WebCore::Style::Constant<WebCore::CSSValueClosestCorner>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueClosestCorner> {
+using WebCore::CSS::Keyword::ClosestCorner = WebCore::Constant<WebCore::CSSValueClosestCorner>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueClosestCorner> {
 };
-using WebCore::Style::ClosestSide = WebCore::Style::Constant<WebCore::CSSValueClosestSide>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueClosestSide> {
+using WebCore::CSS::Keyword::ClosestSide = WebCore::Constant<WebCore::CSSValueClosestSide>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueClosestSide> {
 };
-using WebCore::Style::FarthestCorner = WebCore::Style::Constant<WebCore::CSSValueFarthestCorner>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueFarthestCorner> {
+using WebCore::CSS::Keyword::FarthestCorner = WebCore::Constant<WebCore::CSSValueFarthestCorner>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueFarthestCorner> {
 };
-using WebCore::Style::FarthestSide = WebCore::Style::Constant<WebCore::CSSValueFarthestSide>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueFarthestSide> {
+using WebCore::CSS::Keyword::FarthestSide = WebCore::Constant<WebCore::CSSValueFarthestSide>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueFarthestSide> {
 };
 
 header: <WebCore/StyleCircleFunction.h>
-using WebCore::Style::Circle::Extent = std::variant<WebCore::Style::ClosestCorner, WebCore::Style::ClosestSide, WebCore::Style::FarthestCorner, WebCore::Style::FarthestSide>;
+using WebCore::Style::Circle::Extent = std::variant<WebCore::CSS::Keyword::ClosestCorner, WebCore::CSS::Keyword::ClosestSide, WebCore::CSS::Keyword::FarthestCorner, WebCore::CSS::Keyword::FarthestSide>;
 using WebCore::Style::Circle::RadialSize = std::variant<WebCore::Style::LengthPercentage<WebCore::CSS::Nonnegative>, WebCore::Style::Circle::Extent>;
 
 [CustomHeader, Nested] struct WebCore::Style::CircleFunction {
@@ -3166,7 +3163,7 @@ using WebCore::Style::Circle::RadialSize = std::variant<WebCore::Style::LengthPe
 
 header: <WebCore/StyleEllipseFunction.h>
 
-using WebCore::Style::Ellipse::Extent = std::variant<WebCore::Style::ClosestCorner, WebCore::Style::ClosestSide, WebCore::Style::FarthestCorner, WebCore::Style::FarthestSide>;
+using WebCore::Style::Ellipse::Extent = std::variant<WebCore::CSS::Keyword::ClosestCorner, WebCore::CSS::Keyword::ClosestSide, WebCore::CSS::Keyword::FarthestCorner, WebCore::CSS::Keyword::FarthestSide>;
 using WebCore::Style::Ellipse::RadialSize = std::variant<WebCore::Style::LengthPercentage<WebCore::CSS::Nonnegative>, WebCore::Style::Ellipse::Extent>;
 [CustomHeader, Nested] struct WebCore::Style::SpaceSeparatedPair<WebCore::Style::Ellipse::RadialSize> {
     std::array<WebCore::Style::Ellipse::RadialSize, 2> value;
@@ -3212,48 +3209,48 @@ header: <WebCore/StylePolygonFunction.h>
 };
 
 header: <WebCore/StyleFillRule.h>
-using WebCore::Style::Nonzero = WebCore::Style::Constant<WebCore::CSSValueNonzero>;
-using WebCore::Style::Evenodd = WebCore::Style::Constant<WebCore::CSSValueEvenodd>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueNonzero> {
+using WebCore::CSS::Keyword::Nonzero = WebCore::Constant<WebCore::CSSValueNonzero>;
+using WebCore::CSS::Keyword::Evenodd = WebCore::Constant<WebCore::CSSValueEvenodd>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueNonzero> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueEvenodd> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueEvenodd> {
 };
-using WebCore::Style::FillRule = std::variant<WebCore::Style::Nonzero, WebCore::Style::Evenodd>;
+using WebCore::Style::FillRule = std::variant<WebCore::CSS::Keyword::Nonzero, WebCore::CSS::Keyword::Evenodd>;
 
 header: <WebCore/StyleShapeFunction.h>
 using WebCore::Style::CoordinatePair = WebCore::Style::Point<WebCore::Style::LengthPercentageAll>;
-using WebCore::Style::CommandAffinity = std::variant<WebCore::Style::By, WebCore::Style::To>;
-using WebCore::Style::By = WebCore::Style::Constant<WebCore::CSSValueBy>;
-using WebCore::Style::To = WebCore::Style::Constant<WebCore::CSSValueTo>;
-using WebCore::Style::Ccw = WebCore::Style::Constant<WebCore::CSSValueCcw>;
-using WebCore::Style::Cw = WebCore::Style::Constant<WebCore::CSSValueCw>;
-using WebCore::Style::Large = WebCore::Style::Constant<WebCore::CSSValueLarge>;
-using WebCore::Style::Small = WebCore::Style::Constant<WebCore::CSSValueSmall>;
-using WebCore::Style::Start = WebCore::Style::Constant<WebCore::CSSValueStart>;
-using WebCore::Style::End = WebCore::Style::Constant<WebCore::CSSValueEnd>;
-using WebCore::Style::Origin = WebCore::Style::Constant<WebCore::CSSValueOrigin>;
-using WebCore::Style::ControlPointAnchor = std::variant<WebCore::Style::Start, WebCore::Style::End, WebCore::Style::Origin>;
-using WebCore::Style::CloseCommand = WebCore::Style::Constant<WebCore::CSSValueClose>;
+using WebCore::Style::CommandAffinity = std::variant<WebCore::CSS::Keyword::By, WebCore::CSS::Keyword::To>;
+using WebCore::CSS::Keyword::By = WebCore::Constant<WebCore::CSSValueBy>;
+using WebCore::CSS::Keyword::To = WebCore::Constant<WebCore::CSSValueTo>;
+using WebCore::CSS::Keyword::Ccw = WebCore::Constant<WebCore::CSSValueCcw>;
+using WebCore::CSS::Keyword::Cw = WebCore::Constant<WebCore::CSSValueCw>;
+using WebCore::CSS::Keyword::Large = WebCore::Constant<WebCore::CSSValueLarge>;
+using WebCore::CSS::Keyword::Small = WebCore::Constant<WebCore::CSSValueSmall>;
+using WebCore::CSS::Keyword::Start = WebCore::Constant<WebCore::CSSValueStart>;
+using WebCore::CSS::Keyword::End = WebCore::Constant<WebCore::CSSValueEnd>;
+using WebCore::CSS::Keyword::Origin = WebCore::Constant<WebCore::CSSValueOrigin>;
+using WebCore::Style::ControlPointAnchor = std::variant<WebCore::CSS::Keyword::Start, WebCore::CSS::Keyword::End, WebCore::CSS::Keyword::Origin>;
+using WebCore::Style::CloseCommand = WebCore::Constant<WebCore::CSSValueClose>;
 
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueBy> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueBy> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueTo> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueTo> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueCcw> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueCcw> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueCw> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueCw> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueLarge> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueLarge> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueSmall> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueSmall> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueStart> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueStart> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueEnd> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueEnd> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueOrigin> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueOrigin> {
 };
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueClose> {
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueClose> {
 };
 
 [CustomHeader, Nested] struct WebCore::Style::ToPosition {
@@ -3330,8 +3327,8 @@ using WebCore::Style::CloseCommand = WebCore::Style::Constant<WebCore::CSSValueC
 [CustomHeader, Nested] struct WebCore::Style::ArcCommand {
     std::variant<WebCore::Style::ToPosition, WebCore::Style::ByCoordinatePair> toBy;
     WebCore::Style::LengthPercentageSizeAll size;
-    std::variant<WebCore::Style::Cw, WebCore::Style::Ccw> arcSweep;
-    std::variant<WebCore::Style::Large, WebCore::Style::Small> arcSize;
+    std::variant<WebCore::CSS::Keyword::Cw, WebCore::CSS::Keyword::Ccw> arcSweep;
+    std::variant<WebCore::CSS::Keyword::Large, WebCore::CSS::Keyword::Small> arcSize;
     WebCore::Style::Angle<WebCore::CSS::All> rotation;
 };
 using WebCore::Style::LengthPercentageSizeAll = WebCore::Style::Size<WebCore::Style::LengthPercentageAll>
@@ -3357,20 +3354,20 @@ header: <WebCore/StyleMinimallySerializingRectEdges.h>
 
 header: <WebCore/StyleRayFunction.h>
 
-using WebCore::Style::Sides = WebCore::Style::Constant<WebCore::CSSValueSides>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueSides> {
+using WebCore::CSS::Keyword::Sides = WebCore::Constant<WebCore::CSSValueSides>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueSides> {
 };
-using WebCore::Style::Contain = WebCore::Style::Constant<WebCore::CSSValueContain>;
-[CustomHeader, Nested] struct WebCore::Style::Constant<WebCore::CSSValueContain> {
+using WebCore::CSS::Keyword::Contain = WebCore::Constant<WebCore::CSSValueContain>;
+[CustomHeader, Nested] struct WebCore::Constant<WebCore::CSSValueContain> {
 };
-using WebCore::Style::RaySize = std::variant<WebCore::Style::ClosestCorner, WebCore::Style::ClosestSide, WebCore::Style::FarthestCorner, WebCore::Style::FarthestSide, WebCore::Style::Sides>;
+using WebCore::Style::RaySize = std::variant<WebCore::CSS::Keyword::ClosestCorner, WebCore::CSS::Keyword::ClosestSide, WebCore::CSS::Keyword::FarthestCorner, WebCore::CSS::Keyword::FarthestSide, WebCore::CSS::Keyword::Sides>;
 [CustomHeader, Nested] struct WebCore::Style::RayFunction {
     WebCore::Style::Ray parameters;
 };
 [CustomHeader, Nested] struct WebCore::Style::Ray {
     WebCore::Style::Angle<WebCore::CSS::All> angle;
     WebCore::Style::RaySize size;
-    std::optional<WebCore::Style::Contain> contain;
+    std::optional<WebCore::CSS::Keyword::Contain> contain;
     std::optional<WebCore::Style::Position> position;
 };
 
@@ -4270,27 +4267,6 @@ header: <WebCore/FontAttributes.h>
     bool hasStrikeThrough
     bool hasMultipleFonts
 };
-
-#if USE(CORE_TEXT)
-using WebCore::FontPlatformData::IPCData = std::variant<WebCore::FontPlatformSerializedData, WebCore::FontPlatformSerializedCreationData>;
-#endif
-
-#if USE(CORE_TEXT)
-[RefCounted] class WebCore::Font {
-    WebCore::FontInternalAttributes attributes();
-    WebCore::FontPlatformData platformData();
-}
-
-[CreateUsing=fromIPCData] class WebCore::FontPlatformData {
-    float size();
-    WebCore::FontOrientation orientation();
-    WebCore::FontWidthVariant widthVariant();
-    WebCore::TextRenderingMode textRenderingMode();
-    bool syntheticBold();
-    bool syntheticOblique();
-    WebCore::FontPlatformData::IPCData toIPCData();
-}
-#endif
 
 header: <WebCore/WritingDirection.h>
 enum class WebCore::WritingDirection : uint8_t {
@@ -6259,6 +6235,7 @@ enum class WebCore::TextIndicatorPresentationTransition : uint8_t {
     ComputeEstimatedBackgroundColor,
     UseUserSelectAllCommonAncestor,
     SkipReplacedContent,
+    SnapshotContentAt3xBaseScale,
 };
 
 using WebCore::IDBConnectionIdentifier = WebCore::ProcessIdentifier;
@@ -6372,8 +6349,6 @@ header: <WebCore/ISOVTTCue.h>
     bool expectCancel;
     bool supportClientPin;
     bool supportInternalUV;
-    long maxCredentialCountInList;
-    long maxCredentialIdLength;
 };
 
 [Nested] enum class WebCore::MockWebAuthenticationConfiguration::NfcError : uint8_t {
@@ -6561,8 +6536,11 @@ struct WebCore::AnimationEffectTiming {
     WebCore::PlaybackDirection direction;
     double iterationStart;
     double iterations;
-    Seconds delay;
-    Seconds endDelay;
+    [NotSerialized] Seconds specifiedStartDelay;
+    [NotSerialized] Seconds specifiedEndDelay;
+    [NotSerialized] std::optional<Seconds> specifiedIterationDuration;
+    WebCore::WebAnimationTime startDelay;
+    WebCore::WebAnimationTime endDelay;
     WebCore::WebAnimationTime iterationDuration;
     WebCore::WebAnimationTime intrinsicIterationDuration;
     WebCore::WebAnimationTime activeDuration;

@@ -30,13 +30,11 @@
 #include "CSSCalcTree+Serialization.h"
 #include "CSSCalcTree+Simplification.h"
 #include "CSSCalcTree.h"
-#include "CSSCalcValue.h"
 #include "CSSParserContext.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSPropertyParserConsumer+LengthPercentage.h"
 #include "CSSPropertyParserConsumer+Primitives.h"
-#include "CSSPropertyParserHelpers.h"
 #include "CSSPropertyParsing.h"
 #include "CSSUnits.h"
 #include "CalculationCategory.h"
@@ -740,6 +738,9 @@ static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int 
     if (state.parserOptions.propertyOptions.anchorPolicy != AnchorPolicy::Allow)
         return { };
 
+    if (!state.parserContext.propertySettings.cssAnchorPositioningEnabled)
+        return { };
+
     auto anchorElement = CSSPropertyParserHelpers::consumeDashedIdentRaw(tokens);
 
     // <anchor-side> = inside | outside | top | left | right | bottom | start | end | self-start | self-end | <percentage> | center
@@ -798,10 +799,11 @@ static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int 
     state.requiresConversionData = true;
 
     auto anchor = Anchor {
-        .elementName = AtomString { anchorElement },
+        .elementName = AtomString { WTFMove(anchorElement) },
         .side = WTFMove(*anchorSide),
         .fallback = WTFMove(fallback)
     };
+
     return TypedChild { makeChild(WTFMove(anchor), type), type };
 }
 

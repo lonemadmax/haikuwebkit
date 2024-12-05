@@ -31,8 +31,6 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WTF::Persistence {
 
 void Coder<AtomString>::encodeForPersistence(Encoder& encoder, const AtomString& atomString)
@@ -81,9 +79,9 @@ std::optional<CString> Coder<CString>::decodeForPersistence(Decoder& decoder)
     if (!decoder.bufferIsLargeEnoughToContain<char>(*length))
         return std::nullopt;
 
-    char* buffer;
+    std::span<char> buffer;
     CString string = CString::newUninitialized(*length, buffer);
-    if (!decoder.decodeFixedLengthData({ byteCast<uint8_t>(buffer), *length }))
+    if (!decoder.decodeFixedLengthData(byteCast<uint8_t>(buffer)))
         return std::nullopt;
 
     return string;
@@ -201,5 +199,3 @@ std::optional<Seconds> Coder<Seconds>::decodeForPersistence(Decoder& decoder)
 }
 
 }
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

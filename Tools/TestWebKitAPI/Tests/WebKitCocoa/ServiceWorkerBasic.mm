@@ -221,16 +221,21 @@ navigator.serviceWorker.addEventListener("message", function(event) {
     log("Message from worker: " + event.data);
 });
 
+let worker;
 try {
-
-navigator.serviceWorker.register('/sw.js').then(function(reg) {
-    worker = reg.installing ? reg.installing : reg.active;
-    worker.postMessage("Hello from the web page");
-}).catch(function(error) {
-    log("Registration failed with: " + error);
-});
+    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+        worker = reg.installing ? reg.installing : reg.active;
+        postMessageToServiceWorker();
+    }).catch(function(error) {
+        log("Registration failed with: " + error);
+    });
 } catch(e) {
     log("Exception: " + e);
+}
+
+function postMessageToServiceWorker()
+{
+    worker.postMessage('Hello from the web page');
 }
 
 </script>
@@ -2015,7 +2020,14 @@ void testSuspendServiceWorkerProcessBasedOnClientProcesses(UseSeparateServiceWor
     TestWebKitAPI::Util::run(&done);
     done = false;
 
+
+    auto dataStoreConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] init]);
+    //  We disable the termination delay so that it takes 2s to drop service worker process assertions.
+    [dataStoreConfiguration setServiceWorkerProcessTerminationDelayEnabled:NO];
+    auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:dataStoreConfiguration.get()]);
+
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get().websiteDataStore = dataStore.get();
 
     auto messageHandler = adoptNS([[SWMessageHandler alloc] init]);
     [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
@@ -2064,6 +2076,14 @@ void testSuspendServiceWorkerProcessBasedOnClientProcesses(UseSeparateServiceWor
 
     // The service worker process should take activity based on webView2 process.
     [webView2 _setThrottleStateForTesting: 1];
+
+    // At this point, service worker should be idle so no assertion should be taken.
+    TestWebKitAPI::Util::spinRunLoop(10);
+    EXPECT_TRUE(![webView2 _hasServiceWorkerForegroundActivityForTesting] && ![webView2 _hasServiceWorkerBackgroundActivityForTesting]);
+
+    // We trigger activity again for the service worker.
+    [webView2 evaluateJavaScript:@"postMessageToServiceWorker()" completionHandler: nil];
+
     EXPECT_TRUE(waitUntilEvaluatesToTrue([&] {
         [webView2 _setThrottleStateForTesting:1];
         return ![webView2 _hasServiceWorkerForegroundActivityForTesting] && [webView2 _hasServiceWorkerBackgroundActivityForTesting];
@@ -3415,48 +3435,55 @@ var cache1;
 onload = async () => {
     try {
         // Create cache1
-        cache1 = await self.caches.open("test1");
-        await cache1.put(new Request('test'), new Response('my response'));
+        cache1 = await self.caches.open("cache1");
+        await cache1.put(new Request('my request'), new Response('my response'));
         webkit.messageHandlers.sw.postMessage("PASS");
     } catch(e) {
-        webkit.messageHandlers.sw.postMessage("fill failed with " + e);
+        webkit.messageHandlers.sw.postMessage("put failed with " + e);
     }
 }
 
-function check()
+// The web process may not know that the network process has been terminated since
+// this notification happens asynchronously. So we make calls to open a cache. Until the
+// web process is notified, these calls will fail. Once a call succeeds, we know that the
+// web process has been notified and has established a new connection to a new network
+// process. Then, when match is called, we can check that this new process does not
+// contain cache1, which was created using the now-terminated network process.
+
+async function check()
 {
-    // Create several caches, one of which should have the same ObjectIdentifier value as cache1.
-    Promise.all([
-        self.caches.open("test2"),
-        self.caches.open("test3"),
-        self.caches.open("test4"),
-        self.caches.open("test5"),
-        self.caches.open("test6"),
-        self.caches.open("test7"),
-        self.caches.open("test8"),
-        self.caches.open("test9"),
-        self.caches.open("test10")
-    ]).then(() => {
-        cache1.match('test').then(() => {
-            webkit.messageHandlers.sw.postMessage("cache1 did match unexpectedly");
-        }, e => {
-            webkit.messageHandlers.sw.postMessage("PASS");
-        });
-    }, e => {
-        webkit.messageHandlers.sw.postMessage("check failed with " + e);
-    });
+    const maxAttempts = 10;
+    let attempt = 1;
+    let cache2 = null;
+
+    while (attempt <= maxAttempts) {
+        try {
+            cache2 = await self.caches.open("cache2");
+            break;
+        } catch(e) {
+            attempt++;
+        }
+    }
+
+    // If the test is flaky due to hitting this error, we likely need to increase maxAttempts.
+    if (!cache2) {
+        webkit.messageHandlers.sw.postMessage("FAIL: web process was not notified that network process was terminated");
+        return;
+    }
+
+    try {
+        await cache1.match('my request');
+        webkit.messageHandlers.sw.postMessage("FAIL: cache1 unexpectedly matched");
+    } catch(e) {
+        webkit.messageHandlers.sw.postMessage("PASS");
+    }
 }
 </script>
 </body>
 </html>
 )SWRESOURCE"_s;
 
-// rdar://136529803
-#if (PLATFORM(MAC))
-TEST(ServiceWorkers, DISABLED_CacheStorageNetworkProcessCrash)
-#else
 TEST(ServiceWorkers, CacheStorageNetworkProcessCrash)
-#endif
 {
     [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
 

@@ -28,6 +28,7 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <climits>
 #include <concepts>
 #include <cstring>
@@ -154,18 +155,34 @@ inline bool is8ByteAligned(void* p)
     return !((uintptr_t)(p) & (sizeof(double) - 1));
 }
 
-template<typename ToType, typename FromType>
-constexpr inline ToType bitwise_cast(FromType from)
+inline std::byte* alignedBytes(std::byte* pointer, size_t alignment)
 {
-    static_assert(sizeof(FromType) == sizeof(ToType), "bitwise_cast size of FromType and ToType must be equal!");
-#if COMPILER_SUPPORTS(BUILTIN_IS_TRIVIALLY_COPYABLE)
-    // Not all recent STL implementations support the std::is_trivially_copyable type trait. Work around this by only checking on toolchains which have the equivalent compiler intrinsic.
-    static_assert(__is_trivially_copyable(ToType), "bitwise_cast of non-trivially-copyable type!");
-    static_assert(__is_trivially_copyable(FromType), "bitwise_cast of non-trivially-copyable type!");
-#endif
-    typename std::remove_const<ToType>::type to { };
-    std::memcpy(static_cast<void*>(&to), static_cast<void*>(&from), sizeof(to));
-    return to;
+    return reinterpret_cast<std::byte*>((reinterpret_cast<uintptr_t>(pointer) - 1u + alignment) & -alignment);
+}
+
+inline const std::byte* alignedBytes(const std::byte* pointer, size_t alignment)
+{
+    return reinterpret_cast<const std::byte*>((reinterpret_cast<uintptr_t>(pointer) - 1u + alignment) & -alignment);
+}
+
+inline size_t alignedBytesCorrection(std::span<std::byte> buffer, size_t alignment)
+{
+    return reinterpret_cast<std::byte*>((reinterpret_cast<uintptr_t>(buffer.data()) - 1u + alignment) & -alignment) - buffer.data();
+}
+
+inline size_t alignedBytesCorrection(std::span<const std::byte> buffer, size_t alignment)
+{
+    return reinterpret_cast<const std::byte*>((reinterpret_cast<uintptr_t>(buffer.data()) - 1u + alignment) & -alignment) - buffer.data();
+}
+
+inline std::span<std::byte> alignedBytes(std::span<std::byte> buffer, size_t alignment)
+{
+    return buffer.subspan(alignedBytesCorrection(buffer, alignment));
+}
+
+inline std::span<const std::byte> alignedBytes(std::span<const std::byte> buffer, size_t alignment)
+{
+    return buffer.subspan(alignedBytesCorrection(buffer, alignment));
 }
 
 template<typename ToType, typename FromType>
@@ -382,7 +399,7 @@ ResultType callStatelessLambda(ArgumentTypes&&... arguments)
 {
     uint64_t data[(sizeof(Func) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
     memset(data, 0, sizeof(data));
-    return (*bitwise_cast<Func*>(data))(std::forward<ArgumentTypes>(arguments)...);
+    return (*reinterpret_cast<Func*>(data))(std::forward<ArgumentTypes>(arguments)...);
 }
 
 template<typename T, typename U>
@@ -505,7 +522,7 @@ template<size_t I = 0, class F, class V> ALWAYS_INLINE decltype(auto) visitOneVa
             if constexpr (I + N < size) {                                                           \
                 return std::invoke(std::forward<F>(f), std::get<I + N>(std::forward<V>(v)));        \
             } else {                                                                                \
-                WTF_UNREACHABLE()                                                                   \
+                WTF_UNREACHABLE();                                                                  \
             }                                                                                       \
         }                                                                                           \
 
@@ -845,6 +862,18 @@ T& reinterpretCastSpanStartTo(std::span<uint8_t, Extent> span)
     return spanReinterpretCast<T>(span.first(sizeof(T)))[0];
 }
 
+template<typename T, std::size_t Extent>
+const T& reinterpretCastSpanStartTo(std::span<const std::byte, Extent> span)
+{
+    return spanReinterpretCast<const T>(span.first(sizeof(T)))[0];
+}
+
+template<typename T, std::size_t Extent>
+T& reinterpretCastSpanStartTo(std::span<std::byte, Extent> span)
+{
+    return spanReinterpretCast<T>(span.first(sizeof(T)))[0];
+}
+
 template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
 bool equalSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
 {
@@ -856,6 +885,16 @@ bool equalSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
     return !memcmp(a.data(), b.data(), a.size_bytes());
 }
 
+template<typename T>
+int compareSpans(std::span<const T> a, std::span<const T> b)
+{
+    static_assert(std::has_unique_object_representations_v<T>);
+    int result = memcmp(a.data(), b.data(), std::min(a.size(), b.size()));
+    if (!result && a.size() != b.size())
+        result = (a.size() > b.size()) ? 1 : -1;
+    return result;
+}
+
 template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
 void memcpySpan(std::span<T, TExtent> destination, std::span<U, UExtent> source)
 {
@@ -864,6 +903,16 @@ void memcpySpan(std::span<T, TExtent> destination, std::span<U, UExtent> source)
     static_assert(std::is_trivially_copyable_v<U>);
     RELEASE_ASSERT(destination.size() >= source.size());
     memcpy(destination.data(), source.data(), source.size_bytes());
+}
+
+template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
+void memmoveSpan(std::span<T, TExtent> destination, std::span<U, UExtent> source)
+{
+    static_assert(sizeof(T) == sizeof(U));
+    static_assert(std::is_trivially_copyable_v<T>);
+    static_assert(std::is_trivially_copyable_v<U>);
+    RELEASE_ASSERT(destination.size() >= source.size());
+    memmove(destination.data(), source.data(), source.size_bytes());
 }
 
 template<typename T, std::size_t Extent>
@@ -882,11 +931,11 @@ template<ByteType T> struct ByteCastTraits<T> {
 };
 
 template<ByteType T> struct ByteCastTraits<T*> {
-    template<ByteType U> static constexpr auto cast(T* pointer) { return bitwise_cast<U*>(pointer); }
+    template<ByteType U> static constexpr auto cast(T* pointer) { return std::bit_cast<U*>(pointer); }
 };
 
 template<ByteType T> struct ByteCastTraits<const T*> {
-    template<ByteType U> static constexpr auto cast(const T* pointer) { return bitwise_cast<const U*>(pointer); }
+    template<ByteType U> static constexpr auto cast(const T* pointer) { return std::bit_cast<const U*>(pointer); }
 };
 
 template<ByteType T, size_t Extent> struct ByteCastTraits<std::span<T, Extent>> {
@@ -1091,6 +1140,13 @@ ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, size_
     }
 }
 
+template<typename T, typename U>
+ALWAYS_INLINE void lazyInitialize(const std::unique_ptr<T>& ptr, std::unique_ptr<U>&& obj)
+{
+    RELEASE_ASSERT(!ptr);
+    const_cast<std::unique_ptr<T>&>(ptr) = std::move(obj);
+}
+
 } // namespace WTF
 
 #define WTFMove(value) std::move<WTF::CheckMoveParameter>(value)
@@ -1113,10 +1169,10 @@ using WTF::asByteSpan;
 using WTF::asMutableByteSpan;
 using WTF::asWritableBytes;
 using WTF::binarySearch;
-using WTF::bitwise_cast;
 using WTF::byteCast;
 using WTF::callStatelessLambda;
 using WTF::checkAndSet;
+using WTF::compareSpans;
 using WTF::constructFixedSizeArrayWithArguments;
 using WTF::equalSpans;
 using WTF::findBitInWord;
@@ -1125,10 +1181,12 @@ using WTF::is8ByteAligned;
 using WTF::isCompilationThread;
 using WTF::isPointerAligned;
 using WTF::isStatelessLambda;
+using WTF::lazyInitialize;
 using WTF::makeUnique;
 using WTF::makeUniqueWithoutFastMallocCheck;
 using WTF::makeUniqueWithoutRefCountedCheck;
 using WTF::memcpySpan;
+using WTF::memmoveSpan;
 using WTF::memsetSpan;
 using WTF::mergeDeduplicatedSorted;
 using WTF::reinterpretCastSpanStartTo;
@@ -1139,11 +1197,11 @@ using WTF::safeCast;
 using WTF::singleElementSpan;
 using WTF::spanConstCast;
 using WTF::spanReinterpretCast;
+using WTF::toTwosComplement;
 using WTF::tryBinarySearch;
 using WTF::unsafeMakeSpan;
 using WTF::valueOrCompute;
 using WTF::valueOrDefault;
-using WTF::toTwosComplement;
 using WTF::Invocable;
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

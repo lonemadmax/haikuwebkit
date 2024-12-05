@@ -6015,10 +6015,9 @@
    },
    {
       "emails" : [
-         "moe@sigmaos.com",
          "bazzimoe3@gmail.com"
       ],
-      "expertise" : "WebKit on macOS",
+      "expertise" : "Web Extensions, WebKit API (Mac)",
       "github" : "MoeBazziGIT",
       "name" : "Moe Bazzi"
    },
@@ -8064,6 +8063,18 @@
       "name" : "Vivek Galatage",
       "nicks" : [
          "vivekg"
+      ]
+   },
+   {
+      "emails" : [
+         "vwatermeier@igalia.com"
+      ],
+      "expertise" : "GStreamer",
+      "github" : "vivienne-w",
+      "name" : "Vivienne Watermeier",
+      "nicks" : [
+         "vwatermeier",
+         "vivienne-w"
       ]
    },
    {

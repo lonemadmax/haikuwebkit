@@ -36,6 +36,7 @@
 #import "TestWKWebView.h"
 #import "UIKitSPIForTesting.h"
 #import "WKWebViewConfigurationExtras.h"
+#import <SoftLinking/WeakLinking.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/FloatRect.h>
@@ -56,10 +57,13 @@
 #import <wtf/unicode/CharacterNames.h>
 
 #if PLATFORM(MAC)
+#import <pal/cocoa/WritingToolsUISoftLink.h>
 #import <pal/spi/mac/NSTextInputContextSPI.h>
 #endif
 
-#import <pal/cocoa/WritingToolsUISoftLink.h>
+WEAK_IMPORT_OBJC_CLASS(WTContext);
+WEAK_IMPORT_OBJC_CLASS(WTSession);
+WEAK_IMPORT_OBJC_CLASS(WTTextSuggestion);
 
 #if PLATFORM(VISION)
 asm(".linker_option \"-framework\", \"WritingTools\"");
@@ -2530,30 +2534,6 @@ TEST(WritingTools, TransparencyMarkersForInlineEditing)
     TestWebKitAPI::Util::run(&finished);
 }
 
-TEST(WritingTools, TransparencyMarkersUsingWKWebViewSPI)
-{
-    auto webView = adoptNS([[WritingToolsWKWebView alloc] initWithHTMLString:@"<h1 id='title'>Title</h1><p id='content'>Early morning in Cupertino</p>"]);
-
-    auto waitForValue = [webView](NSUInteger expectedValue) {
-        do {
-            if ([webView transparentContentMarkerCount:@"document.getElementById('content').childNodes[0]"] == expectedValue)
-                break;
-
-            TestWebKitAPI::Util::runFor(0.1_s);
-        } while (true);
-    };
-
-    EXPECT_EQ(0U, [webView transparentContentMarkerCount:@"document.getElementById('content').childNodes[0]"]);
-
-    RetainPtr identifier = [webView _enableSourceTextAnimationAfterElementWithID:@"title"];
-    waitForValue(1U);
-    EXPECT_EQ(1U, [webView transparentContentMarkerCount:@"document.getElementById('content').childNodes[0]"]);
-
-    [webView _disableTextAnimationWithUUID:identifier.get()];
-    waitForValue(0U);
-    EXPECT_EQ(0U, [webView transparentContentMarkerCount:@"document.getElementById('content').childNodes[0]"]);
-}
-
 TEST(WritingTools, NoCrashWhenWebProcessTerminates)
 {
     auto session = adoptNS([[WTSession alloc] initWithType:WTSessionTypeComposition textViewDelegate:nil]);
@@ -3105,6 +3085,48 @@ TEST(WritingTools, FocusWebViewAfterAnimation)
 
         [webView waitForContentValue:@"ZZZZ"];
         EXPECT_WK_STREQ(@"ZZZZ", [webView contentsAsStringWithoutNBSP]);
+
+        [[webView writingToolsDelegate] didEndWritingToolsSession:session.get() accepted:YES];
+
+        writingToolsFinished = true;
+    }];
+
+    TestWebKitAPI::Util::run(&writingToolsFinished);
+
+    // FIXME: Remove the additional wait for the animations to finish.
+    TestWebKitAPI::Util::runFor(2_s);
+
+    [[webView window] makeFirstResponder:nil];
+    [webView sendClickAtPoint:NSMakePoint(50, 50)];
+
+    EXPECT_EQ([[webView window] firstResponder], webView.get());
+}
+
+TEST(WritingTools, FocusWebViewAfterProofreadingAnimation)
+{
+    RetainPtr session = adoptNS([[WTSession alloc] initWithType:WTSessionTypeProofreading textViewDelegate:nil]);
+
+    RetainPtr webView = adoptNS([[WritingToolsWKWebView alloc] initWithHTMLString:@"<body id='p' contenteditable><p id='first'>AAAA BBBB CCCC</p></body>"]);
+    [webView focusDocumentBodyAndSelectAll];
+
+    __block bool writingToolsFinished = false;
+
+    [[webView writingToolsDelegate] willBeginWritingToolsSession:session.get() requestContexts:^(NSArray<WTContext *> *contexts) {
+        EXPECT_EQ(1UL, contexts.count);
+
+        EXPECT_WK_STREQ(@"AAAA BBBB CCCC", contexts.firstObject.attributedText.string);
+
+        [[webView writingToolsDelegate] didBeginWritingToolsSession:session.get() contexts:contexts];
+
+        RetainPtr firstSuggestion = adoptNS([[WTTextSuggestion alloc] initWithOriginalRange:NSMakeRange(0, 4) replacement:@"ZZZZ"]);
+        RetainPtr secondSuggestion = adoptNS([[WTTextSuggestion alloc] initWithOriginalRange:NSMakeRange(10, 4) replacement:@"YYYY"]);
+
+        auto suggestions = [NSMutableArray array];
+        [suggestions addObject:firstSuggestion.get()];
+        [suggestions addObject:secondSuggestion.get()];
+
+        [[webView writingToolsDelegate] proofreadingSession:session.get() didReceiveSuggestions:suggestions processedRange:NSMakeRange(0, 14) inContext:contexts.firstObject finished:YES];
+        [webView waitForProofreadingSuggestionsToBeReplaced];
 
         [[webView writingToolsDelegate] didEndWritingToolsSession:session.get() accepted:YES];
 
@@ -3888,5 +3910,27 @@ TEST(WritingTools, IntelligenceTextEffectCoordinatorDelegate_TextPreviewsForRang
     ASSERT_NOT_NULL(preview.get());
 #endif
 }
+
+#if PLATFORM(IOS_FAMILY) && !ASSERT_ENABLED
+TEST(WritingTools, AttributedStringWithWebKitLegacy)
+{
+    RetainPtr session = adoptNS([[WTSession alloc] initWithType:WTSessionTypeProofreading textViewDelegate:nil]);
+
+    RetainPtr webView = adoptNS([[WritingToolsWKWebView alloc] initWithHTMLString:@"<body contenteditable><p id='first'>I don't thin so. I didn't quite here him.</p><p id='second'>Who's over they're. I could come their.</p></body>"]);
+    [webView focusDocumentBodyAndSelectAll];
+
+    __block bool finished = false;
+
+    [WebView enableWebThread];
+
+    [[webView writingToolsDelegate] willBeginWritingToolsSession:session.get() requestContexts:^(NSArray<WTContext *> *contexts) {
+        EXPECT_EQ(1UL, contexts.count);
+
+        finished = true;
+    }];
+
+    TestWebKitAPI::Util::run(&finished);
+}
+#endif
 
 #endif

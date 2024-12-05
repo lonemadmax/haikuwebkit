@@ -791,7 +791,7 @@ bool RenderBlock::simplifiedLayout()
         return false;
 
     bool canContainFixedPosObjects = canContainFixedPositionObjects();
-    if (isSkippedContentRoot() && (posChildNeedsLayout() || canContainFixedPosObjects))
+    if (layoutContext().isSkippedContentRootForLayout(*this) && (posChildNeedsLayout() || canContainFixedPosObjects))
         return false;
 
     // Lay out positioned descendants or objects that just need to recompute overflow.
@@ -864,8 +864,8 @@ LayoutUnit RenderBlock::marginIntrinsicLogicalWidthForChild(RenderBox& child) co
     // A margin has three types: fixed, percentage, and auto (variable).
     // Auto and percentage margins become 0 when computing min/max width.
     // Fixed margins can be added in as is.
-    Length marginLeft = child.style().marginStartUsing(&style());
-    Length marginRight = child.style().marginEndUsing(&style());
+    Length marginLeft = child.style().marginStart(writingMode());
+    Length marginRight = child.style().marginEnd(writingMode());
     LayoutUnit margin;
     if (marginLeft.isFixed() && !shouldTrimChildMargin(MarginTrimType::InlineStart, child))
         margin += marginLeft.value();
@@ -876,7 +876,7 @@ LayoutUnit RenderBlock::marginIntrinsicLogicalWidthForChild(RenderBox& child) co
 
 void RenderBlock::layoutPositionedObject(RenderBox& r, bool relayoutChildren, bool fixedPositionObjectsOnly)
 {
-    if (isSkippedContentRoot()) {
+    if (layoutContext().isSkippedContentRootForLayout(*this)) {
         r.clearNeedsLayoutForSkippedContent();
         return;
     }
@@ -1029,7 +1029,7 @@ void RenderBlock::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
 void RenderBlock::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (isSkippedContentRoot())
+    if (isSkippedContentRoot(*this))
         return;
 
     if (childrenInline())
@@ -1552,7 +1552,9 @@ GapRects RenderBlock::blockSelectionGaps(RenderBlock& rootBlock, const LayoutPoi
                 continue;
         }
 
-        bool paintsOwnSelection = curr->shouldPaintSelectionGaps() || curr->isRenderTable(); // FIXME: Eventually we won't special-case table like this.
+        // FIXME: Eventually we won't special-case table and other layout roots like this.
+        auto propagatesSelectionToChildren = is<RenderTable>(*curr) || is<RenderFlexibleBox>(*curr) || is<RenderDeprecatedFlexibleBox>(*curr) || is<RenderGrid>(*curr);
+        auto paintsOwnSelection = curr->shouldPaintSelectionGaps() || propagatesSelectionToChildren;
         bool fillBlockGaps = paintsOwnSelection || (curr->canBeSelectionLeaf() && childState != HighlightState::None);
         if (fillBlockGaps) {
             // We need to fill the vertical gap above this object.
@@ -2287,8 +2289,8 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
         // A margin basically has three types: fixed, percentage, and auto (variable).
         // Auto and percentage margins simply become 0 when computing min/max width.
         // Fixed margins can be added in as is.
-        Length startMarginLength = childStyle.marginStartUsing(&styleToUse);
-        Length endMarginLength = childStyle.marginEndUsing(&styleToUse);
+        Length startMarginLength = childStyle.marginStart(writingMode());
+        Length endMarginLength = childStyle.marginEnd(writingMode());
         LayoutUnit margin;
         LayoutUnit marginStart;
         LayoutUnit marginEnd;
@@ -2315,7 +2317,9 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
                 // Determine a left and right max value based off whether or not the floats can fit in the
                 // margins of the object.  For negative margins, we will attempt to overlap the float if the negative margin
                 // is smaller than the float width.
-                bool ltr = containingBlock ? containingBlock->writingMode().isLogicalLeftInlineStart() : styleToUse.writingMode().isLogicalLeftInlineStart();
+                bool ltr = containingBlock
+                    ? containingBlock->writingMode().isLogicalLeftInlineStart()
+                    : writingMode().isLogicalLeftInlineStart();
                 LayoutUnit marginLogicalLeft = ltr ? marginStart : marginEnd;
                 LayoutUnit marginLogicalRight = ltr ? marginEnd : marginStart;
                 LayoutUnit maxLeft = marginLogicalLeft > 0 ? std::max(floatLeftWidth, marginLogicalLeft) : floatLeftWidth + marginLogicalLeft;
@@ -2763,7 +2767,7 @@ const RenderStyle& RenderBlock::outlineStyleForRepaint() const
     return RenderElement::outlineStyleForRepaint();
 }
 
-void RenderBlock::updateHitTestResult(HitTestResult& result, const LayoutPoint& point)
+void RenderBlock::updateHitTestResult(HitTestResult& result, const LayoutPoint& point) const
 {
     if (result.innerNode())
         return;
@@ -3313,7 +3317,7 @@ RenderBox* RenderBlock::findFieldsetLegend(FieldsetFindLegendOption option) cons
 
 void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
 {
-    if (!isFieldset() || isSkippedContentRoot() || !intrinsicBorderForFieldset())
+    if (!isFieldset() || isSkippedContentRoot(*this) || !intrinsicBorderForFieldset())
         return;
     
     auto* legend = findFieldsetLegend();
@@ -3336,7 +3340,7 @@ void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
 LayoutRect RenderBlock::paintRectToClipOutFromBorder(const LayoutRect& paintRect)
 {
     LayoutRect clipRect;
-    if (!isFieldset() || isSkippedContentRoot())
+    if (!isFieldset() || isSkippedContentRoot(*this))
         return clipRect;
     auto* legend = findFieldsetLegend();
     if (!legend)
@@ -3440,8 +3444,8 @@ bool RenderBlock::computePreferredWidthsForExcludedChildren(LayoutUnit& minWidth
     maxWidth -= scrollbarWidth;
     
     const auto& childStyle = legend->style();
-    auto startMarginLength = childStyle.marginStartUsing(&style());
-    auto endMarginLength = childStyle.marginEndUsing(&style());
+    auto startMarginLength = childStyle.marginStart(writingMode());
+    auto endMarginLength = childStyle.marginEnd(writingMode());
     LayoutUnit margin;
     LayoutUnit marginStart;
     LayoutUnit marginEnd;
@@ -3492,7 +3496,7 @@ LayoutUnit RenderBlock::adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit heig
 
 void RenderBlock::paintExcludedChildrenInBorder(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (!isFieldset() || isSkippedContentRoot())
+    if (!isFieldset() || isSkippedContentRoot(*this))
         return;
     
     RenderBox* box = findFieldsetLegend();

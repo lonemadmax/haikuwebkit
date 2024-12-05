@@ -480,12 +480,12 @@ AlternateWebMPlayerEnabled:
   condition: ENABLE(ALTERNATE_WEBM_PLAYER) && ENABLE(MEDIA_SOURCE)
   defaultValue:
     WebKitLegacy:
-     default: true
+      default: true
     WebKit:
       default: true
     WebCore:
       default: true
-      
+
 AltitudeAngleEnabled:
   type: bool
   status: stable
@@ -864,17 +864,20 @@ BeaconAPIEnabled:
 
 BlobFileAccessEnforcementEnabled:
   type: bool
-  status: testable
+  status: embedder
   category: security
   humanReadableName: "Enforce blob backed file access valid for web process"
   humanReadableDescription: "Validate file backed blobs were created by the correct web process"
   sharedPreferenceForWebProcess: true
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(COCOA)": true
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA)": true
       default: false
 
 BlobRegistryTopOriginPartitioningEnabled:
@@ -928,6 +931,7 @@ BlockIconServicesInWebContentSandbox:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
+      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
       default: false
 
 BlockMediaLayerRehostingInWebContentProcess:
@@ -982,6 +986,7 @@ BlockOpenDirectoryInWebContentSandbox:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
+      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
       default: false
 
 BlockWebInspectorInWebContentSandbox:
@@ -1547,17 +1552,17 @@ CSSStyleQueriesEnabled:
 
 CSSTextAutospaceEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS text-autospace property"
   humanReadableDescription: "Enable the property text-autospace, defined in CSS Text 4"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSTextBoxTrimEnabled:
   type: bool
@@ -1790,6 +1795,22 @@ CanvasLayersEnabled:
     WebCore:
       default: false
 
+CanvasPixelFormatEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "CanvasRenderingContext2DSettings.pixelFormat"
+  humanReadableDescription: "Allow different pixel formats in 2D canvas"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
+
 CanvasUsesAcceleratedDrawing:
   type: bool
   status: embedder
@@ -1860,6 +1881,20 @@ CaptureVideoInUIProcessEnabled:
 CaretBrowsingEnabled:
   type: bool
   status: embedder
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CaretPositionFromPointEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "document.caretPositionFromPoint() API"
+  humanReadableDescription: "Enable document.caretPositionFromPoint() API"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -2595,6 +2630,8 @@ DigitalCredentialsEnabled:
       default: false
     WebCore:
       default: false
+  sharedPreferenceForWebProcess: true
+  richJavaScript: true
 
 DirectoryUploadEnabled:
   type: bool
@@ -2808,7 +2845,6 @@ ExperimentalSandboxEnabled:
     WebKit:
       default: false
 
-# FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 ExposeSpeakersEnabled:
   type: bool
   status: testable
@@ -2817,13 +2853,25 @@ ExposeSpeakersEnabled:
   humanReadableDescription: "Allow speaker device selection"
   condition: ENABLE(MEDIA_STREAM)
   defaultValue:
-    WebKitLegacy:
-      default: false
     WebKit:
       default: false
     WebCore:
       default: false
 
+ExposeSpeakersWithoutMicrophoneEnabled:
+  type: bool
+  status: testable
+  category: media
+  humanReadableName: "Allow selection of speaker device without related microphone"
+  humanReadableDescription: "Allow selection of speaker device without related microphone"
+  condition: ENABLE(MEDIA_STREAM)
+  defaultValue:
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+# FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 ExtendedAudioDescriptionsEnabled:
   type: bool
   status: preview
@@ -4934,22 +4982,6 @@ MediaSourceInWorkerEnabled:
     WebCore:
       default: true
 
-MediaSourceInlinePaintingEnabled:
-  type: bool
-  status: mature
-  category: media
-  humanReadableName: "Experimental MediaSource Inline Painting"
-  humanReadableDescription: "Experimental MediaSource Inline Painting"
-  condition: ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
-  webcoreBinding: DeprecatedGlobalSettings
-  defaultValue:
-    WebKitLegacy:
-      "HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)": true
-      default: false
-    WebKit:
-      "HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)": true
-      default: false
-
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
 # FIXME: Seems to be unused. Remove once verified.
 MediaStreamEnabled:
@@ -5326,21 +5358,6 @@ ObservableEnabled:
     WebCore:
       default: false
 
-OffscreenCanvasDeprecatedCommitEnabled:
-  type: bool
-  status: testable
-  category: dom
-  humanReadableName: "OffscreenCanvasRenderingContext2D's deprecated commit() method"
-  humanReadableDescription: "Support for OffscreenCanvasRenderingContext2D's deprecated commit() method"
-  condition: ENABLE(OFFSCREEN_CANVAS)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 OffscreenCanvasEnabled:
   type: bool
   status: stable
@@ -5619,8 +5636,6 @@ PerElementSpeakerSelectionEnabled:
   humanReadableDescription: "Allow per media element speaker device selection"
   condition: ENABLE(MEDIA_STREAM)
   defaultValue:
-    WebKitLegacy:
-      default: false
     WebKit:
       default: false
     WebCore:
@@ -5702,18 +5717,18 @@ PitchCorrectionAlgorithm:
 
 PointerLockOptionsEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   condition: ENABLE(POINTER_LOCK)
   humanReadableName: "Pointer Lock Options"
   humanReadableDescription: "Element.requestPointerLock(options) and promise support."
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 PopoverAttributeEnabled:
   type: bool
@@ -5845,7 +5860,7 @@ ProcessSwapOnCrossSiteNavigationEnabled:
 
 PropagateDamagingInformation:
    type: bool
-   status: testable
+   status: unstable
    category: dom
    humanReadableName: "Propagate Damaging Information"
    humanReadableDescription: "Propagate Damaging Information"
@@ -6208,6 +6223,20 @@ SansSerifFontFamily:
     WebCore:
       default: '""_str'
 
+ScopedCustomElementRegistryEnabled:
+  type: bool
+  status: stable
+  category: dom
+  humanReadableName: "Scoped custom element registry"
+  humanReadableDescription: "Enable scoped custom element registry"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 # FIXME: This should have it's own ENABLE.
 ScreenCaptureEnabled:
@@ -6314,7 +6343,7 @@ ScrollAnimatorEnabled:
 
 ScrollDrivenAnimationsEnabled:
   type: bool
-  status: testable
+  status: preview
   category: animation
   humanReadableName: "Scroll-driven Animations"
   humanReadableDescription: "Enable Scroll-driven Animations"
@@ -6484,6 +6513,7 @@ SelectionHonorsOverflowScrolling:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
+      "ENABLE(SELECTION_HONORS_OVERFLOW_SCROLLING_BY_DEFAULT)" : true
       default: false
     WebKitLegacy:
       default: false
@@ -7544,7 +7574,7 @@ UnifiedPDFEnabled:
 
 UnifyDamagedRegions:
    type: bool
-   status: testable
+   status: unstable
    category: dom
    humanReadableName: "Unify Damaged Regions"
    humanReadableDescription: "Unify Damaged Regions"
@@ -7605,8 +7635,6 @@ UseAVCaptureDeviceRotationCoordinatorAPI:
   condition: HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
   defaultValue:
     WebKit:
-      # FIXME: Re-enable on visionOS once rdar://139112264 is resolved.
-      "PLATFORM(VISION)": false
       default: true
 
 UseAsyncUIKitInteractions:
@@ -7861,17 +7889,6 @@ UsesSingleWebProcess:
     WebKit:
       default: false
   sharedPreferenceForWebProcess: true
-
-VP8DecoderEnabled:
-  type: bool
-  status: embedder
-  webcoreBinding: none
-  condition: ENABLE(VP9)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: true
 
 VP9DecoderEnabled:
   type: bool
@@ -8152,6 +8169,20 @@ WebAnimationsCustomFrameRateEnabled:
   category: animation
   humanReadableName: "Web Animations custom frame rate"
   humanReadableDescription: "Support for specifying a custom frame rate for Web Animations"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+WebAnimationsOverallProgressPropertyEnabled:
+  type: bool
+  status: testable
+  category: animation
+  humanReadableName: "Web Animations 'overallProgress' property"
+  humanReadableDescription: "Support for Animation's overallProgress property"
   defaultValue:
     WebKitLegacy:
       default: false

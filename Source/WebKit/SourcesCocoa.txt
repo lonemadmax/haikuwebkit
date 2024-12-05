@@ -162,6 +162,8 @@ Shared/Authentication/cocoa/ClientCertificateAuthenticationXPCConstants.cpp
 Shared/EntryPointUtilities/Cocoa/Daemon/PCMDaemonConnectionSet.mm
 Shared/EntryPointUtilities/Cocoa/Daemon/PCMDaemonEntryPoint.mm
 
+Shared/Extensions/Cocoa/WebExtensionFrameIdentifierCocoa.mm
+
 Shared/Cocoa/APIDataCocoa.mm
 Shared/Cocoa/APIObject.mm
 Shared/Cocoa/ARKitSoftLink.mm
@@ -333,6 +335,7 @@ UIProcess/API/Cocoa/WKBrowsingContextController.mm
 UIProcess/API/Cocoa/WKContentRuleList.mm
 UIProcess/API/Cocoa/WKContentRuleListStore.mm
 UIProcess/API/Cocoa/WKContentWorld.mm
+UIProcess/API/Cocoa/WKContentWorldConfiguration.mm
 UIProcess/API/Cocoa/WKContextMenuElementInfo.mm
 UIProcess/API/Cocoa/WKDownload.mm
 UIProcess/API/Cocoa/WKError.mm

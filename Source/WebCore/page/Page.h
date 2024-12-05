@@ -210,6 +210,7 @@ struct AXTreeData;
 struct ApplePayAMSUIRequest;
 struct AttributedString;
 struct CharacterRange;
+struct ProcessSyncData;
 struct SimpleRange;
 struct TextRecognitionResult;
 struct WindowFeatures;
@@ -376,6 +377,7 @@ public:
     const URL& mainFrameURL() const { return m_mainFrameURL; }
     SecurityOrigin& mainFrameOrigin() const;
     WEBCORE_EXPORT void setMainFrameURL(const URL&);
+    WEBCORE_EXPORT void updateProcessSyncData(const ProcessSyncData&);
     WEBCORE_EXPORT void setMainFrameURLFragment(String&&);
     String mainFrameURLFragment() const { return m_mainFrameURLFragment; }
 
@@ -435,6 +437,7 @@ public:
     const ContextMenuController& contextMenuController() const { return m_contextMenuController.get(); }
 #endif
     InspectorController& inspectorController() { return m_inspectorController.get(); }
+    WEBCORE_EXPORT Ref<InspectorController> protectedInspectorController();
     PointerCaptureController& pointerCaptureController() { return m_pointerCaptureController.get(); }
 #if ENABLE(POINTER_LOCK)
     PointerLockController& pointerLockController() { return m_pointerLockController.get(); }
@@ -662,13 +665,15 @@ public:
     PageOverlayController& pageOverlayController() { return *m_pageOverlayController; }
 
 #if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
-    ServicesOverlayController& servicesOverlayController() { return *m_servicesOverlayController; }
+    ServicesOverlayController& servicesOverlayController() { return m_servicesOverlayController.get(); }
+    Ref<ServicesOverlayController> protectedServicesOverlayController();
 #endif
     ImageOverlayController& imageOverlayController();
     ImageOverlayController* imageOverlayControllerIfExists() { return m_imageOverlayController.get(); }
 
 #if ENABLE(IMAGE_ANALYSIS)
     WEBCORE_EXPORT ImageAnalysisQueue& imageAnalysisQueue();
+    WEBCORE_EXPORT Ref<ImageAnalysisQueue> protectedImageAnalysisQueue();
     ImageAnalysisQueue* imageAnalysisQueueIfExists() { return m_imageAnalysisQueue.get(); }
 #endif
 
@@ -1230,6 +1235,14 @@ public:
     WEBCORE_EXPORT bool isFullscreenManagerEnabled() const;
 #endif
 
+    bool shouldDeferResizeEvents() const { return m_shouldDeferResizeEvents; }
+    WEBCORE_EXPORT void startDeferringResizeEvents();
+    WEBCORE_EXPORT void flushDeferredResizeEvents();
+
+    bool shouldDeferScrollEvents() const { return m_shouldDeferScrollEvents; }
+    WEBCORE_EXPORT void startDeferringScrollEvents();
+    WEBCORE_EXPORT void flushDeferredScrollEvents();
+
     bool reportScriptTelemetry(const URL&, ScriptTelemetryCategory);
     bool requiresScriptTelemetryForURL(const URL&) const;
 
@@ -1301,6 +1314,9 @@ private:
     void initializeGamepadAccessForPageLoad();
 #endif
 
+    void computeSampledPageTopColorIfNecessary();
+    void clearSampledPageTopColor();
+
     std::optional<PageIdentifier> m_identifier;
     UniqueRef<Chrome> m_chrome;
     UniqueRef<DragCaretController> m_dragCaretController;
@@ -1312,7 +1328,7 @@ private:
 #if ENABLE(CONTEXT_MENUS)
     UniqueRef<ContextMenuController> m_contextMenuController;
 #endif
-    UniqueRef<InspectorController> m_inspectorController;
+    const UniqueRef<InspectorController> m_inspectorController;
     UniqueRef<PointerCaptureController> m_pointerCaptureController;
 #if ENABLE(POINTER_LOCK)
     UniqueRef<PointerLockController> m_pointerLockController;
@@ -1538,12 +1554,12 @@ private:
     std::unique_ptr<ScrollLatchingController> m_scrollLatchingController;
 #endif
 #if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
-    std::unique_ptr<ServicesOverlayController> m_servicesOverlayController;
+    UniqueRef<ServicesOverlayController> m_servicesOverlayController;
 #endif
     std::unique_ptr<ImageOverlayController> m_imageOverlayController;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    std::unique_ptr<ImageAnalysisQueue> m_imageAnalysisQueue;
+    RefPtr<ImageAnalysisQueue> m_imageAnalysisQueue;
 #endif
 
     std::unique_ptr<WheelEventDeltaFilter> m_recentWheelEventDeltaFilter;
@@ -1628,7 +1644,7 @@ private:
     Ref<BadgeClient> m_badgeClient;
     Ref<HistoryItemClient> m_historyItemClient;
 
-    UncheckedKeyHashMap<RegistrableDomain, uint64_t> m_noiseInjectionHashSalts;
+    HashMap<RegistrableDomain, uint64_t> m_noiseInjectionHashSalts;
 
 #if PLATFORM(IOS_FAMILY)
     String m_sceneIdentifier;
@@ -1660,6 +1676,9 @@ private:
     Timer m_activeNowPlayingSessionUpdateTimer;
 
     std::optional<LoginStatus> m_lastAuthentication;
+
+    bool m_shouldDeferResizeEvents { false };
+    bool m_shouldDeferScrollEvents { false };
 }; // class Page
 
 inline Page* Frame::page() const

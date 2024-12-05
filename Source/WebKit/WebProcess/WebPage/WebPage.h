@@ -465,7 +465,7 @@ public:
     static WebPage* fromCorePage(WebCore::Page&);
 
     WebCore::Page* corePage() const { return m_page.get(); }
-    RefPtr<WebCore::Page> protectedCorePage() const { return corePage(); }
+    RefPtr<WebCore::Page> protectedCorePage() const;
     WebCore::PageIdentifier identifier() const { return m_identifier; }
     inline StorageNamespaceIdentifier sessionStorageNamespaceIdentifier() const;
     PAL::SessionID sessionID() const;
@@ -678,7 +678,8 @@ public:
     void getFrameTree(CompletionHandler<void(FrameTreeNodeData&&)>&&);
     void didFinishLoadInAnotherProcess(WebCore::FrameIdentifier);
     void frameWasRemovedInAnotherProcess(WebCore::FrameIdentifier);
-    void mainFrameURLChangedInAnotherProcess(const URL&);
+
+    void processSyncDataChangedInAnotherProcess(const WebCore::ProcessSyncData&);
 
     std::optional<WebCore::SimpleRange> currentSelectionAsRange();
 
@@ -1019,7 +1020,9 @@ public:
     void updateSelectionWithDelta(int64_t locationDelta, int64_t lengthDelta, CompletionHandler<void()>&&);
     void requestDocumentEditingContext(WebKit::DocumentEditingContextRequest&&, CompletionHandler<void(WebKit::DocumentEditingContext&&)>&&);
     bool shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection);
-#endif
+    bool shouldDrawVisuallyContiguousBidiSelection() const { return m_shouldDrawVisuallyContiguousBidiSelection; }
+    void setShouldDrawVisuallyContiguousBidiSelection(bool value);
+#endif // PLATFORM(IOS_FAMILY)
 
     void willChangeSelectionForAccessibility() { m_isChangingSelectionForAccessibility = true; }
     void didChangeSelectionForAccessibility() { m_isChangingSelectionForAccessibility = false; }
@@ -1761,6 +1764,12 @@ public:
     void setInteractionRegionsEnabled(bool);
 #endif
 
+    void startDeferringResizeEvents();
+    void flushDeferredResizeEvents();
+
+    void startDeferringScrollEvents();
+    void flushDeferredScrollEvents();
+
     void flushDeferredDidReceiveMouseEvent();
 
     void generateTestReport(String&& message, String&& group);
@@ -1805,9 +1814,6 @@ public:
     void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect);
 
     void proofreadingSessionUpdateStateForSuggestionWithID(WebCore::WritingTools::TextSuggestionState, const WebCore::WritingTools::TextSuggestionID&);
-
-    void enableSourceTextAnimationAfterElementWithID(const String&);
-    void enableTextAnimationTypeForElementWithID(const String&);
 
     void addTextAnimationForAnimationID(const WTF::UUID&, const WebCore::TextAnimationData&, const WebCore::TextIndicatorData&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&& = { });
 
@@ -1895,6 +1901,7 @@ private:
     void setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(const WebCore::SimpleRange&, WebCore::Affinity);
     void dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch, const WebCore::IntPoint&);
     void invokePendingSyntheticClickCallback(WebCore::SyntheticClickResult);
+    void resetLastSelectedReplacementRangeIfNeeded();
 
     void sendPositionInformation(InteractionInformationAtPosition&&);
     RefPtr<WebCore::ShareableBitmap> shareableBitmapSnapshotForNode(WebCore::Element&);
@@ -2070,7 +2077,7 @@ private:
     void getWebArchiveOfFrame(std::optional<WebCore::FrameIdentifier>, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
     void getWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier, const Vector<WebCore::MarkupExclusionRule>&, const String& fileName, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
     void runJavaScript(WebFrame*, WebCore::RunJavaScriptParameters&&, ContentWorldIdentifier, CompletionHandler<void(std::span<const uint8_t>, const std::optional<WebCore::ExceptionDetails>&)>&&);
-    void runJavaScriptInFrameInScriptWorld(WebCore::RunJavaScriptParameters&&, std::optional<WebCore::FrameIdentifier>, const std::pair<ContentWorldIdentifier, String>& worldData, CompletionHandler<void(std::span<const uint8_t>, const std::optional<WebCore::ExceptionDetails>&)>&&);
+    void runJavaScriptInFrameInScriptWorld(WebCore::RunJavaScriptParameters&&, std::optional<WebCore::FrameIdentifier>, const ContentWorldData&, CompletionHandler<void(std::span<const uint8_t>, const std::optional<WebCore::ExceptionDetails>&)>&&);
     void getAccessibilityTreeData(CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
     void updateRenderingWithForcedRepaint(CompletionHandler<void()>&&);
     void takeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, SnapshotOptions, CompletionHandler<void(std::optional<WebCore::ShareableBitmap::Handle>&&)>&&);
@@ -2100,7 +2107,6 @@ private:
 
 #if PLATFORM(COCOA)
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
-    void performDictionaryLookupOfCurrentSelection();
     void performDictionaryLookupForRange(WebCore::LocalFrame&, const WebCore::SimpleRange&, WebCore::TextIndicatorPresentationTransition);
     WebCore::DictionaryPopupInfo dictionaryPopupInfoForRange(WebCore::LocalFrame&, const WebCore::SimpleRange&, WebCore::TextIndicatorPresentationTransition);
 
@@ -2406,7 +2412,7 @@ private:
     LayerHostingMode m_layerHostingMode;
     RefPtr<DrawingArea> m_drawingArea;
 
-    std::unique_ptr<WebPageTesting> m_webPageTesting;
+    RefPtr<WebPageTesting> m_webPageTesting;
 
     Ref<WebFrame> m_mainFrame;
 
@@ -2480,11 +2486,11 @@ private:
 #endif
 
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
-    UniqueRef<TextCheckingControllerProxy> m_textCheckingControllerProxy;
+    const UniqueRef<TextCheckingControllerProxy> m_textCheckingControllerProxy;
 #endif
 
 #if PLATFORM(COCOA) || PLATFORM(GTK)
-    std::unique_ptr<ViewGestureGeometryCollector> m_viewGestureGeometryCollector;
+    RefPtr<ViewGestureGeometryCollector> m_viewGestureGeometryCollector;
 #endif
 
 #if PLATFORM(COCOA)
@@ -2661,8 +2667,12 @@ private:
     bool m_userIsInteracting { false };
     bool m_hasEverDisplayedContextMenu { false };
 
+    enum class UserInteractionFlag : uint8_t {
+        FocusedElement      = 1 << 0,
+        SelectedRange       = 1 << 1,
+    };
+    OptionSet<UserInteractionFlag> m_userInteractionsSincePageTransition;
 #if HAVE(TOUCH_BAR)
-    bool m_hasEverFocusedElementDueToUserInteractionSincePageTransition { false };
     bool m_requiresUserActionForEditingControlsManager { false };
     bool m_isTouchBarUpdateSuppressedForHiddenContentEditable { false };
     bool m_isNeverRichlyEditableForTouchBar { false };
@@ -2729,6 +2739,7 @@ private:
     WebCore::FloatSize m_overrideAvailableScreenSize;
 
     std::optional<WebCore::SimpleRange> m_initialSelection;
+    std::optional<WebCore::WeakSimpleRange> m_lastSelectedReplacementRange;
     WebCore::VisibleSelection m_storedSelectionForAccessibility { WebCore::VisibleSelection() };
     WebCore::IntDegrees m_deviceOrientation { 0 };
     bool m_keyboardIsAttached { false };
@@ -2752,6 +2763,7 @@ private:
     std::unique_ptr<WebCore::IgnoreSelectionChangeForScope> m_ignoreSelectionChangeScopeForDictation;
 
     bool m_isMobileDoctype { false };
+    bool m_shouldDrawVisuallyContiguousBidiSelection { false };
 #endif // PLATFORM(IOS_FAMILY)
 
     WebCore::Timer m_layerVolatilityTimer;
@@ -2893,7 +2905,7 @@ private:
 #endif
 
 #if ENABLE(GPU_PROCESS)
-    std::unique_ptr<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
+    RefPtr<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)

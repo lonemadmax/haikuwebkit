@@ -302,6 +302,10 @@ public:
 
     virtual bool isPowerEfficient() const { return false; }
 
+#if USE(GSTREAMER)
+    virtual std::pair<GstClockTime, GstClockTime> queryCaptureLatency() const;
+#endif
+
 protected:
     RealtimeMediaSource(const CaptureDevice&, MediaDeviceHashSalts&& hashSalts = { }, std::optional<PageIdentifier> = std::nullopt);
 
@@ -384,7 +388,7 @@ private:
     HashSet<CheckedPtr<AudioSampleObserver>> m_audioSampleObservers WTF_GUARDED_BY_LOCK(m_audioSampleObserversLock);
 
     mutable Lock m_videoFrameObserversLock;
-    UncheckedKeyHashMap<VideoFrameObserver*, std::unique_ptr<VideoFrameAdaptor>> m_videoFrameObservers WTF_GUARDED_BY_LOCK(m_videoFrameObserversLock);
+    HashMap<VideoFrameObserver*, std::unique_ptr<VideoFrameAdaptor>> m_videoFrameObservers WTF_GUARDED_BY_LOCK(m_videoFrameObserversLock);
 
     CaptureDevice m_device;
 

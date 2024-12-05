@@ -241,15 +241,6 @@ void WebPage::performDictionaryLookupForSelection(LocalFrame& frame, const Visib
     performDictionaryLookupForRange(frame, *range, presentationTransition);
 }
 
-void WebPage::performDictionaryLookupOfCurrentSelection()
-{
-    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
-    if (!frame)
-        return;
-
-    performDictionaryLookupForSelection(*frame, frame->selection().selection(), TextIndicatorPresentationTransition::BounceAndCrossfade);
-}
-
 void WebPage::performDictionaryLookupForRange(LocalFrame& frame, const SimpleRange& range, TextIndicatorPresentationTransition presentationTransition)
 {
     send(Messages::WebPageProxy::DidPerformDictionaryLookup(dictionaryPopupInfoForRange(frame, range, presentationTransition)));
@@ -383,7 +374,7 @@ void WebPage::addDictationAlternative(const String& text, DictationContext conte
         return;
     }
 
-    document->markers().addMarker(matchRange, DocumentMarker::Type::DictationAlternatives, { DocumentMarker::DictationData { context, text } });
+    document->markers().addMarker(matchRange, DocumentMarkerType::DictationAlternatives, { DocumentMarker::DictationData { context, text } });
     completion(true);
 }
 
@@ -406,7 +397,7 @@ void WebPage::dictationAlternativesAtSelection(CompletionHandler<void(Vector<Dic
         return;
     }
 
-    auto markers = document->markers().markersInRange(*expandedSelectionRange, DocumentMarker::Type::DictationAlternatives);
+    auto markers = document->markers().markersInRange(*expandedSelectionRange, DocumentMarkerType::DictationAlternatives);
     auto contexts = WTF::compactMap(markers, [](auto& marker) -> std::optional<DictationContext> {
         if (std::holds_alternative<DocumentMarker::DictationData>(marker->data()))
             return std::get<DocumentMarker::DictationData>(marker->data()).context;
@@ -435,7 +426,7 @@ void WebPage::clearDictationAlternatives(Vector<DictationContext>&& contexts)
         if (!std::holds_alternative<DocumentMarker::DictationData>(marker.data()))
             return FilterMarkerResult::Keep;
         return setOfContextsToRemove.contains(std::get<WebCore::DocumentMarker::DictationData>(marker.data()).context) ? FilterMarkerResult::Remove : FilterMarkerResult::Keep;
-    }, DocumentMarker::Type::DictationAlternatives);
+    }, DocumentMarkerType::DictationAlternatives);
 }
 
 void WebPage::accessibilityTransferRemoteToken(RetainPtr<NSData> remoteToken)
@@ -1044,16 +1035,6 @@ void WebPage::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID& 
     m_textAnimationController->updateUnderlyingTextVisibilityForTextAnimationID(uuid, visible, WTFMove(completionHandler));
 }
 
-void WebPage::enableSourceTextAnimationAfterElementWithID(const String& elementID)
-{
-    m_textAnimationController->enableSourceTextAnimationAfterElementWithID(elementID);
-}
-
-void WebPage::enableTextAnimationTypeForElementWithID(const String& elementID)
-{
-    m_textAnimationController->enableTextAnimationTypeForElementWithID(elementID);
-}
-
 void WebPage::proofreadingSessionSuggestionTextRectsInRootViewCoordinates(const WebCore::CharacterRange& enclosingRangeRelativeToSessionRange, CompletionHandler<void(Vector<FloatRect>&&)>&& completionHandler) const
 {
     auto rects = corePage()->proofreadingSessionSuggestionTextRectsInRootViewCoordinates(enclosingRangeRelativeToSessionRange);
@@ -1152,7 +1133,10 @@ void WebPage::createTextIndicatorForElementWithID(const String& elementID, Compl
         WebCore::TextIndicatorOption::IncludeSnapshotOfAllVisibleContentWithoutSelection,
         WebCore::TextIndicatorOption::ExpandClipBeyondVisibleRect,
         WebCore::TextIndicatorOption::SkipReplacedContent,
-        WebCore::TextIndicatorOption::RespectTextColor
+        WebCore::TextIndicatorOption::RespectTextColor,
+#if PLATFORM(VISION)
+        WebCore::TextIndicatorOption::SnapshotContentAt3xBaseScale,
+#endif
     };
 
     RefPtr textIndicator = WebCore::TextIndicator::createWithRange(elementRange, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { });

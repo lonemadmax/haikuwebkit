@@ -763,6 +763,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSDOMConvertSequences.h
     bindings/js/JSDOMConvertSerializedScriptValue.h
     bindings/js/JSDOMConvertStrings.h
+    bindings/js/JSDOMConvertUndefined.h
     bindings/js/JSDOMConvertUnion.h
     bindings/js/JSDOMConvertWebGL.h
     bindings/js/JSDOMConvertXPathNSResolver.h
@@ -887,6 +888,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSValueList.h
     css/CSSVariableData.h
     css/CSSVariableReferenceValue.h
+    css/ComputedStyleDependencies.h
     css/Counter.h
     css/DeprecatedCSSOMCounter.h
     css/DeprecatedCSSOMPrimitiveValue.h
@@ -948,12 +950,18 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/values/backgrounds/CSSBorderRadius.h
     css/values/backgrounds/CSSMinimallySerializingRectEdges.h
 
+    css/values/color-adjust/CSSColorScheme.h
+
     css/values/images/CSSGradient.h
 
     css/values/motion/CSSRayFunction.h
 
+    css/values/primitives/CSSNone.h
     css/values/primitives/CSSPosition.h
+    css/values/primitives/CSSPrimitiveNumericRange.h
+    css/values/primitives/CSSPrimitiveNumericTypes+EvaluateCalc.h
     css/values/primitives/CSSPrimitiveNumericTypes.h
+    css/values/primitives/CSSSymbol.h
     css/values/primitives/CSSUnevaluatedCalc.h
 
     css/values/shapes/CSSBasicShape.h
@@ -984,6 +992,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/BroadcastChannelRegistry.h
     dom/CDATASection.h
     dom/CallbackResult.h
+    dom/CaretPosition.h
     dom/CharacterData.h
     dom/CheckVisibilityOptions.h
     dom/CollectionIndexCache.h
@@ -1327,6 +1336,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/ImageBitmap.h
     html/ImageData.h
     html/ImageDataSettings.h
+    html/ImageDataStorageFormat.h
     html/ImageDocument.h
     html/InputMode.h
     html/LinkIconCollector.h
@@ -1421,7 +1431,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     layout/formattingContexts/inline/text/TextUtil.h
 
-    layout/integration/LayoutIntegrationBoxTree.h
+    layout/integration/LayoutIntegrationBoxTreeUpdater.h
 
     layout/integration/flex/LayoutIntegrationFlexLayout.h
 
@@ -1635,9 +1645,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PointerLockController.h
     page/PrewarmInformation.h
     page/PrintContext.h
-    page/ProcessSyncClient.h
     page/ProcessWarming.h
     page/Quirks.h
+    page/QuirksData.h
     page/ReducedResolutionSeconds.h
     page/RemoteDOMWindow.h
     page/RemoteFrame.h
@@ -2334,6 +2344,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediastream/WebAudioSourceProvider.h
     platform/mediastream/WebRTCProvider.h
 
+    platform/mediastream/libwebrtc/LibWebRTCAudioModule.h
     platform/mediastream/libwebrtc/LibWebRTCMacros.h
     platform/mediastream/libwebrtc/LibWebRTCProvider.h
     platform/mediastream/libwebrtc/LibWebRTCSocketIdentifier.h
@@ -2412,6 +2423,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/sql/SQLiteTransaction.h
 
     platform/text/BidiContext.h
+    platform/text/PlatformLocale.h
     platform/text/StringWithDirection.h
     platform/text/TextBoundaries.h
     platform/text/TextCheckerClient.h
@@ -2541,7 +2553,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/ShapeValue.h
     rendering/style/StyleBackgroundData.h
     rendering/style/StyleBoxData.h
-    rendering/style/StyleColorScheme.h
     rendering/style/StyleContentAlignmentData.h
     rendering/style/StyleCustomPropertyData.h
     rendering/style/StyleDeprecatedFlexibleBoxData.h
@@ -2597,10 +2608,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/backgrounds/StyleBorderRadius.h
     style/values/backgrounds/StyleMinimallySerializingRectEdges.h
 
+    style/values/color-adjust/StyleColorScheme.h
+
     style/values/images/StyleGradient.h
 
     style/values/motion/StyleRayFunction.h
 
+    style/values/primitives/StyleNone.h
     style/values/primitives/StylePosition.h
     style/values/primitives/StylePrimitiveNumericTypes.h
 
@@ -2788,6 +2802,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/Namespace.h
     ${WebCore_DERIVED_SOURCES_DIR}/NodeName.h
     ${WebCore_DERIVED_SOURCES_DIR}/PlugInsResources.h
+    ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h
+    ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableByteStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/Settings.h

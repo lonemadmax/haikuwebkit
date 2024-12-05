@@ -430,7 +430,8 @@ public:
     void setThrottleStateForTesting(ProcessThrottleState);
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    UserMediaCaptureManagerProxy* userMediaCaptureManagerProxy() { return m_userMediaCaptureManagerProxy.get(); }
+    UserMediaCaptureManagerProxy& userMediaCaptureManagerProxy() { return m_userMediaCaptureManagerProxy.get(); }
+    Ref<UserMediaCaptureManagerProxy> protectedUserMediaCaptureManagerProxy();
 #endif
 
 #if ENABLE(GPU_PROCESS)
@@ -646,6 +647,9 @@ private:
     void updateRuntimeStatistics();
     void enableMediaPlaybackIfNecessary();
 
+    void updateSharedWorkerProcessAssertion();
+    void updateServiceWorkerProcessAssertion();
+
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
     void setupLogStream(uint32_t pid, IPC::StreamServerConnectionHandle&&, LogStreamIdentifier, CompletionHandler<void(IPC::Semaphore& streamWakeUpSemaphore, IPC::Semaphore& streamClientWaitSemaphore)>&&);
 #endif
@@ -728,7 +732,7 @@ private:
     SystemMemoryPressureStatus m_memoryPressureStatus { SystemMemoryPressureStatus::Normal };
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    std::unique_ptr<UserMediaCaptureManagerProxy> m_userMediaCaptureManagerProxy;
+    const Ref<UserMediaCaptureManagerProxy> m_userMediaCaptureManagerProxy;
 #endif
 
     bool m_hasCommittedAnyProvisionalLoads { false };
@@ -756,10 +760,10 @@ private:
         RemoteWorkerInitializationData initializationData;
         RefPtr<ProcessThrottler::Activity> activity;
         WeakHashSet<WebProcessProxy> clientProcesses;
+        bool hasBackgroundProcessing { false };
     };
     std::optional<RemoteWorkerInformation> m_serviceWorkerInformation;
     std::optional<RemoteWorkerInformation> m_sharedWorkerInformation;
-    bool m_hasServiceWorkerBackgroundProcessing { false };
 
     struct AudibleMediaActivity {
         Ref<ProcessAssertion> assertion;
@@ -783,7 +787,7 @@ private:
     std::unique_ptr<SpeechRecognitionRemoteRealtimeMediaSourceManager> m_speechRecognitionRemoteRealtimeMediaSourceManager;
 #endif
     std::unique_ptr<WebLockRegistryProxy> m_webLockRegistry;
-    std::unique_ptr<WebPermissionControllerProxy> m_webPermissionController;
+    UniqueRef<WebPermissionControllerProxy> m_webPermissionController;
 #if ENABLE(ROUTING_ARBITRATION)
     std::unique_ptr<AudioSessionRoutingArbitratorProxy> m_routingArbitrator;
 #endif

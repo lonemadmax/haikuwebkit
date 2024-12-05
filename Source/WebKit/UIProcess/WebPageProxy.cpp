@@ -1495,7 +1495,7 @@ void WebPageProxy::didAttachToRunningProcess()
 
 #if ENABLE(FULLSCREEN_API)
     ASSERT(!m_fullScreenManager);
-    m_fullScreenManager = makeUnique<WebFullScreenManagerProxy>(*this, protectedPageClient()->fullScreenManagerProxyClient());
+    m_fullScreenManager = WebFullScreenManagerProxy::create(*this, protectedPageClient()->fullScreenManagerProxyClient());
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     ASSERT(!m_playbackSessionManager);
@@ -1528,12 +1528,12 @@ void WebPageProxy::didAttachToRunningProcess()
     m_webAuthnCredentialsMessenger = WebAuthenticatorCoordinatorProxy::create(*this);
 
     ASSERT(!m_digitalCredentialsMessenger);
-    m_digitalCredentialsMessenger = makeUnique<DigitalCredentialsCoordinatorProxy>(*this);
+    m_digitalCredentialsMessenger = DigitalCredentialsCoordinatorProxy::create(*this);
 #endif
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
     ASSERT(!m_webDeviceOrientationUpdateProviderProxy);
-    m_webDeviceOrientationUpdateProviderProxy = makeUnique<WebDeviceOrientationUpdateProviderProxy>(*this);
+    m_webDeviceOrientationUpdateProviderProxy = WebDeviceOrientationUpdateProviderProxy::create(*this);
 #endif
 
 #if !PLATFORM(IOS_FAMILY)
@@ -1541,7 +1541,7 @@ void WebPageProxy::didAttachToRunningProcess()
 #else
     auto currentOrientation = toScreenOrientationType(m_deviceOrientation);
 #endif
-    m_screenOrientationManager = makeUnique<WebScreenOrientationManagerProxy>(*this, currentOrientation);
+    m_screenOrientationManager = WebScreenOrientationManagerProxy::create(*this, currentOrientation);
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
     ASSERT(!internals().xrSystem);
@@ -1591,7 +1591,7 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
     return navigation;
 }
 
-void WebPageProxy::setDrawingArea(std::unique_ptr<DrawingAreaProxy>&& drawingArea)
+void WebPageProxy::setDrawingArea(RefPtr<DrawingAreaProxy>&& drawingArea)
 {
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(COCOA)
     // The scrolling coordinator needs to do cleanup before the drawing area goes away.
@@ -4184,7 +4184,7 @@ void WebPageProxy::updateTouchEventTracking(const WebTouchEvent& touchStartEvent
 {
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(COCOA)
     for (auto& touchPoint : touchStartEvent.touchPoints()) {
-        auto location = touchPoint.location();
+        auto location = touchPoint.locationInRootView();
         auto update = [this, location](TrackingType& trackingType, EventTrackingRegions::EventType eventType) {
             if (trackingType == TrackingType::Synchronous)
                 return;
@@ -7024,12 +7024,12 @@ void WebPageProxy::observeAndCreateRemoteSubframesInOtherProcesses(WebFrameProxy
     });
 }
 
-void WebPageProxy::broadcastMainFrameURLChangeToOtherProcesses(IPC::Connection& connection, const URL& newURL)
+void WebPageProxy::broadcastProcessSyncData(IPC::Connection& connection, const WebCore::ProcessSyncData& data)
 {
     forEachWebContentProcess([&](auto& webProcess, auto pageID) {
         if (!webProcess.hasConnection() || &webProcess.connection() == &connection)
             return;
-        webProcess.send(Messages::WebPage::MainFrameURLChangedInAnotherProcess(newURL), pageID);
+        webProcess.send(Messages::WebPage::ProcessSyncDataChangedInAnotherProcess(data), pageID);
     });
 }
 
@@ -9187,9 +9187,9 @@ void WebPageProxy::setAllowsMediaDocumentInlinePlayback(bool allows)
 }
 #endif
 
-void WebPageProxy::setHasHadSelectionChangesFromUserInteraction(bool hasHadUserSelectionChanges)
+void WebPageProxy::setHasFocusedElementWithUserInteraction(bool value)
 {
-    m_hasHadSelectionChangesFromUserInteraction = hasHadUserSelectionChanges;
+    m_hasFocusedElementWithUserInteraction = value;
 }
 
 #if HAVE(TOUCH_BAR)
@@ -9507,6 +9507,26 @@ void WebPageProxy::Internals::valueChangedForPopupMenu(WebPopupMenuProxy*, int32
 void WebPageProxy::Internals::setTextFromItemForPopupMenu(WebPopupMenuProxy*, int32_t index)
 {
     protectedPage()->send(Messages::WebPage::SetTextForActivePopupMenu(index));
+}
+
+void WebPageProxy::startDeferringResizeEvents()
+{
+    internals().protectedPage()->send(Messages::WebPage::StartDeferringResizeEvents());
+}
+
+void WebPageProxy::flushDeferredResizeEvents()
+{
+    internals().protectedPage()->send(Messages::WebPage::FlushDeferredResizeEvents());
+}
+
+void WebPageProxy::startDeferringScrollEvents()
+{
+    internals().protectedPage()->send(Messages::WebPage::StartDeferringScrollEvents());
+}
+
+void WebPageProxy::flushDeferredScrollEvents()
+{
+    internals().protectedPage()->send(Messages::WebPage::FlushDeferredScrollEvents());
 }
 
 bool WebPageProxy::isProcessingKeyboardEvents() const
@@ -9951,12 +9971,16 @@ void WebPageProxy::didChooseFilesForOpenPanel(const Vector<String>& fileURLs, co
     if (!hasRunningProcess())
         return;
 
-    auto completionHandler = [weakThis = WeakPtr { *this }, fileURLs, allowedMIMETypes] () mutable {
+    RefPtr openPanelResultListener = std::exchange(m_openPanelResultListener, nullptr);
+    if (!openPanelResultListener)
+        return;
+    RefPtr process = openPanelResultListener->process();
+    if (!process)
+        return;
+
+    auto completionHandler = [weakThis = WeakPtr { *this }, openPanelResultListener = WTFMove(openPanelResultListener), fileURLs, allowedMIMETypes] () mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
-            return;
-        RefPtr openPanelResultListener = std::exchange(protectedThis->m_openPanelResultListener, nullptr);
-        if (!openPanelResultListener)
             return;
         if (RefPtr process = openPanelResultListener->process()) {
             if (!protectedThis->didChooseFilesForOpenPanelWithImageTranscoding(fileURLs, allowedMIMETypes)) {
@@ -9970,7 +9994,7 @@ void WebPageProxy::didChooseFilesForOpenPanel(const Vector<String>& fileURLs, co
 
         openPanelResultListener->invalidate();
     };
-    protectedWebsiteDataStore()->protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::AllowFilesAccessFromWebProcess(m_legacyMainFrameProcess->coreProcessIdentifier(), fileURLs), WTFMove(completionHandler));
+    protectedWebsiteDataStore()->protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::AllowFilesAccessFromWebProcess(process->coreProcessIdentifier(), fileURLs), WTFMove(completionHandler));
 }
 
 void WebPageProxy::didCancelForOpenPanel()
@@ -10347,16 +10371,19 @@ void WebPageProxy::didReceiveEvent(IPC::Connection& connection, WebEventType eve
     }
 }
 
-void WebPageProxy::editorStateChanged(const EditorState& editorState)
+void WebPageProxy::editorStateChanged(EditorState&& editorState)
 {
     // FIXME: This should not merge VisualData; they should only be merged
     // if the drawing area says to.
-    if (updateEditorState(editorState, ShouldMergeVisualEditorState::Yes))
+    if (updateEditorState(WTFMove(editorState), ShouldMergeVisualEditorState::Yes))
         dispatchDidUpdateEditorState();
 }
 
-bool WebPageProxy::updateEditorState(const EditorState& newEditorState, ShouldMergeVisualEditorState shouldMergeVisualEditorState)
+bool WebPageProxy::updateEditorState(EditorState&& newEditorState, ShouldMergeVisualEditorState shouldMergeVisualEditorState)
 {
+    if (RefPtr pageClient = this->pageClient())
+        pageClient->reconcileEnclosingScrollViewContentOffset(newEditorState);
+
     if (shouldMergeVisualEditorState == ShouldMergeVisualEditorState::Default)
         shouldMergeVisualEditorState = (!m_drawingArea || !m_drawingArea->shouldCoalesceVisualEditorStateUpdates()) ? ShouldMergeVisualEditorState::Yes : ShouldMergeVisualEditorState::No;
 
@@ -10364,18 +10391,22 @@ bool WebPageProxy::updateEditorState(const EditorState& newEditorState, ShouldMe
     bool shouldKeepExistingVisualEditorState = shouldMergeVisualEditorState == ShouldMergeVisualEditorState::No && internals().editorState.hasVisualData();
     bool shouldMergeNewVisualEditorState = shouldMergeVisualEditorState == ShouldMergeVisualEditorState::Yes && newEditorState.hasVisualData();
     
+#if PLATFORM(MAC)
+    internals().scrollPositionDuringLastEditorStateUpdate = mainFrameScrollPosition();
+#endif
+
     std::optional<EditorState> oldEditorState;
     if (!isStaleEditorState) {
-        oldEditorState = std::exchange(internals().editorState, newEditorState);
+        oldEditorState = std::exchange(internals().editorState, WTFMove(newEditorState));
         if (shouldKeepExistingVisualEditorState)
             internals().editorState.visualData = oldEditorState->visualData;
     } else if (shouldMergeNewVisualEditorState) {
         oldEditorState = internals().editorState;
-        internals().editorState.visualData = newEditorState.visualData;
+        internals().editorState.visualData = WTFMove(newEditorState.visualData);
     }
 
     if (oldEditorState) {
-        didUpdateEditorState(*oldEditorState, newEditorState);
+        didUpdateEditorState(*oldEditorState, internals().editorState);
         return true;
     }
 
@@ -10931,6 +10962,9 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
 
     internals().editorState = EditorState();
     internals().cachedFontAttributesAtSelectionStart.reset();
+#if PLATFORM(MAC)
+    internals().scrollPositionDuringLastEditorStateUpdate = { };
+#endif
 
     if (terminationReason != ProcessTerminationReason::NavigationSwap)
         m_provisionalPage = nullptr;
@@ -11294,10 +11328,6 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
 
     // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
     parameters.shouldEnableVP9Decoder = preferences->vp9DecoderEnabled();
-#if ENABLE(VP9) && PLATFORM(COCOA)
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldEnableVP8Decoder = preferences->vp8DecoderEnabled();
-#endif
     parameters.shouldCaptureDisplayInUIProcess = m_legacyMainFrameProcess->processPool().configuration().shouldCaptureDisplayInUIProcess();
     parameters.shouldCaptureDisplayInGPUProcess = preferences->useGPUProcessForDisplayCapture();
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -11937,8 +11967,7 @@ void WebPageProxy::rotationAngleForCaptureDeviceChanged(const String& persistent
     }
 #endif // ENABLE(GPU_PROCESS)
 
-    if (auto* proxy = protectedLegacyMainFrameProcess()->userMediaCaptureManagerProxy())
-        proxy->rotationAngleForCaptureDeviceChanged(persistentId, rotation);
+    protectedLegacyMainFrameProcess()->protectedUserMediaCaptureManagerProxy()->rotationAngleForCaptureDeviceChanged(persistentId, rotation);
 #endif // HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
 }
 #endif // ENABLE(MEDIA_STREAM)
@@ -14415,8 +14444,7 @@ void WebPageProxy::setOrientationForMediaCapture(WebCore::IntDegrees orientation
 
 #if ENABLE(MEDIA_STREAM)
 #if PLATFORM(COCOA)
-    if (auto* proxy = m_legacyMainFrameProcess->userMediaCaptureManagerProxy())
-        proxy->setOrientation(orientation);
+    m_legacyMainFrameProcess->protectedUserMediaCaptureManagerProxy()->setOrientation(orientation);
 
     RefPtr gpuProcess = m_legacyMainFrameProcess->processPool().gpuProcess();
     if (gpuProcess && preferences().captureVideoInGPUProcessEnabled())
@@ -15203,12 +15231,11 @@ std::optional<IPC::AsyncReplyID> WebPageProxy::sendWithAsyncReplyToProcessContai
     );
 }
 
-template<typename M>
-void WebPageProxy::sendToProcessContainingFrameWithoutDestinationIdentifier(std::optional<FrameIdentifier> frameID, M&& message, OptionSet<IPC::SendOption> options)
+template<typename M, typename C> void WebPageProxy::sendWithAsyncReplyToProcessContainingFrameWithoutDestinationIdentifier(std::optional<WebCore::FrameIdentifier> frameID, M&& message, C&& completionHandler, OptionSet<IPC::SendOption> options)
 {
     sendToWebPage(frameID,
-        [&message, options] (auto& targetPage) {
-            targetPage.siteIsolatedProcess().send(std::forward<M>(message), { }, options);
+        [&message, &completionHandler, options] (auto& targetPage) {
+        return targetPage.siteIsolatedProcess().sendWithAsyncReply(std::forward<M>(message), std::forward<C>(completionHandler), { }, options);
         }
     );
 }
@@ -15255,11 +15282,11 @@ INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME(WebPage::CollapseSelectionInFrame);
 #endif
 #undef INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME
 
-#define INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID(message) \
-    template void WebPageProxy::sendToProcessContainingFrameWithoutDestinationIdentifier<Messages::message>(std::optional<WebCore::FrameIdentifier>, Messages::message&&, OptionSet<IPC::SendOption>)
-INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID(WebAutomationSessionProxy::TakeScreenshot);
-INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID(WebAutomationSessionProxy::EvaluateJavaScriptFunction);
-#undef INSTANTIATE_SEND_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID
+#define INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID(message) \
+    template void WebPageProxy::sendWithAsyncReplyToProcessContainingFrameWithoutDestinationIdentifier<Messages::message, Messages::message::Reply>(std::optional<WebCore::FrameIdentifier>, Messages::message&&, Messages::message::Reply&&, OptionSet<IPC::SendOption>)
+INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID(WebAutomationSessionProxy::TakeScreenshot);
+INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID(WebAutomationSessionProxy::EvaluateJavaScriptFunction);
+#undef INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME_WITHOUT_DESTINATION_ID
 
 #define INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_PROCESS_CONTAINING_FRAME(message) \
     template std::optional<IPC::AsyncReplyID> WebPageProxy::sendWithAsyncReplyToProcessContainingFrame<Messages::message, Messages::message::Reply>(std::optional<WebCore::FrameIdentifier>, Messages::message&&, Messages::message::Reply&&, OptionSet<IPC::SendOption>)
@@ -15599,6 +15626,18 @@ bool WebPageProxy::isAlwaysOnLoggingAllowed() const
 {
     return sessionID().isAlwaysOnLoggingAllowed() || protectedPreferences()->allowPrivacySensitiveOperationsInNonPersistentDataStores();
 }
+
+#if PLATFORM(COCOA) && ENABLE(ASYNC_SCROLLING)
+
+FloatPoint WebPageProxy::mainFrameScrollPosition() const
+{
+    if (m_scrollingCoordinatorProxy)
+        return m_scrollingCoordinatorProxy->currentMainFrameScrollPosition();
+
+    return { };
+}
+
+#endif // PLATFORM(COCOA) && ENABLE(ASYNC_SCROLLING)
 
 } // namespace WebKit
 

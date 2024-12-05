@@ -25,7 +25,6 @@
 #include "config.h"
 #include "CSSRectFunction.h"
 
-#include "CSSCalcValue.h"
 #include "CSSPrimitiveNumericTypes+Serialization.h"
 #include <wtf/text/StringBuilder.h>
 

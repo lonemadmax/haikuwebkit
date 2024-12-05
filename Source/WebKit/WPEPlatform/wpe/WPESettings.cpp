@@ -78,6 +78,30 @@ G_DEFINE_QUARK(wpe-settings-error-quark, wpe_settings_error)
  */
 struct _WPESettingsPrivate {
     HashMap<CString, SettingEntry> settings;
+
+    _WPESettingsPrivate()
+    {
+        struct Setting {
+            const char* key;
+            const GVariantType* type;
+            GVariant* defaultValue;
+        };
+
+        // We convert all floating refs to normal as multiple instances share the same static objects.
+        static const std::vector<Setting> defaultSettings = {
+            { WPE_SETTING_FONT_NAME, G_VARIANT_TYPE_STRING, g_variant_ref_sink(g_variant_new_string("Sans 10")) },
+            { WPE_SETTING_DARK_MODE, G_VARIANT_TYPE_BOOLEAN, g_variant_ref_sink(g_variant_new_boolean(false)) },
+            { WPE_SETTING_DISABLE_ANIMATIONS, G_VARIANT_TYPE_BOOLEAN, g_variant_ref_sink(g_variant_new_boolean(false)) },
+            { WPE_SETTING_FONT_ANTIALIAS, G_VARIANT_TYPE_BOOLEAN, g_variant_ref_sink(g_variant_new_boolean(true)) },
+            { WPE_SETTING_FONT_HINTING_STYLE, G_VARIANT_TYPE_BYTE, g_variant_ref_sink(g_variant_new_byte(WPE_SETTINGS_HINTING_STYLE_SLIGHT)) },
+            { WPE_SETTING_FONT_SUBPIXEL_LAYOUT, G_VARIANT_TYPE_BYTE, g_variant_ref_sink(g_variant_new_byte(WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB)) },
+            { WPE_SETTING_FONT_DPI, G_VARIANT_TYPE_DOUBLE, g_variant_ref_sink(g_variant_new_double(96.0)) },
+            { WPE_SETTING_CURSOR_BLINK_TIME, G_VARIANT_TYPE_UINT32, g_variant_ref_sink(g_variant_new_uint32(1200)) },
+        };
+
+        for (auto& setting : defaultSettings)
+            settings.add(setting.key, SettingEntry(setting.defaultValue, GUniquePtr<GVariantType>(g_variant_type_copy(setting.type))));
+    }
 };
 
 enum {
@@ -86,7 +110,7 @@ enum {
     LAST_SIGNAL
 };
 
-static guint signals[LAST_SIGNAL] = { 0, };
+static std::array<unsigned, LAST_SIGNAL> signals;
 
 WEBKIT_DEFINE_FINAL_TYPE(WPESettings, wpe_settings, G_TYPE_OBJECT, GObject)
 
@@ -114,11 +138,11 @@ static void wpe_settings_class_init(WPESettingsClass* settingsClass)
 
 static CString makeKeyPath(const char* group, const char* key)
 {
-    char* buffer;
+    std::span<char> buffer;
     size_t length = strlen(group) + strlen(key) + 3;
 
     CString path = CString::newUninitialized(length - 1, buffer);
-    g_snprintf(buffer, length, "/%s/%s", group, key);
+    g_snprintf(buffer.data(), length, "/%s/%s", group, key);
 
     return path;
 }
@@ -405,6 +429,27 @@ WPE_SETTINGS_HELPER_API(gint32, int32, G_VARIANT_TYPE_INT32, 0)
  * the return type.
  */
 WPE_SETTINGS_HELPER_API(gint64, int64, G_VARIANT_TYPE_INT64, 0)
+/**
+ * wpe_settings_set_byte:
+ * @settings: a #WPESettings
+ * @key: the key to look up
+ * @value: the value to set
+ * @source: the source of the settings change
+ * @error: return location for a #GError or %NULL
+ *
+ * This is a simple wrapper around [method@WPESettings.set_value] that also validates
+ * the type.
+ */
+/**
+ * wpe_settings_get_byte:
+ * @settings: a #WPESettings
+ * @key: the key to look up
+ * @error: return location for a #GError or %NULL
+ *
+ * This is a simple wrapper around [method@WPESettings.get_value] that also validates
+ * the return type.
+ */
+WPE_SETTINGS_HELPER_API(guint8, byte, G_VARIANT_TYPE_BYTE, 0)
 /**
  * wpe_settings_set_uint32:
  * @settings: a #WPESettings

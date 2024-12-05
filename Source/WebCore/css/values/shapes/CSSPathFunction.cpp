@@ -25,7 +25,6 @@
 #include "config.h"
 #include "CSSPathFunction.h"
 
-#include "CSSCalcValue.h"
 #include "CSSMarkup.h"
 #include "CSSPrimitiveNumericTypes+CSSValueVisitation.h"
 #include "CSSPrimitiveNumericTypes+ComputedStyleDependencies.h"
@@ -39,7 +38,7 @@ void Serialize<Path>::operator()(StringBuilder& builder, const Path& value)
 {
     // <path()> = path( <'fill-rule'>? , <string> )
 
-    if (value.fillRule && !std::holds_alternative<Nonzero>(*value.fillRule)) {
+    if (value.fillRule && !std::holds_alternative<Keyword::Nonzero>(*value.fillRule)) {
         serializationForCSS(builder, *value.fillRule);
         builder.append(", "_s);
     }

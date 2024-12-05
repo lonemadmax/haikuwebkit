@@ -31,6 +31,7 @@
 #include <WebCore/LayerTreeAsTextOptions.h>
 #include <WebCore/NavigationIdentifier.h>
 #include <WebCore/NowPlayingMetadataObserver.h>
+#include <WebCore/ProcessSyncData.h>
 #include <pal/HysteresisActivity.h>
 #include <wtf/ApproximateTime.h>
 #include <wtf/CheckedRef.h>
@@ -814,7 +815,7 @@ public:
     void setPageLoadStateObserver(RefPtr<PageLoadStateObserverBase>&&);
 
     void initializeWebPage(const WebCore::Site&, WebCore::SandboxFlags);
-    void setDrawingArea(std::unique_ptr<DrawingAreaProxy>&&);
+    void setDrawingArea(RefPtr<DrawingAreaProxy>&&);
 
     WeakPtr<SecKeyProxyStore> secKeyProxyStore(const WebCore::AuthenticationChallenge&);
 
@@ -1004,6 +1005,7 @@ public:
 
 #if PLATFORM(COCOA)
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID);
+    WebCore::FloatRect selectionBoundingRectInRootViewCoordinates() const;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1116,7 +1118,6 @@ public:
     bool isScrollingOrZooming() const { return m_isScrollingOrZooming; }
     void requestEvasionRectsAboveSelection(CompletionHandler<void(const Vector<WebCore::FloatRect>&)>&&);
     void updateSelectionWithDelta(int64_t locationDelta, int64_t lengthDelta, CompletionHandler<void()>&&);
-    WebCore::FloatRect selectionBoundingRectInRootViewCoordinates() const;
     void requestDocumentEditingContext(DocumentEditingContextRequest&&, CompletionHandler<void(DocumentEditingContext&&)>&&);
     void generateSyntheticEditingCommand(SyntheticEditingCommandType);
     void showDataDetectorsUIForPositionInformation(const InteractionInformationAtPosition&);
@@ -1249,6 +1250,12 @@ public:
 #if USE(LIBWPE)
     struct wpe_view_backend* viewBackend();
 #endif
+
+    void startDeferringResizeEvents();
+    void flushDeferredResizeEvents();
+
+    void startDeferringScrollEvents();
+    void flushDeferredScrollEvents();
 
     bool isProcessingMouseEvents() const;
     void processNextQueuedMouseEvent();
@@ -1525,7 +1532,6 @@ public:
 
 #if PLATFORM(COCOA)
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
-    void performDictionaryLookupOfCurrentSelection();
 #endif
 
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
@@ -1977,7 +1983,7 @@ public:
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection();
     void setUserInterfaceLayoutDirection(WebCore::UserInterfaceLayoutDirection);
 
-    bool hasHadSelectionChangesFromUserInteraction() const { return m_hasHadSelectionChangesFromUserInteraction; }
+    bool hasFocusedElementWithUserInteraction() const { return m_hasFocusedElementWithUserInteraction; }
 
 #if HAVE(TOUCH_BAR)
     bool isTouchBarUpdateSuppressedForHiddenContentEditable() const { return m_isTouchBarUpdateSuppressedForHiddenContentEditable; }
@@ -2008,9 +2014,9 @@ public:
 #if PLATFORM(COCOA)
     void createSandboxExtensionsIfNeeded(const Vector<String>& files, SandboxExtensionHandle& fileReadHandle, Vector<SandboxExtensionHandle>& fileUploadHandles);
 #endif
-    void editorStateChanged(const EditorState&);
+    void editorStateChanged(EditorState&&);
     enum class ShouldMergeVisualEditorState : uint8_t { No, Yes, Default };
-    bool updateEditorState(const EditorState& newEditorState, ShouldMergeVisualEditorState = ShouldMergeVisualEditorState::Default);
+    bool updateEditorState(EditorState&& newEditorState, ShouldMergeVisualEditorState = ShouldMergeVisualEditorState::Default);
     void scheduleFullEditorStateUpdate();
     void dispatchDidUpdateEditorState();
 
@@ -2357,7 +2363,7 @@ public:
     WebProcessProxy* processForSite(const WebCore::Site&);
 
     void observeAndCreateRemoteSubframesInOtherProcesses(WebFrameProxy&, const String& frameName);
-    void broadcastMainFrameURLChangeToOtherProcesses(IPC::Connection&, const URL&);
+    void broadcastProcessSyncData(IPC::Connection&, const WebCore::ProcessSyncData&);
 
     void addOpenedPage(WebPageProxy&);
     bool hasOpenedPage() const;
@@ -2507,8 +2513,6 @@ public:
     void addTextAnimationForAnimationID(IPC::Connection&, const WTF::UUID&, const WebCore::TextAnimationData&, const WebCore::TextIndicatorData&);
     void addTextAnimationForAnimationIDWithCompletionHandler(IPC::Connection&, const WTF::UUID&, const WebCore::TextAnimationData&, const WebCore::TextIndicatorData&, WTF::CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
     void removeTextAnimationForAnimationID(IPC::Connection&, const WTF::UUID&);
-    void enableSourceTextAnimationAfterElementWithID(const String& elementID);
-    void enableTextAnimationTypeForElementWithID(const String& elementID);
 
     void callCompletionHandlerForAnimationID(const WTF::UUID&, WebCore::TextAnimationRunMode);
 #if PLATFORM(IOS_FAMILY)
@@ -2547,7 +2551,7 @@ public:
     bool hasAllowedToRunInTheBackgroundActivity() const;
 
     template<typename M> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, OptionSet<IPC::SendOption> = { });
-    template<typename M> void sendToProcessContainingFrameWithoutDestinationIdentifier(std::optional<WebCore::FrameIdentifier>, M&&, OptionSet<IPC::SendOption> = { });
+    template<typename M, typename C> void sendWithAsyncReplyToProcessContainingFrameWithoutDestinationIdentifier(std::optional<WebCore::FrameIdentifier>, M&&, C&&, OptionSet<IPC::SendOption> = { });
     template<typename M, typename C> std::optional<IPC::AsyncReplyID> sendWithAsyncReplyToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, C&&, OptionSet<IPC::SendOption> = { });
     template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
     template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, const IPC::Timeout&);
@@ -2598,6 +2602,10 @@ public:
 
 #if PLATFORM(IOS_FAMILY)
     void isPotentialTapInProgress(CompletionHandler<void(bool)>&&);
+#endif
+
+#if PLATFORM(COCOA) && ENABLE(ASYNC_SCROLLING)
+    WebCore::FloatPoint mainFrameScrollPosition() const;
 #endif
 
 private:
@@ -2815,7 +2823,7 @@ private:
     void closeOverlayedViews();
 
     void compositionWasCanceled();
-    void setHasHadSelectionChangesFromUserInteraction(bool);
+    void setHasFocusedElementWithUserInteraction(bool);
 
 #if HAVE(TOUCH_BAR)
     void setIsTouchBarUpdateSuppressedForHiddenContentEditable(bool);
@@ -2922,7 +2930,7 @@ private:
     void didReceiveEvent(IPC::Connection&, WebEventType, bool handled, std::optional<WebCore::RemoteUserInputEventData>);
     void didUpdateRenderingAfterCommittingLoad();
 #if PLATFORM(IOS_FAMILY)
-    void interpretKeyEvent(const EditorState&, bool isCharEvent, CompletionHandler<void(bool)>&&);
+    void interpretKeyEvent(EditorState&&, bool isCharEvent, CompletionHandler<void(bool)>&&);
     void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&);
 
     void updateStringForFind(const String&);
@@ -3278,7 +3286,7 @@ private:
     HashSet<WebCore::FrameIdentifier> m_framesWithSubresourceLoadingForPageLoadTiming;
     RunLoop::Timer m_generatePageLoadTimingTimer;
 
-    std::unique_ptr<DrawingAreaProxy> m_drawingArea;
+    RefPtr<DrawingAreaProxy> m_drawingArea;
 #if PLATFORM(COCOA)
     std::unique_ptr<RemoteLayerTreeHost> m_frozenRemoteLayerTreeHost;
 #endif
@@ -3316,7 +3324,7 @@ private:
     RefPtr<WebInspectorUIProxy> m_inspector;
 
 #if ENABLE(FULLSCREEN_API)
-    std::unique_ptr<WebFullScreenManagerProxy> m_fullScreenManager;
+    RefPtr<WebFullScreenManagerProxy> m_fullScreenManager;
     std::unique_ptr<API::FullscreenClient> m_fullscreenClient;
 #endif
 
@@ -3356,7 +3364,7 @@ private:
 #endif
 
 #if ENABLE(WEB_AUTHN)
-    std::unique_ptr<DigitalCredentialsCoordinatorProxy> m_digitalCredentialsMessenger;
+    RefPtr<DigitalCredentialsCoordinatorProxy> m_digitalCredentialsMessenger;
     RefPtr<WebAuthenticatorCoordinatorProxy> m_webAuthnCredentialsMessenger;
 #endif
 
@@ -3591,7 +3599,7 @@ private:
 
     WebCore::IntDegrees m_orientationForMediaCapture { 0 };
 
-    bool m_hasHadSelectionChangesFromUserInteraction { false };
+    bool m_hasFocusedElementWithUserInteraction { false };
 
 #if HAVE(TOUCH_BAR)
     bool m_isTouchBarUpdateSuppressedForHiddenContentEditable { false };
@@ -3688,10 +3696,10 @@ private:
     Vector<InjectedBundleMessage> m_pendingInjectedBundleMessages;
         
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
-    std::unique_ptr<WebDeviceOrientationUpdateProviderProxy> m_webDeviceOrientationUpdateProviderProxy;
+    RefPtr<WebDeviceOrientationUpdateProviderProxy> m_webDeviceOrientationUpdateProviderProxy;
 #endif
 
-    std::unique_ptr<WebScreenOrientationManagerProxy> m_screenOrientationManager;
+    RefPtr<WebScreenOrientationManagerProxy> m_screenOrientationManager;
 
 #if ENABLE(APP_BOUND_DOMAINS)
     std::optional<NavigatingToAppBoundDomain> m_isNavigatingToAppBoundDomain;

@@ -99,6 +99,16 @@ class EGLSurfaceTest : public ANGLETest<>
         mOSWindow->destroy();
         OSWindow::Delete(&mOSWindow);
 
+        for (OSWindow *win : mOtherWindows)
+        {
+            if (win != nullptr)
+            {
+                win->destroy();
+                OSWindow::Delete(&win);
+            }
+        }
+        mOtherWindows.clear();
+
         ASSERT_TRUE(mWindowSurface == EGL_NO_SURFACE && mContext == EGL_NO_CONTEXT);
     }
 
@@ -324,6 +334,7 @@ class EGLSurfaceTest : public ANGLETest<>
     EGLContext mSecondContext;
     EGLConfig mConfig;
     OSWindow *mOSWindow;
+    std::vector<OSWindow *> mOtherWindows;
 };
 
 class EGLFloatSurfaceTest : public EGLSurfaceTest
@@ -901,9 +912,13 @@ TEST_P(EGLSurfaceTest, SwapWithoutAnyDraw)
     initializeMainContext();
     ASSERT_NE(mWindowSurface, EGL_NO_SURFACE);
 
+    eglMakeCurrent(mDisplay, mWindowSurface, mWindowSurface, mContext);
+    ASSERT_EGL_SUCCESS();
+
     for (int i = 0; i < 10; ++i)
     {
         eglSwapBuffers(mDisplay, mWindowSurface);
+        ASSERT_EGL_SUCCESS();
     }
 }
 
@@ -1259,7 +1274,7 @@ TEST_P(EGLSurfaceTest3, MakeCurrentDifferentSurfaces)
     // Use the same surface for both draw and read
     EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, firstPbufferSurface, firstPbufferSurface, mContext));
 
-    // TODO(http://www.anglebug.com/42264803): Failing with OpenGL ES backend on Android.
+    // TODO(http://anglebug.com/42264803): Failing with OpenGL ES backend on Android.
     // Must be after the eglMakeCurrent() so the renderer string is initialized.
     ANGLE_SKIP_TEST_IF(IsOpenGLES() && IsAndroid());
 
@@ -1765,7 +1780,7 @@ TEST_P(EGLSurfaceTest3, BlitBetweenSurfaces)
     // Clear surface1.
     EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, surface1, surface1, mContext));
 
-    // TODO(http://www.anglebug.com/42264803): Failing with OpenGL ES backend on Android and
+    // TODO(http://anglebug.com/42264803): Failing with OpenGL ES backend on Android and
     // Windows. Must be after the eglMakeCurrent() so the renderer string is initialized.
     ANGLE_SKIP_TEST_IF(IsOpenGLES() && (IsAndroid() || IsWindows()));
 
@@ -1816,7 +1831,7 @@ TEST_P(EGLSurfaceTest3, BlitBetweenSurfacesWithDeferredClear)
     // Clear surface1.
     EXPECT_EGL_TRUE(eglMakeCurrent(mDisplay, surface1, surface1, mContext));
 
-    // TODO(http://www.anglebug.com/42264803): Failing with OpenGL ES backend on Android and
+    // TODO(http://anglebug.com/42264803): Failing with OpenGL ES backend on Android and
     // Windows. Must be after the eglMakeCurrent() so the renderer string is initialized.
     ANGLE_SKIP_TEST_IF(IsOpenGLES() && (IsAndroid() || IsWindows()));
 
@@ -2638,6 +2653,8 @@ TEST_P(EGLSingleBufferTest, AcquireImageFromSwapImpl)
 // EGL_FRONT_BUFFER_AUTO_REFRESH_ANDROID does not disable auto refresh
 TEST_P(EGLAndroidAutoRefreshTest, Basic)
 {
+    ANGLE_SKIP_TEST_IF(
+        !IsEGLDisplayExtensionEnabled(mDisplay, "EGL_ANDROID_front_buffer_auto_refresh"));
     ANGLE_SKIP_TEST_IF(!IsEGLDisplayExtensionEnabled(mDisplay, "EGL_KHR_mutable_render_buffer"));
     ANGLE_SKIP_TEST_IF(!IsAndroid());
 
@@ -3020,6 +3037,44 @@ TEST_P(EGLSurfaceTest, DestroyAndRecreateWhileCurrent)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
     ASSERT_GL_NO_ERROR();
 }
+
+// Regression test for a bug where destroying more than 2 surfaces during termination
+// overflowed the unlocked tail call storage.
+TEST_P(EGLSurfaceTest, CreateMultiWindowsSurfaceNoDestroy)
+{
+    initializeDisplay();
+
+    // Initialize and create multi RGBA8 window surfaces
+    constexpr EGLint kSurfaceAttributes[] = {EGL_RED_SIZE,     8,
+                                             EGL_GREEN_SIZE,   8,
+                                             EGL_BLUE_SIZE,    8,
+                                             EGL_ALPHA_SIZE,   8,
+                                             EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+                                             EGL_NONE};
+
+    EGLint configCount      = 0;
+    EGLConfig surfaceConfig = nullptr;
+    ASSERT_EGL_TRUE(eglChooseConfig(mDisplay, kSurfaceAttributes, &surfaceConfig, 1, &configCount));
+    ASSERT_NE(configCount, 0);
+    ASSERT_NE(surfaceConfig, nullptr);
+
+    initializeSurface(surfaceConfig);
+
+    // Create 3 window surfaces to trigger error
+    std::vector<EGLint> windowAttributes;
+    windowAttributes.push_back(EGL_NONE);
+
+    for (int i = 0; i < 3; i++)
+    {
+        OSWindow *w = OSWindow::New();
+        w->initialize("EGLSurfaceTest", 64, 64);
+
+        eglCreateWindowSurface(mDisplay, mConfig, w->getNativeWindow(), windowAttributes.data());
+        ASSERT_EGL_SUCCESS();
+        mOtherWindows.push_back(w);
+    }
+}
+
 }  // anonymous namespace
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EGLSingleBufferTest);

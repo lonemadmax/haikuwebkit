@@ -27,6 +27,7 @@
 #include "CSSValueKeywords.h"
 #include "EventTarget.h"
 #include "LayoutUnit.h"
+#include "ScopedName.h"
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashMap.h>
@@ -37,6 +38,8 @@ namespace WebCore {
 
 class Document;
 class Element;
+class LayoutRect;
+class RenderBlock;
 class RenderBoxModelObject;
 
 namespace Style {
@@ -74,19 +77,32 @@ enum class AnchorSizeDimension : uint8_t {
 
 using AnchorPositionedStates = WeakHashMap<Element, std::unique_ptr<AnchorPositionedState>, WeakPtrImplWithEventTargetData>;
 
+// https://drafts.csswg.org/css-anchor-position-1/#position-try-order-property
+enum class PositionTryOrder : uint8_t {
+    Normal,
+    MostWidth,
+    MostHeight,
+    MostBlockSize,
+    MostInlineSize
+};
+
+WTF::TextStream& operator<<(WTF::TextStream&, PositionTryOrder);
+
 class AnchorPositionEvaluator {
 public:
     // Find the anchor element indicated by `elementName` and update the associated anchor resolution data.
     // Returns nullptr if the anchor element can't be found.
-    static RefPtr<Element> findAnchorAndAttemptResolution(const BuilderState&, AtomString elementName);
+    static RefPtr<Element> findAnchorAndAttemptResolution(const BuilderState&, std::optional<ScopedName> elementName);
 
     using Side = std::variant<CSSValueID, double>;
-    static std::optional<double> evaluate(const BuilderState&, AtomString elementName, Side);
-    static std::optional<double> evaluateSize(const BuilderState&, AtomString elementName, std::optional<AnchorSizeDimension>);
+    static std::optional<double> evaluate(const BuilderState&, std::optional<ScopedName> elementName, Side);
+    static std::optional<double> evaluateSize(const BuilderState&, std::optional<ScopedName> elementName, std::optional<AnchorSizeDimension>);
 
     static void updateAnchorPositioningStatesAfterInterleavedLayout(const Document&);
     static void cleanupAnchorPositionedState(Element&);
     static void updateSnapshottedScrollOffsets(Document&);
+
+    static LayoutRect computeAnchorRectRelativeToContainingBlock(CheckedRef<const RenderBoxModelObject> anchorBox, const RenderBlock& containingBlock);
 
 private:
     static AnchorElements findAnchorsForAnchorPositionedElement(const Element&, const HashSet<AtomString>& anchorNames, const AnchorsForAnchorName&);

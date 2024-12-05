@@ -38,6 +38,7 @@
 #include "CSSFontSelector.h"
 #include "CSSParser.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertyParserConsumer+ColorAdjust.h"
 #include "CSSStyleDeclaration.h"
 #include "CSSStyleSheet.h"
 #include "CSSViewTransitionRule.h"
@@ -46,6 +47,8 @@
 #include "CachedFrame.h"
 #include "CachedResourceLoader.h"
 #include "CanvasRenderingContext2D.h"
+#include "CaretPosition.h"
+#include "CaretPositionFromPointOptions.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Comment.h"
@@ -215,6 +218,7 @@
 #include "RealtimeMediaSourceCenter.h"
 #include "RenderBoxInlines.h"
 #include "RenderChildIterator.h"
+#include "RenderElementInlines.h"
 #include "RenderInline.h"
 #include "RenderLayerCompositor.h"
 #include "RenderLayoutState.h"
@@ -267,6 +271,7 @@
 #include "StringCallback.h"
 #include "StyleAdjuster.h"
 #include "StyleColor.h"
+#include "StyleColorScheme.h"
 #include "StyleProperties.h"
 #include "StyleResolveForDocument.h"
 #include "StyleResolver.h"
@@ -441,7 +446,7 @@ static void CallbackForContainIntrinsicSize(const Vector<Ref<ResizeObserverEntry
                 observer.unobserve(*target);
                 continue;
             }
-            ASSERT(!box->isSkippedContentRoot());
+            ASSERT(!isSkippedContentRoot(*box));
             ASSERT(box->style().hasAutoLengthContainIntrinsicSize());
 
             auto contentBoxSize = entry->contentBoxSize().at(0);
@@ -771,7 +776,7 @@ Document::~Document()
         extensionStyleSheets->detachFromDocument();
 
     styleScope().clearResolver(); // We need to destroy CSSFontSelector before destroying m_cachedResourceLoader.
-    if (auto* fontLoader = m_fontLoader.get())
+    if (RefPtr fontLoader = m_fontLoader.get())
         fontLoader->stopLoadingAndClearFonts();
 
     if (RefPtr fontSelector = m_fontSelector)
@@ -824,7 +829,7 @@ void Document::removedLastRef()
         m_associatedFormControls.clear();
         m_pendingRenderTreeUpdate = { };
 
-        if (auto* fontLoader = m_fontLoader.get())
+        if (RefPtr fontLoader = m_fontLoader.get())
             fontLoader->stopLoadingAndClearFonts();
 
         detachParser();
@@ -921,8 +926,7 @@ void Document::commonTeardown()
 Quirks& Document::ensureQuirks()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_quirks);
-    m_quirks = makeUnique<Quirks>(*this);
+    lazyInitialize(m_quirks, makeUnique<Quirks>(*this));
     return *m_quirks;
 }
 
@@ -944,24 +948,21 @@ CachedResourceLoader& Document::ensureCachedResourceLoader()
 ExtensionStyleSheets& Document::ensureExtensionStyleSheets()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_extensionStyleSheets);
-    m_extensionStyleSheets = makeUnique<ExtensionStyleSheets>(*this);
+    lazyInitialize(m_extensionStyleSheets, makeUnique<ExtensionStyleSheets>(*this));
     return *m_extensionStyleSheets;
 }
 
 DocumentMarkerController& Document::ensureMarkers()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_markers);
-    m_markers = makeUnique<DocumentMarkerController>(*this);
+    lazyInitialize(m_markers, makeUnique<DocumentMarkerController>(*this));
     return *m_markers;
 }
 
 VisitedLinkState& Document::ensureVisitedLinkState()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_visitedLinkState);
-    m_visitedLinkState = makeUnique<VisitedLinkState>(*this);
+    lazyInitialize(m_visitedLinkState, makeUnique<VisitedLinkState>(*this));
     return *m_visitedLinkState;
 }
 
@@ -969,8 +970,7 @@ VisitedLinkState& Document::ensureVisitedLinkState()
 FullscreenManager& Document::ensureFullscreenManager()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_fullscreenManager);
-    m_fullscreenManager = makeUnique<FullscreenManager>(*this);
+    lazyInitialize(m_fullscreenManager, makeUnique<FullscreenManager>(*this));
     return *m_fullscreenManager;
 }
 #endif
@@ -1011,15 +1011,19 @@ inline DocumentFontLoader& Document::fontLoader()
 {
     ASSERT(m_constructionDidFinish);
     if (!m_fontLoader)
-        return ensureFontLoader();
+        lazyInitialize(m_fontLoader, makeUniqueWithoutRefCountedCheck<DocumentFontLoader>(*this));
     return *m_fontLoader;
+}
+
+Ref<DocumentFontLoader> Document::protectedFontLoader()
+{
+    return fontLoader();
 }
 
 DocumentFontLoader& Document::ensureFontLoader()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_fontLoader);
-    m_fontLoader = makeUnique<DocumentFontLoader>(*this);
+    lazyInitialize(m_fontLoader, makeUniqueWithoutRefCountedCheck<DocumentFontLoader>(*this));
     return *m_fontLoader;
 }
 
@@ -1031,8 +1035,7 @@ CSSFontSelector* Document::cssFontSelector()
 CSSFontSelector& Document::ensureFontSelector()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_fontSelector);
-    m_fontSelector = CSSFontSelector::create(*this);
+    lazyInitialize(m_fontSelector, CSSFontSelector::create(*this));
     m_fontSelector->registerForInvalidationCallbacks(*this);
     return *m_fontSelector;
 }
@@ -1040,8 +1043,7 @@ CSSFontSelector& Document::ensureFontSelector()
 UndoManager& Document::ensureUndoManager()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_undoManager);
-    m_undoManager = UndoManager::create(*this);
+    lazyInitialize(m_undoManager, UndoManager::create(*this));
     return *m_undoManager;
 }
 
@@ -1059,12 +1061,12 @@ const Editor& Document::editor() const
     return *m_editor;
 }
 
-CheckedRef<Editor> Document::checkedEditor()
+Ref<Editor> Document::protectedEditor()
 {
     return editor();
 }
 
-CheckedRef<const Editor> Document::checkedEditor() const
+Ref<const Editor> Document::protectedEditor() const
 {
     return editor();
 }
@@ -1072,16 +1074,14 @@ CheckedRef<const Editor> Document::checkedEditor() const
 Editor& Document::ensureEditor()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_editor);
-    m_editor = makeUnique<Editor>(*this);
+    lazyInitialize(m_editor, makeUniqueWithoutRefCountedCheck<Editor>(*this));
     return *m_editor;
 }
 
 ReportingScope& Document::ensureReportingScope()
 {
     ASSERT(m_constructionDidFinish);
-    ASSERT(!m_reportingScope);
-    m_reportingScope = ReportingScope::create(*this);
+    lazyInitialize(m_reportingScope, ReportingScope::create(*this));
     return *m_reportingScope;
 }
 
@@ -1399,18 +1399,15 @@ static inline bool isValidHTMLElementName(const QualifiedName& name)
 }
 
 template<typename NameType>
-static ExceptionOr<Ref<Element>> createHTMLElementWithNameValidation(Document& document, const NameType& name)
+static ExceptionOr<Ref<Element>> createHTMLElementWithNameValidation(TreeScope& treeScope, Document& document, const NameType& name)
 {
     RefPtr element = HTMLElementFactory::createKnownElement(name, document);
     if (LIKELY(element))
         return Ref<Element> { element.releaseNonNull() };
 
-    if (RefPtr window = document.domWindow()) {
-        RefPtr registry = window->customElementRegistry();
-        if (UNLIKELY(registry)) {
-            if (RefPtr elementInterface = registry->findInterface(name))
-                return elementInterface->constructElementWithFallback(document, name);
-        }
+    if (RefPtr registry = treeScope.customElementRegistry(); UNLIKELY(registry)) {
+        if (RefPtr elementInterface = registry->findInterface(name))
+            return elementInterface->constructElementWithFallback(document, *registry, name);
     }
 
     if (UNLIKELY(!isValidHTMLElementName(name)))
@@ -1419,15 +1416,16 @@ static ExceptionOr<Ref<Element>> createHTMLElementWithNameValidation(Document& d
     return Ref<Element> { createUpgradeCandidateElement(document, name) };
 }
 
-ExceptionOr<Ref<Element>> Document::createElementForBindings(const AtomString& name)
+ExceptionOr<Ref<Element>> TreeScope::createElementForBindings(const AtomString& name)
 {
-    if (isHTMLDocument())
-        return createHTMLElementWithNameValidation(*this, name.convertToASCIILowercase());
+    auto& document = documentScope();
+    if (document.isHTMLDocument())
+        return createHTMLElementWithNameValidation(*this, document, name.convertToASCIILowercase());
 
-    if (isXHTMLDocument())
-        return createHTMLElementWithNameValidation(*this, name);
+    if (document.isXHTMLDocument())
+        return createHTMLElementWithNameValidation(*this, document, name);
 
-    if (!isValidName(name))
+    if (!document.isValidName(name))
         return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid qualified name: '"_s, name, '\'') };
 
     return createElement(QualifiedName(nullAtom(), name, nullAtom()), false);
@@ -1585,26 +1583,27 @@ static Ref<HTMLElement> createFallbackHTMLElement(Document& document, const Qual
 }
 
 // FIXME: This should really be in a possible ElementFactory class.
-Ref<Element> Document::createElement(const QualifiedName& name, bool createdByParser)
+Ref<Element> TreeScope::createElement(const QualifiedName& name, bool createdByParser)
 {
     RefPtr<Element> element;
+    Ref document = documentScope();
 
     // FIXME: Use registered namespaces and look up in a hash to find the right factory.
     if (name.namespaceURI() == xhtmlNamespaceURI) {
-        element = HTMLElementFactory::createKnownElement(name, *this, nullptr, createdByParser);
+        element = HTMLElementFactory::createKnownElement(name, document, nullptr, createdByParser);
         if (UNLIKELY(!element))
-            element = createFallbackHTMLElement(*this, name);
+            element = createFallbackHTMLElement(document, name);
     } else if (name.namespaceURI() == SVGNames::svgNamespaceURI)
-        element = SVGElementFactory::createElement(name, *this, createdByParser);
+        element = SVGElementFactory::createElement(name, document, createdByParser);
 #if ENABLE(MATHML)
-    else if (settings().mathMLEnabled() && name.namespaceURI() == MathMLNames::mathmlNamespaceURI)
-        element = MathMLElementFactory::createElement(name, *this, createdByParser);
+    else if (document->settings().mathMLEnabled() && name.namespaceURI() == MathMLNames::mathmlNamespaceURI)
+        element = MathMLElementFactory::createElement(name, document, createdByParser);
 #endif
 
     if (element)
-        m_sawElementsInKnownNamespaces = true;
+        document->setSawElementsInKnownNamespaces();
     else
-        element = Element::create(name, protectedDocument());
+        element = Element::create(name, document);
 
     // <image> uses imgTag so we need a special rule.
     ASSERT((name.matches(imageTag) && element->tagQName().matches(imgTag) && element->tagQName().prefix() == name.prefix()) || name == element->tagQName());
@@ -1784,16 +1783,22 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
     return CustomElementNameValidationStatus::Valid;
 }
 
-ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName)
+void Document::setActiveCustomElementRegistry(CustomElementRegistry& registry)
 {
+    m_activeCustomElementRegistry = &registry;
+}
+
+ExceptionOr<Ref<Element>> TreeScope::createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName)
+{
+    Ref document = documentScope();
     auto opportunisticallyMatchedBuiltinElement = ([&]() -> RefPtr<Element> {
         if (namespaceURI == xhtmlNamespaceURI)
-            return HTMLElementFactory::createKnownElement(qualifiedName, *this, nullptr, /* createdByParser */ false);
+            return HTMLElementFactory::createKnownElement(qualifiedName, document, nullptr, /* createdByParser */ false);
         if (namespaceURI == SVGNames::svgNamespaceURI)
-            return SVGElementFactory::createKnownElement(qualifiedName, *this, /* createdByParser */ false);
+            return SVGElementFactory::createKnownElement(qualifiedName, document, /* createdByParser */ false);
 #if ENABLE(MATHML)
-        if (settings().mathMLEnabled() && namespaceURI == MathMLNames::mathmlNamespaceURI)
-            return MathMLElementFactory::createKnownElement(qualifiedName, *this, /* createdByParser */ false);
+        if (document->settings().mathMLEnabled() && namespaceURI == MathMLNames::mathmlNamespaceURI)
+            return MathMLElementFactory::createKnownElement(qualifiedName, document, /* createdByParser */ false);
 #endif
         return nullptr;
     })();
@@ -1801,15 +1806,15 @@ ExceptionOr<Ref<Element>> Document::createElementNS(const AtomString& namespaceU
     if (LIKELY(opportunisticallyMatchedBuiltinElement))
         return opportunisticallyMatchedBuiltinElement.releaseNonNull();
 
-    auto parseResult = parseQualifiedName(namespaceURI, qualifiedName);
+    auto parseResult = Document::parseQualifiedName(namespaceURI, qualifiedName);
     if (parseResult.hasException())
         return parseResult.releaseException();
     QualifiedName parsedName { parseResult.releaseReturnValue() };
-    if (!hasValidNamespaceForElements(parsedName))
+    if (!Document::hasValidNamespaceForElements(parsedName))
         return Exception { ExceptionCode::NamespaceError };
 
     if (parsedName.namespaceURI() == xhtmlNamespaceURI)
-        return createHTMLElementWithNameValidation(*this, parsedName);
+        return createHTMLElementWithNameValidation(*this, documentScope(), parsedName);
 
     return createElement(parsedName, false);
 }
@@ -2080,7 +2085,7 @@ std::optional<BoundaryPoint> Document::caretPositionFromPoint(const LayoutPoint&
     if (!renderer)
         return std::nullopt;
 
-    if (renderer->isSkippedContentRoot())
+    if (auto* renderElement = dynamicDowncast<RenderElement>(*renderer); renderElement && isSkippedContentRoot(*renderElement))
         return { { *node, 0 } };
 
     auto rangeCompliantPosition = renderer->positionForPoint(localPoint, source).parentAnchoredEquivalent();
@@ -2093,6 +2098,49 @@ std::optional<BoundaryPoint> Document::caretPositionFromPoint(const LayoutPoint&
         offset = 0;
 
     return { { node.releaseNonNull(), offset } };
+}
+
+RefPtr<CaretPosition> Document::caretPositionFromPoint(double x, double y, CaretPositionFromPointOptions options)
+{
+    if (!hasLivingRenderTree())
+        return nullptr;
+
+    LayoutPoint localPoint;
+    RefPtr node = nodeFromPoint(LayoutPoint { x, y }, &localPoint, HitTestSource::Script);
+    if (!node)
+        return nullptr;
+
+    updateLayoutIgnorePendingStylesheets();
+
+    CheckedPtr renderer = node->renderer();
+    if (!renderer)
+        return nullptr;
+
+    if (auto* renderElement = dynamicDowncast<RenderElement>(*renderer); renderElement && isSkippedContentRoot(*renderElement))
+        return CaretPosition::create(WTFMove(node), 0);
+
+    auto position = renderer->positionForPoint(localPoint, HitTestSource::Script);
+    if (position.isNull())
+        return nullptr;
+
+    RefPtr anchorNode = position.anchorNode();
+    if (auto* textFormControl = dynamicDowncast<HTMLTextFormControlElement>(anchorNode->shadowHost())) {
+        anchorNode = textFormControl;
+        if ((!anchorNode->isInShadowTree() && !options.shadowRoots.size()) || (anchorNode->isInShadowTree() && options.shadowRoots.contains(Ref(anchorNode->treeScope().rootNode()))))
+            return CaretPosition::create(WTFMove(anchorNode), position.offsetInContainerNode());
+    }
+
+    bool adjustPosition = false;
+    while (anchorNode->isInShadowTree() && !(options.shadowRoots.size() && options.shadowRoots.contains(Ref(anchorNode->treeScope().rootNode())))) {
+        anchorNode = anchorNode->shadowHost();
+        adjustPosition = true;
+    }
+    if (adjustPosition)
+        position = positionInParentBeforeNode(anchorNode.get());
+
+    position = position.parentAnchoredEquivalent();
+
+    return CaretPosition::create(position.anchorNode(), position.offsetInContainerNode());
 }
 
 bool Document::isBodyPotentiallyScrollable(HTMLBodyElement& body)
@@ -2595,7 +2643,7 @@ void Document::resolveStyle(ResolveStyleType type)
 
         m_inStyleRecalc = false;
 
-        if (auto* fontLoader = m_fontLoader.get())
+        if (RefPtr fontLoader = m_fontLoader.get())
             fontLoader->loadPendingFonts();
 
         if (styleUpdate) {
@@ -2627,6 +2675,10 @@ void Document::resolveStyle(ResolveStyleType type)
     // check if they need to be resumed after layout.
     if (updatedCompositingLayers && !frameView->needsLayout())
         frameView->viewportContentsChanged();
+
+#if ENABLE(DARK_MODE_CSS)
+    frameView->updateBaseBackgroundColorIfNecessary();
+#endif
 }
 
 void Document::updateTextRenderer(Text& text, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText)
@@ -3252,7 +3304,7 @@ void Document::willBeRemovedFromFrame()
     }
 
     selection().willBeRemovedFromFrame();
-    if (CheckedPtr editor = m_editor.get())
+    if (RefPtr editor = m_editor.get())
         editor->clear();
     detachFromFrame();
 
@@ -3310,7 +3362,7 @@ void Document::resumeDeviceMotionAndOrientationUpdates()
 
 void Document::suspendFontLoading()
 {
-    if (auto* fontLoader = m_fontLoader.get())
+    if (RefPtr fontLoader = m_fontLoader.get())
         fontLoader->suspendFontLoading();
 }
 
@@ -3512,6 +3564,29 @@ void Document::updateHighlightPositions()
     }
 }
 
+#if ENABLE(APP_HIGHLIGHTS)
+void Document::restoreUnrestoredAppHighlights(MonotonicTime renderingUpdateTime)
+{
+    auto appHighlightStorage = appHighlightStorageIfExists();
+    if (!appHighlightStorage)
+        return;
+
+    if (!appHighlightStorage->hasUnrestoredHighlights())
+        return;
+
+    if (appHighlightStorage->shouldRestoreHighlights(renderingUpdateTime)) {
+        eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakDocument = WeakPtr { *this }] {
+            RefPtr document { weakDocument.get() };
+            if (!document)
+                return;
+
+            if (auto* appHighlightStorage = document->appHighlightStorageIfExists())
+                appHighlightStorage->restoreUnrestoredAppHighlights();
+        });
+    }
+}
+#endif
+
 ScriptableDocumentParser* Document::scriptableDocumentParser() const
 {
     return parser() ? parser()->asScriptableDocumentParser() : nullptr;
@@ -3650,14 +3725,14 @@ void Document::implicitOpen()
 
 std::unique_ptr<FontLoadRequest> Document::fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource loadedFromOpaqueSource)
 {
-    CachedResourceHandle cachedFont = fontLoader().cachedFont(completeURL(url), isSVG, isInitiatingElementInUserAgentShadowTree, loadedFromOpaqueSource);
+    CachedResourceHandle cachedFont = protectedFontLoader()->cachedFont(completeURL(url), isSVG, isInitiatingElementInUserAgentShadowTree, loadedFromOpaqueSource);
     return cachedFont ? makeUnique<CachedFontLoadRequest>(*cachedFont, *this) : nullptr;
 }
 
 void Document::beginLoadingFontSoon(FontLoadRequest& request)
 {
     CachedResourceHandle font = downcast<CachedFontLoadRequest>(request).cachedFont();
-    fontLoader().beginLoadingFontSoon(*font);
+    protectedFontLoader()->beginLoadingFontSoon(*font);
 }
 
 HTMLBodyElement* Document::body() const
@@ -3850,11 +3925,11 @@ void Document::implicitClose()
 
         axObjectCache()->getOrCreate(renderView());
         if (this == &topDocument())
-            axObjectCache()->postNotification(renderView(), AXObjectCache::AXNewDocumentLoadComplete);
+            axObjectCache()->postNotification(renderView(), AXNotification::NewDocumentLoadComplete);
         else {
             // AXLoadComplete can only be posted on the top document, so if it's a document
             // in an iframe that just finished loading, post AXLayoutComplete instead.
-            axObjectCache()->postNotification(renderView(), AXObjectCache::AXLayoutComplete);
+            axObjectCache()->postNotification(renderView(), AXNotification::LayoutComplete);
         }
     }
 #endif
@@ -4841,10 +4916,6 @@ void Document::processColorScheme(const String& colorSchemeString)
         colorScheme.add(ColorScheme::Light);
 
     m_colorScheme = colorScheme;
-    m_allowsColorSchemeTransformations = allowsTransformations;
-
-    if (RefPtr frameView = view())
-        frameView->recalculateBaseBackgroundColor();
 
     if (RefPtr page = this->page())
         page->updateStyleAfterChangeInEnvironment();
@@ -4852,13 +4923,19 @@ void Document::processColorScheme(const String& colorSchemeString)
 
 void Document::metaElementColorSchemeChanged()
 {
-    RefPtr<CSSValue> colorScheme;
-    auto colorSchemeString = emptyString();
-    auto cssParserContext = CSSParserContext(document());
-    for (auto& metaElement : descendantsOfType<HTMLMetaElement>(rootNode())) {
+    const auto& context = this->cssParserContext();
+
+    auto parseColorScheme = [&](const auto& metaElement) -> std::optional<CSS::ColorScheme> {
         const AtomString& nameValue = metaElement.attributeWithoutSynchronization(nameAttr);
-        if ((equalLettersIgnoringASCIICase(nameValue, "color-scheme"_s) || equalLettersIgnoringASCIICase(nameValue, "supported-color-schemes"_s)) && (colorScheme = CSSParser::parseSingleValue(CSSPropertyColorScheme, metaElement.attributeWithoutSynchronization(contentAttr), cssParserContext))) {
-            colorSchemeString = colorScheme->cssText();
+        if (!equalLettersIgnoringASCIICase(nameValue, "color-scheme"_s) && !equalLettersIgnoringASCIICase(nameValue, "supported-color-schemes"_s))
+            return { };
+        return CSSPropertyParserHelpers::parseUnresolvedColorScheme(metaElement.attributeWithoutSynchronization(contentAttr), context);
+    };
+
+    auto colorSchemeString = emptyString();
+    for (auto& metaElement : descendantsOfType<HTMLMetaElement>(rootNode())) {
+        if (auto colorScheme = parseColorScheme(metaElement)) {
+            colorSchemeString = CSS::serializationForCSS(*colorScheme);
             break;
         }
     }
@@ -5124,26 +5201,12 @@ void Document::updateViewportUnitsOnResize()
 
 void Document::setNeedsDOMWindowResizeEvent()
 {
-#if ENABLE(FULLSCREEN_API)
-    if (CheckedPtr fullscreenManager = fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isAnimatingFullscreen()) {
-        fullscreenManager->addPendingScheduledResize(FullscreenManager::ResizeType::DOMWindow);
-        return;
-    }
-#endif
-
     m_needsDOMWindowResizeEvent = true;
     scheduleRenderingUpdate(RenderingUpdateStep::Resize);
 }
 
 void Document::setNeedsVisualViewportResize()
 {
-#if ENABLE(FULLSCREEN_API)
-    if (CheckedPtr fullscreenManager = fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isAnimatingFullscreen()) {
-        fullscreenManager->addPendingScheduledResize(FullscreenManager::ResizeType::VisualViewport);
-        return;
-    }
-#endif
-
     m_needsVisualViewportResizeEvent = true;
     scheduleRenderingUpdate(RenderingUpdateStep::Resize);
 }
@@ -5151,6 +5214,9 @@ void Document::setNeedsVisualViewportResize()
 // https://drafts.csswg.org/cssom-view/#run-the-resize-steps
 void Document::runResizeSteps()
 {
+    if (auto page = this->page(); page && page->shouldDeferResizeEvents())
+        return;
+
     // FIXME: The order of dispatching is not specified: https://github.com/WICG/visual-viewport/issues/65.
     if (m_needsDOMWindowResizeEvent) {
         LOG_WITH_STREAM(Events, stream << "Document " << this << " sending resize events to window");
@@ -5163,6 +5229,11 @@ void Document::runResizeSteps()
         if (RefPtr window = domWindow())
             window->visualViewport().dispatchEvent(Event::create(eventNames().resizeEvent, Event::CanBubble::No, Event::IsCancelable::No));
     }
+}
+
+void Document::flushDeferredResizeEvents()
+{
+    runResizeSteps();
 }
 
 void Document::addPendingScrollEventTarget(ContainerNode& target)
@@ -5201,6 +5272,9 @@ static bool serviceScrollAnimationForScrollableArea(const ScrollableArea* scroll
 // https://drafts.csswg.org/cssom-view/#run-the-scroll-steps
 void Document::runScrollSteps()
 {
+    if (auto page = this->page(); page && page->shouldDeferScrollEvents())
+        return;
+
     // Service user scroll animations before scroll event dispatch.
     if (RefPtr frameView = view()) {
         MonotonicTime now = MonotonicTime::now();
@@ -5241,6 +5315,11 @@ void Document::runScrollSteps()
         if (RefPtr window = domWindow())
             window->visualViewport().dispatchEvent(Event::create(eventNames().scrollEvent, Event::CanBubble::No, Event::IsCancelable::No));
     }
+}
+
+void Document::flushDeferredScrollEvents()
+{
+    runScrollSteps();
 }
 
 void Document::invalidateScrollbars()
@@ -5293,6 +5372,11 @@ void Document::noteUserInteractionWithMediaElement()
 
     m_userHasInteractedWithMediaElement = true;
     updateIsPlayingMedia();
+}
+
+bool Document::isCapturing() const
+{
+    return MediaProducer::isCapturing(m_mediaState);
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -6169,7 +6253,7 @@ void Document::textInserted(Node& text, unsigned offset, unsigned length)
 
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
     // Freshly inserted text is expected to not inherit PlatformTextChecking markers.
-    m_markers->removeMarkers(text, { offset, offset + length }, DocumentMarker::Type::PlatformTextChecking);
+    m_markers->removeMarkers(text, { offset, offset + length }, DocumentMarkerType::PlatformTextChecking);
 #endif
 }
 
@@ -6953,7 +7037,7 @@ void Document::suspend(ReasonForSuspension reason)
 
     addVisualUpdatePreventedReason(VisualUpdatesPreventedReason::Suspension);
 
-    if (auto* fontLoader = m_fontLoader.get())
+    if (RefPtr fontLoader = m_fontLoader.get())
         fontLoader->suspendFontLoading();
 
     m_isSuspended = true;
@@ -6982,7 +7066,7 @@ void Document::resume(ReasonForSuspension reason)
 
     removeVisualUpdatePreventedReasons(VisualUpdatesPreventedReason::Suspension);
 
-    if (auto* fontLoader = m_fontLoader.get())
+    if (RefPtr fontLoader = m_fontLoader.get())
         fontLoader->resumeFontLoading();
 
     m_isSuspended = false;
@@ -7314,8 +7398,7 @@ bool Document::isTopDocument() const
 
 ScriptRunner& Document::ensureScriptRunner()
 {
-    ASSERT(!m_scriptRunner);
-    m_scriptRunner = makeUniqueWithoutRefCountedCheck<ScriptRunner>(*this);
+    lazyInitialize(m_scriptRunner, makeUniqueWithoutRefCountedCheck<ScriptRunner>(*this));
     return *m_scriptRunner;
 }
 
@@ -8291,6 +8374,31 @@ void Document::addDefaultSpatialTrackingLabelChangedObserver(const DefaultSpatia
 }
 #endif
 
+#if ENABLE(FULLSCREEN_API)
+FullscreenManager& Document::fullscreenManager()
+{
+    if (!m_fullscreenManager)
+        return ensureFullscreenManager();
+    return *m_fullscreenManager;
+}
+
+const FullscreenManager& Document::fullscreenManager() const
+{
+    if (!m_fullscreenManager)
+        return const_cast<Document&>(*this).ensureFullscreenManager();
+    return *m_fullscreenManager;
+}
+
+CheckedRef<FullscreenManager> Document::checkedFullscreenManager()
+{
+    return fullscreenManager();
+}
+
+CheckedRef<const FullscreenManager> Document::checkedFullscreenManager() const
+{
+    return fullscreenManager();
+}
+#endif
 
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
 
@@ -9058,7 +9166,7 @@ Document& Document::ensureTemplateDocument()
             return HTMLDocument::create(nullptr, m_settings, aboutBlankURL(), { });
         return create(m_settings, aboutBlankURL());
     }();
-    m_templateDocument = templateDocument.copyRef();
+    lazyInitialize(m_templateDocument, templateDocument.copyRef());
     templateDocument->setContextDocument(contextDocument());
     templateDocument->setTemplateDocumentHost(this); // balanced in dtor.
 
@@ -9107,15 +9215,8 @@ bool Document::useSystemAppearance() const
 bool Document::useDarkAppearance(const RenderStyle* style) const
 {
 #if ENABLE(DARK_MODE_CSS)
-    OptionSet<ColorScheme> colorScheme;
-
-    // Use the style's supported color schemes, if supplied.
-    if (style)
-        colorScheme = style->colorScheme().colorScheme();
-
-    // Fallback to the document's supported color schemes if style was empty (auto).
-    if (colorScheme.isEmpty())
-        colorScheme = m_colorScheme;
+    bool isNormal = !style || style->colorScheme().isNormal();
+    auto colorScheme = isNormal ? m_colorScheme : style->colorScheme().colorScheme();
 
     if (colorScheme.contains(ColorScheme::Dark) && !colorScheme.contains(ColorScheme::Light))
         return true;
@@ -9536,7 +9637,7 @@ void Document::scheduleInitialIntersectionObservationUpdate()
 IntersectionObserverData& Document::ensureIntersectionObserverData()
 {
     if (!m_intersectionObserverData)
-        m_intersectionObserverData = makeUnique<IntersectionObserverData>();
+        lazyInitialize(m_intersectionObserverData, makeUnique<IntersectionObserverData>());
     return *m_intersectionObserverData;
 }
 
@@ -9958,7 +10059,7 @@ void Document::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
 AnimationTimelinesController& Document::ensureTimelinesController()
 {
     if (!m_timelinesController)
-        m_timelinesController = makeUnique<AnimationTimelinesController>(*this);
+        lazyInitialize(m_timelinesController, makeUnique<AnimationTimelinesController>(*this));
     return *m_timelinesController.get();
 }
 
@@ -10470,7 +10571,7 @@ DeviceOrientationAndMotionAccessController& Document::deviceOrientationAndMotion
 PaintWorklet& Document::ensurePaintWorklet()
 {
     if (!m_paintWorklet)
-        m_paintWorklet = PaintWorklet::create(*this);
+        lazyInitialize(m_paintWorklet, PaintWorklet::create(*this));
     return *m_paintWorklet;
 }
 
@@ -10794,7 +10895,7 @@ void Document::removeElementWithLangAttrMatchingDocumentElement(Element& element
 RefPtr<ResizeObserver> Document::ensureResizeObserverForContainIntrinsicSize()
 {
     if (!m_resizeObserverForContainIntrinsicSize)
-        m_resizeObserverForContainIntrinsicSize = ResizeObserver::createNativeObserver(*this, CallbackForContainIntrinsicSize);
+        lazyInitialize(m_resizeObserverForContainIntrinsicSize, ResizeObserver::createNativeObserver(*this, CallbackForContainIntrinsicSize));
     return m_resizeObserverForContainIntrinsicSize;
 }
 

@@ -110,8 +110,12 @@ void CSSAnimation::syncPropertiesWithBackingAnimation()
     if (!m_overriddenProperties.contains(Property::Delay))
         animationEffect->setDelay(Seconds(animation.delay()));
 
-    if (!m_overriddenProperties.contains(Property::Duration))
-        animationEffect->setIterationDuration(Seconds(animation.duration().value_or(0)));
+    if (!m_overriddenProperties.contains(Property::Duration)) {
+        if (auto duration = animation.duration())
+            animationEffect->setIterationDuration(Seconds(*duration));
+        else
+            animationEffect->setIterationDuration(std::nullopt);
+    }
 
     if (!m_overriddenProperties.contains(Property::CompositeOperation)) {
         if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(animationEffect))
@@ -126,10 +130,8 @@ void CSSAnimation::syncPropertiesWithBackingAnimation()
             [&] (Animation::TimelineKeyword keyword) {
                 setTimeline(keyword == Animation::TimelineKeyword::None ? nullptr : RefPtr { document->existingTimeline() });
             }, [&] (const AtomString& name) {
-                // FIXME: we should account for timeline-scope here.
                 CheckedRef timelinesController = document->ensureTimelinesController();
-                if (RefPtr timeline = timelinesController->timelineForName(name, target))
-                    setTimeline(WTFMove(timeline));
+                timelinesController->setTimelineForName(name, target, *this);
             }, [&] (Ref<ScrollTimeline> anonymousTimeline) {
                 if (RefPtr viewTimeline = dynamicDowncast<ViewTimeline>(anonymousTimeline))
                     viewTimeline->setSubject(target.ptr());
@@ -143,7 +145,6 @@ void CSSAnimation::syncPropertiesWithBackingAnimation()
     if (!m_overriddenProperties.contains(Property::Range))
         setRange(animation.range());
 
-    animationEffect->updateStaticTimingProperties();
     effectTimingDidChange();
 
     // Synchronize the play state

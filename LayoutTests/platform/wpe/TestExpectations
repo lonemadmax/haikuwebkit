@@ -200,10 +200,6 @@ fast/events/keyboardevent-modifier.html [ Pass ]
 # WPE Pass but marked as fail in wk2
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-destinationnode-interface/destination.html
 
-webkit.org/b/260731 imported/w3c/web-platform-tests/loading/preloader-css-import-no-quote.tentative.html [ Failure ]
-webkit.org/b/260731 imported/w3c/web-platform-tests/loading/preloader-css-import-no-semicolon.tentative.html [ Failure ]
-webkit.org/b/260731 imported/w3c/web-platform-tests/loading/preloader-css-import-no-space.tentative.html [ Failure ]
-
 # WPE passing since (237579@main - 237582@main]. GTK back failing after revert.
 imported/w3c/web-platform-tests/css/css-contain/contain-size-block-003.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-contain/contain-size-inline-block-003.html [ Pass ]
@@ -301,6 +297,7 @@ media/video-unmuted-after-play-holds-sleep-assertion.html [ Failure ]
 svg/hixie/viewbox/002.xml [ Failure ]
 
 webkit.org/b/282686 media/media-video-fullrange.html [ Failure ]
+webkit.org/b/282686 media/media-video-fullrange-offscreen.html [ Failure ]
 
 # Pending to create bug.
 imported/w3c/web-platform-tests/cookies/attributes/domain.sub.html [ Failure ]
@@ -709,6 +706,9 @@ Bug(WPE) fast/history/page-cache-geolocation.html [ Skip ]
 Bug(WPE) fast/history/page-cache-notification-suspendable.html [ Skip ]
 
 Bug(WPE) fast/dom/HTMLAnchorElement [ Skip ]
+
+# Causes OOM in the EWS bots
+webkit.org/b/283558 fast/css-custom-paint/out-of-memory-while-adding-worklet-module.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # 4. TESTS CRASHING
@@ -1417,8 +1417,6 @@ imported/w3c/web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle.htm
 imported/w3c/web-platform-tests/css/css-writing-modes/text-shadow-orientation-upright-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-with-src-rect.tentative.html [ ImageOnlyFailure ]
 
-imported/w3c/web-platform-tests/html/rendering/the-details-element/summary-text-decoration.html [ ImageOnlyFailure ]
-
 fast/canvas/webgl/lose-context-on-timeout-async.html [ Skip ] # Timeout.
 fast/canvas/webgl/lose-context-on-timeout.html [ Skip ] # Timeout.
 fast/encoding/backslash-encoding-jp.html [ Skip ] # Timeout.
@@ -1650,7 +1648,6 @@ imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-004.htm
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-006.html [ ImageOnlyFailure ]
 
-webkit.org/b/278719 fast/events/touch/basic-single-touch-events.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/touch-event-frames.html [ Failure ]
 
 webkit.org/b/278719 fast/events/touch/basic-multi-touch-events.html [ Failure ]
@@ -1684,3 +1681,5 @@ webkit.org/b/281053 imported/w3c/web-platform-tests/worklets/audio-worklet-refer
 http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
 http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Failure ]
 http/tests/cookies/same-site/popup-cross-site-post.html [ Failure ]
+
+webkit.org/b/282970 imported/w3c/web-platform-tests/scroll-to-text-fragment/drag-selection-over-target-text.html [ Failure ]

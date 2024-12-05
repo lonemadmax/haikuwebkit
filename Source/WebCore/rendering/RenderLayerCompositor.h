@@ -30,19 +30,11 @@
 #include "LayerAncestorClippingStack.h"
 #include "RenderLayer.h"
 #include <pal/HysteresisActivity.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/OptionSet.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
-
-namespace WebCore {
-class RenderLayerCompositor;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedTimerSmartPointerException;
-template<> struct IsDeprecatedTimerSmartPointerException<WebCore::RenderLayerCompositor> : std::true_type { };
-}
 
 namespace WebCore {
 
@@ -56,6 +48,8 @@ class RenderWidget;
 class ScrollingCoordinator;
 class StickyPositionViewportConstraints;
 class TiledBacking;
+
+enum class ScrollingNodeType : uint8_t;
 
 enum class CompositingUpdateType {
     AfterStyleChange,
@@ -161,8 +155,9 @@ private:
 // 
 // There is one RenderLayerCompositor per RenderView.
 
-class RenderLayerCompositor final : public GraphicsLayerClient {
+class RenderLayerCompositor final : public GraphicsLayerClient, public CanMakeCheckedPtr<RenderLayerCompositor> {
     WTF_MAKE_TZONE_ALLOCATED(RenderLayerCompositor);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderLayerCompositor);
     friend class LegacyWebKitScrollingLayerCoordinator;
 public:
     explicit RenderLayerCompositor(RenderView&);
@@ -491,6 +486,8 @@ private:
 
     bool layerHas3DContent(const RenderLayer&) const;
     bool isRunningTransformAnimation(RenderLayerModelObject&) const;
+
+    bool allowBackingStoreDetachingForFixedPosition(RenderLayer&, const LayoutRect& absoluteBounds);
 
     void appendDocumentOverlayLayers(Vector<Ref<GraphicsLayer>>&);
 

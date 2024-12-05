@@ -25,18 +25,19 @@
 #pragma once
 
 #include "CSSValueKeywords.h"
+#include "ComputedStyleDependencies.h"
 #include "RectEdges.h"
 #include <optional>
 #include <tuple>
 #include <utility>
 #include <variant>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/AtomString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
 class CSSValue;
-struct ComputedStyleDependencies;
 
 namespace CSS {
 
@@ -45,11 +46,23 @@ namespace CSS {
 // NOTE: This gets automatically specialized when using the CSS_TUPLE_LIKE_CONFORMANCE macro.
 template<class> inline constexpr bool TreatAsTupleLike = false;
 
-// Helper type used to represent a constant identifier.
-template<CSSValueID C> struct Constant {
-    static constexpr auto value = C;
+// Types can specialize this and set the value to true to be treated as a "type wrapper"
+// for CSS value type algorithms. "Type wrappers" must be simple structs with exactly one
+// member variable accessible via `get<0>(...)`.
+// NOTE: This gets automatically specialized and the get function generated when using
+// the DEFINE_CSS_TYPE_WRAPPER macro.
+template<class> inline constexpr bool TreatAsTypeWrapper = false;
 
-    constexpr bool operator==(const Constant<C>&) const = default;
+#define DEFINE_CSS_TYPE_WRAPPER(t, name) \
+    template<> inline constexpr bool TreatAsTypeWrapper<t> = true; \
+    template<size_t> const auto& get(const t& value) { return value.name; }
+
+// Helper type used to represent an arbitrary constant identifier.
+struct CustomIdentifier {
+    AtomString value;
+
+    bool operator==(const CustomIdentifier&) const = default;
+    bool operator==(const AtomString& other) const { return value == other; }
 };
 
 // Helper type used to represent a CSS function.
@@ -332,6 +345,14 @@ template<typename CSSType> String serializationForCSS(const CSSType& value)
     return builder.toString();
 }
 
+// Constrained for `TreatAsTypeWrapper`.
+template<typename CSSType> requires (TreatAsTypeWrapper<CSSType>) struct Serialize<CSSType> {
+    void operator()(StringBuilder& builder, const CSSType& value)
+    {
+        serializationForCSS(builder, get<0>(value));
+    }
+};
+
 // Specialization for `std::optional`.
 template<typename CSSType> struct Serialize<std::optional<CSSType>> {
     void operator()(StringBuilder& builder, const std::optional<CSSType>& value)
@@ -356,6 +377,11 @@ template<CSSValueID C> struct Serialize<Constant<C>> {
     {
         builder.append(nameLiteralForSerialization(value.value));
     }
+};
+
+// Specialization for `CustomIdentifier`.
+template<> struct Serialize<CustomIdentifier> {
+    void operator()(StringBuilder&, const CustomIdentifier&);
 };
 
 // Specialization for `FunctionNotation`.
@@ -492,6 +518,13 @@ template<typename CSSType> void collectComputedStyleDependencies(ComputedStyleDe
     ComputedStyleDependenciesCollector<CSSType>{}(dependencies, value);
 }
 
+template<typename CSSType> ComputedStyleDependencies collectComputedStyleDependencies(const CSSType& value)
+{
+    ComputedStyleDependencies dependencies;
+    collectComputedStyleDependencies(dependencies, value);
+    return dependencies;
+}
+
 template<typename CSSType> auto collectComputedStyleDependenciesOnTupleLike(ComputedStyleDependencies& dependencies, const CSSType& value)
 {
     WTF::apply([&](const auto& ...x) { (..., collectComputedStyleDependencies(dependencies, x)); }, value);
@@ -508,6 +541,14 @@ template<typename CSSType> requires (TreatAsTupleLike<CSSType>) struct ComputedS
     void operator()(ComputedStyleDependencies& dependencies, const CSSType& value)
     {
         collectComputedStyleDependenciesOnTupleLike(dependencies, value);
+    }
+};
+
+// Constrained for `TreatAsTypeWrapper`.
+template<typename CSSType> requires (TreatAsTypeWrapper<CSSType>) struct ComputedStyleDependenciesCollector<CSSType> {
+    void operator()(ComputedStyleDependencies& dependencies, const CSSType& value)
+    {
+        collectComputedStyleDependencies(dependencies, get<0>(value));
     }
 };
 
@@ -532,6 +573,14 @@ template<typename... CSSTypes> struct ComputedStyleDependenciesCollector<std::va
 // Specialization for `Constant`.
 template<CSSValueID C> struct ComputedStyleDependenciesCollector<Constant<C>> {
     constexpr void operator()(ComputedStyleDependencies&, const Constant<C>&)
+    {
+        // Nothing to do.
+    }
+};
+
+// Specialization for `CustomIdentifier`.
+template<> struct ComputedStyleDependenciesCollector<CustomIdentifier> {
+    constexpr void operator()(ComputedStyleDependencies&, const CustomIdentifier&)
     {
         // Nothing to do.
     }
@@ -669,6 +718,14 @@ template<typename CSSType> requires (TreatAsTupleLike<CSSType>) struct CSSValueC
     }
 };
 
+// Constrained for `TreatAsTypeWrapper`.
+template<typename CSSType> requires (TreatAsTypeWrapper<CSSType>) struct CSSValueChildrenVisitor<CSSType> {
+    IterationStatus operator()(const Function<IterationStatus(CSSValue&)>& func, const CSSType& value)
+    {
+        return visitCSSValueChildren(func, get<0>(value));
+    }
+};
+
 // Specialization for `std::optional`.
 template<typename CSSType> struct CSSValueChildrenVisitor<std::optional<CSSType>> {
     IterationStatus operator()(const Function<IterationStatus(CSSValue&)>& func, const std::optional<CSSType>& value)
@@ -688,6 +745,14 @@ template<typename... CSSTypes> struct CSSValueChildrenVisitor<std::variant<CSSTy
 // Specialization for `Constant`.
 template<CSSValueID C> struct CSSValueChildrenVisitor<Constant<C>> {
     constexpr IterationStatus operator()(const Function<IterationStatus(CSSValue&)>&, const Constant<C>&)
+    {
+        return IterationStatus::Continue;
+    }
+};
+
+// Specialization for `CustomIdentifier`.
+template<> struct CSSValueChildrenVisitor<CustomIdentifier> {
+    constexpr IterationStatus operator()(const Function<IterationStatus(CSSValue&)>&, const CustomIdentifier&)
     {
         return IterationStatus::Continue;
     }
@@ -780,6 +845,10 @@ template<typename CSSType> struct CSSValueChildrenVisitor<RectEdges<CSSType>> {
         return IterationStatus::Continue;
     }
 };
+
+// MARK: - Text Stream
+
+WTF::TextStream& operator<<(WTF::TextStream&, const CustomIdentifier&);
 
 } // namespace CSS
 } // namespace WebCore

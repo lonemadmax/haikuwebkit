@@ -62,6 +62,7 @@
 #include "FocusController.h"
 #include "FocusEvent.h"
 #include "FormAssociatedCustomElement.h"
+#include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "FullscreenManager.h"
 #include "FullscreenOptions.h"
@@ -159,6 +160,7 @@
 #include "XMLNSNames.h"
 #include "XMLNames.h"
 #include "markup.h"
+#include <JavaScriptCore/JSONObject.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -2184,6 +2186,24 @@ bool Element::isElementsArrayReflectionAttribute(const QualifiedName& name)
     return false;
 }
 
+void Element::setUserInfo(JSC::JSGlobalObject& globalObject, JSC::JSValue userInfo)
+{
+    auto throwScope = DECLARE_THROW_SCOPE(globalObject.vm());
+
+    auto serializedData = JSONStringify(&globalObject, userInfo, 0);
+    if (throwScope.exception())
+        return;
+
+    ensureElementRareData().setUserInfo(WTFMove(serializedData));
+}
+
+String Element::userInfo() const
+{
+    if (!hasRareData())
+        return { };
+    return elementRareData()->userInfo();
+}
+
 void Element::notifyAttributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason reason)
 {
     attributeChanged(name, oldValue, newValue, reason);
@@ -2600,6 +2620,7 @@ void Element::invalidateForQueryContainerSizeChange()
 
 void Element::invalidateForResumingQueryContainerResolution()
 {
+    setChildNeedsStyleRecalc();
     markAncestorsForInvalidatedStyle();
 }
 
@@ -3161,11 +3182,17 @@ ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
         }
         return Exception { ExceptionCode::NotSupportedError };
     }
+    RefPtr registry = init.registry;
+    if (!registry) {
+        if (RefPtr window = document().domWindow())
+            registry = window->customElementRegistry();
+    }
     Ref shadow = ShadowRoot::create(document(), init.mode, init.slotAssignment,
         init.delegatesFocus ? ShadowRoot::DelegatesFocus::Yes : ShadowRoot::DelegatesFocus::No,
         init.clonable ? ShadowRoot::Clonable::Yes : ShadowRoot::Clonable::No,
         init.serializable ? ShadowRoot::Serializable::Yes : ShadowRoot::Serializable::No,
-        isPrecustomizedOrDefinedCustomElement() ? ShadowRoot::AvailableToElementInternals::Yes : ShadowRoot::AvailableToElementInternals::No);
+        isPrecustomizedOrDefinedCustomElement() ? ShadowRoot::AvailableToElementInternals::Yes : ShadowRoot::AvailableToElementInternals::No,
+        WTFMove(registry), init.registry ? ShadowRoot::ScopedCustomElementRegistry::Yes : ShadowRoot::ScopedCustomElementRegistry::No);
     addShadowRoot(shadow.copyRef());
     return shadow.get();
 }
@@ -3178,7 +3205,9 @@ ExceptionOr<ShadowRoot&> Element::attachDeclarativeShadow(ShadowRootMode mode, S
         mode,
         delegatesFocus == ShadowRootDelegatesFocus::Yes,
         clonable == ShadowRootClonable::Yes,
-        serializable == ShadowRootSerializable::Yes
+        serializable == ShadowRootSerializable::Yes,
+        SlotAssignmentMode::Named,
+        nullptr,
     });
     if (exceptionOrShadowRoot.hasException())
         return exceptionOrShadowRoot.releaseException();

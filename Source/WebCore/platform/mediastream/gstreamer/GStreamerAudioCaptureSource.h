@@ -41,7 +41,7 @@ public:
     GstElement* pipeline() { return m_capturer->pipeline(); }
     GStreamerCapturer* capturer() { return m_capturer.get(); }
 
-    std::pair<GstClockTime, GstClockTime> queryLatency();
+    std::pair<GstClockTime, GstClockTime> queryCaptureLatency() const final;
 
     void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GStreamerAudioCaptureSource>::ref(); }
     void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GStreamerAudioCaptureSource>::deref(); }

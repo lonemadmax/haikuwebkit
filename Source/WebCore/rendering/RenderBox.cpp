@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RenderBox.h"
 
+#include "AnchorPositionEvaluator.h"
 #include "BackgroundPainter.h"
 #include "BorderPainter.h"
 #include "BorderShape.h"
@@ -384,10 +385,6 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     bool isBodyRenderer = isBody();
 
     if (isDocElementRenderer || isBodyRenderer) {
-#if ENABLE(DARK_MODE_CSS)
-        view().frameView().recalculateBaseBackgroundColor();
-#endif
-
         view().frameView().recalculateScrollbarOverlayStyle();
         
         if (diff != StyleDifference::Equal)
@@ -1256,12 +1253,6 @@ bool RenderBox::applyCachedClipAndScrollPosition(RepaintRects& rects, const Rend
     return intersects;
 }
 
-void RenderBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
-{
-    minLogicalWidth = minPreferredLogicalWidth() - borderAndPaddingLogicalWidth();
-    maxLogicalWidth = maxPreferredLogicalWidth() - borderAndPaddingLogicalWidth();
-}
-
 LayoutUnit RenderBox::minPreferredLogicalWidth() const
 {
     if (preferredLogicalWidthsDirty()) {
@@ -1855,7 +1846,7 @@ bool RenderBox::foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect, u
     if (!maxDepthToTest)
         return false;
 
-    if (isSkippedContentRoot())
+    if (isSkippedContentRoot(*this))
         return false;
 
     for (auto& childBox : childrenOfType<RenderBox>(*this)) {
@@ -2259,6 +2250,10 @@ LayoutUnit RenderBox::shrinkLogicalWidthToAvoidFloats(LayoutUnit childMarginStar
 
     LayoutUnit logicalHeight = cb.logicalHeightForChild(*this);
     LayoutUnit availableLogicalWidthAtLogicalTopPosition = cb.availableLogicalWidthForLineInFragment(logicalTopPosition, containingBlockFragment, logicalHeight);
+    if (availableLogicalWidthAtLogicalTopPosition == cb.availableLogicalWidth()) {
+        // No float to avoid at this logical top position either becasue float's margin box is shrunk to 0 (non-zero border box with large enough margins) or no float at all.
+        return availableLogicalWidthAtLogicalTopPosition - childMarginStart - childMarginEnd;
+    }
     // We need to see if margins on either the start side or the end side can contain the floats in question. If they can,
     // then just using the line width is inaccurate. In the case where a float completely fits, we don't need to use the line
     // offset at all, but can instead push all the way to the content edge of the containing block. In the case where the float
@@ -2993,8 +2988,8 @@ LayoutUnit RenderBox::computeOrTrimInlineMargin(const RenderBlock& containingBlo
 void RenderBox::computeInlineDirectionMargins(const RenderBlock& containingBlock, LayoutUnit containerWidth, std::optional<LayoutUnit> availableSpaceAdjustedWithFloats, LayoutUnit childWidth, LayoutUnit& marginStart, LayoutUnit& marginEnd) const
 {
     const RenderStyle& containingBlockStyle = containingBlock.style();
-    Length marginStartLength = style().marginStartUsing(&containingBlockStyle);
-    Length marginEndLength = style().marginEndUsing(&containingBlockStyle);
+    Length marginStartLength = style().marginStart(containingBlockStyle.writingMode());
+    Length marginEndLength = style().marginEnd(containingBlockStyle.writingMode());
 
     if (isFloating()) {
         marginStart = minimumValueForLength(marginStartLength, containerWidth);
@@ -3580,7 +3575,6 @@ void RenderBox::computePreferredLogicalWidths()
 
 void RenderBox::computePreferredLogicalWidths(const Length& minLogicalWidth, const Length& maxLogicalWidth, LayoutUnit borderAndPaddingLogicalWidth)
 {
-
     auto usedMaxLogicalWidth = [&] {
         // FIXME: We should be able to handle other values for the max logical width here.
         if (maxLogicalWidth.isFixed())
@@ -3830,7 +3824,9 @@ LayoutUnit RenderBox::constrainBlockMarginInAvailableSpaceOrTrim(const RenderBox
         return 0_lu;
     }
     
-    return marginSide == MarginTrimType::BlockStart ? minimumValueForLength(style().marginBeforeUsing(&containingBlock.style()), availableSpace) : minimumValueForLength(style().marginAfterUsing(&containingBlock.style()), availableSpace);
+    return marginSide == MarginTrimType::BlockStart
+        ? minimumValueForLength(style().marginBefore(containingBlock.writingMode()), availableSpace)
+        : minimumValueForLength(style().marginAfter(containingBlock.writingMode()), availableSpace);
 }
 
 LayoutUnit RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObject& containingBlock, RenderFragmentContainer* fragment, bool checkForPerpendicularWritingMode) const
@@ -4040,6 +4036,21 @@ void RenderBox::computePositionedLogicalWidth(LogicalExtentComputedValues& compu
     Length logicalLeftLength = style().logicalLeft();
     Length logicalRightLength = style().logicalRight();
 
+    // https://drafts.csswg.org/css-anchor-position-1/#anchor-center
+    auto defaultAnchorBoxForAnchorCenter = [&]() -> CheckedPtr<const RenderBoxModelObject> {
+        if ((container()->isHorizontalWritingMode() != isHorizontalWritingMode() && style().alignSelf().position() == ItemPosition::AnchorCenter)
+            || (container()->isHorizontalWritingMode() == isHorizontalWritingMode() && style().justifySelf().position() == ItemPosition::AnchorCenter))
+            return dynamicDowncast<const RenderBoxModelObject>(defaultAnchorRenderer());
+        return nullptr;
+    }();
+    // Any auto inset properties resolve to 0 if the box is absolutely positioned and does have a default anchor box.
+    if (defaultAnchorBoxForAnchorCenter) {
+        if (logicalLeftLength.isAuto())
+            logicalLeftLength = Length(0, LengthType::Fixed);
+        if (logicalRightLength.isAuto())
+            logicalRightLength = Length(0, LengthType::Fixed);
+    }
+
     /*---------------------------------------------------------------------------*\
      * For the purposes of this section and the next, the term "static position"
      * (of an element) refers, roughly, to the position an element would have had
@@ -4122,6 +4133,9 @@ void RenderBox::computePositionedLogicalWidth(LogicalExtentComputedValues& compu
         computedValues.m_margins.m_start = minValues.m_margins.m_start;
         computedValues.m_margins.m_end = minValues.m_margins.m_end;
     }
+
+    if (defaultAnchorBoxForAnchorCenter)
+        computeAnchorCenteredPosition(computedValues, defaultAnchorBoxForAnchorCenter, logicalLeftLength, logicalRightLength, containerLogicalWidth, true);
 
     computedValues.m_extent += bordersPlusPadding;
     if (auto* containingBox = dynamicDowncast<RenderBox>(containerBlock)) {
@@ -4463,6 +4477,21 @@ void RenderBox::computePositionedLogicalHeight(LogicalExtentComputedValues& comp
     Length logicalTopLength = styleToUse.logicalTop();
     Length logicalBottomLength = styleToUse.logicalBottom();
 
+    // https://drafts.csswg.org/css-anchor-position-1/#anchor-center
+    auto defaultAnchorBoxForAnchorCenter = [&]() -> CheckedPtr<const RenderBoxModelObject> {
+        if ((container()->isHorizontalWritingMode() != isHorizontalWritingMode() && style().justifySelf().position() == ItemPosition::AnchorCenter)
+            || (container()->isHorizontalWritingMode() == isHorizontalWritingMode() && style().alignSelf().position() == ItemPosition::AnchorCenter))
+            return dynamicDowncast<const RenderBoxModelObject>(defaultAnchorRenderer());
+        return nullptr;
+    }();
+    // Any auto inset properties resolve to 0 if the box is absolutely positioned and does have a default anchor box.
+    if (defaultAnchorBoxForAnchorCenter) {
+        if (logicalTopLength.isAuto())
+            logicalTopLength = Length(0, LengthType::Fixed);
+        if (logicalBottomLength.isAuto())
+            logicalBottomLength = Length(0, LengthType::Fixed);
+    }
+
     /*---------------------------------------------------------------------------*\
      * For the purposes of this section and the next, the term "static position"
      * (of an element) refers, roughly, to the position an element would have had
@@ -4525,6 +4554,9 @@ void RenderBox::computePositionedLogicalHeight(LogicalExtentComputedValues& comp
             computedValues.m_margins.m_after = minValues.m_margins.m_after;
         }
     }
+
+    if (defaultAnchorBoxForAnchorCenter)
+        computeAnchorCenteredPosition(computedValues, defaultAnchorBoxForAnchorCenter, logicalTopLength, logicalBottomLength, containerLogicalHeight, false);
 
     // Set final height value.
     computedValues.m_extent += bordersPlusPadding;
@@ -5834,7 +5866,7 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerWidth() const
     if (style().containIntrinsicWidthType() == ContainIntrinsicSizeType::None)
         return std::nullopt;
 
-    if (element() && style().containIntrinsicWidthHasAuto() && WebCore::isSkippedContentRoot(style(), element())) {
+    if (element() && style().containIntrinsicWidthHasAuto() && isSkippedContentRoot(*this)) {
         if (auto width = isHorizontalWritingMode() ? element()->lastRememberedLogicalWidth() : element()->lastRememberedLogicalHeight())
             return width;
     }
@@ -5853,7 +5885,7 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerHeight() const
     if (style().containIntrinsicHeightType() == ContainIntrinsicSizeType::None)
         return std::nullopt;
 
-    if (element() && style().containIntrinsicHeightHasAuto() && WebCore::isSkippedContentRoot(style(), element())) {
+    if (element() && style().containIntrinsicHeightHasAuto() && isSkippedContentRoot(*this)) {
         if (auto height = isHorizontalWritingMode() ? element()->lastRememberedLogicalHeight() : element()->lastRememberedLogicalWidth())
             return height;
     }
@@ -5949,6 +5981,81 @@ void RenderBox::removeShapeOutsideInfo()
 
     setRenderBoxHasShapeOutsideInfo(false);
     shapeOutsideInfoMap().remove(*this);
+}
+
+// FIXME: Consider extracting to RenderElement as the same is used in LocalFrameViewLayoutContext.cpp.
+static bool isObjectAncestorContainerOf(const RenderElement& ancestor, const RenderElement& descendant)
+{
+    for (auto* renderer = &descendant; renderer; renderer = renderer->container()) {
+        if (renderer == &ancestor)
+            return true;
+    }
+    return false;
+}
+
+static CheckedPtr<const RenderBlock> findClosestCommonContainer(const RenderElement& elementA, const RenderElement& elementB)
+{
+    CheckedPtr closestCommonContainer = dynamicDowncast<RenderBlock>(&elementA);
+    while (closestCommonContainer && !isObjectAncestorContainerOf(*closestCommonContainer, elementB))
+        closestCommonContainer = dynamicDowncast<RenderBlock>(closestCommonContainer->container());
+    return closestCommonContainer;
+}
+
+// https://drafts.csswg.org/css-anchor-position-1/#anchor-center
+void RenderBox::computeAnchorCenteredPosition(LogicalExtentComputedValues& computedValues, CheckedPtr<const RenderBoxModelObject> defaultAnchorBox, Length logicalLeftLength, Length logicalRightLength, LayoutUnit containerLogicalWidth, bool computeHorizontally) const
+{
+    // Calculate desired anchor-centered position.
+    CheckedPtr closestCommonContainer = findClosestCommonContainer(*this, *defaultAnchorBox);
+    LayoutRect relativeAnchorRect = Style::AnchorPositionEvaluator::computeAnchorRectRelativeToContainingBlock(*defaultAnchorBox, *closestCommonContainer);
+    LayoutUnit desiredPosition = computeHorizontally == isHorizontalWritingMode()
+        ? relativeAnchorRect.x() + (relativeAnchorRect.width() - computedValues.m_extent) / 2
+        : relativeAnchorRect.y() + (relativeAnchorRect.height() - computedValues.m_extent) / 2;
+    LayoutUnit desiredEnd = desiredPosition + computedValues.m_extent;
+
+    LayoutUnit actualLeft = valueForLength(logicalLeftLength, containerLogicalWidth);
+    LayoutUnit actualRight = valueForLength(logicalRightLength, containerLogicalWidth);
+    auto* parentContainer = downcast<RenderBox>(container());
+
+    // Switch from rl to lr as all the calculations are done in lr.
+    if (!container()->isHorizontalWritingMode() && isHorizontalWritingMode()) {
+        auto borderAndPaddingLeft = computeHorizontally ? (parentContainer->borderLeft() + parentContainer->paddingLeft()) : (parentContainer->borderTop() + parentContainer->paddingTop());
+        computedValues.m_position = borderAndPaddingLeft + actualLeft;
+    }
+
+    // https://drafts.csswg.org/css-align-3/#auto-safety-position
+
+    LayoutUnit insetModifiedContainingBlockPosition = computedValues.m_position;
+    LayoutUnit insetModifiedContainingBlockEnd = computedValues.m_position - actualLeft + containerLogicalWidth - actualRight;
+    LayoutUnit containingBlockPosition = insetModifiedContainingBlockPosition - actualLeft;
+    LayoutUnit containingBlockEnd = containingBlockPosition + containerLogicalWidth;
+
+    // 4.4.1.2.1.
+    LayoutUnit defaultOverflowRectPosition = std::min(containingBlockPosition, insetModifiedContainingBlockPosition);
+    LayoutUnit defaultOverflowRectEnd = std::max(containingBlockEnd, insetModifiedContainingBlockEnd);
+    LayoutUnit defaultOverflowRectSize = defaultOverflowRectEnd - defaultOverflowRectPosition;
+
+    const bool overflowsInsetModifiedContainingBlock = desiredPosition < insetModifiedContainingBlockPosition || desiredEnd > insetModifiedContainingBlockEnd;
+    const bool overflowsDefaultOverflowRect = desiredPosition < defaultOverflowRectPosition || desiredEnd > defaultOverflowRectEnd;
+
+    // 4.4.1.2.2.
+    if (overflowsInsetModifiedContainingBlock && !overflowsDefaultOverflowRect)
+        computedValues.m_position = desiredPosition;
+    // 4.4.1.2.3.
+    else if (defaultOverflowRectSize >= computedValues.m_extent && overflowsDefaultOverflowRect) {
+        if (desiredPosition < defaultOverflowRectPosition)
+            computedValues.m_position = desiredPosition + (defaultOverflowRectPosition - desiredPosition);
+        else
+            computedValues.m_position = desiredPosition - (desiredEnd - defaultOverflowRectEnd);
+    } else if (defaultOverflowRectSize < computedValues.m_extent) // 4.4.1.2.4.
+        computedValues.m_position = insetModifiedContainingBlockPosition;
+    else
+        computedValues.m_position = desiredPosition;
+
+    // Switch back from lr to rl if necessary.
+    if (!container()->isHorizontalWritingMode() && isHorizontalWritingMode()) {
+        auto parentContainerLogicalWidth = computeHorizontally == isHorizontalWritingMode() ? parentContainer->width() : parentContainer->height();
+        computedValues.m_position = parentContainerLogicalWidth - (computedValues.m_position + computedValues.m_extent);
+    }
 }
 
 } // namespace WebCore

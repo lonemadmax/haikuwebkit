@@ -30,8 +30,6 @@
 
 namespace WebCore {
 
-Site::Site() = default;
-
 Site::Site(const URL& url)
     : m_protocol(url.protocol().toString())
     , m_domain(url) { }
@@ -52,6 +50,11 @@ unsigned Site::hash() const
 bool Site::matches(const URL& url) const
 {
     return url.protocol() == m_protocol && m_domain.matches(url);
+}
+
+String Site::string() const
+{
+    return isEmpty() ? emptyString() : makeString(m_protocol, "://"_s, m_domain.string());
 }
 
 } // namespace WebKit

@@ -1,4 +1,3 @@
-
 ByteLengthQueuingStrategyBuiltins.h
 CommandLineAPIModuleSourceBuiltins.h
 CompressionStreamBuiltins.h
@@ -973,7 +972,6 @@ css/color/CSSUnresolvedLightDark.cpp
 css/parser/CSSParserImpl.cpp
 css/parser/CSSPropertyParser.cpp
 css/parser/CSSPropertyParserConsumer+Grid.cpp
-css/parser/CSSSelectorParser.cpp
 css/parser/SizesCalcParser.cpp
 css/query/GenericMediaQuerySerialization.cpp
 css/typedom/CSSOMVariableReferenceValue.cpp
@@ -1005,7 +1003,6 @@ dom/Attr.cpp
 dom/BoundaryPoint.cpp
 dom/BroadcastChannel.cpp
 dom/ChildListMutationScope.h
-dom/ComposedTreeAncestorIterator.h
 dom/ComposedTreeIterator.cpp
 dom/ContainerNode.cpp
 dom/ContainerNodeAlgorithms.cpp
@@ -1069,7 +1066,6 @@ dom/NodeRareData.h
 dom/NodeWithIndex.h
 dom/Observable.cpp
 dom/PendingScript.cpp
-dom/PopoverData.h
 dom/Position.cpp
 dom/PositionIterator.cpp
 dom/PositionIterator.h
@@ -1099,7 +1095,6 @@ dom/Traversal.cpp
 dom/TreeScope.cpp
 dom/TreeWalker.cpp
 dom/TrustedType.cpp
-dom/TypedElementDescendantIteratorInlines.h
 dom/ViewTransition.cpp
 dom/ViewTransitionTypeSet.cpp
 dom/VisitedLinkState.cpp
@@ -1313,7 +1308,6 @@ html/parser/HTMLScriptRunner.cpp
 html/parser/HTMLTreeBuilder.cpp
 html/shadow/DateTimeEditElement.cpp
 html/shadow/DateTimeFieldElement.cpp
-html/shadow/DetailsMarkerControl.cpp
 html/shadow/MediaControlTextTrackContainerElement.cpp
 html/shadow/SliderThumbElement.cpp
 html/shadow/SpinButtonElement.cpp
@@ -1587,7 +1581,6 @@ platform/graphics/ImageAdapter.cpp
 platform/graphics/ImageBackingStore.h
 platform/graphics/ImageBufferContextSwitcher.cpp
 platform/graphics/ImageFrame.cpp
-platform/graphics/ImageFrameAnimator.cpp
 platform/graphics/ImageFrameWorkQueue.cpp
 platform/graphics/MediaPlayer.cpp
 platform/graphics/Path.cpp
@@ -1688,7 +1681,6 @@ platform/mediarecorder/MediaRecorderPrivate.h
 platform/mediarecorder/MediaRecorderPrivateAVFImpl.cpp
 platform/mediarecorder/MediaRecorderPrivateMock.cpp
 platform/mediarecorder/cocoa/AudioSampleBufferCompressor.mm
-platform/mediastream/AudioTrackPrivateMediaStream.cpp
 platform/mediastream/MediaStreamTrackDataHolder.cpp
 platform/mediastream/MediaStreamTrackPrivate.cpp
 platform/mediastream/RealtimeMediaSourceCenter.cpp
@@ -2046,7 +2038,6 @@ testing/MockPaymentCoordinator.cpp
 testing/ServiceWorkerInternals.cpp
 testing/js/WebCoreTestSupport.cpp
 workers/DedicatedWorkerGlobalScope.cpp
-workers/ScriptBuffer.cpp
 workers/Worker.cpp
 workers/WorkerAnimationController.cpp
 workers/WorkerConsoleClient.cpp

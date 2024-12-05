@@ -716,6 +716,7 @@ protected:
     bool isMediaElement() const final { return true; }
 
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
+    bool isReplaced(const RenderStyle&) const override { return true; }
 
     SecurityOriginData documentSecurityOrigin() const final;
 
@@ -1118,6 +1119,8 @@ private:
     void watchtimeTimerFired();
     void startBufferingStopwatch();
     void invalidateBufferingStopwatch();
+    void logTextTrackDiagnostics(Ref<TextTrack>, double);
+
 
     enum ForceMuteChange { False, True };
     void setMutedInternal(bool muted, ForceMuteChange);

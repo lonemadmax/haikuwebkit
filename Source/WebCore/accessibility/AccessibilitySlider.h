@@ -35,7 +35,7 @@ namespace WebCore {
 
 class HTMLInputElement;
 
-class AccessibilitySlider : public AccessibilityRenderObject {
+class AccessibilitySlider final : public AccessibilityRenderObject {
 public:
     static Ref<AccessibilitySlider> create(AXID, RenderObject&);
     virtual ~AccessibilitySlider() = default;
@@ -48,17 +48,15 @@ private:
 
     AccessibilityRole determineAccessibilityRole() final { return AccessibilityRole::Slider; }
 
-    bool isControl() const override { return true; }
+    void addChildren() final;
+
+    bool canSetValueAttribute() const final { return true; }
     
-    void addChildren() override;
-    
-    bool canSetValueAttribute() const override { return true; }
-    
-    bool setValue(const String&) override;
-    float valueForRange() const override;
-    float maxValueForRange() const override;
-    float minValueForRange() const override;
-    AccessibilityOrientation orientation() const override;
+    bool setValue(const String&) final;
+    float valueForRange() const final;
+    float maxValueForRange() const final;
+    float minValueForRange() const final;
+    AccessibilityOrientation orientation() const final;
 };
 
 class AccessibilitySliderThumb final : public AccessibilityMockObject {
@@ -67,13 +65,13 @@ public:
     virtual ~AccessibilitySliderThumb() = default;
 
     AccessibilityRole determineAccessibilityRole() final { return AccessibilityRole::SliderThumb; }
-    LayoutRect elementRect() const override;
+    LayoutRect elementRect() const final;
 
 private:
     explicit AccessibilitySliderThumb(AXID);
 
-    bool isSliderThumb() const override { return true; }
-    bool computeIsIgnored() const override;
+    bool isSliderThumb() const final { return true; }
+    bool computeIsIgnored() const final;
 };
 
 } // namespace WebCore

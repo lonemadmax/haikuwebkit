@@ -271,7 +271,8 @@ constexpr const char *kSkippedMessages[] = {
     "VUID-vkCmdDrawIndexed-format-07753",
     "VUID-vkCmdDraw-format-07753",
     "Undefined-Value-ShaderFragmentOutputMismatch",
-    // https://issuetracker.google.com/336652255
+    // https://anglebug.com/336652255
+    "VUID-vkCmdDraw-None-09600",
     "UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout",
     // https://issuetracker.google.com/336847261
     "VUID-VkImageCreateInfo-pNext-02397",
@@ -285,6 +286,13 @@ constexpr const char *kSkippedMessages[] = {
 constexpr const char *kNoListRestartSkippedMessages[] = {
     // http://anglebug.com/42262476
     "VUID-VkPipelineInputAssemblyStateCreateInfo-topology-06252",
+};
+
+// Validation messages that should be ignored only when exposeNonConformantExtensionsAndVersions is
+// enabled on certain test platforms.
+constexpr const char *kExposeNonConformantSkippedMessages[] = {
+    // http://issuetracker.google.com/376899587
+    "VUID-VkSwapchainCreateInfoKHR-presentMode-01427",
 };
 
 // VVL appears has a bug tracking stageMask on VkEvent with secondary command buffer.
@@ -1622,11 +1630,11 @@ bool CanSupportMSRTSSForRGBA8(Renderer *renderer)
 
     bool supportsMSRTTUsageRGBA8 = vk::ImageHelper::FormatSupportsUsage(
         renderer, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
-        kImageUsageFlags, imageCreateFlags, nullptr,
+        kImageUsageFlags, imageCreateFlags, nullptr, nullptr,
         vk::ImageHelper::FormatSupportCheck::RequireMultisampling);
     bool supportsMSRTTUsageRGBA8SRGB = vk::ImageHelper::FormatSupportsUsage(
         renderer, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
-        kImageUsageFlags, imageCreateFlags, nullptr,
+        kImageUsageFlags, imageCreateFlags, nullptr, nullptr,
         vk::ImageHelper::FormatSupportCheck::RequireMultisampling);
 
     return supportsMSRTTUsageRGBA8 && supportsMSRTTUsageRGBA8SRGB;
@@ -1738,11 +1746,12 @@ Renderer::Renderer()
       mPipelineCacheSizeAtLastSync(0),
       mPipelineCacheInitialized(false),
       mValidationMessageCount(0),
+      mIsColorFramebufferFetchCoherent(false),
+      mIsColorFramebufferFetchUsed(false),
       mCommandProcessor(this, &mCommandQueue),
       mSupportedBufferWritePipelineStageMask(0),
       mSupportedVulkanShaderStageMask(0),
-      mMemoryAllocationTracker(MemoryAllocationTracker(this)),
-      mPlaceHolderDescriptorSetLayout(nullptr)
+      mMemoryAllocationTracker(MemoryAllocationTracker(this))
 {
     VkFormatProperties invalid = {0, 0, kInvalidFormatFeatureFlags};
     mFormatProperties.fill(invalid);
@@ -1779,11 +1788,11 @@ void Renderer::onDestroy(vk::Context *context)
         handleDeviceLost();
     }
 
-    if (mPlaceHolderDescriptorSetLayout && mPlaceHolderDescriptorSetLayout->get().valid())
+    if (mPlaceHolderDescriptorSetLayout)
     {
-        ASSERT(!mPlaceHolderDescriptorSetLayout->isReferenced());
-        mPlaceHolderDescriptorSetLayout->get().destroy(getDevice());
-        SafeDelete(mPlaceHolderDescriptorSetLayout);
+        ASSERT(mPlaceHolderDescriptorSetLayout.unique());
+        mPlaceHolderDescriptorSetLayout->destroy(getDevice());
+        mPlaceHolderDescriptorSetLayout.reset();
     }
 
     mCommandProcessor.destroy(context);
@@ -2340,18 +2349,16 @@ angle::Result Renderer::initialize(vk::Context *context,
     }
 
     // Initialize place holder descriptor set layout for empty DescriptorSetLayoutDesc
-    ASSERT(mPlaceHolderDescriptorSetLayout == nullptr);
+    ASSERT(!mPlaceHolderDescriptorSetLayout);
     VkDescriptorSetLayoutCreateInfo createInfo = {};
     createInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     createInfo.flags        = 0;
     createInfo.bindingCount = 0;
     createInfo.pBindings    = nullptr;
 
-    vk::DescriptorSetLayout newLayout;
-    ANGLE_VK_TRY(context, newLayout.init(context->getDevice(), createInfo));
-
-    mPlaceHolderDescriptorSetLayout = new vk::RefCountedDescriptorSetLayout(std::move(newLayout));
-    ASSERT(mPlaceHolderDescriptorSetLayout && mPlaceHolderDescriptorSetLayout->get().valid());
+    mPlaceHolderDescriptorSetLayout = vk::DescriptorSetLayoutPtr::MakeShared();
+    ANGLE_VK_TRY(context, mPlaceHolderDescriptorSetLayout->init(context->getDevice(), createInfo));
+    ASSERT(mPlaceHolderDescriptorSetLayout->valid());
 
     return angle::Result::Continue;
 }
@@ -2416,8 +2423,8 @@ angle::Result Renderer::initializeMemoryAllocator(vk::Context *context)
 
     // Cached coherent staging buffer.  Note coherent is preferred but not required, which means we
     // may get non-coherent memory type.
-    requiredFlags  = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-    preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    requiredFlags   = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    preferredFlags  = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     VkResult result = mAllocator.findMemoryTypeIndexForBufferInfo(
         createInfo, requiredFlags, preferredFlags, persistentlyMapped,
         &mStagingBufferMemoryTypeIndex[vk::MemoryCoherency::CachedPreferCoherent]);
@@ -2539,6 +2546,7 @@ angle::Result Renderer::initializeMemoryAllocator(vk::Context *context)
 // - VK_EXT_vertex_input_dynamic_state:                vertexInputDynamicState (feature)
 // - VK_KHR_dynamic_rendering_local_read:              dynamicRenderingLocalRead (feature)
 // - VK_EXT_shader_atomic_float                        shaderImageFloat32Atomics (feature)
+// - VK_EXT_image_compression_control                  imageCompressionControl (feature)
 //
 void Renderer::appendDeviceExtensionFeaturesNotPromoted(
     const vk::ExtensionNameList &deviceExtensionNames,
@@ -2711,6 +2719,11 @@ void Renderer::appendDeviceExtensionFeaturesNotPromoted(
     if (ExtensionFound(VK_EXT_BLEND_OPERATION_ADVANCED_EXTENSION_NAME, deviceExtensionNames))
     {
         vk::AddToPNextChain(deviceFeatures, &mBlendOperationAdvancedFeatures);
+    }
+
+    if (ExtensionFound(VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME, deviceExtensionNames))
+    {
+        vk::AddToPNextChain(deviceFeatures, &mImageCompressionControlFeatures);
     }
 }
 
@@ -3080,6 +3093,10 @@ void Renderer::queryDeviceExtensionFeatures(const vk::ExtensionNameList &deviceE
     mFloatControlProperties       = {};
     mFloatControlProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES;
 
+    mImageCompressionControlFeatures = {};
+    mImageCompressionControlFeatures.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_COMPRESSION_CONTROL_FEATURES_EXT;
+
 #if defined(ANGLE_PLATFORM_ANDROID)
     mExternalFormatResolveFeatures = {};
     mExternalFormatResolveFeatures.sType =
@@ -3163,6 +3180,7 @@ void Renderer::queryDeviceExtensionFeatures(const vk::ExtensionNameList &deviceE
     mBlendOperationAdvancedFeatures.pNext             = nullptr;
     mVariablePointersFeatures.pNext                   = nullptr;
     mFloatControlProperties.pNext                     = nullptr;
+    mImageCompressionControlFeatures.pNext            = nullptr;
 #if defined(ANGLE_PLATFORM_ANDROID)
     mExternalFormatResolveFeatures.pNext   = nullptr;
     mExternalFormatResolveProperties.pNext = nullptr;
@@ -3191,6 +3209,7 @@ void Renderer::queryDeviceExtensionFeatures(const vk::ExtensionNameList &deviceE
 // - VK_EXT_image_drm_format_modifier
 // - VK_EXT_blend_operation_advanced
 // - VK_EXT_full_screen_exclusive
+// - VK_EXT_image_compression_control
 //
 void Renderer::enableDeviceExtensionsNotPromoted(const vk::ExtensionNameList &deviceExtensionNames)
 {
@@ -3473,6 +3492,12 @@ void Renderer::enableDeviceExtensionsNotPromoted(const vk::ExtensionNameList &de
     {
         mEnabledDeviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_LOCAL_READ_EXTENSION_NAME);
         vk::AddToPNextChain(&mEnabledFeatures, &mDynamicRenderingLocalReadFeatures);
+    }
+
+    if (getFeatures().supportsImageCompressionControl.enabled)
+    {
+        mEnabledDeviceExtensions.push_back(VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME);
+        vk::AddToPNextChain(&mEnabledFeatures, &mImageCompressionControlFeatures);
     }
 
 #if defined(ANGLE_PLATFORM_WINDOWS)
@@ -4119,6 +4144,13 @@ void Renderer::initializeValidationMessageSuppressions()
             kNoListRestartSkippedMessages + ArraySize(kNoListRestartSkippedMessages));
     }
 
+    if (getFeatures().exposeES32ForTesting.enabled)
+    {
+        mSkippedValidationMessages.insert(
+            mSkippedValidationMessages.end(), kExposeNonConformantSkippedMessages,
+            kExposeNonConformantSkippedMessages + ArraySize(kExposeNonConformantSkippedMessages));
+    }
+
     if (getFeatures().useVkEventForImageBarrier.enabled &&
         (!vk::OutsideRenderPassCommandBuffer::ExecutesInline() ||
          !vk::RenderPassCommandBuffer::ExecutesInline()))
@@ -4287,10 +4319,14 @@ gl::Version Renderer::getMaxSupportedESVersion() const
         return maxVersion;
     }
 
-    // Limit to ES3.1 if there are any blockers for 3.2.
     ensureCapsInitialized();
-    if (!mFeatures.exposeNonConformantExtensionsAndVersions.enabled &&
-        !CanSupportGLES32(mNativeExtensions))
+
+    // Limit to ES3.1 if there are any blockers for 3.2.
+    if (mFeatures.exposeES32ForTesting.enabled)
+    {
+        return maxVersion;
+    }
+    if (!CanSupportGLES32(mNativeExtensions))
     {
         maxVersion = LimitVersionTo(maxVersion, {3, 1});
     }
@@ -4380,16 +4416,7 @@ gl::Version Renderer::getMaxSupportedESVersion() const
 
 gl::Version Renderer::getMaxConformantESVersion() const
 {
-    const gl::Version maxSupportedESVersion = getMaxSupportedESVersion();
-    const bool hasGeometryAndTessSupport =
-        getNativeExtensions().geometryShaderAny() && getNativeExtensions().tessellationShaderAny();
-
-    if (!hasGeometryAndTessSupport || !mFeatures.exposeNonConformantExtensionsAndVersions.enabled)
-    {
-        return LimitVersionTo(maxSupportedESVersion, {3, 1});
-    }
-
-    return maxSupportedESVersion;
+    return getMaxSupportedESVersion();
 }
 
 uint32_t Renderer::getDeviceVersion()
@@ -5072,6 +5099,18 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
     ANGLE_FEATURE_CONDITION(&mFeatures, exposeNonConformantExtensionsAndVersions,
                             kExposeNonConformantExtensionsAndVersions);
 
+    // http://issuetracker.google.com/376899587
+    // Currently some testing platforms do not fully support ES 3.2 due to lack of certain features
+    // or extensions. For the purpose of testing coverage, we would still enable ES 3.2 on these
+    // platforms. However, once a listed test platform is updated to a version that does support
+    // ES 3.2, it should be unlisted.
+    ANGLE_FEATURE_CONDITION(
+        &mFeatures, exposeES32ForTesting,
+        mFeatures.exposeNonConformantExtensionsAndVersions.enabled &&
+            (isSwiftShader ||
+             IsPixel4(mPhysicalDeviceProperties.vendorID, mPhysicalDeviceProperties.deviceID) ||
+             (IsLinux() && isNvidia && nvidiaVersion.major <= 440) || (IsWindows() && isIntel)));
+
     ANGLE_FEATURE_CONDITION(
         &mFeatures, supportsMemoryBudget,
         ExtensionFound(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME, deviceExtensionNames));
@@ -5147,19 +5186,39 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
                             IsAndroid() && mFeatures.supportsLegacyDithering.enabled && isARM &&
                                 armDriverVersion < ARMDriverVersion(50, 0, 0));
 
-    // http://anglebug.com/42265365
-    // On ARM hardware, framebuffer-fetch-like behavior on Vulkan is already coherent, so we can
-    // expose the coherent version of the GL extension despite unofficial Vulkan support.
-    ANGLE_FEATURE_CONDITION(
-        &mFeatures, supportsShaderFramebufferFetch,
-        (IsAndroid() && isARM) || mFeatures.supportsRasterizationOrderAttachmentAccess.enabled);
+    // ANGLE always exposes framebuffer fetch because too many apps assume it's there.  See comments
+    // on |mIsColorFramebufferFetchCoherent| for details.  Non-coherent framebuffer fetch is always
+    // supported by Vulkan.
+    //
+    // Without exposeNonConformantExtensionsAndVersions, this feature is disable on Intel/windows
+    // due to lack of input attachment support for swapchain images, and Intel/mesa before mesa
+    // 22.0 for the same reason.  Without VK_GOOGLE_surfaceless_query, there is no way to
+    // automatically deduce this support.
+    //
+    // http://issuetracker.google.com/376899587
+    // Advanced blend emulation depends on this functionaly, lack of which prevents support for
+    // ES 3.2; exposeNonConformantExtensionsAndVersions is used to force this.
+    const bool isMesaAtLeast22_0_0 = mesaVersion.major >= 22;
+    const bool supportsFramebufferFetchInSurface =
+        IsAndroid() || !isIntel || (isIntel && IsLinux() && isMesaAtLeast22_0_0) ||
+        mFeatures.exposeNonConformantExtensionsAndVersions.enabled;
 
-    // Important games are not checking supported extensions properly, and are confusing the
-    // GL_EXT_shader_framebuffer_fetch_non_coherent as the GL_EXT_shader_framebuffer_fetch
-    // extension.  Therefore, don't enable the extension on Android by default.
-    // https://issuetracker.google.com/issues/186643966
-    // https://issuetracker.google.com/issues/340665604
-    ANGLE_FEATURE_CONDITION(&mFeatures, supportsShaderFramebufferFetchNonCoherent, isSwiftShader);
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsShaderFramebufferFetch,
+                            supportsFramebufferFetchInSurface);
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsShaderFramebufferFetchNonCoherent,
+                            supportsFramebufferFetchInSurface);
+
+    // On ARM hardware, framebuffer-fetch-like behavior on Vulkan is known to be coherent even
+    // without the Vulkan extension.
+    //
+    // On IMG hardware, similarly framebuffer-fetch-like behavior on Vulkan is known to be coherent,
+    // but the Vulkan extension cannot be exposed.  This is because the Vulkan extension guarantees
+    // coherence when accessing all samples of a pixel from any other sample, but IMG hardware is
+    // _not_ coherent in that case.  This is not a problem for GLES because the invocation for each
+    // sample can only access values for the same sample by reading "the current color value",
+    // unlike Vulkan-GLSL's |subpassLoad()| which takes a sample index.
+    mIsColorFramebufferFetchCoherent =
+        isARM || isPowerVR || mFeatures.supportsRasterizationOrderAttachmentAccess.enabled;
 
     // Support EGL_KHR_lock_surface3 extension.
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsLockSurfaceExtension, IsAndroid());
@@ -5172,18 +5231,10 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
     ANGLE_FEATURE_CONDITION(&mFeatures, roundOutputAfterDithering, isQualcomm);
 
     // GL_KHR_blend_equation_advanced is emulated when the equivalent Vulkan extension is not
-    // usable.  Additionally, the following platforms don't support INPUT_ATTACHMENT usage for the
-    // swapchain, so they are excluded:
-    //
-    // - Intel on windows
-    // - Intel on Linux before mesa 22.0
-    //
-    // Without VK_GOOGLE_surfaceless_query, there is no way to automatically deduce this support.
-    const bool isMesaAtLeast22_0_0 = mesaVersion.major >= 22;
+    // usable.
     ANGLE_FEATURE_CONDITION(
         &mFeatures, emulateAdvancedBlendEquations,
-        !mFeatures.supportsBlendOperationAdvanced.enabled &&
-            (IsAndroid() || !isIntel || (isIntel && IsLinux() && isMesaAtLeast22_0_0)));
+        !mFeatures.supportsBlendOperationAdvanced.enabled && supportsFramebufferFetchInSurface);
 
     // GL_KHR_blend_equation_advanced_coherent ensures that the blending operations are performed in
     // API primitive order.
@@ -5278,9 +5329,17 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
 
     // Intel driver has issues with VK_EXT_vertex_input_dynamic_state
     // http://anglebug.com/42265637#comment9
+    //
+    // On ARM drivers prior to r48, |vkCmdBindVertexBuffers2| applies strides to the wrong index,
+    // according to the errata: https://developer.arm.com/documentation/SDEN-3735689/0100/?lang=en
+    //
+    // On Qualcomm drivers, this feature has a bug, unknown up to which version.
+    // http://anglebug.com/381384988
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsVertexInputDynamicState,
                             mVertexInputDynamicStateFeatures.vertexInputDynamicState == VK_TRUE &&
-                                !(IsWindows() && isIntel));
+                                !(IsWindows() && isIntel) &&
+                                !(isARM && armDriverVersion < ARMDriverVersion(48, 0, 0)) &&
+                                !isQualcommProprietary);
 
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsExtendedDynamicState,
                             mExtendedDynamicStateFeatures.extendedDynamicState == VK_TRUE &&
@@ -5293,9 +5352,12 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
                             mFeatures.supportsExtendedDynamicState.enabled &&
                                 !mFeatures.supportsVertexInputDynamicState.enabled &&
                                 !isExtendedDynamicStateBuggy && !isVertexInputBindingStrideBuggy);
-    ANGLE_FEATURE_CONDITION(
-        &mFeatures, useCullModeDynamicState,
-        mFeatures.supportsExtendedDynamicState.enabled && !isExtendedDynamicStateBuggy);
+    // On ARM drivers prior to r52, |vkCmdSetCullMode| incorrectly culls non-triangle topologies,
+    // according to the errata: https://developer.arm.com/documentation/SDEN-3735689/0100/?lang=en
+    ANGLE_FEATURE_CONDITION(&mFeatures, useCullModeDynamicState,
+                            mFeatures.supportsExtendedDynamicState.enabled &&
+                                !isExtendedDynamicStateBuggy &&
+                                !(isARM && armDriverVersion < ARMDriverVersion(52, 0, 0)));
     ANGLE_FEATURE_CONDITION(&mFeatures, useDepthCompareOpDynamicState,
                             mFeatures.supportsExtendedDynamicState.enabled);
     ANGLE_FEATURE_CONDITION(&mFeatures, useDepthTestEnableDynamicState,
@@ -5335,20 +5397,20 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
 
     // Samsung Vulkan driver with API level < 1.3.244 has a bug in imageless framebuffer support.
     // http://issuetracker.google.com/42266906
-    //
+    const bool isSamsungDriverWithImagelessFramebufferBug =
+        isSamsung && mPhysicalDeviceProperties.apiVersion < VK_MAKE_VERSION(1, 3, 244);
     // Qualcomm with imageless framebuffers, vkCreateFramebuffer loops forever.
     // http://issuetracker.google.com/369693310
-    //
+    const bool isQualcommWithImagelessFramebufferBug =
+        isQualcommProprietary && qualcommDriverVersion < QualcommDriverVersion(512, 802, 0);
     // PowerVR with imageless framebuffer spends enormous amounts of time in framebuffer destruction
     // and creation. ANGLE doesn't cache imageless framebuffers, instead adding them to garbage
     // collection, expecting them to be lightweight.
     // http://issuetracker.google.com/372273294
-    const bool isSamsungDriverWithImagelessFramebufferBug =
-        isSamsung && mPhysicalDeviceProperties.apiVersion < VK_MAKE_VERSION(1, 3, 244);
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsImagelessFramebuffer,
                             mImagelessFramebufferFeatures.imagelessFramebuffer == VK_TRUE &&
                                 !isSamsungDriverWithImagelessFramebufferBug &&
-                                !isQualcommProprietary && !isPowerVR);
+                                !isQualcommWithImagelessFramebufferBug && !isPowerVR);
 
     if (ExtensionFound(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, deviceExtensionNames))
     {
@@ -5657,7 +5719,11 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
     // Emulation of GL_EXT_multisampled_render_to_texture is not possible with dynamic rendering.
     // That support is also not sacrificed for dynamic rendering.
     //
-    // Use of dynamic rendering is disabled on ARM due to driver bugs (b/356051947).
+    // Use of dynamic rendering is disabled on older ARM drivers due to driver bugs
+    // (http://issuetracker.google.com/356051947).
+    //
+    // Use of dynamic rendering on PowerVR devices is disabled for performance reasons
+    // (http://issuetracker.google.com/372273294).
     const bool hasLegacyDitheringV1 =
         mFeatures.supportsLegacyDithering.enabled &&
         (mLegacyDitheringVersion < 2 || !mFeatures.supportsMaintenance5.enabled);
@@ -5668,7 +5734,8 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
                             mFeatures.supportsDynamicRendering.enabled &&
                                 mFeatures.supportsDynamicRenderingLocalRead.enabled &&
                                 !hasLegacyDitheringV1 && !emulatesMultisampledRenderToTexture &&
-                                !isARM);
+                                !(isARM && armDriverVersion < ARMDriverVersion(52, 0, 0)) &&
+                                !isPowerVR);
 
     // On tile-based renderers, breaking the render pass is costly.  Changing into and out of
     // framebuffer fetch causes the render pass to break so that the layout of the color attachments
@@ -5699,6 +5766,11 @@ void Renderer::initFeatures(const vk::ExtensionNameList &deviceExtensionNames,
                             mSynchronization2Features.synchronization2 == VK_TRUE);
 
     ANGLE_FEATURE_CONDITION(&mFeatures, descriptorSetCache, true);
+
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsImageCompressionControl,
+                            mImageCompressionControlFeatures.imageCompressionControl == VK_TRUE);
+
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsAstcSliced3d, isARM);
 
     // Disable memory report feature overrides if extension is not supported.
     if ((mFeatures.logMemoryReportCallbacks.enabled || mFeatures.logMemoryReportStats.enabled) &&

@@ -2986,8 +2986,8 @@ Ref<TextureView> Texture::createView(const WGPUTextureViewDescriptor& inputDescr
 
 void Texture::recreateIfNeeded()
 {
-    RELEASE_ASSERT(m_canvasBacking);
-    m_destroyed = false;
+    if (m_canvasBacking)
+        m_destroyed = false;
 }
 
 void Texture::makeCanvasBacking()
@@ -3273,6 +3273,9 @@ WGPUExtent3D Texture::physicalMiplevelSpecificTextureExtent(uint32_t mipLevel)
 
 WGPUExtent3D Texture::physicalTextureExtent(WGPUTextureDimension dimension, WGPUTextureFormat format, WGPUExtent3D logicalExtent)
 {
+    ASSERT(texelBlockWidth(format));
+    ASSERT(texelBlockHeight(format));
+
     switch (dimension) {
     case WGPUTextureDimension_1D:
         return {

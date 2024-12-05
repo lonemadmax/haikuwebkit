@@ -81,7 +81,7 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
             width = fontCascade.widthForTextUsingSimplifiedMeasuring(view);
     } else {
         auto& style = inlineTextBox.style();
-        auto directionalOverride = style.unicodeBidi() == UnicodeBidi::Override;
+        auto directionalOverride = isOverride(style.unicodeBidi());
         auto run = WebCore::TextRun { StringView(text).substring(from, to - from), contentLogicalLeft, { }, ExpansionBehavior::defaultBehavior(), directionalOverride ? style.writingMode().bidiDirection() : TextDirection::LTR, directionalOverride };
         if (!style.collapseWhiteSpace() && style.tabSize())
             run.setTabSize(true, style.tabSize());
@@ -505,7 +505,7 @@ bool TextUtil::containsStrongDirectionalityText(StringView text)
             constexpr auto cD7FF = SIMD::splat<UnsignedType>(0xD7FF);
             constexpr auto cFF00 = SIMD::splat<UnsignedType>(0xFF00);
             auto maybeBidiRTL = [&](auto* cursor) ALWAYS_INLINE_LAMBDA {
-                auto input = SIMD::load(bitwise_cast<const UnsignedType*>(cursor));
+                auto input = SIMD::load(std::bit_cast<const UnsignedType*>(cursor));
                 // ch < 0x0590
                 auto cond0 = SIMD::lessThan(input, c0590);
                 // General Punctuation such as curly quotes.

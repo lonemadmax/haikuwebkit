@@ -176,7 +176,7 @@ public:
         size_t markCount();
         size_t size();
 
-        size_t backingStorageSize() { return bitwise_cast<uintptr_t>(end()) - bitwise_cast<uintptr_t>(pageStart()); }
+        size_t backingStorageSize() { return std::bit_cast<uintptr_t>(end()) - std::bit_cast<uintptr_t>(pageStart()); }
         
         bool isAllocated();
         
@@ -406,7 +406,7 @@ public:
 
     void populatePage() const
     {
-        *bitwise_cast<volatile uint8_t*>(&header());
+        *std::bit_cast<volatile uint8_t*>(&header());
     }
     
     void setVerifierMemo(void*);
@@ -425,13 +425,14 @@ private:
     inline bool marksConveyLivenessDuringMarking(HeapVersion markingVersion);
     inline bool marksConveyLivenessDuringMarking(HeapVersion myMarkingVersion, HeapVersion markingVersion);
 
-    // This is only used for debugging. We should remove this once the issue is resolved (rdar://136782494)
-    NO_RETURN_DUE_TO_CRASH NEVER_INLINE void dumpInfoAndCrashForInvalidHandle(AbstractLocker&, HeapCell*);
+    // FIXME: rdar://139998916
+    NO_RETURN_DUE_TO_CRASH NEVER_INLINE void dumpInfoAndCrashForInvalidHandleV2(AbstractLocker&, HeapCell*);
+    inline void setupTestForDumpInfoAndCrash();
 };
 
 inline MarkedBlock::Header& MarkedBlock::header()
 {
-    return *bitwise_cast<MarkedBlock::Header*>(atoms() + headerAtom);
+    return *std::bit_cast<MarkedBlock::Header*>(atoms() + headerAtom);
 }
 
 inline const MarkedBlock::Header& MarkedBlock::header() const
@@ -703,7 +704,7 @@ inline void MarkedBlock::setVerifierMemo(void* p)
 template<typename T>
 T MarkedBlock::verifierMemo() const
 {
-    return bitwise_cast<T>(header().m_verifierMemo);
+    return std::bit_cast<T>(header().m_verifierMemo);
 }
 
 } // namespace JSC

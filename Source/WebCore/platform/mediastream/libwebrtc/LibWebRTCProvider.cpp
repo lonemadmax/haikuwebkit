@@ -83,14 +83,6 @@ LibWebRTCProvider::~LibWebRTCProvider()
 }
 
 #if !PLATFORM(COCOA)
-void LibWebRTCProvider::registerWebKitVP9Decoder()
-{
-}
-
-void LibWebRTCProvider::registerWebKitVP8Decoder()
-{
-}
-
 void WebRTCProvider::setH264HardwareEncoderAllowed(bool)
 {
 }
@@ -322,10 +314,9 @@ rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> LibWebRTCProvider::cr
     willCreatePeerConnectionFactory();
 
     ASSERT(!m_audioModule);
-    auto audioModule = rtc::make_ref_counted<LibWebRTCAudioModule>();
-    m_audioModule = audioModule.get();
+    m_audioModule = LibWebRTCAudioModule::create();
 
-    return webrtc::CreatePeerConnectionFactory(networkThread, signalingThread, signalingThread, WTFMove(audioModule), webrtc::CreateBuiltinAudioEncoderFactory(), webrtc::CreateBuiltinAudioDecoderFactory(), createEncoderFactory(), createDecoderFactory(), nullptr, nullptr, nullptr, nullptr
+    return webrtc::CreatePeerConnectionFactory(networkThread, signalingThread, signalingThread, rtc::scoped_refptr<webrtc::AudioDeviceModule>(m_audioModule.get()), webrtc::CreateBuiltinAudioEncoderFactory(), webrtc::CreateBuiltinAudioDecoderFactory(), createEncoderFactory(), createDecoderFactory(), nullptr, nullptr, nullptr, nullptr
 #if PLATFORM(COCOA)
         , webrtc::CreateTaskQueueGcdFactory()
 #endif

@@ -27,8 +27,6 @@
 #include "config.h"
 #include "CSSGradient.h"
 
-#include "CSSCalcSymbolTable.h"
-#include "CSSCalcValue.h"
 #include "CSSPrimitiveNumericTypes+CSSValueVisitation.h"
 #include "CSSPrimitiveNumericTypes+ComputedStyleDependencies.h"
 #include "CSSPrimitiveNumericTypes+Serialization.h"
@@ -82,12 +80,12 @@ void Serialize<GradientDeprecatedColorStop>::operator()(StringBuilder& builder, 
     };
 
     auto appendCalc = [&](const auto& calc) {
-        builder.append("color-stop("_s, calc.calc->cssText(), ", "_s, stop.protectedColor()->cssText(), ')');
+        builder.append("color-stop("_s, calc.protectedCalc()->cssText(), ", "_s, stop.protectedColor()->cssText(), ')');
     };
 
     WTF::switchOn(stop.position,
         [&](const Number<>& number) {
-            return WTF::switchOn(number.value,
+            return WTF::switchOn(number,
                 [&](NumberRaw<> raw) {
                     appendRaw(stop.color, raw);
                 },
@@ -97,7 +95,7 @@ void Serialize<GradientDeprecatedColorStop>::operator()(StringBuilder& builder, 
             );
         },
         [&](const Percentage<>& percentage) {
-            return WTF::switchOn(percentage.value,
+            return WTF::switchOn(percentage,
                 [&](PercentageRaw<> raw) {
                     appendRaw(stop.color, { raw.value / 100.0 });
                 },
@@ -174,7 +172,7 @@ static bool appendColorInterpolationMethod(StringBuilder& builder, CSS::Gradient
             }
             return false;
         },
-        [&]<typename MethodColorSpace> (const MethodColorSpace& methodColorSpace) {
+        [&]<typename MethodColorSpace>(const MethodColorSpace& methodColorSpace) {
             builder.append(needsLeadingSpace ? " "_s : ""_s, "in "_s, serializationForCSS(methodColorSpace.interpolationColorSpace));
             if constexpr (hasHueInterpolationMethod<MethodColorSpace>)
                 serializationForCSS(builder, methodColorSpace.hueInterpolationMethod);
@@ -191,7 +189,7 @@ void Serialize<LinearGradient>::operator()(StringBuilder& builder, const LinearG
 
     WTF::switchOn(gradient.gradientLine,
         [&](const Angle<>& angle) {
-            WTF::switchOn(angle.value,
+            WTF::switchOn(angle,
                 [&](const AngleRaw<>& angleRaw) {
                     if (CSSPrimitiveValue::computeDegrees(angleRaw.type, angleRaw.value) == 180)
                         return;
@@ -211,7 +209,7 @@ void Serialize<LinearGradient>::operator()(StringBuilder& builder, const LinearG
             wroteSomething = true;
         },
         [&](const Vertical& vertical) {
-            if (std::holds_alternative<Bottom>(vertical))
+            if (std::holds_alternative<Keyword::Bottom>(vertical))
                 return;
 
             builder.append("to "_s);
@@ -268,7 +266,7 @@ void Serialize<RadialGradient::Ellipse>::operator()(StringBuilder& builder, cons
             serializationForCSS(builder, size);
         },
         [&](const RadialGradient::Extent& extent) {
-            if (!std::holds_alternative<FarthestCorner>(extent))
+            if (!std::holds_alternative<Keyword::FarthestCorner>(extent))
                 serializationForCSS(builder, extent);
         }
     );
@@ -292,7 +290,7 @@ void Serialize<RadialGradient::Circle>::operator()(StringBuilder& builder, const
             serializationForCSS(builder, length);
         },
         [&](const RadialGradient::Extent& extent) {
-            if (!std::holds_alternative<FarthestCorner>(extent)) {
+            if (!std::holds_alternative<Keyword::FarthestCorner>(extent)) {
                 builder.append("circle "_s);
                 serializationForCSS(builder, extent);
             } else
@@ -354,7 +352,7 @@ void Serialize<PrefixedRadialGradient::Circle>::operator()(StringBuilder& builde
         builder.append("center"_s);
 
     builder.append(", circle "_s);
-    serializationForCSS(builder, circle.size.value_or(PrefixedRadialGradient::Extent { CSS::Cover { } }));
+    serializationForCSS(builder, circle.size.value_or(PrefixedRadialGradient::Extent { CSS::Keyword::Cover { } }));
 }
 
 void Serialize<PrefixedRadialGradient>::operator()(StringBuilder& builder, const PrefixedRadialGradient& gradient)
@@ -401,7 +399,7 @@ void Serialize<ConicGradient::GradientBox>::operator()(StringBuilder& builder, c
     bool wroteSomething = false;
 
     if (gradientBox.angle) {
-        WTF::switchOn(gradientBox.angle->value,
+        WTF::switchOn(*gradientBox.angle,
             [&](const AngleRaw<>& angleRaw) {
                 if (angleRaw.value) {
                     builder.append("from "_s);

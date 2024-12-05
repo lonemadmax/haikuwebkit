@@ -81,7 +81,6 @@
 #import "WebUserContentControllerProxy.h"
 #import "_WKWebExtensionDeclarativeNetRequestSQLiteStore.h"
 #import "_WKWebExtensionDeclarativeNetRequestTranslator.h"
-#import "_WKWebExtensionLocalization.h"
 #import "_WKWebExtensionRegisteredScriptsSQLiteStore.h"
 #import "_WKWebExtensionStorageSQLiteStore.h"
 #import <UniformTypeIdentifiers/UTType.h>
@@ -122,7 +121,7 @@ static NSString * const sessionStorageAllowedInContentScriptsKey = @"SessionStor
 static constexpr NSInteger currentBackgroundContentListenerStateVersion = 3;
 
 // Update this value when any changes are made to the rule translation logic in _WKWebExtensionDeclarativeNetRequestRule.
-static constexpr NSInteger currentDeclarativeNetRequestRuleTranslatorVersion = 2;
+static constexpr NSInteger currentDeclarativeNetRequestRuleTranslatorVersion = 3;
 
 @interface _WKWebExtensionContextDelegate : NSObject <WKNavigationDelegate, WKUIDelegate> {
     WeakPtr<WebKit::WebExtensionContext> _webExtensionContext;
@@ -406,7 +405,7 @@ bool WebExtensionContext::unload(NSError **outError)
 
     m_actionsToPerformAfterBackgroundContentLoads.clear();
     m_backgroundContentEventListeners.clear();
-    m_eventListenerPages.clear();
+    m_eventListenerFrames.clear();
     m_installReason = InstallReason::None;
     m_previousVersion = nullString();
     m_safeToLoadBackgroundContent = false;
@@ -617,11 +616,11 @@ void WebExtensionContext::setUniqueIdentifier(String&& uniqueIdentifier)
     m_uniqueIdentifier = uniqueIdentifier;
 }
 
-_WKWebExtensionLocalization *WebExtensionContext::localization()
+RefPtr<WebExtensionLocalization> WebExtensionContext::localization()
 {
     if (!m_localization)
-        m_localization = [[_WKWebExtensionLocalization alloc] initWithLocalizedDictionary:protectedExtension()->localization().localizationDictionary uniqueIdentifier:baseURL().host().toString()];
-    return m_localization.get();
+        m_localization = WebExtensionLocalization::create(protectedExtension()->localization()->localizationJSON(), baseURL().host().toString());
+    return m_localization;
 }
 
 RefPtr<API::Data> WebExtensionContext::localizedResourceData(const RefPtr<API::Data>& resourceData, const String& mimeType)
@@ -644,11 +643,11 @@ String WebExtensionContext::localizedResourceString(const String& resourceConten
     if (!equalLettersIgnoringASCIICase(mimeType, "text/css"_s) || resourceContents.isEmpty() || !resourceContents.contains("__MSG_"_s))
         return resourceContents;
 
-    auto* localization = this->localization();
+    RefPtr localization = this->localization();
     if (!localization)
         return resourceContents;
 
-    return [localization localizedStringForString:resourceContents];
+    return localization->localizedStringForString(resourceContents);
 }
 
 void WebExtensionContext::setInspectable(bool inspectable)
@@ -932,6 +931,8 @@ void WebExtensionContext::permissionsDidChange(NSNotificationName notificationNa
     clearCachedPermissionStates();
 
     if (isLoaded()) {
+        updateCORSDisablingPatternsOnAllExtensionPages();
+
         if ([notificationName isEqualToString:WKWebExtensionContextPermissionMatchPatternsWereGrantedNotification]) {
             addInjectedContent(injectedContents(), matchPatterns);
             firePermissionsEventListenerIfNecessary(WebExtensionEventListenerType::PermissionsOnAdded, { }, matchPatterns);
@@ -1236,13 +1237,15 @@ void WebExtensionContext::requestPermissionMatchPatterns(const MatchPatternSet& 
     }
 
     if (!isLoaded() || neededMatchPatterns.isEmpty()) {
-        completionHandler(WTFMove(neededMatchPatterns), { }, WallTime::infinity());
+        if (completionHandler)
+            completionHandler(WTFMove(neededMatchPatterns), { }, WallTime::infinity());
         return;
     }
 
     auto delegate = extensionController()->delegate();
     if (![delegate respondsToSelector:@selector(webExtensionController:promptForPermissionMatchPatterns:inTab:forExtensionContext:completionHandler:)]) {
-        completionHandler(WTFMove(neededMatchPatterns), { }, WallTime::infinity());
+        if (completionHandler)
+            completionHandler(WTFMove(neededMatchPatterns), { }, WallTime::infinity());
         return;
     }
 
@@ -1292,13 +1295,15 @@ void WebExtensionContext::requestPermissionToAccessURLs(const URLVector& request
     }
 
     if (!isLoaded() || neededURLs.isEmpty()) {
-        completionHandler(WTFMove(neededURLs), { }, WallTime::infinity());
+        if (completionHandler)
+            completionHandler(WTFMove(neededURLs), { }, WallTime::infinity());
         return;
     }
 
     auto delegate = extensionController()->delegate();
     if (![delegate respondsToSelector:@selector(webExtensionController:promptForPermissionToAccessURLs:inTab:forExtensionContext:completionHandler:)]) {
-        completionHandler(WTFMove(neededURLs), { }, WallTime::infinity());
+        if (completionHandler)
+            completionHandler(WTFMove(neededURLs), { }, WallTime::infinity());
         return;
     }
 
@@ -2698,6 +2703,13 @@ void WebExtensionContext::resourceLoadDidReceiveResponse(WebPageProxyIdentifier 
 void WebExtensionContext::resourceLoadDidCompleteWithError(WebPageProxyIdentifier pageID, const ResourceLoadInfo& loadInfo, const WebCore::ResourceResponse& response, const WebCore::ResourceError& error)
 {
     RefPtr tab = getTab(pageID);
+
+    // If a Fetch or XHR fails due to CORS, prompt the user for permission to the URL. This won’t help the failed request, but future requests might succeed if the user grants access.
+    if (error.isAccessControl() && (loadInfo.type == ResourceLoadInfo::Type::Fetch || loadInfo.type == ResourceLoadInfo::Type::XMLHTTPRequest)) {
+        RELEASE_LOG_ERROR(Extensions, "Requesting permission to access URL due to CORS failure: %{sensitive}s", loadInfo.originalURL.string().utf8().data());
+        requestPermissionToAccessURLs({ loadInfo.originalURL }, tab, nullptr, GrantOnCompletion::Yes, { PermissionStateOptions::RequestedWithTabsPermission, PermissionStateOptions::IncludeOptionalPermissions });
+    }
+
     if (!hasPermissionToSendWebRequestEvent(tab.get(), response.url(), loadInfo))
         return;
 
@@ -3277,7 +3289,9 @@ void WebExtensionContext::addPopupPage(WebPageProxy& page, WebExtensionAction& a
     auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
     Ref protectedPage = page;
-    protectedPage->protectedLegacyMainFrameProcess()->send(Messages::WebExtensionContextProxy::AddPopupPageIdentifier(protectedPage->webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier), identifier());
+    protectedPage->forEachWebContentProcess([&](auto& webProcess, auto pageID) {
+        webProcess.send(Messages::WebExtensionContextProxy::AddPopupPageIdentifier(pageID, tabIdentifier, windowIdentifier), identifier());
+    });
 }
 
 void WebExtensionContext::addExtensionTabPage(WebPageProxy& page, WebExtensionTab& tab)
@@ -3285,9 +3299,14 @@ void WebExtensionContext::addExtensionTabPage(WebPageProxy& page, WebExtensionTa
     m_extensionPageTabMap.set(page, tab.identifier());
 
     RefPtr window = tab.window();
+
+    auto tabIdentifier = tab.identifier();
     auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-    page.protectedLegacyMainFrameProcess()->send(Messages::WebExtensionContextProxy::AddTabPageIdentifier(page.webPageIDInMainFrameProcess(), tab.identifier(), windowIdentifier), identifier());
+    Ref protectedPage = page;
+    protectedPage->forEachWebContentProcess([&](auto& webProcess, auto pageID) {
+        webProcess.send(Messages::WebExtensionContextProxy::AddTabPageIdentifier(pageID, tabIdentifier, windowIdentifier), identifier());
+    });
 }
 
 void WebExtensionContext::enumerateExtensionPages(Function<void(WebPageProxy&, bool&)>&& action)
@@ -3340,20 +3359,23 @@ ALLOW_NONLITERAL_FORMAT_END
 NSArray *WebExtensionContext::corsDisablingPatterns()
 {
     NSMutableSet<NSString *> *patterns = [NSMutableSet set];
-    RefPtr extension = m_extension;
 
-    auto requestedMatchPatterns = extension->allRequestedMatchPatterns();
-    for (auto& requestedMatchPattern : requestedMatchPatterns)
-        [patterns addObjectsFromArray:createNSArray(requestedMatchPattern->expandedStrings()).get()];
-
-    // Include manifest optional permission origins here, these should be dynamically added when the are granted
-    // but we need SPI to update corsDisablingPatterns outside of the WKWebViewConfiguration to do that.
-    // FIXME: rdar://102912898 (CORS for Web Extension pages should respect granted per-site permissions)
-    auto optionalPermissionMatchPatterns = extension->optionalPermissionMatchPatterns();
-    for (auto& optionalMatchPattern : optionalPermissionMatchPatterns)
-        [patterns addObjectsFromArray:createNSArray(optionalMatchPattern->expandedStrings()).get()];
+    auto grantedMatchPatterns = grantedPermissionMatchPatterns();
+    for (auto& entry : grantedMatchPatterns) {
+        Ref pattern = entry.key;
+        [patterns addObjectsFromArray:createNSArray(pattern->expandedStrings()).get()];
+    }
 
     return [patterns allObjects];
+}
+
+void WebExtensionContext::updateCORSDisablingPatternsOnAllExtensionPages()
+{
+    auto *patterns = corsDisablingPatterns();
+    enumerateExtensionPages([&](auto& page, bool& stop) {
+        auto *webView = page.cocoaView().get();
+        webView._corsDisablingPatterns = patterns;
+    });
 }
 
 WKWebViewConfiguration *WebExtensionContext::webViewConfiguration(WebViewPurpose purpose)
@@ -3458,6 +3480,19 @@ void WebExtensionContext::loadBackgroundWebViewDuringLoad()
         loadBackgroundWebView();
 }
 
+bool WebExtensionContext::isBackgroundPage(WebCore::FrameIdentifier frameIdentifier) const
+{
+    RefPtr frame = WebFrameProxy::webFrame(frameIdentifier);
+    if (!frame)
+        return false;
+
+    RefPtr page = frame->page();
+    if (!page)
+        return false;
+
+    return isBackgroundPage(page->identifier());
+}
+
 bool WebExtensionContext::isBackgroundPage(WebPageProxyIdentifier pageProxyIdentifier) const
 {
     return m_backgroundWebView && m_backgroundWebView.get()._page->identifier() == pageProxyIdentifier;
@@ -3507,13 +3542,13 @@ void WebExtensionContext::loadBackgroundWebView()
     m_backgroundContentLoadError = nil;
 
     Ref backgroundPage = *m_backgroundWebView.get()._page;
-    Ref backgroundProcess = backgroundPage->protectedLegacyMainFrameProcess();
+    Ref backgroundProcess = backgroundPage->siteIsolatedProcess();
 
     // Use foreground activity to keep background content responsive to events.
     m_backgroundWebViewActivity = backgroundProcess->protectedThrottler()->foregroundActivity("Web Extension background content"_s);
 
     if (!protectedExtension()->backgroundContentIsServiceWorker()) {
-        backgroundPage->protectedLegacyMainFrameProcess()->send(Messages::WebExtensionContextProxy::SetBackgroundPageIdentifier(backgroundPage->webPageIDInMainFrameProcess()), identifier());
+        backgroundProcess->send(Messages::WebExtensionContextProxy::SetBackgroundPageIdentifier(backgroundPage->webPageIDInMainFrameProcess()), identifier());
 
         [m_backgroundWebView loadRequest:[NSURLRequest requestWithURL:backgroundContentURL()]];
         return;
@@ -3982,7 +4017,7 @@ HashSet<Ref<WebProcessProxy>> WebExtensionContext::processes(const API::Inspecto
 
     const auto& inspectorContext = m_inspectorContextMap.get(*inspectorProxy);
     if (auto *backgroundWebView = inspectorContext.backgroundWebView.get())
-        result.add(backgroundWebView._page->legacyMainFrameProcess());
+        result.add(backgroundWebView._page->siteIsolatedProcess());
 
     return result;
 }
@@ -4136,6 +4171,7 @@ void WebExtensionContext::loadInspectorBackgroundPage(WebInspectorUIProxy& inspe
         Ref inspectorExtension = result.value().releaseNonNull();
         inspectorExtension->setClient(makeUniqueRef<InspectorExtensionClient>(inspectorExtension, *this));
 
+        // FIXME: <https://webkit.org/b/283442> Make Web Inspector extensions work in site isolation.
         Ref process = inspectorBackgroundWebView._page->legacyMainFrameProcess();
 
         // Use foreground activity to keep background content responsive to events.

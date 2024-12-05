@@ -78,6 +78,21 @@ angle::Result CLKernelVk::init()
                     pcRange.size = arg.pushConstOffset + arg.pushConstantSize - pcRange.offset;
                 }
                 continue;
+            case NonSemanticClspvReflectionArgumentSampledImage:
+                descType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                break;
+            case NonSemanticClspvReflectionArgumentStorageImage:
+                descType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                break;
+            case NonSemanticClspvReflectionArgumentSampler:
+                descType = VK_DESCRIPTOR_TYPE_SAMPLER;
+                break;
+            case NonSemanticClspvReflectionArgumentStorageTexelBuffer:
+                descType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+                break;
+            case NonSemanticClspvReflectionArgumentUniformTexelBuffer:
+                descType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+                break;
             default:
                 continue;
         }
@@ -299,7 +314,7 @@ angle::Result CLKernelVk::getOrCreateComputePipeline(vk::PipelineCacheAccess *pi
 
     // Now get or create (on compute pipeline cache miss) compute pipeline and return it
     return mShaderProgramHelper.getOrCreateComputePipeline(
-        mContext, &mComputePipelineCache, pipelineCache, getPipelineLayout().get(),
+        mContext, &mComputePipelineCache, pipelineCache, getPipelineLayout(),
         vk::ComputePipelineOptions{}, PipelineSource::Draw, pipelineOut, mName.c_str(),
         &computeSpecializationInfo);
 }
@@ -315,7 +330,7 @@ angle::Result CLKernelVk::allocateDescriptorSet(
     angle::EnumIterator<DescriptorSetIndex> layoutIndex,
     vk::OutsideRenderPassCommandBufferHelper *computePassCommands)
 {
-    return mProgram->allocateDescriptorSet(index, mDescriptorSetLayouts[*layoutIndex].get(),
+    return mProgram->allocateDescriptorSet(index, *mDescriptorSetLayouts[*layoutIndex],
                                            computePassCommands, &mDescriptorSets[index]);
 }
 }  // namespace rx

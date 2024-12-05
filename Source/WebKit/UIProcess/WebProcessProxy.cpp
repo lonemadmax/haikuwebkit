@@ -329,14 +329,14 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* 
     , m_visiblePageCounter([this](RefCounterEvent) { updateBackgroundResponsivenessTimer(); })
     , m_websiteDataStore(websiteDataStore)
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    , m_userMediaCaptureManagerProxy(makeUnique<UserMediaCaptureManagerProxy>(makeUniqueRef<UIProxyForCapture>(*this)))
+    , m_userMediaCaptureManagerProxy(UserMediaCaptureManagerProxy::create(makeUniqueRef<UIProxyForCapture>(*this)))
 #endif
     , m_isPrewarmed(isPrewarmed == IsPrewarmed::Yes)
     , m_lockdownMode(lockdownMode)
     , m_crossOriginMode(crossOriginMode)
     , m_shutdownPreventingScopeCounter([this](RefCounterEvent event) { if (event == RefCounterEvent::Decrement) maybeShutDown(); })
     , m_webLockRegistry(websiteDataStore ? makeUniqueWithoutRefCountedCheck<WebLockRegistryProxy>(*this) : nullptr)
-    , m_webPermissionController(makeUnique<WebPermissionControllerProxy>(*this))
+    , m_webPermissionController(makeUniqueRefWithoutRefCountedCheck<WebPermissionControllerProxy>(*this))
 {
     RELEASE_ASSERT(isMainThreadOrCheckDisabled());
     WEBPROCESSPROXY_RELEASE_LOG(Process, "constructor:");
@@ -1275,6 +1275,13 @@ void WebProcessProxy::didClose(IPC::Connection& connection)
     processDidTerminateOrFailedToLaunch(ProcessTerminationReason::Crash);
 }
 
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+Ref<UserMediaCaptureManagerProxy> WebProcessProxy::protectedUserMediaCaptureManagerProxy()
+{
+    return m_userMediaCaptureManagerProxy.get();
+}
+#endif
+
 void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReason reason)
 {
     WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "processDidTerminateOrFailedToLaunch: reason=%" PUBLIC_LOG_STRING, processTerminationReasonToString(reason).characters());
@@ -1850,11 +1857,8 @@ void WebProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImmi
 void WebProcessProxy::sendProcessDidResume(ResumeReason)
 {
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "sendProcessDidResume:");
-    if (canSendMessage()) {
+    if (canSendMessage())
         send(Messages::WebProcess::ProcessDidResume(), 0);
-        if (RefPtr pool = processPoolIfExists())
-            send(Messages::WebProcess::SetHiddenPageDOMTimerThrottlingIncreaseLimit(pool->hiddenPageThrottlingAutoIncreaseLimit()), 0);
-    }
 }
 
 void WebProcessProxy::setThrottleStateForTesting(ProcessThrottleState state)
@@ -2212,7 +2216,7 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
     if (!url.protocolIsInHTTPFamily() && !processPool().configuration().processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol()) {
         // Unless the processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol flag is set, we don't process swap on navigations withing the same
         // non HTTP(s) protocol. For this reason, we ignore the registrable domain and processes are not eligible for the process cache.
-        m_site = WebCore::Site { };
+        m_site = Site { { }, { } };
         return;
     }
 
@@ -2225,7 +2229,7 @@ void WebProcessProxy::didStartProvisionalLoadForMainFrame(const URL& url)
             dataStore->protectedNetworkProcess()->terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType::SharedWorker, dataStore->sessionID(), m_site->domain(), coreProcessIdentifier());
 
         // Null out registrable domain since this process has now been used for several domains.
-        m_site = WebCore::Site { };
+        m_site = Site { { }, { } };
         return;
     }
 
@@ -2543,41 +2547,65 @@ void WebProcessProxy::updateRemoteWorkerPreferencesStore(const WebPreferencesSto
         send(Messages::WebSharedWorkerContextManagerConnection::UpdatePreferencesStore { store }, 0);
 }
 
-void WebProcessProxy::updateRemoteWorkerProcessAssertion(RemoteWorkerType workerType)
+void WebProcessProxy::updateServiceWorkerProcessAssertion()
 {
-    auto& workerInformation = workerType == RemoteWorkerType::SharedWorker ? m_sharedWorkerInformation : m_serviceWorkerInformation;
-    ASSERT(workerInformation);
-    if (!workerInformation)
+    WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "updateServiceWorkerProcessAssertion");
+
+    if (!m_serviceWorkerInformation->hasBackgroundProcessing) {
+        m_serviceWorkerInformation->activity = nullptr;
         return;
+    }
 
-    WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "updateRemoteWorkerProcessAssertion: workerType=%" PUBLIC_LOG_STRING, workerType == RemoteWorkerType::SharedWorker ? "shared" : "service");
-
-    bool shouldTakeForegroundActivity = WTF::anyOf(workerInformation->clientProcesses, [&](auto& process) {
+    bool shouldTakeForegroundActivity = WTF::anyOf(m_serviceWorkerInformation->clientProcesses, [&](auto& process) {
         return &process != this && !!process.m_foregroundToken;
     });
     if (shouldTakeForegroundActivity) {
-        if (!ProcessThrottler::isValidForegroundActivity(workerInformation->activity.get()))
-            workerInformation->activity = protectedThrottler()->foregroundActivity("Worker for foreground view(s)"_s);
+        if (!ProcessThrottler::isValidForegroundActivity(m_serviceWorkerInformation->activity.get()))
+            m_serviceWorkerInformation->activity = protectedThrottler()->foregroundActivity("Service Worker for foreground view(s)"_s);
         return;
     }
 
-    bool shouldTakeBackgroundActivity = WTF::anyOf(workerInformation->clientProcesses, [&](auto& process) {
+    WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "Service Worker for background processing");
+    if (!ProcessThrottler::isValidBackgroundActivity(m_serviceWorkerInformation->activity.get()))
+        m_serviceWorkerInformation->activity = protectedThrottler()->backgroundActivity("Service Worker for background processing"_s);
+}
+
+void WebProcessProxy::updateSharedWorkerProcessAssertion()
+{
+    WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "updateSharedWorkerProcessAssertion");
+
+    bool shouldTakeForegroundActivity = WTF::anyOf(m_sharedWorkerInformation->clientProcesses, [&](auto& process) {
+        return &process != this && !!process.m_foregroundToken;
+    });
+    if (shouldTakeForegroundActivity) {
+        if (!ProcessThrottler::isValidForegroundActivity(m_sharedWorkerInformation->activity.get()))
+            m_sharedWorkerInformation->activity = protectedThrottler()->foregroundActivity("Shared Worker for foreground view(s)"_s);
+        return;
+    }
+
+    bool shouldTakeBackgroundActivity = WTF::anyOf(m_sharedWorkerInformation->clientProcesses, [&](auto& process) {
         return &process != this && !!process.m_backgroundToken;
     });
     if (shouldTakeBackgroundActivity) {
-        if (!ProcessThrottler::isValidBackgroundActivity(workerInformation->activity.get()))
-            workerInformation->activity = protectedThrottler()->backgroundActivity("Worker for background view(s)"_s);
+        if (!ProcessThrottler::isValidBackgroundActivity(m_sharedWorkerInformation->activity.get()))
+            m_sharedWorkerInformation->activity = protectedThrottler()->backgroundActivity("Shared Worker for background view(s)"_s);
         return;
     }
 
-    if (workerType == RemoteWorkerType::ServiceWorker && m_hasServiceWorkerBackgroundProcessing) {
-        WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "Service Worker for background processing");
-        if (!ProcessThrottler::isValidBackgroundActivity(workerInformation->activity.get()))
-            workerInformation->activity = protectedThrottler()->backgroundActivity("Service Worker for background processing"_s);
-        return;
-    }
+    m_sharedWorkerInformation->activity = nullptr;
+}
 
-    workerInformation->activity = nullptr;
+void WebProcessProxy::updateRemoteWorkerProcessAssertion(RemoteWorkerType workerType)
+{
+    ASSERT(workerType == RemoteWorkerType::SharedWorker ? !!m_sharedWorkerInformation : !!m_serviceWorkerInformation);
+    switch (workerType) {
+    case RemoteWorkerType::ServiceWorker:
+        updateServiceWorkerProcessAssertion();
+        break;
+    case RemoteWorkerType::SharedWorker:
+        updateSharedWorkerProcessAssertion();
+        break;
+    }
 }
 
 void WebProcessProxy::registerRemoteWorkerClientProcess(RemoteWorkerType workerType, WebProcessProxy& proxy)
@@ -2618,7 +2646,7 @@ void WebProcessProxy::startServiceWorkerBackgroundProcessing()
         return;
 
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "startServiceWorkerBackgroundProcessing");
-    m_hasServiceWorkerBackgroundProcessing = true;
+    m_serviceWorkerInformation->hasBackgroundProcessing = true;
     updateRemoteWorkerProcessAssertion(RemoteWorkerType::ServiceWorker);
 }
 
@@ -2628,7 +2656,7 @@ void WebProcessProxy::endServiceWorkerBackgroundProcessing()
         return;
 
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "endServiceWorkerBackgroundProcessing");
-    m_hasServiceWorkerBackgroundProcessing = false;
+    m_serviceWorkerInformation->hasBackgroundProcessing = false;
     updateRemoteWorkerProcessAssertion(RemoteWorkerType::ServiceWorker);
 }
 

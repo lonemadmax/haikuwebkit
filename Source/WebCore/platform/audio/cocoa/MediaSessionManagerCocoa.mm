@@ -87,27 +87,9 @@ void MediaSessionManagerCocoa::ensureCodecsRegistered()
     dispatch_once(&onceToken, ^{
         if (shouldEnableVP9Decoder())
             registerSupplementalVP9Decoder();
-        if (swVPDecodersAlwaysEnabled()) {
-            registerWebKitVP9Decoder();
-            registerWebKitVP8Decoder();
-        } else if (shouldEnableVP8Decoder())
-            registerWebKitVP8Decoder();
     });
 #endif
 }
-
-#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
-static bool s_mediaSourceInlinePaintingEnabled = false;
-void MediaSessionManagerCocoa::setMediaSourceInlinePaintingEnabled(bool enabled)
-{
-    s_mediaSourceInlinePaintingEnabled = enabled;
-}
-
-bool MediaSessionManagerCocoa::mediaSourceInlinePaintingEnabled()
-{
-    return s_mediaSourceInlinePaintingEnabled;
-}
-#endif
 
 static bool s_shouldUseModernAVContentKeySession;
 void MediaSessionManagerCocoa::setShouldUseModernAVContentKeySession(bool enabled)

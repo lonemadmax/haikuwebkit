@@ -1192,13 +1192,6 @@ RefPtr<VideoFrame> MediaPlayer::videoFrameForCurrentTime()
 }
 
 
-#if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-void MediaPlayer::willBeAskedToPaintGL()
-{
-    m_private->willBeAskedToPaintGL();
-}
-#endif
-
 RefPtr<NativeImage> MediaPlayer::nativeImageForCurrentTime()
 {
     return m_private->nativeImageForCurrentTime();

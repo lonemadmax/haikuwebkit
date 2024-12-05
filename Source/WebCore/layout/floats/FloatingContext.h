@@ -50,16 +50,11 @@ public:
     LayoutPoint positionForFloat(const Box&, const BoxGeometry&, const HorizontalConstraints&) const;
     LayoutPoint positionForNonFloatingFloatAvoider(const Box&, const BoxGeometry&) const;
 
-    struct PositionWithClearance {
+    struct BlockAxisPositionWithClearance {
         LayoutUnit position;
         std::optional<LayoutUnit> clearance;
     };
-    std::optional<PositionWithClearance> verticalPositionWithClearance(const Box&, const BoxGeometry&) const;
-
-    std::optional<LayoutUnit> top() const;
-    std::optional<LayoutUnit> leftBottom() const { return bottom(Clear::Left); }
-    std::optional<LayoutUnit> rightBottom() const { return bottom(Clear::Right); }
-    std::optional<LayoutUnit> bottom() const { return bottom(Clear::Both); }
+    std::optional<BlockAxisPositionWithClearance> blockAxisPositionWithClearance(const Box&, const BoxGeometry&) const;
 
     bool isEmpty() const { return m_placedFloats.list().isEmpty(); }
 
@@ -75,10 +70,8 @@ public:
     bool isStartPositioned(const Box& floatBox) const;
 
 private:
-    std::optional<LayoutUnit> bottom(Clear) const;
-
-    bool isFloatingCandidateStartPositionedInPlacedFloats(const Box&) const;
-    Clear clearInPlacedFloats(const Box&) const;
+    bool isFloatingCandidateStartPositionedInBlockFormattingContext(const Box&) const;
+    Clear clearInBlockFormattingContext(const Box&) const;
 
     const ElementBox& root() const { return m_formattingContextRoot; }
     // FIXME: Turn this into an actual geometry cache.
@@ -88,8 +81,8 @@ private:
 
     struct AbsoluteCoordinateValuesForFloatAvoider;
     AbsoluteCoordinateValuesForFloatAvoider absoluteCoordinates(const Box&, LayoutPoint borderBoxTopLeft) const;
-    LayoutPoint mapTopLeftToPlacedFloatsRoot(const Box&, LayoutPoint borderBoxTopLeft) const;
-    Point mapPointFromFormattingContextRootToPlacedFloatsRoot(Point) const;
+    LayoutPoint mapTopLeftToBlockFormattingContextRoot(const Box&, LayoutPoint borderBoxTopLeft) const;
+    Point mapPointFromFloatingContextRootToBlockFormattingContextRoot(Point) const;
 
     CheckedRef<const ElementBox> m_formattingContextRoot;
     const LayoutState& m_layoutState;

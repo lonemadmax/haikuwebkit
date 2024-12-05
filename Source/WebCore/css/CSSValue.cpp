@@ -37,6 +37,7 @@
 #include "CSSBorderImageWidthValue.h"
 #include "CSSCalcValue.h"
 #include "CSSCanvasValue.h"
+#include "CSSColorSchemeValue.h"
 #include "CSSContentDistributionValue.h"
 #include "CSSCounterValue.h"
 #include "CSSCrossfadeValue.h"
@@ -121,6 +122,10 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSCalcValue>(*this));
     case Canvas:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSCanvasValue>(*this));
+#if ENABLE(DARK_MODE_CSS)
+    case ColorScheme:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSColorSchemeValue>(*this));
+#endif
     case ContentDistribution:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSContentDistributionValue>(*this));
     case Counter:
@@ -291,26 +296,9 @@ void CSSValue::collectComputedStyleDependencies(ComputedStyleDependencies& depen
         asPrimitiveValue->collectComputedStyleDependencies(dependencies);
 }
 
-bool CSSValue::canResolveDependenciesWithConversionData(const ComputedStyleDependencies& dependencies, const CSSToLengthConversionData& conversionData)
-{
-    if (!dependencies.rootProperties.isEmpty() && !conversionData.rootStyle())
-        return false;
-
-    if (!dependencies.properties.isEmpty() && !conversionData.style())
-        return false;
-
-    if (dependencies.containerDimensions && !conversionData.elementForContainerUnitResolution())
-        return false;
-
-    if (dependencies.viewportDimensions && !conversionData.renderView())
-        return false;
-
-    return true;
-}
-
 bool CSSValue::canResolveDependenciesWithConversionData(const CSSToLengthConversionData& conversionData) const
 {
-    return canResolveDependenciesWithConversionData(computedStyleDependencies(), conversionData);
+    return computedStyleDependencies().canResolveDependenciesWithConversionData(conversionData);
 }
 
 bool CSSValue::equals(const CSSValue& other) const

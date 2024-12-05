@@ -110,8 +110,6 @@
 #include <wtf/WeakListHashSet.h>
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderLayerBacking);
@@ -318,6 +316,9 @@ static void clearBackingSharingLayerProviders(SingleThreadWeakListHashSet<Render
 void RenderLayerBacking::setBackingSharingLayers(SingleThreadWeakListHashSet<RenderLayer>&& sharingLayers)
 {
     bool sharingLayersChanged = m_backingSharingLayers.computeSize() != sharingLayers.computeSize();
+
+    clearBackingSharingLayerProviders(m_backingSharingLayers, m_owningLayer);
+
     // For layers that used to share and no longer do, and are not composited, recompute repaint rects.
     for (auto& oldSharingLayer : m_backingSharingLayers) {
         // Layers that go from shared to composited have their repaint rects recomputed in RenderLayerCompositor::updateBacking().
@@ -327,8 +328,6 @@ void RenderLayerBacking::setBackingSharingLayers(SingleThreadWeakListHashSet<Ren
                 oldSharingLayer.compositingStatusChanged(LayoutUpToDate::Yes);
         }
     }
-
-    clearBackingSharingLayerProviders(m_backingSharingLayers, m_owningLayer);
 
     if (sharingLayersChanged) {
         if (!sharingLayers.isEmptyIgnoringNullReferences())
@@ -969,9 +968,15 @@ bool RenderLayerBacking::updateCompositedBounds()
     return setCompositedBounds(layerBounds);
 }
 
-void RenderLayerBacking::updateAllowsBackingStoreDetaching(const LayoutRect& absoluteBounds)
+void RenderLayerBacking::updateAllowsBackingStoreDetaching(bool allowDetachingForFixed)
 {
     auto setAllowsBackingStoreDetaching = [&](bool allowDetaching) {
+        if (m_graphicsLayer->allowsBackingStoreDetaching() == allowDetaching)
+            return;
+
+        // isDirectlyCompositedImage depends on this value
+        m_owningLayer.setNeedsCompositingConfigurationUpdate();
+
         m_graphicsLayer->setAllowsBackingStoreDetaching(allowDetaching);
         if (m_foregroundLayer)
             m_foregroundLayer->setAllowsBackingStoreDetaching(allowDetaching);
@@ -986,18 +991,7 @@ void RenderLayerBacking::updateAllowsBackingStoreDetaching(const LayoutRect& abs
         return;
     }
 
-    // We'll allow detaching if the layer is outside the layout viewport. Fixed layers inside
-    // the layout viewport can be revealed by async scrolling, so we want to pin their backing store.
-    LocalFrameView& frameView = renderer().view().frameView();
-    LayoutRect fixedLayoutRect;
-    if (frameView.useFixedLayout())
-        fixedLayoutRect = renderer().view().unscaledDocumentRect();
-    else
-        fixedLayoutRect = frameView.rectForFixedPositionLayout();
-
-    bool allowDetaching = !fixedLayoutRect.intersects(absoluteBounds);
-    LOG_WITH_STREAM(Compositing, stream << "RenderLayerBacking (layer " << &m_owningLayer << ") updateAllowsBackingStoreDetaching - absoluteBounds " << absoluteBounds << " layoutViewportRect " << fixedLayoutRect << ", allowDetaching " << allowDetaching);
-    setAllowsBackingStoreDetaching(allowDetaching);
+    setAllowsBackingStoreDetaching(allowDetachingForFixed);
 }
 
 void RenderLayerBacking::updateAfterWidgetResize()
@@ -3147,6 +3141,11 @@ bool RenderLayerBacking::isDirectlyCompositedImage() const
     if (m_owningLayer.hasVisibleBoxDecorationsOrBackground() || m_owningLayer.paintsWithFilters() || renderer().hasClip())
         return false;
 
+    // Fixed layers that allow detaching won't have a backing store,
+    // so using a directly composited image doesn't help (and has non-zero cost)
+    if (m_owningLayer.behavesAsFixed() && m_graphicsLayer->allowsBackingStoreDetaching())
+        return false;
+
 #if (PLATFORM(GTK) || PLATFORM(WPE))
         // GTK and WPE ports don't support rounded rect clipping at TextureMapper level, so they cannot
         // directly composite images that have border-radius propery. Draw them as non directly composited
@@ -3729,17 +3728,17 @@ static RefPtr<Pattern> patternForTouchAction(TouchAction touchAction, FloatSize 
 
     constexpr auto fillColor = Color::black.colorWithAlphaByte(128);
 
-    static const PatternDescription patternDescriptions[] = {
-        { "auto"_s, { }, fillColor },
-        { "none"_s, { }, fillColor },
-        { "manip"_s, { }, fillColor },
-        { "pan-x"_s, { }, fillColor },
-        { "pan-y"_s, { 0, 9 }, fillColor },
-        { "p-z"_s, { 16, 4.5 }, fillColor },
+    static const std::array patternDescriptions {
+        PatternDescription { "auto"_s, { }, fillColor },
+        PatternDescription { "none"_s, { }, fillColor },
+        PatternDescription { "manip"_s, { }, fillColor },
+        PatternDescription { "pan-x"_s, { }, fillColor },
+        PatternDescription { "pan-y"_s, { 0, 9 }, fillColor },
+        PatternDescription { "p-z"_s, { 16, 4.5 }, fillColor },
     };
     
     auto actionIndex = toIndex(touchAction);
-    if (!actionIndex || actionIndex >= ARRAY_SIZE(patternDescriptions))
+    if (!actionIndex || actionIndex >= patternDescriptions.size())
         return nullptr;
 
     return patternForDescription(patternDescriptions[actionIndex], contentOffset, destContext);
@@ -4474,5 +4473,3 @@ void RenderLayerBacking::dumpProperties(const GraphicsLayer* layer, TextStream& 
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

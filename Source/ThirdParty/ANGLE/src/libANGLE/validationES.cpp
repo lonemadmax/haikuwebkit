@@ -14,6 +14,7 @@
 #include "libANGLE/Framebuffer.h"
 #include "libANGLE/FramebufferAttachment.h"
 #include "libANGLE/Image.h"
+#include "libANGLE/PixelLocalStorage.h"
 #include "libANGLE/Program.h"
 #include "libANGLE/Query.h"
 #include "libANGLE/Texture.h"
@@ -614,6 +615,27 @@ const char *ValidateProgramDrawAdvancedBlendState(const Context *context,
     return nullptr;
 }
 
+ANGLE_INLINE GLenum ShPixelLocalStorageFormatToGLenum(ShPixelLocalStorageFormat format)
+{
+    switch (format)
+    {
+        case ShPixelLocalStorageFormat::NotPLS:
+            return GL_NONE;
+        case ShPixelLocalStorageFormat::RGBA8:
+            return GL_RGBA8;
+        case ShPixelLocalStorageFormat::RGBA8I:
+            return GL_RGBA8I;
+        case ShPixelLocalStorageFormat::RGBA8UI:
+            return GL_RGBA8UI;
+        case ShPixelLocalStorageFormat::R32UI:
+            return GL_R32UI;
+        case ShPixelLocalStorageFormat::R32F:
+            return GL_R32F;
+    }
+    UNREACHABLE();
+    return GL_NONE;
+}
+
 ANGLE_INLINE const char *ValidateProgramDrawStates(const Context *context,
                                                    const Extensions &extensions,
                                                    const ProgramExecutable &executable)
@@ -671,6 +693,55 @@ ANGLE_INLINE const char *ValidateProgramDrawStates(const Context *context,
         }
     }
 
+    // ANGLE_shader_pixel_local_storage validation.
+    if (extensions.shaderPixelLocalStorageANGLE)
+    {
+        const Framebuffer *framebuffer = state.getDrawFramebuffer();
+        const PixelLocalStorage *pls   = framebuffer->peekPixelLocalStorage();
+        const auto &shaderPLSFormats   = executable.getPixelLocalStorageFormats();
+        size_t activePLSCount          = context->getState().getPixelLocalStorageActivePlanes();
+
+        if (shaderPLSFormats.size() > activePLSCount)
+        {
+            // INVALID_OPERATION is generated if a draw is issued with a fragment shader that has a
+            // pixel local uniform bound to an inactive pixel local storage plane.
+            return gl::err::kPLSDrawProgramPlanesInactive;
+        }
+
+        if (shaderPLSFormats.size() < activePLSCount)
+        {
+            // INVALID_OPERATION is generated if a draw is issued with a fragment shader that does
+            // _not_ have a pixel local uniform bound to an _active_ pixel local storage plane
+            // (i.e., the fragment shader must declare uniforms bound to every single active pixel
+            // local storage plane).
+            return gl::err::kPLSDrawProgramActivePlanesUnused;
+        }
+
+        for (size_t i = 0; i < activePLSCount; ++i)
+        {
+            const auto &plsPlane = pls->getPlane(static_cast<GLint>(i));
+            ASSERT(plsPlane.isActive());
+            if (shaderPLSFormats[i] == ShPixelLocalStorageFormat::NotPLS)
+            {
+                // INVALID_OPERATION is generated if a draw is issued with a fragment shader that
+                // does _not_ have a pixel local uniform bound to an _active_ pixel local storage
+                // plane (i.e., the fragment shader must declare uniforms bound to every single
+                // active pixel local storage plane).
+                return gl::err::kPLSDrawProgramActivePlanesUnused;
+            }
+
+            if (ShPixelLocalStorageFormatToGLenum(shaderPLSFormats[i]) !=
+                plsPlane.getInternalformat())
+            {
+                // INVALID_OPERATION is generated if a draw is issued with a fragment shader that
+                // has a pixel local storage uniform whose format layout qualifier does not
+                // identically match the internalformat of its associated pixel local storage plane
+                // on the current draw framebuffer, as enumerated in Table X.3.
+                return gl::err::kPLSDrawProgramFormatMismatch;
+            }
+        }
+    }
+
     // Enabled blend equation validation
     const char *errorString = nullptr;
 
@@ -706,28 +777,29 @@ bool ValidTextureTarget(const Context *context, TextureType type)
             return context->getExtensions().textureRectangleANGLE;
 
         case TextureType::_3D:
-            return ((context->getClientMajorVersion() >= 3) ||
-                    context->getExtensions().texture3DOES);
+            return context->getClientVersion() >= ES_3_0 || context->getExtensions().texture3DOES;
 
         case TextureType::_2DArray:
-            return (context->getClientMajorVersion() >= 3);
+            return context->getClientVersion() >= ES_3_0;
 
         case TextureType::_2DMultisample:
-            return (context->getClientVersion() >= Version(3, 1) ||
-                    context->getExtensions().textureMultisampleANGLE);
+            return context->getClientVersion() >= ES_3_1 ||
+                   context->getExtensions().textureMultisampleANGLE;
+
         case TextureType::_2DMultisampleArray:
-            return context->getExtensions().textureStorageMultisample2dArrayOES;
+            return context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().textureStorageMultisample2dArrayOES;
 
         case TextureType::CubeMapArray:
-            return (context->getClientVersion() >= Version(3, 2) ||
-                    context->getExtensions().textureCubeMapArrayAny());
+            return context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().textureCubeMapArrayAny();
 
         case TextureType::VideoImage:
             return context->getExtensions().videoTextureWEBGL;
 
         case TextureType::Buffer:
-            return (context->getClientVersion() >= Version(3, 2) ||
-                    context->getExtensions().textureBufferAny());
+            return context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().textureBufferAny();
 
         default:
             return false;
@@ -984,21 +1056,26 @@ bool ValidTexLevelDestinationTarget(const Context *context, TextureType type)
     switch (type)
     {
         case TextureType::_2D:
-        case TextureType::_2DArray:
-        case TextureType::_2DMultisample:
         case TextureType::CubeMap:
-        case TextureType::_3D:
             return true;
+        case TextureType::_2DArray:
+            return context->getClientVersion() >= ES_3_0;
+        case TextureType::_2DMultisample:
+            return context->getClientVersion() >= ES_3_1 ||
+                   context->getExtensions().textureMultisampleANGLE;
+        case TextureType::_2DMultisampleArray:
+            return context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().textureStorageMultisample2dArrayOES;
+        case TextureType::_3D:
+            return context->getClientVersion() >= ES_3_0 || context->getExtensions().texture3DOES;
         case TextureType::CubeMapArray:
-            return (context->getClientVersion() >= Version(3, 2) ||
-                    context->getExtensions().textureCubeMapArrayAny());
+            return context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().textureCubeMapArrayAny();
         case TextureType::Rectangle:
             return context->getExtensions().textureRectangleANGLE;
-        case TextureType::_2DMultisampleArray:
-            return context->getExtensions().textureStorageMultisample2dArrayOES;
         case TextureType::Buffer:
-            return (context->getClientVersion() >= Version(3, 2) ||
-                    context->getExtensions().textureBufferAny());
+            return context->getClientVersion() >= ES_3_2 ||
+                   context->getExtensions().textureBufferAny();
         default:
             return false;
     }
@@ -1033,10 +1110,6 @@ bool ValidMipLevel(const Context *context, TextureType type, GLint level)
     {
         case TextureType::_2D:
         case TextureType::_2DArray:
-        case TextureType::_2DMultisample:
-        case TextureType::_2DMultisampleArray:
-            // TODO(http://anglebug.com/42261478): It's a bit unclear what the "maximum allowable
-            // level-of-detail" for multisample textures should be. Could maybe make it zero.
             maxDimension = caps.max2DTextureSize;
             break;
 
@@ -1049,6 +1122,8 @@ bool ValidMipLevel(const Context *context, TextureType type, GLint level)
         case TextureType::Rectangle:
         case TextureType::VideoImage:
         case TextureType::Buffer:
+        case TextureType::_2DMultisample:
+        case TextureType::_2DMultisampleArray:
             return level == 0;
 
         case TextureType::_3D:
@@ -7257,6 +7332,15 @@ bool ValidateGetTexParameterBase(const Context *context,
             }
             break;
 
+        case GL_SURFACE_COMPRESSION_EXT:
+            if (!context->getExtensions().textureStorageCompressionEXT)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM,
+                                       kTextureStorageCompressionExtensionRequired);
+                return false;
+            }
+            break;
+
         default:
             ANGLE_VALIDATION_ERRORF(GL_INVALID_ENUM, kEnumNotSupported, pname);
             return false;
@@ -8387,6 +8471,23 @@ bool ValidateGetInternalFormativBase(const Context *context,
                 return false;
             }
             break;
+        case GL_TEXTURE_2D:
+        case GL_TEXTURE_CUBE_MAP:
+        case GL_TEXTURE_3D:
+        case GL_TEXTURE_2D_ARRAY:
+            if (pname != GL_NUM_SURFACE_COMPRESSION_FIXED_RATES_EXT &&
+                pname != GL_SURFACE_COMPRESSION_EXT)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidTarget);
+                return false;
+            }
+            if (!context->getExtensions().textureStorageCompressionEXT)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM,
+                                       kTextureStorageCompressionExtensionRequired);
+                return false;
+            }
+            break;
         default:
             ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidTarget);
             return false;
@@ -8407,6 +8508,16 @@ bool ValidateGetInternalFormativBase(const Context *context,
 
         case GL_SAMPLES:
             maxWriteParams = static_cast<GLsizei>(formatCaps.sampleCounts.size());
+            break;
+
+        case GL_NUM_SURFACE_COMPRESSION_FIXED_RATES_EXT:
+        case GL_SURFACE_COMPRESSION_EXT:
+            if (!context->getExtensions().textureStorageCompressionEXT)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM,
+                                       kTextureStorageCompressionExtensionRequired);
+                return false;
+            }
             break;
 
         default:
@@ -8555,11 +8666,8 @@ bool ValidateGetTexLevelParameterBase(const Context *context,
         return false;
     }
 
-    if (context->getTextureByType(type) == nullptr)
-    {
-        ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kTextureNotBound);
-        return false;
-    }
+    // If type is valid, the texture object must exist
+    ASSERT(context->getTextureByType(type) != nullptr);
 
     if (!ValidMipLevel(context, type, level))
     {
@@ -8584,10 +8692,25 @@ bool ValidateGetTexLevelParameterBase(const Context *context,
         case GL_TEXTURE_INTERNAL_FORMAT:
         case GL_TEXTURE_WIDTH:
         case GL_TEXTURE_HEIGHT:
+        case GL_TEXTURE_COMPRESSED:
+            break;
+
         case GL_TEXTURE_DEPTH:
+            if (context->getClientVersion() < ES_3_0 && !context->getExtensions().texture3DOES)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kEnumNotSupported);
+                return false;
+            }
+            break;
+
         case GL_TEXTURE_SAMPLES:
         case GL_TEXTURE_FIXED_SAMPLE_LOCATIONS:
-        case GL_TEXTURE_COMPRESSED:
+            if (context->getClientVersion() < ES_3_1 &&
+                !context->getExtensions().textureMultisampleANGLE)
+            {
+                ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kMultisampleTextureExtensionOrES31Required);
+                return false;
+            }
             break;
 
         case GL_RESOURCE_INITIALIZED_ANGLE:

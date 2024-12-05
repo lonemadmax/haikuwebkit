@@ -273,7 +273,7 @@ static LayoutSize scrollOffsetFromAncestorContainer(const RenderElement& descend
 
 // This computes the top left location, physical width, and physical height of the specified
 // anchor element. The location is computed relative to the specified containing block.
-static LayoutRect computeAnchorRectRelativeToContainingBlock(CheckedRef<const RenderBoxModelObject> anchorBox, const RenderBlock& containingBlock)
+LayoutRect AnchorPositionEvaluator::computeAnchorRectRelativeToContainingBlock(CheckedRef<const RenderBoxModelObject> anchorBox, const RenderBlock& containingBlock)
 {
     // Fragmented flows are a little tricky to deal with. One example of a fragmented
     // flow is a block anchor element that is "fragmented" or split across multiple columns
@@ -326,7 +326,7 @@ static LayoutUnit computeInsetValue(CSSPropertyID insetPropertyID, CheckedRef<co
 
     auto insetPropertySide = mapInsetPropertyToPhysicalSide(insetPropertyID, anchorPositionedRenderer->writingMode());
     auto anchorSideID = std::holds_alternative<CSSValueID>(anchorSide) ? std::get<CSSValueID>(anchorSide) : CSSValueInvalid;
-    auto anchorRect = computeAnchorRectRelativeToContainingBlock(anchorBox, *containingBlock);
+    auto anchorRect = AnchorPositionEvaluator::computeAnchorRectRelativeToContainingBlock(anchorBox, *containingBlock);
 
     // Explicitly deal with the center/percentage value here.
     // "Refers to a position a corresponding percentage between the start and end sides, with
@@ -420,7 +420,7 @@ static LayoutUnit computeInsetValue(CSSPropertyID insetPropertyID, CheckedRef<co
     return removeBorderForInsetValue(insetValue, insetPropertySide, *containingBlock);
 }
 
-RefPtr<Element> AnchorPositionEvaluator::findAnchorAndAttemptResolution(const BuilderState& builderState, AtomString elementName)
+RefPtr<Element> AnchorPositionEvaluator::findAnchorAndAttemptResolution(const BuilderState& builderState, std::optional<ScopedName> elementName)
 {
     const auto& style = builderState.style();
 
@@ -445,12 +445,12 @@ RefPtr<Element> AnchorPositionEvaluator::findAnchorAndAttemptResolution(const Bu
         return WTF::makeUnique<AnchorPositionedState>();
     }).iterator->value.get();
 
-    if (elementName.isNull())
+    if (!elementName)
         elementName = builderState.style().positionAnchor();
 
-    if (!elementName.isNull()) {
+    if (elementName) {
         // Collect anchor names that this element refers to in anchor() or anchor-size()
-        bool isNewAnchorName = anchorPositionedState.anchorNames.add(elementName).isNewEntry;
+        bool isNewAnchorName = anchorPositionedState.anchorNames.add(elementName->name).isNewEntry;
 
         // If anchor resolution has progressed past Initial, and we pick up a new anchor name, set the
         // stage back to Initial. This restarts the resolution process to resolve newly added names.
@@ -475,7 +475,7 @@ RefPtr<Element> AnchorPositionEvaluator::findAnchorAndAttemptResolution(const Bu
 
     // Anchor value may now be resolved using layout information
 
-    RefPtr anchorElement = elementName.isNull() ? nullptr : anchorPositionedState.anchorElements.get(elementName);
+    RefPtr anchorElement = elementName ? anchorPositionedState.anchorElements.get(elementName->name) : nullptr;
     if (!anchorElement) {
         // See: https://drafts.csswg.org/css-anchor-position-1/#valid-anchor-function
         anchorPositionedState.stage = AnchorPositionResolutionStage::Resolved;
@@ -494,7 +494,7 @@ RefPtr<Element> AnchorPositionEvaluator::findAnchorAndAttemptResolution(const Bu
     return anchorElement;
 }
 
-std::optional<double> AnchorPositionEvaluator::evaluate(const BuilderState& builderState, AtomString elementName, Side side)
+std::optional<double> AnchorPositionEvaluator::evaluate(const BuilderState& builderState, std::optional<ScopedName> elementName, Side side)
 {
     auto propertyID = builderState.cssPropertyID();
     const auto& style = builderState.style();
@@ -606,7 +606,7 @@ static BoxAxis anchorSizeDimensionToPhysicalDimension(AnchorSizeDimension dimens
     return BoxAxis::Horizontal;
 }
 
-std::optional<double> AnchorPositionEvaluator::evaluateSize(const BuilderState& builderState, AtomString elementName, std::optional<AnchorSizeDimension> dimension)
+std::optional<double> AnchorPositionEvaluator::evaluateSize(const BuilderState& builderState, std::optional<ScopedName> elementName, std::optional<AnchorSizeDimension> dimension)
 {
     auto propertyID = builderState.cssPropertyID();
     const auto& style = builderState.style();
@@ -735,8 +735,8 @@ static AnchorsForAnchorName collectAnchorsForAnchorName(const Document& document
 
     auto& anchors = document.renderView()->anchors();
     for (auto& anchorRenderer : anchors) {
-        for (auto& name : anchorRenderer.style().anchorNames()) {
-            anchorsForAnchorName.ensure(name, [&] {
+        for (auto& scopedName : anchorRenderer.style().anchorNames()) {
+            anchorsForAnchorName.ensure(scopedName.name, [&] {
                 return AnchorsForAnchorName::MappedType { };
             }).iterator->value.append(anchorRenderer);
         }
@@ -805,7 +805,7 @@ void AnchorPositionEvaluator::updateSnapshottedScrollOffsets(Document& document)
 
         auto needsScrollAdjustment = [&] {
             // FIXME: This is incomplete.
-            if (anchorPositionedRenderer->style().positionAnchor().isNull())
+            if (!anchorPositionedRenderer->style().positionAnchor())
                 return false;
 
             if (elementAndState.value->anchorElements.size() != 1)
@@ -838,6 +838,19 @@ void AnchorPositionEvaluator::cleanupAnchorPositionedState(Element& element)
         if (auto* renderer = dynamicDowncast<RenderBox>(element.renderer()); renderer && renderer->layer())
             renderer->layer()->clearSnapshottedScrollOffsetForAnchorPositioning();
     }
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, PositionTryOrder order)
+{
+    switch (order) {
+    case PositionTryOrder::Normal: ts << "normal"; break;
+    case PositionTryOrder::MostWidth: ts << "most-width"; break;
+    case PositionTryOrder::MostHeight: ts << "most-height"; break;
+    case PositionTryOrder::MostBlockSize: ts << "most-block-size"; break;
+    case PositionTryOrder::MostInlineSize: ts << "most-inline-size"; break;
+    }
+
+    return ts;
 }
 
 } // namespace WebCore::Style

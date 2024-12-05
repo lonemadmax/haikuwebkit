@@ -29,6 +29,7 @@
 #include "LayoutRect.h"
 #include "RenderTheme.h"
 #include "Timer.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -41,15 +42,6 @@ class GraphicsContext;
 class Node;
 class Page;
 class VisibleSelection;
-
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedTimerSmartPointerException;
-template<> struct IsDeprecatedTimerSmartPointerException<WebCore::CaretAnimator> : std::true_type { };
-}
-
-namespace WebCore {
 
 enum class CaretAnimatorType : uint8_t {
     Default,
@@ -82,8 +74,9 @@ public:
     virtual Node* caretNode() = 0;
 };
 
-class CaretAnimator {
+class CaretAnimator : public CanMakeCheckedPtr<CaretAnimator> {
     WTF_MAKE_TZONE_ALLOCATED(CaretAnimator);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CaretAnimator);
 public:
     struct PresentationProperties {
         enum class BlinkState : bool { 

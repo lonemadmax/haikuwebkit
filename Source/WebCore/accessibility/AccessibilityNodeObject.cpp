@@ -204,12 +204,12 @@ AccessibilityObject* AccessibilityNodeObject::parentObject() const
         return ownerParent;
 
     CheckedPtr cache = axObjectCache();
-#if !USE(ATSPI)
-    return cache ? cache->getOrCreate(composedParentIgnoringDocumentFragments(*node)) : nullptr;
-#else
+#if USE(ATSPI)
     // FIXME: Consider removing this ATSPI-only branch with https://bugs.webkit.org/show_bug.cgi?id=282117.
     return cache ? cache->getOrCreate(node->parentNode()) : nullptr;
-#endif // !USE(ATSPI)
+#else
+    return cache ? cache->getOrCreate(composedParentIgnoringDocumentFragments(*node)) : nullptr;
+#endif // USE(ATSPI)
 }
 
 LayoutRect AccessibilityNodeObject::checkboxOrRadioRect() const
@@ -245,7 +245,7 @@ LayoutRect AccessibilityNodeObject::boundingBoxRect() const
 {
     if (hasDisplayContents()) {
         LayoutRect contentsRect;
-        for (const auto& child : const_cast<AccessibilityNodeObject*>(this)->unignoredChildren(/* updateChildrenIfNeeded */ false))
+        for (const auto& child : const_cast<AccessibilityNodeObject*>(this)->unignoredChildren())
             contentsRect.unite(child->elementRect());
 
         if (!contentsRect.isEmpty())
@@ -318,7 +318,7 @@ AccessibilityRole AccessibilityNodeObject::determineAccessibilityRoleFromNode(Tr
         return AccessibilityRole::WebCoreLink;
     if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(*element))
         return selectElement->multiple() ? AccessibilityRole::ListBox : AccessibilityRole::PopUpButton;
-    if (RefPtr imgElement = dynamicDowncast<HTMLImageElement>(*element); imgElement && imgElement->hasAttributeWithoutSynchronization(usemapAttr))
+    if (is<HTMLImageElement>(*element) && element->hasAttributeWithoutSynchronization(usemapAttr))
         return AccessibilityRole::ImageMap;
 
     if (element->hasTagName(liTag))
@@ -563,11 +563,11 @@ void AccessibilityNodeObject::clearChildren()
 
 void AccessibilityNodeObject::updateOwnedChildren()
 {
-    for (RefPtr child : ownedObjects()) {
+    for (Ref child : ownedObjects()) {
         // If the child already exists as a DOM child, but is also in the owned objects, then
         // we need to re-order this child in the aria-owns order.
         m_children.removeFirst(child);
-        addChild(child.get());
+        addChild(downcast<AccessibilityObject>(child.get()));
     }
 }
 
@@ -594,16 +594,16 @@ void AccessibilityNodeObject::addChildren()
     if (!cache)
         return;
 
-#if !USE(ATSPI)
+#if USE(ATSPI)
+    // FIXME: Consider removing this ATSPI-only branch with https://bugs.webkit.org/show_bug.cgi?id=282117.
+    for (auto* child = node->firstChild(); child; child = child->nextSibling())
+        addChild(cache->getOrCreate(*child));
+#else
     if (auto* containerNode = dynamicDowncast<ContainerNode>(*node)) {
         for (Ref child : composedTreeChildren(*containerNode))
             addChild(cache->getOrCreate(child.get()));
     }
-#else
-    // FIXME: Consider removing this ATSPI-only branch with https://bugs.webkit.org/show_bug.cgi?id=282117.
-    for (auto* child = node->firstChild(); child; child = child->nextSibling())
-        addChild(cache->getOrCreate(*child));
-#endif // !USE(ATSPI)
+#endif // USE(ATSPI)
 
     updateOwnedChildren();
 }
@@ -688,7 +688,6 @@ bool AccessibilityNodeObject::computeIsIgnored() const
     if (decision == AccessibilityObjectInclusion::IgnoreObject)
         return true;
 
-    // FIXME: We should return true for node-only objects within display:none containers, but we don't.
     auto role = roleValue();
     return role == AccessibilityRole::Ignored || role == AccessibilityRole::Unknown;
 }
@@ -854,12 +853,6 @@ bool AccessibilityNodeObject::isChecked() const
     return false;
 }
 
-bool AccessibilityNodeObject::isHovered() const
-{
-    RefPtr element = dynamicDowncast<Element>(node());
-    return element && element->hovered();
-}
-
 bool AccessibilityNodeObject::isMultiSelectable() const
 {
     const AtomString& ariaMultiSelectable = getAttribute(aria_multiselectableAttr);
@@ -937,35 +930,6 @@ bool AccessibilityNodeObject::supportsARIAOwns() const
     return !getAttribute(aria_ownsAttr).isEmpty();
 }
 
-bool AccessibilityNodeObject::supportsRequiredAttribute() const
-{
-    switch (roleValue()) {
-    case AccessibilityRole::Button:
-        return isFileUploadButton();
-    case AccessibilityRole::Cell:
-    case AccessibilityRole::ColumnHeader:
-    case AccessibilityRole::Checkbox:
-    case AccessibilityRole::ComboBox:
-    case AccessibilityRole::Grid:
-    case AccessibilityRole::GridCell:
-    case AccessibilityRole::ListBox:
-    case AccessibilityRole::PopUpButton:
-    case AccessibilityRole::RadioButton:
-    case AccessibilityRole::RadioGroup:
-    case AccessibilityRole::RowHeader:
-    case AccessibilityRole::Slider:
-    case AccessibilityRole::SpinButton:
-    case AccessibilityRole::Switch:
-    case AccessibilityRole::TableHeaderContainer:
-    case AccessibilityRole::TextArea:
-    case AccessibilityRole::TextField:
-    case AccessibilityRole::ToggleButton:
-        return true;
-    default:
-        return false;
-    }
-}
-
 AXCoreObject::AccessibilityChildrenVector AccessibilityNodeObject::radioButtonGroup() const
 {
     AccessibilityChildrenVector result;
@@ -979,7 +943,7 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityNodeObject::radioButtonGr
             if (!cache)
                 break;
             if (auto* object = cache->getOrCreate(radioSibling.ptr()))
-                result.append(object);
+                result.append(*object);
         }
     }
 
@@ -1108,23 +1072,9 @@ AccessibilityOrientation AccessibilityNodeObject::orientation() const
     return AccessibilityObject::orientation();
 }
 
-bool AccessibilityNodeObject::isLink() const
-{
-    return roleValue() == AccessibilityRole::WebCoreLink;
-}
-
 bool AccessibilityNodeObject::isBusy() const
 {
     return elementAttributeValue(aria_busyAttr);
-}
-
-bool AccessibilityNodeObject::isControl() const
-{
-    Node* node = this->node();
-    if (!node)
-        return false;
-
-    return is<HTMLFormControlElement>(*node) || AccessibilityObject::isARIAControl(ariaRoleAttribute()) || roleValue() == AccessibilityRole::Button;
 }
 
 bool AccessibilityNodeObject::isRadioInput() const
@@ -1184,7 +1134,7 @@ RefPtr<Element> AccessibilityNodeObject::popoverTargetElement() const
     return formControlElement ? formControlElement->popoverTargetElement() : nullptr;
 }
 
-AXCoreObject* AccessibilityNodeObject::internalLinkElement() const
+AccessibilityObject* AccessibilityNodeObject::internalLinkElement() const
 {
     // We don't currently support ARIA links as internal link elements, so exit early if anchorElement() is not a native HTMLAnchorElement.
     WeakPtr anchor = dynamicDowncast<HTMLAnchorElement>(anchorElement());
@@ -1276,31 +1226,19 @@ Element* AccessibilityNodeObject::actionElement() const
         break;
     }
 
-    Element* elt = anchorElement();
-    if (!elt)
-        elt = mouseButtonListener();
-    return elt;
-}
+    if (auto* element = anchorElement())
+        return element;
 
-Element* AccessibilityNodeObject::mouseButtonListener(MouseButtonListenerResultFilter filter) const
-{
-    WeakPtr node = this->node();
-    if (!node)
-        return nullptr;
-
-    // check if our parent is a mouse button listener
-    // FIXME: Do the continuation search like anchorElement does
-    for (auto& element : lineageOfType<Element>(*node)) {
-        // If we've reached the body and this is not a control element, do not expose press action for this element unless filter is IncludeBodyElement.
-        // It can cause false positives, where every piece of text is labeled as accepting press actions.
-        if (element.hasTagName(bodyTag) && isStaticText() && filter == ExcludeBodyElement)
-            break;
-
-        if (element.hasEventListeners(eventNames().clickEvent) || element.hasEventListeners(eventNames().mousedownEvent) || element.hasEventListeners(eventNames().mouseupEvent))
-            return &element;
-    }
+    if (auto* clickableObject = this->clickableSelfOrAncestor())
+        return clickableObject->element();
 
     return nullptr;
+}
+
+bool AccessibilityNodeObject::hasClickHandler() const
+{
+    RefPtr element = this->element();
+    return element && element->hasAnyEventListeners({ eventNames().clickEvent, eventNames().mousedownEvent, eventNames().mouseupEvent });
 }
 
 bool AccessibilityNodeObject::isDescendantOfBarrenParent() const
@@ -1414,7 +1352,7 @@ void AccessibilityNodeObject::setNodeValue(StepAction stepAction, float value)
 
     if (didSet) {
         if (auto* cache = axObjectCache())
-            cache->postNotification(this, document(), AXObjectCache::AXValueChanged);
+            cache->postNotification(this, document(), AXNotification::ValueChanged);
     } else
         postKeyboardKeysForValueChange(stepAction);
 }
@@ -1686,7 +1624,7 @@ String AccessibilityNodeObject::textAsLabelFor(const AccessibilityObject& labele
     if (isAccessibilityLabelInstance()) {
         StringBuilder builder;
         for (const auto& child : const_cast<AccessibilityNodeObject*>(this)->unignoredChildren()) {
-            if (child.get() == &labeledObject)
+            if (child.ptr() == &labeledObject)
                 continue;
 
             if (child->isListBox()) {
@@ -2231,17 +2169,10 @@ static bool displayTypeNeedsSpace(DisplayType type)
         || type == DisplayType::TableCell;
 }
 
-static bool needsSpaceFromDisplay(AXCoreObject& coreObject)
+static bool needsSpaceFromDisplay(AccessibilityObject& axObject)
 {
-    // We should always be dealing with non-isolated objects here. Ideally in the future we can strengthen the types
-    // to make this issue impossible.
-    RELEASE_ASSERT(is<AccessibilityObject>(coreObject));
-    RefPtr axObject = dynamicDowncast<AccessibilityObject>(coreObject);
-    if (!axObject)
-        return false;
-
-    CheckedPtr renderer = axObject->renderer();
-    if (is<RenderText>(renderer.get())) {
+    CheckedPtr renderer = axObject.renderer();
+    if (is<RenderText>(renderer)) {
         // Never add a space for RenderTexts. They are inherently inline, but take their parent's style, which may
         // be block, erroneously adding a space.
         return false;
@@ -2249,12 +2180,12 @@ static bool needsSpaceFromDisplay(AXCoreObject& coreObject)
 
     const auto* style = renderer ? &renderer->style() : nullptr;
     if (!style)
-        style = axObject->style();
+        style = axObject.style();
 
     return style ? displayTypeNeedsSpace(style->display()) : false;
 }
 
-static bool shouldPrependSpace(AXCoreObject& object, AXCoreObject* previousObject)
+static bool shouldPrependSpace(AccessibilityObject& object, AccessibilityObject* previousObject)
 {
     return needsSpaceFromDisplay(object)
         || (previousObject && needsSpaceFromDisplay(*previousObject))
@@ -2269,7 +2200,7 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
         return !mode.isHidden() ? text->wholeText() : emptyString();
 
     const auto* style = this->style();
-    mode.inHiddenSubtree = WebCore::isDOMHidden(style);
+    mode.inHiddenSubtree = WebCore::isRenderHidden(style);
     // The Accname specification states that if the current node is hidden, and not directly
     // referenced by aria-labelledby or aria-describedby, and is not a host language text
     // alternative, the empty string should be returned.
@@ -2291,7 +2222,7 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
     }
 
     StringBuilder builder;
-    RefPtr<AXCoreObject> previous;
+    RefPtr<AccessibilityObject> previous;
     bool previousRequiresSpace = false;
     auto appendTextUnderElement = [&] (auto& object) {
         // We don't want to trim whitespace in these intermediate calls to textUnderElement, as doing so will wipe out
@@ -2471,7 +2402,7 @@ String AccessibilityNodeObject::stringValue() const
             if (!child->isListBox())
                 continue;
 
-            if (auto selection = child->selectedChildren(); selection && selection->size() && selection->first())
+            if (auto selection = child->selectedChildren(); selection && selection->size())
                 return selection->first()->stringValue();
             break;
         }

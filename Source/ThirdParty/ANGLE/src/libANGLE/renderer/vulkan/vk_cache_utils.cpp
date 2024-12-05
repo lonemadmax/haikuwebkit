@@ -2675,43 +2675,16 @@ void DumpPipelineCacheGraph(
 }
 
 // Used by SharedCacheKeyManager
-void MakeEmptyCachedObject(SharedFramebufferCacheKey *cacheKeyOut)
+void MakeInvalidCachedObject(SharedFramebufferCacheKey *cacheKeyOut)
 {
-    *cacheKeyOut = std::make_shared<FramebufferDescPointer>();
-}
-void ReleaseCachedObject(ContextVk *contextVk, const FramebufferDesc &desc)
-{
-    contextVk->getShareGroup()->getFramebufferCache().erase(contextVk, desc);
-}
-void ReleaseCachedObject(Renderer *renderer, const FramebufferDesc &desc)
-{
-    UNREACHABLE();
+    *cacheKeyOut = SharedFramebufferCacheKey::MakeShared();
+    // So that it will mark as invalid.
+    (*cacheKeyOut)->destroy();
 }
 
-void MakeEmptyCachedObject(SharedDescriptorSetCacheKey *cacheKeyOut)
+void MakeInvalidCachedObject(SharedDescriptorSetCacheKey *cacheKeyOut)
 {
-    *cacheKeyOut = std::make_shared<DescriptorSetAndPoolPointer>();
-}
-void ReleaseCachedObject(ContextVk *contextVk, const DescriptorSetDescAndPool &descAndPool)
-{
-    UNREACHABLE();
-}
-void ReleaseCachedObject(Renderer *renderer, const DescriptorSetDescAndPool &descAndPool)
-{
-    ASSERT(descAndPool.mPool != nullptr);
-    descAndPool.mPool->releaseCachedDescriptorSet(renderer, descAndPool.mDesc);
-}
-
-void DestroyCachedObject(Renderer *renderer, const FramebufferDesc &desc)
-{
-    // Framebuffer cache are implemented in a way that each cache entry tracks GPU progress and we
-    // always guarantee cache entries are released before calling destroy.
-}
-
-void DestroyCachedObject(Renderer *renderer, const DescriptorSetDescAndPool &descAndPool)
-{
-    ASSERT(descAndPool.mPool != nullptr);
-    descAndPool.mPool->destroyCachedDescriptorSet(renderer, descAndPool.mDesc);
+    *cacheKeyOut = SharedDescriptorSetCacheKey::MakeShared();
 }
 
 angle::Result InitializePipelineFromLibraries(Context *context,
@@ -3843,7 +3816,7 @@ void GraphicsPipelineDesc::initializePipelineShadersState(
                                  &stateOut->specializationInfo);
 
     // Vertex shader is always expected to be present.
-    const ShaderModule &vertexModule = shaders[gl::ShaderType::Vertex].get();
+    const ShaderModule &vertexModule = *shaders[gl::ShaderType::Vertex];
     ASSERT(vertexModule.valid());
     VkPipelineShaderStageCreateInfo vertexStage = {};
     SetPipelineShaderStageInfo(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -3851,10 +3824,10 @@ void GraphicsPipelineDesc::initializePipelineShadersState(
                                stateOut->specializationInfo, &vertexStage);
     stateOut->shaderStages.push_back(vertexStage);
 
-    const ShaderModulePointer &tessControlPointer = shaders[gl::ShaderType::TessControl];
-    if (tessControlPointer.valid())
+    const ShaderModulePtr &tessControlPointer = shaders[gl::ShaderType::TessControl];
+    if (tessControlPointer)
     {
-        const ShaderModule &tessControlModule            = tessControlPointer.get();
+        const ShaderModule &tessControlModule            = *tessControlPointer;
         VkPipelineShaderStageCreateInfo tessControlStage = {};
         SetPipelineShaderStageInfo(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                    VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
@@ -3863,10 +3836,10 @@ void GraphicsPipelineDesc::initializePipelineShadersState(
         stateOut->shaderStages.push_back(tessControlStage);
     }
 
-    const ShaderModulePointer &tessEvaluationPointer = shaders[gl::ShaderType::TessEvaluation];
-    if (tessEvaluationPointer.valid())
+    const ShaderModulePtr &tessEvaluationPointer = shaders[gl::ShaderType::TessEvaluation];
+    if (tessEvaluationPointer)
     {
-        const ShaderModule &tessEvaluationModule            = tessEvaluationPointer.get();
+        const ShaderModule &tessEvaluationModule            = *tessEvaluationPointer;
         VkPipelineShaderStageCreateInfo tessEvaluationStage = {};
         SetPipelineShaderStageInfo(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                    VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
@@ -3875,10 +3848,10 @@ void GraphicsPipelineDesc::initializePipelineShadersState(
         stateOut->shaderStages.push_back(tessEvaluationStage);
     }
 
-    const ShaderModulePointer &geometryPointer = shaders[gl::ShaderType::Geometry];
-    if (geometryPointer.valid())
+    const ShaderModulePtr &geometryPointer = shaders[gl::ShaderType::Geometry];
+    if (geometryPointer)
     {
-        const ShaderModule &geometryModule            = geometryPointer.get();
+        const ShaderModule &geometryModule            = *geometryPointer;
         VkPipelineShaderStageCreateInfo geometryStage = {};
         SetPipelineShaderStageInfo(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                    VK_SHADER_STAGE_GEOMETRY_BIT, geometryModule.getHandle(),
@@ -3887,10 +3860,10 @@ void GraphicsPipelineDesc::initializePipelineShadersState(
     }
 
     // Fragment shader is optional.
-    const ShaderModulePointer &fragmentPointer = shaders[gl::ShaderType::Fragment];
-    if (fragmentPointer.valid() && !mShaders.shaders.bits.rasterizerDiscardEnable)
+    const ShaderModulePtr &fragmentPointer = shaders[gl::ShaderType::Fragment];
+    if (fragmentPointer && !mShaders.shaders.bits.rasterizerDiscardEnable)
     {
-        const ShaderModule &fragmentModule            = fragmentPointer.get();
+        const ShaderModule &fragmentModule            = *fragmentPointer;
         VkPipelineShaderStageCreateInfo fragmentStage = {};
         SetPipelineShaderStageInfo(VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                    VK_SHADER_STAGE_FRAGMENT_BIT, fragmentModule.getHandle(),
@@ -4003,7 +3976,7 @@ void GraphicsPipelineDesc::initializePipelineShadersState(
     }
 
     // tessellation State
-    if (tessControlPointer.valid() && tessEvaluationPointer.valid())
+    if (tessControlPointer && tessEvaluationPointer)
     {
         stateOut->domainOriginState.sType =
             VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_DOMAIN_ORIGIN_STATE_CREATE_INFO;
@@ -5369,6 +5342,9 @@ void FramebufferDesc::reset()
     mSrgbWriteControlMode    = 0;
     mUnresolveAttachmentMask = 0;
     mIsRenderToTexture       = 0;
+    // An empty FramebufferDesc is still a valid desc. It becomes invalid when it is explicitly
+    // destroyed or released by SharedFramebufferCacheKey.
+    mIsValid = 1;
     memset(&mSerials, 0, sizeof(mSerials));
 }
 
@@ -5418,6 +5394,21 @@ void FramebufferDesc::setColorFramebufferFetchMode(bool hasColorFramebufferFetch
 void FramebufferDesc::updateRenderToTexture(bool isRenderToTexture)
 {
     SetBitField(mIsRenderToTexture, isRenderToTexture);
+}
+
+void FramebufferDesc::destroyCachedObject(Renderer *renderer)
+{
+    ASSERT(valid());
+    // Framebuffer cache are implemented in a way that each cache entry tracks GPU progress and we
+    // always guarantee cache entries are released before calling destroy.
+    SetBitField(mIsValid, 0);
+}
+
+void FramebufferDesc::releaseCachedObject(ContextVk *contextVk)
+{
+    ASSERT(valid());
+    contextVk->getShareGroup()->getFramebufferCache().erase(contextVk, *this);
+    SetBitField(mIsValid, 0);
 }
 
 // YcbcrConversionDesc implementation
@@ -5574,13 +5565,14 @@ SamplerDesc::SamplerDesc(const SamplerDesc &other) = default;
 
 SamplerDesc &SamplerDesc::operator=(const SamplerDesc &rhs) = default;
 
-SamplerDesc::SamplerDesc(ContextVk *contextVk,
+SamplerDesc::SamplerDesc(Context *context,
                          const gl::SamplerState &samplerState,
                          bool stencilMode,
                          const YcbcrConversionDesc *ycbcrConversionDesc,
                          angle::FormatID intendedFormatID)
 {
-    update(contextVk, samplerState, stencilMode, ycbcrConversionDesc, intendedFormatID);
+    update(context->getRenderer(), samplerState, stencilMode, ycbcrConversionDesc,
+           intendedFormatID);
 }
 
 void SamplerDesc::reset()
@@ -5607,13 +5599,13 @@ void SamplerDesc::reset()
     mReserved          = 0;
 }
 
-void SamplerDesc::update(ContextVk *contextVk,
+void SamplerDesc::update(Renderer *renderer,
                          const gl::SamplerState &samplerState,
                          bool stencilMode,
                          const YcbcrConversionDesc *ycbcrConversionDesc,
                          angle::FormatID intendedFormatID)
 {
-    const angle::FeaturesVk &featuresVk = contextVk->getFeatures();
+    const angle::FeaturesVk &featuresVk = renderer->getFeatures();
     mMipLodBias                         = 0.0f;
     if (featuresVk.forceTextureLodOffset1.enabled)
     {
@@ -5656,7 +5648,7 @@ void SamplerDesc::update(ContextVk *contextVk,
                (angle::Format::Get(intendedFormatID).isYUV));
         const bool filtersMustMatch =
             (mYcbcrConversionDesc.getExternalFormat() != 0) ||
-            !contextVk->getRenderer()->hasImageFormatFeatureBits(
+            !renderer->hasImageFormatFeatureBits(
                 intendedFormatID,
                 VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT);
         if (filtersMustMatch)
@@ -5714,7 +5706,7 @@ void SamplerDesc::update(ContextVk *contextVk,
         (samplerState.getBorderColor().type == angle::ColorGeneric::Type::Float) ? 0 : 1;
 
     // Adjust border color according to intended format
-    const vk::Format &vkFormat = contextVk->getRenderer()->getFormat(intendedFormatID);
+    const vk::Format &vkFormat = renderer->getFormat(intendedFormatID);
     gl::ColorGeneric adjustedBorderColor =
         AdjustBorderColor(samplerState.getBorderColor(), vkFormat.getIntendedFormat(), stencilMode);
     mBorderColor = adjustedBorderColor.colorF;
@@ -5804,13 +5796,6 @@ bool SamplerDesc::operator==(const SamplerDesc &other) const
     return memcmp(this, &other, sizeof(SamplerDesc)) == 0;
 }
 
-// SamplerHelper implementation.
-SamplerHelper::SamplerHelper(ContextVk *contextVk)
-    : mSamplerSerial(contextVk->getRenderer()->getResourceSerialFactory().generateSamplerSerial())
-{}
-
-SamplerHelper::~SamplerHelper() {}
-
 SamplerHelper::SamplerHelper(SamplerHelper &&samplerHelper)
 {
     *this = std::move(samplerHelper);
@@ -5821,6 +5806,18 @@ SamplerHelper &SamplerHelper::operator=(SamplerHelper &&rhs)
     std::swap(mSampler, rhs.mSampler);
     std::swap(mSamplerSerial, rhs.mSamplerSerial);
     return *this;
+}
+
+angle::Result SamplerHelper::init(Context *context, const VkSamplerCreateInfo &createInfo)
+{
+    mSamplerSerial = context->getRenderer()->getResourceSerialFactory().generateSamplerSerial();
+    ANGLE_VK_TRY(context, mSampler.init(context->getDevice(), createInfo));
+    return angle::Result::Continue;
+}
+angle::Result SamplerHelper::init(ContextVk *contextVk, const SamplerDesc &desc)
+{
+    mSamplerSerial = contextVk->getRenderer()->getResourceSerialFactory().generateSamplerSerial();
+    return desc.init(contextVk, &mSampler);
 }
 
 // RenderPassHelper implementation.
@@ -6216,6 +6213,21 @@ std::ostream &operator<<(std::ostream &os, const DescriptorSetDesc &desc)
     return os;
 }
 
+// DescriptorSetDescAndPool implementation
+void DescriptorSetDescAndPool::destroyCachedObject(Renderer *renderer)
+{
+    ASSERT(valid());
+    mPool->destroyCachedDescriptorSet(renderer, mDesc);
+    mPool = nullptr;
+}
+
+void DescriptorSetDescAndPool::releaseCachedObject(Renderer *renderer)
+{
+    ASSERT(valid());
+    mPool->releaseCachedDescriptorSet(renderer, mDesc);
+    mPool = nullptr;
+}
+
 // DescriptorSetDescBuilder implementation.
 DescriptorSetDescBuilder::DescriptorSetDescBuilder() = default;
 DescriptorSetDescBuilder::DescriptorSetDescBuilder(size_t descriptorCount)
@@ -6399,180 +6411,6 @@ void DescriptorSetDescBuilder::updatePreCacheActiveTextures(
             }
         }
     }
-}
-
-angle::Result DescriptorSetDescBuilder::updateActiveTexturesForCacheMiss(
-    Context *context,
-    const ShaderInterfaceVariableInfoMap &variableInfoMap,
-    const WriteDescriptorDescs &writeDescriptorDescs,
-    const gl::ProgramExecutable &executable,
-    const gl::ActiveTextureArray<TextureVk *> &textures,
-    const gl::SamplerBindingVector &samplers,
-    PipelineType pipelineType,
-    const SharedDescriptorSetCacheKey &sharedCacheKey)
-{
-    // This is only used when cache is enabled.
-    ASSERT(context->getFeatures().descriptorSetCache.enabled);
-    const std::vector<gl::SamplerBinding> &samplerBindings = executable.getSamplerBindings();
-    const std::vector<GLuint> &samplerBoundTextureUnits = executable.getSamplerBoundTextureUnits();
-    const std::vector<gl::LinkedUniform> &uniforms      = executable.getUniforms();
-    const gl::ActiveTextureTypeArray &textureTypes      = executable.getActiveSamplerTypes();
-
-    for (uint32_t samplerIndex = 0; samplerIndex < samplerBindings.size(); ++samplerIndex)
-    {
-        const gl::SamplerBinding &samplerBinding = samplerBindings[samplerIndex];
-        uint32_t uniformIndex = executable.getUniformIndexFromSamplerIndex(samplerIndex);
-        const gl::LinkedUniform &samplerUniform = uniforms[uniformIndex];
-
-        if (samplerUniform.activeShaders().none())
-        {
-            continue;
-        }
-
-        const gl::ShaderType firstShaderType = samplerUniform.getFirstActiveShaderType();
-        const ShaderInterfaceVariableInfo &info =
-            variableInfoMap.getVariableById(firstShaderType, samplerUniform.getId(firstShaderType));
-
-        uint32_t arraySize        = static_cast<uint32_t>(samplerBinding.textureUnitsCount);
-        bool isSamplerExternalY2Y = samplerBinding.samplerType == GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT;
-
-        for (uint32_t arrayElement = 0; arrayElement < arraySize; ++arrayElement)
-        {
-            GLuint textureUnit =
-                samplerBinding.getTextureUnit(samplerBoundTextureUnits, arrayElement);
-            TextureVk *textureVk = textures[textureUnit];
-
-            uint32_t infoIndex = writeDescriptorDescs[info.binding].descriptorInfoIndex +
-                                 arrayElement + samplerUniform.getOuterArrayOffset();
-
-            if (textureTypes[textureUnit] == gl::TextureType::Buffer)
-            {
-                textureVk->onNewDescriptorSet(sharedCacheKey);
-
-                const BufferView *view = nullptr;
-                ANGLE_TRY(textureVk->getBufferViewAndRecordUse(context, nullptr, &samplerBinding,
-                                                               false, &view));
-                mHandles[infoIndex].bufferView = view->getHandle();
-            }
-            else
-            {
-                gl::Sampler *sampler       = samplers[textureUnit].get();
-                const SamplerVk *samplerVk = sampler ? vk::GetImpl(sampler) : nullptr;
-
-                const SamplerHelper &samplerHelper =
-                    samplerVk ? samplerVk->getSampler()
-                              : textureVk->getSampler(isSamplerExternalY2Y);
-                const gl::SamplerState &samplerState =
-                    sampler ? sampler->getSamplerState() : textureVk->getState().getSamplerState();
-
-                textureVk->onNewDescriptorSet(sharedCacheKey);
-
-                mHandles[infoIndex].sampler = samplerHelper.get().getHandle();
-
-                const ImageView &imageView = textureVk->getReadImageView(
-                    context, samplerState.getSRGBDecode(), samplerUniform.isTexelFetchStaticUse(),
-                    isSamplerExternalY2Y);
-                mHandles[infoIndex].imageView = imageView.getHandle();
-            }
-        }
-    }
-
-    return angle::Result::Continue;
-}
-
-angle::Result DescriptorSetDescBuilder::updateFullActiveTextures(
-    Context *context,
-    const ShaderInterfaceVariableInfoMap &variableInfoMap,
-    const WriteDescriptorDescs &writeDescriptorDescs,
-    const gl::ProgramExecutable &executable,
-    const gl::ActiveTextureArray<TextureVk *> &textures,
-    const gl::SamplerBindingVector &samplers,
-    PipelineType pipelineType)
-{
-    // This is only used when cache is disabled.
-    ASSERT(!context->getFeatures().descriptorSetCache.enabled);
-    const std::vector<gl::SamplerBinding> &samplerBindings = executable.getSamplerBindings();
-    const std::vector<GLuint> &samplerBoundTextureUnits = executable.getSamplerBoundTextureUnits();
-    const std::vector<gl::LinkedUniform> &uniforms      = executable.getUniforms();
-    const gl::ActiveTextureTypeArray &textureTypes      = executable.getActiveSamplerTypes();
-
-    resize(writeDescriptorDescs.getTotalDescriptorCount());
-
-    for (uint32_t samplerIndex = 0; samplerIndex < samplerBindings.size(); ++samplerIndex)
-    {
-        const gl::SamplerBinding &samplerBinding = samplerBindings[samplerIndex];
-        uint32_t uniformIndex = executable.getUniformIndexFromSamplerIndex(samplerIndex);
-        const gl::LinkedUniform &samplerUniform = uniforms[uniformIndex];
-
-        if (samplerUniform.activeShaders().none())
-        {
-            continue;
-        }
-
-        const gl::ShaderType firstShaderType = samplerUniform.getFirstActiveShaderType();
-        const ShaderInterfaceVariableInfo &info =
-            variableInfoMap.getVariableById(firstShaderType, samplerUniform.getId(firstShaderType));
-
-        uint32_t arraySize        = static_cast<uint32_t>(samplerBinding.textureUnitsCount);
-        bool isSamplerExternalY2Y = samplerBinding.samplerType == GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT;
-
-        for (uint32_t arrayElement = 0; arrayElement < arraySize; ++arrayElement)
-        {
-            GLuint textureUnit =
-                samplerBinding.getTextureUnit(samplerBoundTextureUnits, arrayElement);
-            TextureVk *textureVk = textures[textureUnit];
-
-            uint32_t infoIndex = writeDescriptorDescs[info.binding].descriptorInfoIndex +
-                                 arrayElement + samplerUniform.getOuterArrayOffset();
-            DescriptorInfoDesc &infoDesc = mDesc.getInfoDesc(infoIndex);
-
-            if (textureTypes[textureUnit] == gl::TextureType::Buffer)
-            {
-                ImageOrBufferViewSubresourceSerial imageViewSerial =
-                    textureVk->getBufferViewSerial();
-                infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
-                infoDesc.imageLayoutOrRange      = 0;
-                infoDesc.samplerOrBufferSerial   = 0;
-                infoDesc.imageSubresourceRange   = 0;
-
-                const BufferView *view = nullptr;
-                ANGLE_TRY(textureVk->getBufferViewAndRecordUse(context, nullptr, &samplerBinding,
-                                                               false, &view));
-                mHandles[infoIndex].bufferView = view->getHandle();
-            }
-            else
-            {
-                gl::Sampler *sampler       = samplers[textureUnit].get();
-                const SamplerVk *samplerVk = sampler ? vk::GetImpl(sampler) : nullptr;
-
-                const SamplerHelper &samplerHelper =
-                    samplerVk ? samplerVk->getSampler()
-                              : textureVk->getSampler(isSamplerExternalY2Y);
-                const gl::SamplerState &samplerState =
-                    sampler ? sampler->getSamplerState() : textureVk->getState().getSamplerState();
-
-                ImageOrBufferViewSubresourceSerial imageViewSerial =
-                    textureVk->getImageViewSubresourceSerial(
-                        samplerState, samplerUniform.isTexelFetchStaticUse());
-
-                ImageLayout imageLayout = textureVk->getImage().getCurrentImageLayout();
-                SetBitField(infoDesc.imageLayoutOrRange, imageLayout);
-                infoDesc.imageViewSerialOrOffset = imageViewSerial.viewSerial.getValue();
-                infoDesc.samplerOrBufferSerial   = samplerHelper.getSamplerSerial().getValue();
-                memcpy(&infoDesc.imageSubresourceRange, &imageViewSerial.subresource,
-                       sizeof(uint32_t));
-
-                mHandles[infoIndex].sampler = samplerHelper.get().getHandle();
-
-                const ImageView &imageView = textureVk->getReadImageView(
-                    context, samplerState.getSRGBDecode(), samplerUniform.isTexelFetchStaticUse(),
-                    isSamplerExternalY2Y);
-                mHandles[infoIndex].imageView = imageView.getHandle();
-            }
-        }
-    }
-
-    return angle::Result::Continue;
 }
 
 void DescriptorSetDescBuilder::setEmptyBuffer(uint32_t infoDescIndex,
@@ -6928,8 +6766,7 @@ angle::Result DescriptorSetDescBuilder::updateImages(
                                      arrayElement + imageUniform.getOuterArrayOffset();
 
                 const vk::BufferView *view = nullptr;
-                ANGLE_TRY(
-                    textureVk->getBufferViewAndRecordUse(context, format, nullptr, true, &view));
+                ANGLE_TRY(textureVk->getBufferView(context, format, nullptr, true, &view));
 
                 DescriptorInfoDesc &infoDesc = mDesc.getInfoDesc(infoIndex);
                 infoDesc.imageViewSerialOrOffset =
@@ -7101,7 +6938,7 @@ size_t SharedCacheKeyManager<SharedCacheKeyT>::updateEmptySlotBits()
     for (size_t slot = 0; slot < mSharedCacheKeys.size(); ++slot)
     {
         SharedCacheKeyT &sharedCacheKey = mSharedCacheKeys[slot];
-        if (*sharedCacheKey.get() == nullptr)
+        if (!sharedCacheKey->valid())
         {
             mEmptySlotBits[slot / kSlotBitCount].set(slot % kSlotBitCount);
             emptySlot = slot;
@@ -7121,7 +6958,7 @@ void SharedCacheKeyManager<SharedCacheKeyT>::addKey(const SharedCacheKeyT &key)
         {
             slot += emptyBits.first();
             SharedCacheKeyT &sharedCacheKey = mSharedCacheKeys[slot];
-            ASSERT(*sharedCacheKey.get() == nullptr);
+            ASSERT(!sharedCacheKey->valid());
             sharedCacheKey = key;
             emptyBits.reset(slot % kSlotBitCount);
             return;
@@ -7134,7 +6971,7 @@ void SharedCacheKeyManager<SharedCacheKeyT>::addKey(const SharedCacheKeyT &key)
     if (slot != kInvalidSlot)
     {
         SharedCacheKeyT &sharedCacheKey = mSharedCacheKeys[slot];
-        ASSERT(*sharedCacheKey.get() == nullptr);
+        ASSERT(!sharedCacheKey->valid());
         sharedCacheKey         = key;
         SlotBitMask &emptyBits = mEmptySlotBits[slot / kSlotBitCount];
         emptyBits.reset(slot % kSlotBitCount);
@@ -7157,8 +6994,8 @@ void SharedCacheKeyManager<SharedCacheKeyT>::addKey(const SharedCacheKeyT &key)
         mSharedCacheKeys.emplace_back();
         SharedCacheKeyT &sharedCacheKey = mSharedCacheKeys.back();
         // Insert an empty cache key so that sharedCacheKey will not be null.
-        MakeEmptyCachedObject(&sharedCacheKey);
-        ASSERT(*sharedCacheKey.get() == nullptr);
+        MakeInvalidCachedObject(&sharedCacheKey);
+        ASSERT(!sharedCacheKey->valid());
     }
 }
 
@@ -7168,12 +7005,11 @@ void SharedCacheKeyManager<SharedCacheKeyT>::releaseKeys(ContextVk *contextVk)
     ASSERT(mSharedCacheKeys.size() == mEmptySlotBits.size() * kSlotBitCount);
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
-        if (*sharedCacheKey.get() != nullptr)
+        if (sharedCacheKey->valid())
         {
             // Immediate destroy the cached object and the key itself when first releaseRef call is
             // made
-            ReleaseCachedObject(contextVk, *(*sharedCacheKey.get()));
-            *sharedCacheKey.get() = nullptr;
+            sharedCacheKey->releaseCachedObject(contextVk);
         }
     }
     mSharedCacheKeys.clear();
@@ -7186,12 +7022,11 @@ void SharedCacheKeyManager<SharedCacheKeyT>::releaseKeys(Renderer *renderer)
     ASSERT(mSharedCacheKeys.size() == mEmptySlotBits.size() * kSlotBitCount);
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
-        if (*sharedCacheKey.get() != nullptr)
+        if (sharedCacheKey->valid())
         {
             // Immediate destroy the cached object and the key itself when first releaseKeys call is
             // made
-            ReleaseCachedObject(renderer, *(*sharedCacheKey.get()));
-            *sharedCacheKey.get() = nullptr;
+            sharedCacheKey->releaseCachedObject(renderer);
         }
     }
     mSharedCacheKeys.clear();
@@ -7205,11 +7040,10 @@ void SharedCacheKeyManager<SharedCacheKeyT>::destroyKeys(Renderer *renderer)
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
         // destroy the cache key
-        if (*sharedCacheKey.get() != nullptr)
+        if (sharedCacheKey->valid())
         {
             // Immediate destroy the cached object and the key
-            DestroyCachedObject(renderer, *(*sharedCacheKey.get()));
-            *sharedCacheKey.get() = nullptr;
+            sharedCacheKey->destroyCachedObject(renderer);
         }
     }
     mSharedCacheKeys.clear();
@@ -7230,7 +7064,7 @@ bool SharedCacheKeyManager<SharedCacheKeyT>::containsKey(const SharedCacheKeyT &
 {
     for (const SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
-        if (key == sharedCacheKey)
+        if (*key == *sharedCacheKey)
         {
             return true;
         }
@@ -7244,7 +7078,7 @@ void SharedCacheKeyManager<SharedCacheKeyT>::assertAllEntriesDestroyed()
     // Caller must have already freed all caches
     for (SharedCacheKeyT &sharedCacheKey : mSharedCacheKeys)
     {
-        ASSERT(*sharedCacheKey.get() == nullptr);
+        ASSERT(!sharedCacheKey->valid());
     }
 }
 
@@ -8337,9 +8171,9 @@ void DescriptorSetLayoutCache::destroy(vk::Renderer *renderer)
 
     for (auto &item : mPayload)
     {
-        vk::RefCountedDescriptorSetLayout &layout = item.second;
-        ASSERT(!layout.isReferenced());
-        layout.get().destroy(device);
+        vk::DescriptorSetLayoutPtr &layout = item.second;
+        ASSERT(layout.unique());
+        layout->destroy(device);
     }
 
     mPayload.clear();
@@ -8348,7 +8182,7 @@ void DescriptorSetLayoutCache::destroy(vk::Renderer *renderer)
 angle::Result DescriptorSetLayoutCache::getDescriptorSetLayout(
     vk::Context *context,
     const vk::DescriptorSetLayoutDesc &desc,
-    vk::AtomicBindingPointer<vk::DescriptorSetLayout> *descriptorSetLayoutOut)
+    vk::DescriptorSetLayoutPtr *descriptorSetLayoutOut)
 {
     // Note: this function may be called without holding the share group lock.
     std::unique_lock<angle::SimpleMutex> lock(mMutex);
@@ -8356,8 +8190,7 @@ angle::Result DescriptorSetLayoutCache::getDescriptorSetLayout(
     auto iter = mPayload.find(desc);
     if (iter != mPayload.end())
     {
-        vk::RefCountedDescriptorSetLayout &layout = iter->second;
-        descriptorSetLayoutOut->set(&layout);
+        *descriptorSetLayoutOut = iter->second;
         mCacheStats.hit();
         return angle::Result::Continue;
     }
@@ -8365,7 +8198,7 @@ angle::Result DescriptorSetLayoutCache::getDescriptorSetLayout(
     // If DescriptorSetLayoutDesc is empty, reuse placeholder descriptor set layout handle
     if (desc.empty())
     {
-        descriptorSetLayoutOut->set(context->getRenderer()->getDescriptorLayoutForEmptyDesc());
+        *descriptorSetLayoutOut = context->getRenderer()->getEmptyDescriptorLayout();
         return angle::Result::Continue;
     }
 
@@ -8380,12 +8213,11 @@ angle::Result DescriptorSetLayoutCache::getDescriptorSetLayout(
     createInfo.bindingCount = static_cast<uint32_t>(bindingVector.size());
     createInfo.pBindings    = bindingVector.data();
 
-    vk::DescriptorSetLayout newLayout;
-    ANGLE_VK_TRY(context, newLayout.init(context->getDevice(), createInfo));
+    vk::DescriptorSetLayoutPtr newLayout = vk::DescriptorSetLayoutPtr::MakeShared();
+    ANGLE_VK_TRY(context, newLayout->init(context->getDevice(), createInfo));
 
-    auto insertedItem = mPayload.emplace(desc, std::move(newLayout));
-    vk::RefCountedDescriptorSetLayout &insertedLayout = insertedItem.first->second;
-    descriptorSetLayoutOut->set(&insertedLayout);
+    *descriptorSetLayoutOut = newLayout;
+    mPayload.emplace(desc, std::move(newLayout));
 
     return angle::Result::Continue;
 }
@@ -8406,8 +8238,8 @@ void PipelineLayoutCache::destroy(vk::Renderer *renderer)
 
     for (auto &item : mPayload)
     {
-        vk::RefCountedPipelineLayout &layout = item.second;
-        layout.get().destroy(device);
+        vk::PipelineLayoutPtr &layout = item.second;
+        layout->destroy(device);
     }
 
     mPayload.clear();
@@ -8417,7 +8249,7 @@ angle::Result PipelineLayoutCache::getPipelineLayout(
     vk::Context *context,
     const vk::PipelineLayoutDesc &desc,
     const vk::DescriptorSetLayoutPointerArray &descriptorSetLayouts,
-    vk::AtomicBindingPointer<vk::PipelineLayout> *pipelineLayoutOut)
+    vk::PipelineLayoutPtr *pipelineLayoutOut)
 {
     // Note: this function may be called without holding the share group lock.
     std::unique_lock<angle::SimpleMutex> lock(mMutex);
@@ -8425,8 +8257,7 @@ angle::Result PipelineLayoutCache::getPipelineLayout(
     auto iter = mPayload.find(desc);
     if (iter != mPayload.end())
     {
-        vk::RefCountedPipelineLayout &layout = iter->second;
-        pipelineLayoutOut->set(&layout);
+        *pipelineLayoutOut = iter->second;
         mCacheStats.hit();
         return angle::Result::Continue;
     }
@@ -8434,11 +8265,11 @@ angle::Result PipelineLayoutCache::getPipelineLayout(
     mCacheStats.missAndIncrementSize();
     // Note this does not handle gaps in descriptor set layouts gracefully.
     angle::FixedVector<VkDescriptorSetLayout, vk::kMaxDescriptorSetLayouts> setLayoutHandles;
-    for (const vk::AtomicBindingPointer<vk::DescriptorSetLayout> &layoutPtr : descriptorSetLayouts)
+    for (const vk::DescriptorSetLayoutPtr &layoutPtr : descriptorSetLayouts)
     {
-        if (layoutPtr.valid())
+        if (layoutPtr)
         {
-            VkDescriptorSetLayout setLayout = layoutPtr.get().getHandle();
+            VkDescriptorSetLayout setLayout = layoutPtr->getHandle();
             ASSERT(setLayout != VK_NULL_HANDLE);
             setLayoutHandles.push_back(setLayout);
         }
@@ -8462,12 +8293,11 @@ angle::Result PipelineLayoutCache::getPipelineLayout(
         createInfo.pPushConstantRanges    = &pushConstantRange;
     }
 
-    vk::PipelineLayout newLayout;
-    ANGLE_VK_TRY(context, newLayout.init(context->getDevice(), createInfo));
+    vk::PipelineLayoutPtr newLayout = vk::PipelineLayoutPtr::MakeShared();
+    ANGLE_VK_TRY(context, newLayout->init(context->getDevice(), createInfo));
 
-    auto insertedItem                            = mPayload.emplace(desc, std::move(newLayout));
-    vk::RefCountedPipelineLayout &insertedLayout = insertedItem.first->second;
-    pipelineLayoutOut->set(&insertedLayout);
+    *pipelineLayoutOut = newLayout;
+    mPayload.emplace(desc, std::move(newLayout));
 
     return angle::Result::Continue;
 }
@@ -8557,9 +8387,9 @@ void SamplerCache::destroy(vk::Renderer *renderer)
 
     for (auto &iter : mPayload)
     {
-        vk::RefCountedSampler &sampler = iter.second;
-        ASSERT(!sampler.isReferenced());
-        sampler.get().get().destroy(device);
+        vk::SharedSamplerPtr &sampler = iter.second;
+        ASSERT(sampler.unique());
+        sampler->destroy(device);
 
         renderer->onDeallocateHandle(vk::HandleType::Sampler);
     }
@@ -8569,25 +8399,22 @@ void SamplerCache::destroy(vk::Renderer *renderer)
 
 angle::Result SamplerCache::getSampler(ContextVk *contextVk,
                                        const vk::SamplerDesc &desc,
-                                       vk::SamplerBinding *samplerOut)
+                                       vk::SharedSamplerPtr *samplerOut)
 {
     auto iter = mPayload.find(desc);
     if (iter != mPayload.end())
     {
-        vk::RefCountedSampler &sampler = iter->second;
-        samplerOut->set(&sampler);
+        *samplerOut = iter->second;
         mCacheStats.hit();
         return angle::Result::Continue;
     }
 
     mCacheStats.missAndIncrementSize();
-    vk::SamplerHelper samplerHelper(contextVk);
-    ANGLE_TRY(desc.init(contextVk, &samplerHelper.get()));
+    vk::SharedSamplerPtr newSampler = vk::SharedSamplerPtr::MakeShared();
+    ANGLE_TRY(newSampler->init(contextVk, desc));
 
-    vk::RefCountedSampler newSampler(std::move(samplerHelper));
-    auto insertedItem                      = mPayload.emplace(desc, std::move(newSampler));
-    vk::RefCountedSampler &insertedSampler = insertedItem.first->second;
-    samplerOut->set(&insertedSampler);
+    (*samplerOut) = newSampler;
+    mPayload.emplace(desc, std::move(newSampler));
 
     contextVk->getRenderer()->onAllocateHandle(vk::HandleType::Sampler);
 

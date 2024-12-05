@@ -67,6 +67,7 @@
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
+#include "HTMLFrameOwnerElement.h"
 #include "HTTPParsers.h"
 #include "History.h"
 #include "IdleRequestOptions.h"
@@ -609,8 +610,15 @@ bool LocalDOMWindow::isCurrentlyDisplayedInFrame() const
 
 CustomElementRegistry& LocalDOMWindow::ensureCustomElementRegistry()
 {
-    if (!m_customElementRegistry)
-        m_customElementRegistry = CustomElementRegistry::create(*this, scriptExecutionContext());
+    if (!m_customElementRegistry) {
+        m_customElementRegistry = CustomElementRegistry::create(*scriptExecutionContext(), *this);
+        for (Ref shadowRoot : document()->inDocumentShadowRoots()) {
+            if (shadowRoot->mode() == ShadowRootMode::UserAgent)
+                continue;
+            const_cast<ShadowRoot&>(shadowRoot.get()).setCustomElementRegistry(*m_customElementRegistry);
+        }
+        document()->setCustomElementRegistry(*m_customElementRegistry);
+    }
     ASSERT(m_customElementRegistry->scriptExecutionContext() == document());
     return *m_customElementRegistry;
 }
@@ -1071,7 +1079,7 @@ void LocalDOMWindow::focus(bool allowFocus)
         return;
 
     // Clear the current frame's focused node if a new frame is about to be focused.
-    RefPtr focusedFrame = page->checkedFocusController()->focusedLocalFrame();
+    RefPtr focusedFrame = page->focusController().focusedLocalFrame();
     if (focusedFrame && focusedFrame != frame)
         focusedFrame->protectedDocument()->setFocusedElement(nullptr);
 
@@ -1139,6 +1147,10 @@ void LocalDOMWindow::stop()
         return;
 
     SetForScope isStopping { m_isStopping, true };
+
+    if (frame->document() && frame->document()->settings().navigationAPIEnabled())
+        protectedNavigation()->abortOngoingNavigationIfNeeded();
+
     // We must check whether the load is complete asynchronously, because we might still be parsing
     // the document until the callstack unwinds.
     frame->protectedLoader()->stopForUserCancel(true);

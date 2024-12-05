@@ -38,15 +38,16 @@ class Box;
 class BoxGeometry;
 class Rect;
 
-// PlacedFloats holds the floating boxes for BFC/IFC using the BFC's writing mode.
-// PlacedFloats may be inherited by IFCs with mismataching writing mode. In such cases floats
-// are added to PlacledFloats as if they had matching inline direction (i.e. all boxes within PlacedFloats share the same writing mode)
+// PlacedFloats are relative to the BFC's logical top/left.
+// When floats added by nested IFCs with mismatching inline direcctions (e.g. where BFC is RTL but IFC is RTL)
+// they get converted as if they had the same inline direction as BFC. What it simply means that
+// PlacedFloats::Item::isStartPositioned is always relative to BFC, regardless of what it is relative to in its IFC.
 class PlacedFloats {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(PlacedFloats);
 public:
     PlacedFloats(const ElementBox& blockFormattingContextRoot);
 
-    const ElementBox& formattingContextRoot() const { return m_blockFormattingContextRoot; }
+    const ElementBox& blockFormattingContextRoot() const { return m_blockFormattingContextRoot; }
 
     class Item {
     public:
@@ -65,7 +66,7 @@ public:
 
         Rect absoluteRectWithMargin() const { return BoxGeometry::marginBoxRect(m_absoluteBoxGeometry); }
         Rect absoluteBorderBoxRect() const { return BoxGeometry::borderBoxRect(m_absoluteBoxGeometry); }
-        BoxGeometry::HorizontalEdges horizontalMargin() const { return m_absoluteBoxGeometry.horizontalMargin(); }
+        BoxGeometry::HorizontalEdges inlineAxisMargin() const { return m_absoluteBoxGeometry.horizontalMargin(); }
         PositionInContextRoot absoluteBottom() const { return { absoluteRectWithMargin().bottom() }; }
 
         const LayoutShape* shape() const { return m_shape.get(); }
@@ -93,10 +94,8 @@ public:
     bool hasStartPositioned() const;
     bool hasEndPositioned() const;
 
-    WritingMode writingMode() const { return m_writingMode; }
-    // FIXME: This should always be placedFloats's root().writingMode() if we used the actual containing block of the intrusive
-    // floats to initiate the floating state in the integration codepath (i.e. when the float comes from the parent BFC).
-    void setWritingMode(WritingMode writingMode) { m_writingMode = writingMode; }
+    std::optional<LayoutUnit> highestPositionOnBlockAxis() const;
+    std::optional<LayoutUnit> lowestPositionOnBlockAxis(Clear = Clear::Both) const;
 
     void shrinkToFit();
 

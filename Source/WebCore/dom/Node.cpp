@@ -106,7 +106,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebCore {
 
-WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
@@ -120,11 +120,13 @@ public:
 #endif
     uint32_t refCountAndParentBit;
     uint32_t nodeFlags;
+    uint16_t elementStateFlags;
+    uint16_t styleBitfields;
     void* parentNode;
     void* treeScope;
-    uint8_t previous[8];
+    void* previous;
     void* next;
-    uint8_t rendererWithStyleFlags[8];
+    void* renderer;
     uint8_t rareDataWithBitfields[8];
 };
 
@@ -194,6 +196,8 @@ static ASCIILiteral stringForRareDataUseType(NodeRareData::UseType useType)
         return "ExplicitlySetAttrElementsMap"_s;
     case NodeRareData::UseType::Popover:
         return "Popover"_s;
+    case NodeRareData::UseType::UserInfo:
+        return "UserInfo"_s;
     }
     return { };
 }
@@ -434,7 +438,7 @@ Node::~Node()
 
     ASSERT(!renderer());
     ASSERT(!parentNode());
-    ASSERT(!m_previous.pointer());
+    ASSERT(!m_previousSibling);
     ASSERT(!m_next);
 
     {
@@ -456,9 +460,12 @@ Node::~Node()
     }
 #endif
 
-    // FIXME: Test performance, then add a RELEASE_ASSERT for this too.
+// refCount() is 1 during Node destruction (see Node::deref()) but can be 0 during Document destruction (see Document::removedLastRef()).
+#if CHECK_REF_COUNTED_LIFECYCLE
     if (refCount() > 1)
         WTF::RefCountedBase::printRefDuringDestructionLogAndCrash(this);
+#endif
+    RELEASE_ASSERT(refCount() <= 1);
 }
 
 void Node::willBeDeletedFrom(Document& document)
@@ -2465,6 +2472,9 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomString& event
     }
 #endif
 
+    if (CheckedPtr cache = document->existingAXObjectCache())
+        cache->onEventListenerAdded(*targetNode, eventType);
+
     return true;
 }
 
@@ -2506,6 +2516,9 @@ static inline bool didRemoveEventListenerOfType(Node& targetNode, const AtomStri
     if (typeInfo.isInCategory(EventCategory::Gesture))
         document->removeTouchEventHandler(targetNode);
 #endif
+
+    if (CheckedPtr cache = document->existingAXObjectCache())
+        cache->onEventListenerRemoved(targetNode, eventType);
 
     return true;
 }

@@ -39,23 +39,30 @@ typedef struct _GSubprocess GSubprocess;
 #include <JavaScriptCore/RemoteInspectorConnectionClient.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+
+#if PLATFORM(WIN)
+#include <wtf/win/Win32Handle.h>
+#endif
 #endif
 
 namespace WebDriver {
 
 struct ConnectToBrowserAsyncData;
 
-class SessionHost
+class SessionHost final
+    : public RefCounted<SessionHost>
 #if USE(INSPECTOR_SOCKET_SERVER)
-    : public Inspector::RemoteInspectorConnectionClient
+    , public Inspector::RemoteInspectorConnectionClient
 #endif
 {
     WTF_MAKE_FAST_ALLOCATED(SessionHost);
 public:
-    explicit SessionHost(Capabilities&& capabilities)
-        : m_capabilities(WTFMove(capabilities))
+
+    static Ref<SessionHost> create(Capabilities&& capabilities)
     {
+        return adoptRef(*new SessionHost(WTFMove(capabilities)));
     }
+
     ~SessionHost();
 
 #if ENABLE(WEBDRIVER_BIDI)
@@ -82,6 +89,12 @@ public:
     long sendCommandToBackend(const String&, RefPtr<JSON::Object>&& parameters, Function<void (CommandResponse&&)>&&);
 
 private:
+
+    explicit SessionHost(Capabilities&& capabilities)
+        : m_capabilities(WTFMove(capabilities))
+    {
+    }
+
     struct Target {
         uint64_t id { 0 };
         CString name;
@@ -126,16 +139,19 @@ private:
 
     String m_targetIp;
     uint16_t m_targetPort { 0 };
+    bool m_isRemoteBrowser { false };
 
 #if USE(GLIB)
     Function<void (bool, std::optional<String>)> m_startSessionCompletionHandler;
     GRefPtr<GSubprocess> m_browser;
     RefPtr<SocketConnection> m_socketConnection;
     GRefPtr<GCancellable> m_cancellable;
-    bool m_isRemoteBrowser { false };
 #elif USE(INSPECTOR_SOCKET_SERVER)
     Function<void(bool, std::optional<String>)> m_startSessionCompletionHandler;
     std::optional<Inspector::ConnectionID> m_clientID;
+#if PLATFORM(WIN)
+    WTF::Win32Handle m_browserHandle;
+#endif
 #endif
 };
 

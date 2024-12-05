@@ -481,6 +481,80 @@ bool JSArray::setLengthWithArrayStorage(JSGlobalObject* globalObject, unsigned n
     return true;
 }
 
+bool JSArray::fastFill(VM& vm, unsigned startIndex, unsigned endIndex, JSValue value)
+{
+    if (isCopyOnWrite(indexingMode()))
+        convertFromCopyOnWrite(vm);
+
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=283816
+    IndexingType type = indexingType();
+    IndexingType nextType = [type, value]() {
+        if (!(type & IsArray))
+            return NonArray;
+        if (hasAnyArrayStorage(type))
+            return NonArray;
+        switch (type) {
+        case ArrayWithInt32:
+        case ArrayWithUndecided:
+            if (value.isInt32())
+                return ArrayWithInt32;
+            if (value.isNumber())
+                return ArrayWithDouble;
+            return ArrayWithContiguous;
+        case ArrayWithDouble:
+            if (value.isNumber())
+                return type;
+            return ArrayWithContiguous;
+        case ArrayWithContiguous:
+            return type;
+        default:
+            return NonArray;
+        }
+    }();
+    if (type == ArrayWithUndecided) {
+        if (nextType == ArrayWithInt32)
+            convertUndecidedToInt32(vm);
+        else if (nextType == ArrayWithDouble)
+            convertUndecidedToDouble(vm);
+        else if (nextType == ArrayWithContiguous)
+            convertUndecidedToContiguous(vm);
+        else {
+            ASSERT_NOT_REACHED();
+            return false;
+        }
+    } else if (type != nextType)
+        return false;
+
+    ASSERT(nextType == indexingType());
+
+    if (nextType == ArrayWithDouble) {
+        auto* data = butterfly()->contiguousDouble().data();
+        double pattern = value.asNumber();
+#if OS(DARWIN)
+        memset_pattern8(data + startIndex, &pattern, sizeof(double) * (endIndex - startIndex));
+#else
+        std::fill(data + startIndex, data + endIndex, pattern);
+#endif
+    } else if (nextType == ArrayWithInt32) {
+        auto* data = butterfly()->contiguous().data();
+        auto pattern = std::bit_cast<const WriteBarrier<Unknown>>(JSValue::encode(value));
+#if OS(DARWIN)
+        memset_pattern8(data + startIndex, &pattern, sizeof(JSValue) * (endIndex - startIndex));
+#else
+        std::fill(data + startIndex, data + endIndex, pattern);
+#endif
+        vm.writeBarrier(this);
+    } else {
+        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=283786
+        auto contiguousStorage = butterfly()->contiguous();
+        for (unsigned i = startIndex; i < endIndex; ++i)
+            contiguousStorage.at(this, i).setWithoutWriteBarrier(value);
+        vm.writeBarrier(this);
+    }
+
+    return true;
+}
+
 bool JSArray::appendMemcpy(JSGlobalObject* globalObject, VM& vm, unsigned startIndex, IndexingType otherType, std::span<const EncodedJSValue> values)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -541,7 +615,7 @@ bool JSArray::appendMemcpy(JSGlobalObject* globalObject, VM& vm, unsigned startI
         for (EncodedJSValue encodedDouble : values)
             data[index++] = JSValue::decode(encodedDouble).asNumber();
     } else {
-        gcSafeMemcpy(butterfly()->contiguous().data() + startIndex, bitwise_cast<const WriteBarrier<Unknown>*>(values.data()), sizeof(JSValue) * values.size());
+        gcSafeMemcpy(butterfly()->contiguous().data() + startIndex, std::bit_cast<const WriteBarrier<Unknown>*>(values.data()), sizeof(JSValue) * values.size());
         vm.writeBarrier(this);
     }
 
@@ -1201,7 +1275,7 @@ bool JSArray::unshiftCountWithAnyIndexingType(JSGlobalObject* globalObject, unsi
         // through shifting and then realize we should have been in ArrayStorage mode.
         if (moveCount) {
             if (UNLIKELY(holesMustForwardToPrototype())) {
-                if (UNLIKELY(WTF::find64(bitwise_cast<const uint64_t*>(butterfly->contiguous().data() + startIndex), JSValue::encode(JSValue()), moveCount)))
+                if (UNLIKELY(WTF::find64(std::bit_cast<const uint64_t*>(butterfly->contiguous().data() + startIndex), JSValue::encode(JSValue()), moveCount)))
                     RELEASE_AND_RETURN(scope, unshiftCountWithArrayStorage(globalObject, startIndex, count, ensureArrayStorage(vm)));
             }
 
@@ -1551,7 +1625,7 @@ JSArray* tryCloneArrayFromFast(JSGlobalObject* globalObject, JSValue arrayValue)
         }
     } else if (sourceType == ArrayWithInt32) {
         auto* buffer = butterfly->contiguous().data();
-        if (UNLIKELY(WTF::find64(bitwise_cast<const uint64_t*>(buffer), JSValue::encode(JSValue()), resultSize)))
+        if (UNLIKELY(WTF::find64(std::bit_cast<const uint64_t*>(buffer), JSValue::encode(JSValue()), resultSize)))
             resultType = ArrayWithContiguous;
     } else if (sourceType == ArrayWithUndecided && resultSize)
         resultType = ArrayWithContiguous;

@@ -101,6 +101,9 @@ private:
 
     RefPtr<NetworkConnectionToWebProcess> protectedConnection() const;
 
+    template<typename T> void sendToParentProcess(T&&);
+    template<typename T, typename C> void sendWithAsyncReplyToParentProcess(T&&, C&&);
+
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final;
@@ -122,7 +125,6 @@ private:
     void fireNotificationEvent(WebCore::ServiceWorkerIdentifier, const WebCore::NotificationData&, WebCore::NotificationEventType, CompletionHandler<void(bool)>&&) final;
     void fireBackgroundFetchEvent(WebCore::ServiceWorkerIdentifier, const WebCore::BackgroundFetchInformation&, CompletionHandler<void(bool)>&&) final;
     void fireBackgroundFetchClickEvent(WebCore::ServiceWorkerIdentifier, const WebCore::BackgroundFetchInformation&, CompletionHandler<void(bool)>&&) final;
-    void close() final;
     void focus(WebCore::ScriptExecutionContextIdentifier, CompletionHandler<void(std::optional<WebCore::ServiceWorkerClientData>&&)>&&);
     void navigate(WebCore::ScriptExecutionContextIdentifier, WebCore::ServiceWorkerIdentifier, const URL&, CompletionHandler<void(Expected<std::optional<WebCore::ServiceWorkerClientData>, WebCore::ExceptionData>&&)>&&);
 
@@ -134,6 +136,11 @@ private:
     void connectionClosed();
 
     void setInspectable(WebCore::ServiceWorkerIsInspectable) final;
+    void serviceWorkerNeedsRunning() final;
+
+    void processAssertionTimerFired();
+    void startProcessAssertionTimer();
+    bool areServiceWorkersIdle() const;
 
     WebCore::ProcessIdentifier m_webProcessIdentifier;
     WeakPtr<NetworkConnectionToWebProcess> m_connection;
@@ -141,8 +148,9 @@ private:
     HashMap<WebCore::FetchIdentifier, ThreadSafeWeakPtr<ServiceWorkerDownloadTask>> m_ongoingDownloads;
     bool m_isThrottleable { true };
     WebPageProxyIdentifier m_webPageProxyID;
-    size_t m_processingFunctionalEventCount { 0 };
     WebCore::ServiceWorkerIsInspectable m_isInspectable { WebCore::ServiceWorkerIsInspectable::Yes };
+    bool m_isTakingProcessAssertion { false };
+    WebCore::Timer m_processAssertionTimer;
 }; // class WebSWServerToContextConnection
 
 } // namespace WebKit

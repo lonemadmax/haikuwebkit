@@ -25,7 +25,6 @@
 #include "config.h"
 #include "CSSEllipseFunction.h"
 
-#include "CSSCalcValue.h"
 #include "CSSPrimitiveNumericTypes+Serialization.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -37,7 +36,7 @@ static bool hasDefaultValueForEllipseRadius(Ellipse::RadialSize radius)
     return WTF::switchOn(radius,
         [](Ellipse::Extent extent) {
             // FIXME: The spec says that `farthest-corner` should be the default, but this does not match the tests.
-            return std::holds_alternative<ClosestSide>(extent);
+            return std::holds_alternative<Keyword::ClosestSide>(extent);
         },
         [](const auto&) {
             return false;

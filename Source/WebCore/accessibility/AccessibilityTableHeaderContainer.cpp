@@ -54,14 +54,10 @@ LayoutRect AccessibilityTableHeaderContainer::elementRect() const
 
 bool AccessibilityTableHeaderContainer::computeIsIgnored() const
 {
-    if (!m_parent)
-        return true;
-    
 #if PLATFORM(IOS_FAMILY) || USE(ATSPI)
     return true;
 #endif
-
-    return m_parent->isIgnored();
+    return !m_parent || m_parent->isIgnored();
 }
 
 void AccessibilityTableHeaderContainer::addChildren()
@@ -74,7 +70,7 @@ void AccessibilityTableHeaderContainer::addChildren()
         return;
 
     for (auto& columnHeader : parentTable->columnHeaders())
-        addChild(columnHeader.get());
+        addChild(downcast<AccessibilityObject>(columnHeader.get()));
 
     for (const auto& child : m_children)
         m_headerRect.unite(child->elementRect());

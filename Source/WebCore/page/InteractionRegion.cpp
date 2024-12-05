@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InteractionRegion.h"
 
+#include "AccessibilityObject.h"
 #include "BorderShape.h"
 #include "Document.h"
 #include "ElementAncestorIteratorInlines.h"
@@ -563,10 +564,8 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
                 maskedCorners.add(InteractionRegion::CornerMask::MinXMaxYCorner);
             if (borderRadii.bottomRight().minDimension() == maxRadius)
                 maskedCorners.add(InteractionRegion::CornerMask::MaxXMaxYCorner);
-        } else {
+        } else
             clipPath = borderShape.pathForOuterShape(renderBox->document().deviceScaleFactor());
-            WTF_ALWAYS_LOG("interactionRegionForRenderedRegion - rounded rect" << borderShape.deprecatedRoundedRect() << " device scale " << renderBox->document().deviceScaleFactor() << " " << clipPath);
-        }
     }
 
     bool canTweakShape = !isPhoto

@@ -64,6 +64,7 @@ class AccessibilityTable;
 class AccessibilityTableCell;
 class Document;
 class HTMLAreaElement;
+class HTMLDetailsElement;
 class HTMLTableElement;
 class HTMLTextFormControlElement;
 class Node;
@@ -206,7 +207,6 @@ protected:
     macro(SelectedStateChanged) \
     macro(SelectedTextChanged) \
     macro(SetSizeChanged) \
-    macro(TableHeadersChanged) \
     macro(TextCompositionBegan) \
     macro(TextCompositionEnded) \
     macro(URLChanged) \
@@ -256,8 +256,21 @@ protected:
     WEBCORE_AXNOTIFICATION_KEYS_DEFAULT(macro)
 #endif
 
+enum class AXNotification {
+#define WEBCORE_DEFINE_AXNOTIFICATION_ENUM(name) name,
+WEBCORE_AXNOTIFICATION_KEYS(WEBCORE_DEFINE_AXNOTIFICATION_ENUM)
+#undef WEBCORE_DEFINE_AXNOTIFICATION_ENUM
+};
+
+enum class AXLoadingEvent : uint8_t {
+    Started,
+    Reloaded,
+    Failed,
+    Finished
+};
+
 #if !PLATFORM(COCOA)
-enum AXTextChange { AXTextInserted, AXTextDeleted, AXTextAttributesChanged };
+enum class AXTextChange : uint8_t { Inserted, Deleted, AttributesChanged };
 #endif
 
 enum class PostTarget { Element, ObservableParent };
@@ -343,7 +356,11 @@ public:
     void childrenChanged(Node*, Element* newChild = nullptr);
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
+    void onEventListenerAdded(Node&, const AtomString& eventType);
+    void onEventListenerRemoved(Node&, const AtomString& eventType);
+    void onExpandedChanged(HTMLDetailsElement&);
     void onFocusChange(Element* oldElement, Element* newElement);
+    void onInertOrVisibilityChange(RenderElement&);
     void onPopoverToggle(const HTMLElement&);
     void onScrollbarFrameRectChange(const Scrollbar&);
     void onSelectedChanged(Element&);
@@ -444,7 +461,7 @@ public:
     bool elementIsTextControl(const Element&);
 
     AccessibilityObject* objectForID(const AXID id) const { return m_objects.get(id); }
-    template<typename U> Vector<RefPtr<AXCoreObject>> objectsForIDs(const U&) const;
+    template<typename U> Vector<Ref<AXCoreObject>> objectsForIDs(const U&) const;
     Node* nodeForID(std::optional<AXID>) const;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -502,12 +519,6 @@ public:
     // Index
     CharacterOffset characterOffsetForIndex(int, const AXCoreObject*);
 
-    enum AXNotification {
-#define WEBCORE_DEFINE_AXNOTIFICATION_ENUM(name) AX##name,
-    WEBCORE_AXNOTIFICATION_KEYS(WEBCORE_DEFINE_AXNOTIFICATION_ENUM)
-#undef WEBCORE_DEFINE_AXNOTIFICATION_ENUM
-    };
-
     void postNotification(RenderObject*, AXNotification, PostTarget = PostTarget::Element);
     void postNotification(Node*, AXNotification, PostTarget = PostTarget::Element);
     void postNotification(AccessibilityObject*, Document*, AXNotification, PostTarget = PostTarget::Element);
@@ -534,13 +545,6 @@ public:
     void postTextStateChangeNotification(const Position&, const AXTextStateChangeIntent&, const VisibleSelection&);
     void postLiveRegionChangeNotification(AccessibilityObject&);
 
-    enum AXLoadingEvent {
-        AXLoadingStarted,
-        AXLoadingReloaded,
-        AXLoadingFailed,
-        AXLoadingFinished
-    };
-
     void frameLoadingEventNotification(LocalFrame*, AXLoadingEvent);
 
     void prepareForDocumentDestruction(const Document&);
@@ -554,13 +558,23 @@ public:
     Ref<Document> protectedDocument() const;
     constexpr const std::optional<PageIdentifier>& pageID() const { return m_pageID; }
 
-#if !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    void objectBecameIgnored(AXID axID)
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    void objectBecameIgnored(const AccessibilityObject& object)
     {
         if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
-            tree->objectBecameIgnored(axID);
+            tree->objectBecameIgnored(object);
     }
-#endif // !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+
+    void objectBecameUnignored(const AccessibilityObject& object)
+    {
+#if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+        if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
+            tree->objectBecameUnignored(object);
+#else
+        UNUSED_PARAM(object);
+#endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
+    }
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 #if PLATFORM(MAC)
     static void setShouldRepostNotificationsForTests(bool);
@@ -675,8 +689,6 @@ private:
     AccessibilityObject* focusedObjectForNode(Node*);
     static AccessibilityObject* focusedImageMapUIElement(HTMLAreaElement&);
 
-    AXID generateNewObjectID();
-
     void notificationPostTimerFired();
 
     void liveRegionChangedNotificationPostTimerFired();
@@ -790,8 +802,6 @@ private:
     static std::atomic<bool> gAccessibilityThreadTextApisEnabled;
 #endif
 
-    HashSet<AXID> m_idsInUse;
-
     Timer m_notificationPostTimer;
     Vector<std::pair<Ref<AccessibilityObject>, AXNotification>> m_notificationsToPost;
 
@@ -862,13 +872,13 @@ private:
 };
 
 template<typename U>
-inline Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const U& axIDs) const
+inline Vector<Ref<AXCoreObject>> AXObjectCache::objectsForIDs(const U& axIDs) const
 {
     ASSERT(isMainThread());
 
-    return WTF::compactMap(axIDs, [&](auto& axID) -> std::optional<RefPtr<AXCoreObject>> {
+    return WTF::compactMap(axIDs, [&](auto& axID) -> std::optional<Ref<AXCoreObject>> {
         if (auto* object = objectForID(axID))
-            return RefPtr { object };
+            return Ref { *object };
         return std::nullopt;
     });
 }
@@ -921,9 +931,11 @@ private:
 bool hasRole(Element&, StringView role);
 bool hasAnyRole(Element&, Vector<StringView>&& roles);
 bool hasAnyRole(Element*, Vector<StringView>&& roles);
-bool nodeHasCellRole(Element&);
-bool nodeHasPresentationRole(Element&);
-bool nodeHasTableRole(Element&);
+bool hasCellARIARole(Element&);
+bool hasPresentationRole(Element&);
+bool hasTableRole(Element&);
+bool isRowGroup(Element&);
+bool isRowGroup(Node*);
 ContainerNode* composedParentIgnoringDocumentFragments(Node&);
 ContainerNode* composedParentIgnoringDocumentFragments(Node*);
 
@@ -933,8 +945,9 @@ bool hasAccNameAttribute(Element&);
 
 bool isNodeFocused(Node&);
 
-bool isDOMHidden(const RenderStyle*);
+bool isRenderHidden(const RenderStyle*);
+bool isRenderHidden(const RenderStyle&);
 
-WTF::TextStream& operator<<(WTF::TextStream&, AXObjectCache::AXNotification);
+WTF::TextStream& operator<<(WTF::TextStream&, AXNotification);
 
 } // namespace WebCore

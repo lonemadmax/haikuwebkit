@@ -22,8 +22,7 @@
 #include "FloatPoint.h"
 #include "SVGPathByteStream.h"
 #include "SVGPathSource.h"
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -55,10 +54,8 @@ private:
     {
         DataType data;
         size_t dataSize = sizeof(DataType);
-
-        ASSERT_WITH_SECURITY_IMPLICATION(m_streamCurrent + dataSize <= m_streamEnd);
-        memcpy(&data, m_streamCurrent, dataSize);
-        m_streamCurrent += dataSize;
+        memcpySpan(asMutableByteSpan(data), m_streamCurrent.first(dataSize));
+        m_streamCurrent = m_streamCurrent.subspan(dataSize);
         return data;
     }
 
@@ -83,10 +80,7 @@ private:
         return readType<FloatPoint>();
     }
 
-    SVGPathByteStream::DataIterator m_streamCurrent;
-    SVGPathByteStream::DataIterator m_streamEnd;
+    std::span<const uint8_t> m_streamCurrent;
 };
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

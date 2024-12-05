@@ -29,24 +29,24 @@
 namespace WebCore {
 namespace CSS {
 
-using Left   = Constant<CSSValueLeft>;
-using Right  = Constant<CSSValueRight>;
-using Top    = Constant<CSSValueTop>;
-using Bottom = Constant<CSSValueBottom>;
-using Center = Constant<CSSValueCenter>;
-
 struct TwoComponentPositionHorizontal {
-    std::variant<Left, Right, Center, LengthPercentage<>> offset;
+    std::variant<Keyword::Left, Keyword::Right, Keyword::Center, LengthPercentage<>> offset;
+
     bool operator==(const TwoComponentPositionHorizontal&) const = default;
 };
+DEFINE_CSS_TYPE_WRAPPER(TwoComponentPositionHorizontal, offset);
+
 struct TwoComponentPositionVertical {
-    std::variant<Top, Bottom, Center, LengthPercentage<>> offset;
+    std::variant<Keyword::Top, Keyword::Bottom, Keyword::Center, LengthPercentage<>> offset;
+
     bool operator==(const TwoComponentPositionVertical&) const = default;
 };
+DEFINE_CSS_TYPE_WRAPPER(TwoComponentPositionVertical, offset);
+
 using TwoComponentPosition              = SpaceSeparatedTuple<TwoComponentPositionHorizontal, TwoComponentPositionVertical>;
 
-using FourComponentPositionHorizontal   = SpaceSeparatedTuple<std::variant<Left, Right>, LengthPercentage<>>;
-using FourComponentPositionVertical     = SpaceSeparatedTuple<std::variant<Top, Bottom>, LengthPercentage<>>;
+using FourComponentPositionHorizontal   = SpaceSeparatedTuple<std::variant<Keyword::Left, Keyword::Right>, LengthPercentage<>>;
+using FourComponentPositionVertical     = SpaceSeparatedTuple<std::variant<Keyword::Top, Keyword::Bottom>, LengthPercentage<>>;
 using FourComponentPosition             = SpaceSeparatedTuple<FourComponentPositionHorizontal, FourComponentPositionVertical>;
 
 struct Position {
@@ -79,20 +79,9 @@ struct Position {
 
     std::variant<TwoComponentPosition, FourComponentPosition> value;
 };
+DEFINE_CSS_TYPE_WRAPPER(Position, value);
 
 bool isCenterPosition(const Position&);
-
-template<> struct Serialize<TwoComponentPositionHorizontal> { void operator()(StringBuilder&, const TwoComponentPositionHorizontal&); };
-template<> struct ComputedStyleDependenciesCollector<TwoComponentPositionHorizontal> { void operator()(ComputedStyleDependencies&, const TwoComponentPositionHorizontal&); };
-template<> struct CSSValueChildrenVisitor<TwoComponentPositionHorizontal> { IterationStatus operator()(const Function<IterationStatus(CSSValue&)>&, const TwoComponentPositionHorizontal&); };
-
-template<> struct Serialize<TwoComponentPositionVertical> { void operator()(StringBuilder&, const TwoComponentPositionVertical&); };
-template<> struct ComputedStyleDependenciesCollector<TwoComponentPositionVertical> { void operator()(ComputedStyleDependencies&, const TwoComponentPositionVertical&); };
-template<> struct CSSValueChildrenVisitor<TwoComponentPositionVertical> { IterationStatus operator()(const Function<IterationStatus(CSSValue&)>&, const TwoComponentPositionVertical&); };
-
-template<> struct Serialize<Position> { void operator()(StringBuilder&, const Position&); };
-template<> struct ComputedStyleDependenciesCollector<Position> { void operator()(ComputedStyleDependencies&, const Position&); };
-template<> struct CSSValueChildrenVisitor<Position> { IterationStatus operator()(const Function<IterationStatus(CSSValue&)>&, const Position&); };
 
 } // namespace CSS
 } // namespace WebCore

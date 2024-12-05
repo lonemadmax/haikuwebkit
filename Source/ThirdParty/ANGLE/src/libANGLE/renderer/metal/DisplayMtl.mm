@@ -731,6 +731,10 @@ void DisplayMtl::ensureCapsInitialized() const
     // On macOS exclude [[position]] from maxVaryingVectors.
     mNativeCaps.maxVaryingVectors         = 31 - 1;
     mNativeCaps.maxVertexOutputComponents = mNativeCaps.maxFragmentInputComponents = 124 - 4;
+#elif TARGET_OS_SIMULATOR
+    mNativeCaps.max2DTextureSize          = 8192;
+    mNativeCaps.maxVaryingVectors         = 31 - 1;
+    mNativeCaps.maxVertexOutputComponents = mNativeCaps.maxFragmentInputComponents = 124 - 4;
 #else
     if (supportsAppleGPUFamily(3))
     {
@@ -806,10 +810,10 @@ void DisplayMtl::ensureCapsInitialized() const
 
     // MSAA
     mNativeCaps.maxSamples             = mFormatTable.getMaxSamples();
-    mNativeCaps.maxSampleMaskWords     = 0;
+    mNativeCaps.maxSampleMaskWords     = 1;
     mNativeCaps.maxColorTextureSamples = mNativeCaps.maxSamples;
     mNativeCaps.maxDepthTextureSamples = mNativeCaps.maxSamples;
-    mNativeCaps.maxIntegerSamples      = 1;
+    mNativeCaps.maxIntegerSamples      = mNativeCaps.maxSamples;
 
     mNativeCaps.maxVertexAttributes           = mtl::kMaxVertexAttribs;
     mNativeCaps.maxVertexAttribBindings       = mtl::kMaxVertexAttribs;
@@ -1001,6 +1005,11 @@ void DisplayMtl::initializeExtensions() const
     mNativeExtensions.texture3DOES = true;
 
     mNativeExtensions.textureShadowLodEXT = true;
+
+    if ([mMetalDevice areProgrammableSamplePositionsSupported])
+    {
+        mNativeExtensions.textureMultisampleANGLE = true;
+    }
 
     mNativeExtensions.sampleVariablesOES = true;
 
@@ -1343,11 +1352,13 @@ angle::Result DisplayMtl::initializeShaderLibrary()
 {
     mtl::AutoObjCPtr<NSError *> err = nil;
 #if ANGLE_METAL_XCODE_BUILDS_SHADERS || ANGLE_METAL_HAS_PREBUILT_INTERNAL_SHADERS
-    mDefaultShaders = mtl::CreateShaderLibraryFromBinary(getMetalDevice(), gDefaultMetallib,
-                                                         std::size(gDefaultMetallib), &err);
+    mDefaultShaders = mtl::CreateShaderLibraryFromStaticBinary(getMetalDevice(), gDefaultMetallib,
+                                                               std::size(gDefaultMetallib), &err);
 #else
-    mDefaultShaders = mtl::CreateShaderLibrary(getMetalDevice(), gDefaultMetallibSrc,
-                                               std::size(gDefaultMetallibSrc), &err);
+    const bool disableFastMath = false;
+    const bool usesInvariance  = true;
+    mDefaultShaders            = mtl::CreateShaderLibrary(getMetalDevice(), gDefaultMetallibSrc, {},
+                                                          disableFastMath, usesInvariance, &err);
 #endif
 
     if (err)

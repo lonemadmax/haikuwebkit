@@ -195,6 +195,7 @@ class WebProcessProxy;
 
 enum class ContinueUnsafeLoad : bool { No, Yes };
 
+struct EditorState;
 struct FocusedElementInformation;
 struct FrameInfoData;
 struct InteractionInformationAtPosition;
@@ -242,7 +243,7 @@ public:
     void deref() { derefView(); }
 
     // Create a new drawing area proxy for the given page.
-    virtual std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) = 0;
+    virtual Ref<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) = 0;
 
     // Tell the view to invalidate the given region. The region is in view coordinates.
     virtual void setViewNeedsDisplay(const WebCore::Region&) = 0;
@@ -536,6 +537,8 @@ public:
 
     virtual CocoaWindow *platformWindow() const = 0;
 #endif
+
+    virtual void reconcileEnclosingScrollViewContentOffset(EditorState&) { };
 
 #if PLATFORM(IOS_FAMILY)
     virtual void commitPotentialTapFailed() = 0;

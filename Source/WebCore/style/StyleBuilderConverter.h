@@ -33,6 +33,7 @@
 #include "CSSBasicShapeValue.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCalcValue.h"
+#include "CSSColorSchemeValue.h"
 #include "CSSContentDistributionValue.h"
 #include "CSSCounterStyleRegistry.h"
 #include "CSSFontFeatureValue.h"
@@ -50,7 +51,6 @@
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyParserConsumer+Font.h"
-#include "CSSPropertyParserHelpers.h"
 #include "CSSRayValue.h"
 #include "CSSReflectValue.h"
 #include "CSSSubgridValue.h"
@@ -77,6 +77,7 @@
 #include "Settings.h"
 #include "StyleBasicShape.h"
 #include "StyleBuilderState.h"
+#include "StyleColorScheme.h"
 #include "StylePathData.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
 #include "StyleRayFunction.h"
@@ -127,7 +128,7 @@ public:
     static RefPtr<ScaleTransformOperation> convertScale(const BuilderState&, const CSSValue&);
     static RefPtr<TranslateTransformOperation> convertTranslate(const BuilderState&, const CSSValue&);
 #if ENABLE(DARK_MODE_CSS)
-    static StyleColorScheme convertColorScheme(const BuilderState&, const CSSValue&);
+    static Style::ColorScheme convertColorScheme(const BuilderState&, const CSSValue&);
 #endif
     static String convertString(const BuilderState&, const CSSValue&);
     static String convertStringOrAuto(const BuilderState&, const CSSValue&);
@@ -236,7 +237,8 @@ public:
     static Vector<ScrollAxis> convertScrollTimelineAxis(const BuilderState&, const CSSValue&);
     static Vector<ViewTimelineInsets> convertViewTimelineInset(const BuilderState&, const CSSValue&);
 
-    static Vector<AtomString> convertAnchorName(const BuilderState&, const CSSValue&);
+    static Vector<ScopedName> convertAnchorName(const BuilderState&, const CSSValue&);
+    static std::optional<ScopedName> convertPositionAnchor(const BuilderState&, const CSSValue&);
 
     static BlockEllipsis convertBlockEllipsis(const BuilderState&, const CSSValue&);
     static size_t convertMaxLines(const BuilderState&, const CSSValue&);
@@ -257,10 +259,6 @@ private:
 
     static WebCore::Length convertToRadiusLength(const BuilderState&, const CSSPrimitiveValue&);
     static WebCore::Length parseSnapCoordinate(const BuilderState&, const CSSValue&);
-
-#if ENABLE(DARK_MODE_CSS)
-    static void updateColorScheme(const CSSPrimitiveValue&, StyleColorScheme&);
-#endif
 
     static GridLength createGridTrackBreadth(const BuilderState&, const CSSPrimitiveValue&);
     static GridTrackSize createGridTrackSize(const BuilderState&, const CSSValue&);
@@ -606,44 +604,10 @@ inline RefPtr<ScaleTransformOperation> BuilderConverter::convertScale(const Buil
 }
 
 #if ENABLE(DARK_MODE_CSS)
-inline void BuilderConverter::updateColorScheme(const CSSPrimitiveValue& primitiveValue, StyleColorScheme& colorScheme)
+inline Style::ColorScheme BuilderConverter::convertColorScheme(const BuilderState& builderState, const CSSValue& value)
 {
-    ASSERT(primitiveValue.isValueID());
-
-    switch (primitiveValue.valueID()) {
-    case CSSValueAuto:
-        colorScheme = StyleColorScheme();
-        break;
-    case CSSValueOnly:
-        colorScheme.setAllowsTransformations(false);
-        break;
-    case CSSValueLight:
-        colorScheme.add(ColorScheme::Light);
-        break;
-    case CSSValueDark:
-        colorScheme.add(ColorScheme::Dark);
-        break;
-    default:
-        // Unknown identifiers are allowed and ignored.
-        break;
-    }
-}
-
-inline StyleColorScheme BuilderConverter::convertColorScheme(const BuilderState&, const CSSValue& value)
-{
-    StyleColorScheme colorScheme;
-
-    if (auto* list = dynamicDowncast<CSSValueList>(value)) {
-        for (auto& currentValue : *list)
-            updateColorScheme(downcast<CSSPrimitiveValue>(currentValue), colorScheme);
-    } else if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value))
-        updateColorScheme(*primitiveValue, colorScheme);
-
-    // If the value was just "only", that is synonymous for "only light".
-    if (colorScheme.isOnly())
-        colorScheme.add(ColorScheme::Light);
-
-    return colorScheme;
+    Ref colorSchemeValue = downcast<CSSColorSchemeValue>(value);
+    return Style::toStyle(colorSchemeValue->colorScheme(), builderState);
 }
 #endif
 
@@ -2124,12 +2088,18 @@ inline Vector<ViewTimelineInsets> BuilderConverter::convertViewTimelineInset(con
     });
 }
 
-inline Vector<AtomString> BuilderConverter::convertAnchorName(const BuilderState&, const CSSValue& value)
+inline Vector<ScopedName> BuilderConverter::convertAnchorName(const BuilderState& state, const CSSValue& value)
 {
     if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
         if (value.valueID() == CSSValueNone)
             return { };
-        return { AtomString { primitiveValue->stringValue() } };
+
+        ScopedName scopedName {
+            .name = AtomString { primitiveValue->stringValue() },
+            .scopeOrdinal = state.styleScopeOrdinal()
+        };
+
+        return { scopedName };
     }
 
     auto* list = dynamicDowncast<CSSValueList>(value);
@@ -2137,8 +2107,24 @@ inline Vector<AtomString> BuilderConverter::convertAnchorName(const BuilderState
         return { };
 
     return WTF::map(*list, [&](auto& item) {
-        return AtomString { downcast<CSSPrimitiveValue>(item).stringValue() };
+        return ScopedName {
+            .name = AtomString { downcast<CSSPrimitiveValue>(item).stringValue() },
+            .scopeOrdinal = state.styleScopeOrdinal()
+        };
     });
+}
+
+inline std::optional<ScopedName> BuilderConverter::convertPositionAnchor(const BuilderState& state, const CSSValue& value)
+{
+    if (value.valueID() == CSSValueAuto)
+        return { };
+
+    const auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+
+    return ScopedName {
+        .name = AtomString { primitiveValue.stringValue() },
+        .scopeOrdinal = state.styleScopeOrdinal()
+    };
 }
 
 inline BlockEllipsis BuilderConverter::convertBlockEllipsis(const BuilderState& builderState, const CSSValue& value)

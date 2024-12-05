@@ -393,6 +393,7 @@ private:
     JSIPC(WebPage& webPage, WebFrame& webFrame)
         : m_webPage(webPage)
         , m_webFrame(webFrame)
+        , m_testerProxy(IPCTesterReceiver::create())
     { }
 
     static JSIPC* unwrap(JSObjectRef);
@@ -438,7 +439,7 @@ private:
     WeakPtr<WebPage> m_webPage;
     WeakPtr<WebFrame> m_webFrame;
     Vector<Ref<JSMessageListener>> m_messageListeners;
-    IPCTesterReceiver m_testerProxy;
+    Ref<IPCTesterReceiver> m_testerProxy;
     RefPtr<JSIPCConnection> m_uiConnection;
     RefPtr<JSIPCConnection> m_networkConnection;
     RefPtr<JSIPCConnection> m_gpuConnection;
@@ -547,13 +548,13 @@ static JSValueRef jsSendWithAsyncReply(IPC::Connection& connection, uint64_t des
             JSC::JSObject* jsResult = nullptr;
             if (replyDecoder && replyDecoder->isValid())
                 jsResult = jsResultFromReplyDecoder(globalObject, messageName, *replyDecoder);
-            JSValueRef arguments[1] = { nullptr };
+            std::array<JSValueRef, 1> arguments { nullptr };
             if (auto* exception = scope.exception()) {
                 arguments[0] = toRef(globalObject, exception);
                 scope.clearException();
             } else
                 arguments[0] = toRef(globalObject, jsResult);
-            JSObjectCallAsFunction(context, callback, callback, 1, arguments, nullptr);
+            JSObjectCallAsFunction(context, callback, callback, 1, arguments.data(), nullptr);
         },
         IPC::Connection::AsyncReplyID::generate()
     };
@@ -2710,7 +2711,7 @@ JSValueRef JSIPC::addTesterReceiver(JSContextRef context, JSObjectRef, JSObjectR
         return JSValueMakeUndefined(context);
     }
     // Currently supports only UI process, as there's no uniform way to add message receivers.
-    WebProcess::singleton().addMessageReceiver(Messages::IPCTesterReceiver::messageReceiverName(), jsIPC->m_testerProxy);
+    WebProcess::singleton().addMessageReceiver(Messages::IPCTesterReceiver::messageReceiverName(), jsIPC->m_testerProxy.get());
     return JSValueMakeUndefined(context);
 }
 

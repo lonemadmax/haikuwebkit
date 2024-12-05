@@ -243,7 +243,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_historyClient(makeUnique<API::LegacyContextHistoryClient>())
     , m_visitedLinkStore(VisitedLinkStore::create())
 #if PLATFORM(MAC)
-    , m_perActivityStateCPUUsageSampler(makeUnique<PerActivityStateCPUUsageSampler>(*this))
+    , m_perActivityStateCPUUsageSampler(makeUniqueRefWithoutRefCountedCheck<PerActivityStateCPUUsageSampler>(*this))
 #endif
     , m_alwaysRunsAtBackgroundPriority(m_configuration->alwaysRunsAtBackgroundPriority())
     , m_shouldTakeUIBackgroundAssertion(m_configuration->shouldTakeUIBackgroundAssertion())
@@ -268,6 +268,9 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_lastCriticalMemoryPressureStatusTime(ApproximateTime::now() - criticalMemoryPressureCheckInterval())
     , m_checkMemoryPressureStatusTimer(RunLoop::main(), this, &WebProcessPool::checkMemoryPressureStatus)
 #endif
+#if ENABLE(IPC_TESTING_API)
+    , m_ipcTester(IPCTester::create())
+#endif
 {
     static auto s_needsGlobalStaticInitialization = NeedsGlobalStaticInitialization::Yes;
     auto needsGlobalStaticInitialization = std::exchange(s_needsGlobalStaticInitialization, NeedsGlobalStaticInitialization::No);
@@ -291,7 +294,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
 
     addMessageReceiver(Messages::WebProcessPool::messageReceiverName(), *this);
 #if ENABLE(IPC_TESTING_API)
-    addMessageReceiver(Messages::IPCTester::messageReceiverName(), m_ipcTester);
+    addMessageReceiver(Messages::IPCTester::messageReceiverName(), m_ipcTester.get());
 #endif
 
     // NOTE: These sub-objects must be initialized after m_messageReceiverMap..
@@ -1149,17 +1152,17 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
 #endif
 }
 
-Ref<WebProcessProxy> WebProcessPool::processForSite(WebsiteDataStore& websiteDataStore, const Site& site, WebProcessProxy::LockdownMode lockdownMode, const API::PageConfiguration& pageConfiguration)
+Ref<WebProcessProxy> WebProcessPool::processForSite(WebsiteDataStore& websiteDataStore, const std::optional<Site>& site, WebProcessProxy::LockdownMode lockdownMode, const API::PageConfiguration& pageConfiguration)
 {
-    if (!site.isEmpty()) {
-        if (RefPtr process = webProcessCache().takeProcess(site, websiteDataStore, lockdownMode, pageConfiguration)) {
+    if (site && !site->isEmpty()) {
+        if (RefPtr process = webProcessCache().takeProcess(*site, websiteDataStore, lockdownMode, pageConfiguration)) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForSite: Using WebProcess from WebProcess cache (process=%p, PID=%i)", process.get(), process->processID());
             ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
             return process.releaseNonNull();
         }
 
         // RefPtr if we have a suspended page for the given registrable domain and use its process if we do, for performance reasons.
-        if (RefPtr process = SuspendedPageProxy::findReusableSuspendedPageProcess(*this, site.domain(), websiteDataStore, lockdownMode, pageConfiguration)) {
+        if (RefPtr process = SuspendedPageProxy::findReusableSuspendedPageProcess(*this, site->domain(), websiteDataStore, lockdownMode, pageConfiguration)) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForSite: Using WebProcess from a SuspendedPage (process=%p, PID=%i)", process.get(), process->processID());
             ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
             return process.releaseNonNull();
@@ -1168,8 +1171,8 @@ Ref<WebProcessProxy> WebProcessPool::processForSite(WebsiteDataStore& websiteDat
 
     if (RefPtr process = tryTakePrewarmedProcess(websiteDataStore, lockdownMode, pageConfiguration)) {
         WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForSite: Using prewarmed process (process=%p, PID=%i)", process.get(), process->processID());
-        if (!site.isEmpty())
-            tryPrewarmWithDomainInformation(*process, site.domain());
+        if (site && !site->isEmpty())
+            tryPrewarmWithDomainInformation(*process, site->domain());
         ASSERT(m_processes.containsIf([&](auto& item) { return item.ptr() == process; }));
         return process.releaseNonNull();
     }
@@ -1230,7 +1233,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         }
     } else {
         WEBPROCESSPOOL_RELEASE_LOG(Process, "createWebPage: Not delaying WebProcess launch");
-        process = processForSite(pageConfiguration->protectedWebsiteDataStore(), Site { }, lockdownMode, pageConfiguration);
+        process = processForSite(pageConfiguration->protectedWebsiteDataStore(), std::nullopt, lockdownMode, pageConfiguration);
     }
 
     Ref userContentController = pageConfiguration->userContentController();
@@ -1864,26 +1867,21 @@ void WebProcessPool::setFontAllowList(API::Array* array)
     }
 }
 
-Seconds WebProcessPool::hiddenPageThrottlingAutoIncreaseLimit() const
+void WebProcessPool::updateHiddenPageThrottlingAutoIncreaseLimit()
 {
     // We're estimating an upper bound for a set of background timer fires for a page to be 200ms
     // (including all timer fires, all paging-in, and any resulting GC). To ensure this does not
     // result in more than 1% CPU load allow for one timer fire per 100x this duration.
     static int maximumTimerThrottlePerPageInMS = 200 * 100;
-    int limitInMilliseconds = maximumTimerThrottlePerPageInMS * m_hiddenPageThrottlingAutoIncreasesCounter.value();
-    return Seconds::fromMilliseconds(limitInMilliseconds);
-}
 
-void WebProcessPool::updateHiddenPageThrottlingAutoIncreaseLimit()
-{
-    sendToAllProcesses(Messages::WebProcess::SetHiddenPageDOMTimerThrottlingIncreaseLimit(hiddenPageThrottlingAutoIncreaseLimit()), ShouldSkipSuspendedProcesses::Yes);
+    int limitInMilliseconds = maximumTimerThrottlePerPageInMS * m_hiddenPageThrottlingAutoIncreasesCounter.value();
+    sendToAllProcesses(Messages::WebProcess::SetHiddenPageDOMTimerThrottlingIncreaseLimit(Seconds::fromMilliseconds(limitInMilliseconds)));
 }
 
 void WebProcessPool::reportWebContentCPUTime(Seconds cpuTime, uint64_t activityState)
 {
 #if PLATFORM(MAC)
-    if (m_perActivityStateCPUUsageSampler)
-        m_perActivityStateCPUUsageSampler->reportWebContentCPUTime(cpuTime, static_cast<WebCore::ActivityStateForCPUSampling>(activityState));
+    Ref { m_perActivityStateCPUUsageSampler.get() }->reportWebContentCPUTime(cpuTime, static_cast<WebCore::ActivityStateForCPUSampling>(activityState));
 #else
     UNUSED_PARAM(cpuTime);
     UNUSED_PARAM(activityState);

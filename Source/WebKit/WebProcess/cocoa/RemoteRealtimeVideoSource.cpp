@@ -57,11 +57,6 @@ RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RemoteRealtimeMediaSourcePr
 
 RemoteRealtimeVideoSource::~RemoteRealtimeVideoSource() = default;
 
-void RemoteRealtimeVideoSource::endProducingData()
-{
-    proxy().endProducingData();
-}
-
 bool RemoteRealtimeVideoSource::setShouldApplyRotation(bool shouldApplyRotation)
 {
     connection().send(Messages::UserMediaCaptureManagerProxy::SetShouldApplyRotation { identifier(), shouldApplyRotation }, 0);
@@ -82,6 +77,7 @@ Ref<RealtimeMediaSource> RemoteRealtimeVideoSource::clone()
         clone->m_registerOwnerCallback = m_registerOwnerCallback;
         clone->setSettings(RealtimeMediaSourceSettings { settings() });
         clone->setCapabilities(RealtimeMediaSourceCapabilities { capabilities() });
+        clone->setMuted(muted());
 
         manager().addSource(*clone);
         manager().remoteCaptureSampleManager().addSource(*clone);

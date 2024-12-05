@@ -72,6 +72,9 @@ public:
     bool isBorderImageWidthValue() const { return m_classType == ClassType::BorderImageWidth; }
     bool isCalcValue() const { return m_classType == ClassType::Calculation; }
     bool isCanvasValue() const { return m_classType == ClassType::Canvas; }
+#if ENABLE(DARK_MODE_CSS)
+    bool isColorScheme() const { return m_classType == ClassType::ColorScheme; }
+#endif
     bool isContentDistributionValue() const { return m_classType == ClassType::ContentDistribution; }
     bool isCounter() const { return m_classType == ClassType::Counter; }
     bool isCrossfadeValue() const { return m_classType == ClassType::Crossfade; }
@@ -145,9 +148,6 @@ public:
     // What properties does this value rely on (eg, font-size for em units)
     ComputedStyleDependencies computedStyleDependencies() const;
     void collectComputedStyleDependencies(ComputedStyleDependencies&) const;
-
-    // Checks to see if the provided conversion data is sufficient to resolve the provided dependencies.
-    static bool canResolveDependenciesWithConversionData(const ComputedStyleDependencies&, const CSSToLengthConversionData&);
 
     // Checks to see if the provided conversion data is sufficient to resolve the dependencies of the CSSValue.
     bool canResolveDependenciesWithConversionData(const CSSToLengthConversionData&) const;
@@ -225,6 +225,9 @@ protected:
         BorderImageSlice,
         BorderImageWidth,
         Calculation,
+#if ENABLE(DARK_MODE_CSS)
+        ColorScheme,
+#endif
         ContentDistribution,
         Counter,
         CustomProperty,

@@ -112,6 +112,7 @@
 #include "ScrollAnimator.h"
 #include "ScrollLatchingController.h"
 #include "Scrollbar.h"
+#include "ScrollingCoordinator.h"
 #include "ScrollingEffectsController.h"
 #include "SelectionRestorationMode.h"
 #include "Settings.h"
@@ -794,6 +795,9 @@ bool EventHandler::canMouseDownStartSelect(const MouseEventWithHitTestResults& e
 
     if (!node || !node->renderer())
         return true;
+
+    if (node->protectedDocument()->quirks().shouldAvoidStartingSelectionOnMouseDown(*node))
+        return false;
 
     if (ImageOverlay::isOverlayText(*node))
         return node->renderer()->style().usedUserSelect() != UserSelect::None;
@@ -2490,15 +2494,15 @@ bool EventHandler::dispatchDragEvent(const AtomString& eventType, Element& dragT
     if (CheckedPtr cache = frame->document()->existingAXObjectCache()) {
         auto& eventNames = WebCore::eventNames();
         if (eventType == eventNames.dragstartEvent)
-            cache->postNotification(&dragTarget, AXObjectCache::AXDraggingStarted);
+            cache->postNotification(&dragTarget, AXNotification::DraggingStarted);
         else if (eventType == eventNames.dragendEvent)
-            cache->postNotification(&dragTarget, AXObjectCache::AXDraggingEnded);
+            cache->postNotification(&dragTarget, AXNotification::DraggingEnded);
         else if (eventType == eventNames.dragenterEvent)
-            cache->postNotification(&dragTarget, AXObjectCache::AXDraggingEnteredDropZone);
+            cache->postNotification(&dragTarget, AXNotification::DraggingEnteredDropZone);
         else if (eventType == eventNames.dragleaveEvent)
-            cache->postNotification(&dragTarget, AXObjectCache::AXDraggingExitedDropZone);
+            cache->postNotification(&dragTarget, AXNotification::DraggingExitedDropZone);
         else if (eventType == eventNames.dropEvent)
-            cache->postNotification(&dragTarget, AXObjectCache::AXDraggingDropped);
+            cache->postNotification(&dragTarget, AXNotification::DraggingDropped);
     }
 
     return dragEvent->defaultPrevented();
@@ -3222,8 +3226,9 @@ HandleUserInputEventResult EventHandler::handleWheelEventInternal(const Platform
     determineWheelEventTarget(event, element, scrollableArea, isOverWidget);
 
 #if PLATFORM(COCOA) || PLATFORM(WIN)
+    std::unique_ptr<WheelEventTestMonitorCompletionDeferrer> deferrer;
     if (scrollableArea)
-        auto deferrer = WheelEventTestMonitorCompletionDeferrer { monitor.get(), scrollableArea->scrollingNodeIDForTesting(), WheelEventTestMonitor::DeferReason::HandlingWheelEventOnMainThread };
+        deferrer = makeUnique<WheelEventTestMonitorCompletionDeferrer>(monitor.get(), scrollableArea->scrollingNodeIDForTesting(), WheelEventTestMonitor::DeferReason::HandlingWheelEventOnMainThread);
 #endif
 
     if (element) {
@@ -3918,7 +3923,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     if (initialKeyEvent.type() == PlatformEvent::Type::RawKeyDown) {
         element->dispatchEvent(keydown);
         // If frame changed as a result of keydown dispatch, then return true to avoid sending a subsequent keypress message to the new frame.
-        bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->focusController().focusedOrMainFrame();
+        bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->checkedFocusController()->focusedOrMainFrame();
         return keydown->defaultHandled() || keydown->defaultPrevented() || changedFocusedFrame;
     }
 
@@ -3952,7 +3957,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     }
 
     // If frame changed as a result of keydown dispatch, then return early to avoid sending a subsequent keypress message to the new frame.
-    bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->focusController().focusedOrMainFrame();
+    bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->checkedFocusController()->focusedOrMainFrame();
     bool keydownResult = keydown->defaultHandled() || keydown->defaultPrevented() || changedFocusedFrame;
     if (keydownResult && !backwardCompatibilityMode)
         return keydownResult;
@@ -4207,7 +4212,7 @@ void EventHandler::invalidateDataTransfer()
 static void removeDraggedContentDocumentMarkersFromAllFramesInPage(Page& page)
 {
     page.forEachDocument([] (Document& document) {
-        document.markers().removeMarkers(DocumentMarker::Type::DraggedContent);
+        document.markers().removeMarkers(DocumentMarkerType::DraggedContent);
     });
 
     if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame())) {
@@ -4532,6 +4537,36 @@ bool EventHandler::tabsToLinks(KeyboardEvent* event) const
 
     bool tabsToLinksClientCallResult = page->chrome().client().keyboardUIMode() & KeyboardAccessTabsToLinks;
     return (event && eventInvertsTabsToLinksClientCallResult(*event)) ? !tabsToLinksClientCallResult : tabsToLinksClientCallResult;
+}
+
+bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
+{
+#if PLATFORM(COCOA)
+    RefPtr page = m_frame->page();
+    if (!page)
+        return false;
+
+    KeyboardUIMode keyboardUIMode = page->chrome().client().keyboardUIMode();
+    bool handlingOptionTab = event && isKeyboardOptionTab(*event);
+
+    // If tab-to-links is off, option-tab always highlights all controls
+    if (!(keyboardUIMode & KeyboardAccessTabsToLinks) && handlingOptionTab)
+        return true;
+
+    // If system preferences say to include all controls, we always include all controls
+    if (keyboardUIMode & KeyboardAccessFull)
+        return true;
+
+    // Otherwise tab-to-links includes all controls, unless the sense is flipped via option-tab.
+    if (keyboardUIMode & KeyboardAccessTabsToLinks)
+        return !handlingOptionTab;
+
+    return handlingOptionTab;
+#else
+    UNUSED_PARAM(event);
+    // We always allow tabs to all controls
+    return true;
+#endif
 }
 
 void EventHandler::defaultTextInputEventHandler(TextEvent& event)
@@ -4968,12 +5003,14 @@ HandleUserInputEventResult EventHandler::handleTouchEvent(const PlatformTouchEve
 
     // Array of touches per state, used to assemble the 'changedTouches' list in the JS event.
     typedef HashSet<RefPtr<EventTarget>> EventTargetSet;
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     struct {
         // The touches corresponding to the particular change state this struct instance represents.
         RefPtr<TouchList> m_touches;
         // Set of targets involved in m_touches.
         EventTargetSet m_targets;
     } changedTouches[PlatformTouchPoint::TouchStateEnd];
+    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
 
@@ -5250,12 +5287,6 @@ bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widge
         return false;
 
     return frameView->frame().eventHandler().handleWheelEvent(event, processingSteps).wasHandled();
-}
-
-bool EventHandler::tabsToAllFormControls(KeyboardEvent*) const
-{
-    // We always allow tabs to all controls
-    return true;
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)

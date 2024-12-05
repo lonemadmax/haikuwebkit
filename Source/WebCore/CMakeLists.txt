@@ -100,6 +100,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/typedom/transform"
     "${WEBCORE_DIR}/css/values"
     "${WEBCORE_DIR}/css/values/backgrounds"
+    "${WEBCORE_DIR}/css/values/color-adjust"
     "${WEBCORE_DIR}/css/values/images"
     "${WEBCORE_DIR}/css/values/motion"
     "${WEBCORE_DIR}/css/values/primitives"
@@ -181,6 +182,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/style"
     "${WEBCORE_DIR}/style/values"
     "${WEBCORE_DIR}/style/values/backgrounds"
+    "${WEBCORE_DIR}/style/values/color-adjust"
     "${WEBCORE_DIR}/style/values/images"
     "${WEBCORE_DIR}/style/values/motion"
     "${WEBCORE_DIR}/style/values/primitives"
@@ -1065,6 +1067,8 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/BeforeUnloadEvent.idl
     dom/BroadcastChannel.idl
     dom/CDATASection.idl
+    dom/CaretPosition.idl
+    dom/CaretPositionFromPointOptions.idl
     dom/CharacterData.idl
     dom/CheckVisibilityOptions.idl
     dom/ChildNode.idl
@@ -1099,6 +1103,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/DeviceOrientationEvent.idl
     dom/DeviceOrientationOrMotionPermissionState.idl
     dom/Document+CSSOMView.idl
+    dom/Document+CaretPositionFromPoint.idl
     dom/Document+Fullscreen.idl
     dom/Document+HTML.idl
     dom/Document+HTMLObsolete.idl
@@ -1328,6 +1333,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/ImageBitmapOptions.idl
     html/ImageData.idl
     html/ImageDataSettings.idl
+    html/ImageDataStorageFormat.idl
     html/InvokerElement.idl
     html/MediaController.idl
     html/MediaEncryptedEvent.idl
@@ -1990,6 +1996,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/svg.css
     ${WEBCORE_DIR}/css/viewTransitions.css
     ${WEBCORE_DIR}/html/shadow/attachmentElementShadow.css
+    ${WEBCORE_DIR}/html/shadow/detailsElementShadow.css
     ${WEBCORE_DIR}/html/shadow/imageOverlay.css
     ${WEBCORE_DIR}/html/shadow/meterElementShadow.css
 )
@@ -2530,6 +2537,17 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E cat ${MODERN_MEDIA_CONTROLS_SCRIPTS} > ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
     VERBATIM)
 
+# Generate process sync data files
+add_custom_command(
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.serialization.in
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/page/ProcessSyncData.in
+    DEPENDS ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py ${WEBCORE_DIR}/page/ProcessSyncData.in ${WebCore_DERIVED_SOURCES_DIR}
+    VERBATIM)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h)
+
 # Modules that the bindings generator scripts may use
 set(SCRIPTS_RESOLVE_SUPPLEMENTAL
     ${WEBCORE_DIR}/bindings/scripts/IDLParser.pm
@@ -2571,6 +2589,13 @@ set(WebCoreTestSupport_INTERFACE_INCLUDE_DIRECTORIES
 WEBKIT_FRAMEWORK_DECLARE(WebCore)
 WEBKIT_LIBRARY_DECLARE(WebCoreTestSupport)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
+
+if (PORT STREQUAL GTK OR PORT STREQUAL WPE)
+    WEBKIT_ADD_TARGET_CXX_FLAGS(WebCore
+        -Wunsafe-buffer-usage
+        -fsafe-buffer-usage-suggestions
+    )
+endif ()
 
 list(APPEND WebCoreTestSupport_LIBRARIES ${WebCore_LIBRARIES})
 list(APPEND WebCoreTestSupport_PRIVATE_LIBRARIES ${WebCore_PRIVATE_LIBRARIES})
@@ -2911,8 +2936,9 @@ include_directories(SYSTEM ${WebCore_SYSTEM_INCLUDE_DIRECTORIES})
 target_precompile_headers(WebCore PRIVATE WebCorePrefix.h)
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
-    Modules/WebGPU/InternalAPI/WebGPU.serialization.in
+    ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.serialization.in
 
+    Modules/WebGPU/InternalAPI/WebGPU.serialization.in
     Modules/indexeddb/IndexedDB.serialization.in
 
     page/ActivityState.serialization.in
@@ -2926,11 +2952,8 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/ScrollTypes.serialization.in
 
     platform/audio/PlatformMediaSession.serialization.in
-
     platform/graphics/InbandTextTrackPrivate.serialization.in
-
     platform/mediastream/MDNSRegisterError.serialization.in
-
     platform/network/ProtectionSpaceBase.serialization.in
 )
 

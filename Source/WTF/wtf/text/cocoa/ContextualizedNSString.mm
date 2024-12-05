@@ -29,8 +29,6 @@
 #import <algorithm>
 #import <wtf/text/StringView.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 @implementation WTFContextualizedNSString {
     StringView context;
     StringView contents;
@@ -66,10 +64,10 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     auto contentsHigh = std::clamp(static_cast<unsigned>(range.location + range.length), context.length(), context.length() + contents.length());
     auto contentsSubstring = contents.substring(contentsLow - context.length(), contentsHigh - contentsLow);
     static_assert(std::is_same_v<std::make_unsigned_t<unichar>, std::make_unsigned_t<UChar>>);
-    contextSubstring.getCharacters(reinterpret_cast<UChar*>(buffer));
-    contentsSubstring.getCharacters(reinterpret_cast<UChar*>(buffer) + contextSubstring.length());
+    // FIXME: We don't actually know the size of buffer here.
+    auto bufferSpan = unsafeMakeSpan(reinterpret_cast<UChar*>(buffer), contextSubstring.length() + contentsSubstring.length());
+    contextSubstring.getCharacters(bufferSpan);
+    contentsSubstring.getCharacters(bufferSpan.subspan(contextSubstring.length()));
 }
 
 @end
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

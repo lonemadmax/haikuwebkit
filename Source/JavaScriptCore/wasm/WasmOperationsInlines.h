@@ -53,7 +53,7 @@ inline EncodedJSValue refFunc(JSWebAssemblyInstance* instance, uint32_t index)
 }
 
 template <typename T>
-JSWebAssemblyArray* fillArray(JSWebAssemblyInstance* instance, Wasm::FieldType fieldType, uint32_t size, EncodedJSValue value, RefPtr<const Wasm::RTT> rtt)
+JSWebAssemblyArray* fillArray(JSWebAssemblyInstance* instance, Wasm::FieldType fieldType, uint32_t size, T value, RefPtr<const Wasm::RTT> rtt)
 {
     JSGlobalObject* globalObject = instance->globalObject();
     VM& vm = instance->vm();
@@ -62,7 +62,7 @@ JSWebAssemblyArray* fillArray(JSWebAssemblyInstance* instance, Wasm::FieldType f
     if (!size)
         return JSWebAssemblyArray::tryCreate(vm, globalObject->webAssemblyArrayStructure(), fieldType, size, WTFMove(values), rtt);
 
-    values.fill(static_cast<T>(value));
+    values.fill(value);
     return JSWebAssemblyArray::tryCreate(vm, globalObject->webAssemblyArrayStructure(), fieldType, size, WTFMove(values), rtt);
 }
 
@@ -84,19 +84,15 @@ inline JSValue arrayNew(JSWebAssemblyInstance* instance, uint32_t typeIndex, uin
 
     switch (elementSize) {
     case sizeof(uint8_t): {
-        // `encValue` must be an unboxed int32 (since the typechecker guarantees that its type is i32); so it's safe to truncate it in the cases below.
-        ASSERT(encValue <= UINT32_MAX);
-        array = fillArray<uint8_t>(instance, fieldType, size, encValue, arrayRTT);
+        array = fillArray<uint8_t>(instance, fieldType, size, static_cast<uint8_t>(encValue), arrayRTT);
         break;
     }
     case sizeof(uint16_t): {
-        ASSERT(encValue <= UINT32_MAX);
-        array = fillArray<uint16_t>(instance, fieldType, size, encValue, arrayRTT);
+        array = fillArray<uint16_t>(instance, fieldType, size, static_cast<uint16_t>(encValue), arrayRTT);
         break;
     }
     case sizeof(uint32_t): {
-        ASSERT(encValue <= UINT32_MAX);
-        array = fillArray<uint32_t>(instance, fieldType, size, encValue, arrayRTT);
+        array = fillArray<uint32_t>(instance, fieldType, size, static_cast<uint32_t>(encValue), arrayRTT);
         break;
     }
     case sizeof(uint64_t): {
@@ -752,7 +748,7 @@ inline int32_t memoryAtomicWait32(JSWebAssemblyInstance* instance, uint64_t offs
         return -1;
     if (!vm.m_typedArrayController->isAtomicsWaitAllowedOnCurrentThread())
         return -1;
-    int32_t* pointer = bitwise_cast<int32_t*>(bitwise_cast<uint8_t*>(instance->memory()->basePointer()) + offsetInMemory);
+    int32_t* pointer = std::bit_cast<int32_t*>(std::bit_cast<uint8_t*>(instance->memory()->basePointer()) + offsetInMemory);
     return waitImpl<int32_t>(vm, pointer, value, timeoutInNanoseconds);
 }
 
@@ -774,7 +770,7 @@ inline int32_t memoryAtomicWait64(JSWebAssemblyInstance* instance, uint64_t offs
         return -1;
     if (!vm.m_typedArrayController->isAtomicsWaitAllowedOnCurrentThread())
         return -1;
-    int64_t* pointer = bitwise_cast<int64_t*>(bitwise_cast<uint8_t*>(instance->memory()->basePointer()) + offsetInMemory);
+    int64_t* pointer = std::bit_cast<int64_t*>(std::bit_cast<uint8_t*>(instance->memory()->basePointer()) + offsetInMemory);
     return waitImpl<int64_t>(vm, pointer, value, timeoutInNanoseconds);
 }
 
@@ -794,7 +790,7 @@ inline int32_t memoryAtomicNotify(JSWebAssemblyInstance* instance, unsigned base
         return -1;
     if (instance->memory()->sharingMode() != MemorySharingMode::Shared)
         return 0;
-    uint8_t* pointer = bitwise_cast<uint8_t*>(instance->memory()->basePointer()) + offsetInMemory;
+    uint8_t* pointer = std::bit_cast<uint8_t*>(instance->memory()->basePointer()) + offsetInMemory;
     unsigned count = UINT_MAX;
     if (countValue >= 0)
         count = static_cast<unsigned>(countValue);

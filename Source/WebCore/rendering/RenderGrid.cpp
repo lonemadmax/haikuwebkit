@@ -39,6 +39,7 @@
 #include "RenderLayoutState.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
@@ -1498,7 +1499,7 @@ bool RenderGrid::hasStaticPositionForGridItem(const RenderBox& gridItem, GridTra
 
 void RenderGrid::layoutPositionedObject(RenderBox& gridItem, bool relayoutChildren, bool fixedPositionObjectsOnly)
 {
-    if (isSkippedContentRoot()) {
+    if (layoutContext().isSkippedContentRootForLayout(*this)) {
         gridItem.clearNeedsLayoutForSkippedContent();
         return;
     }
@@ -1767,9 +1768,8 @@ void RenderGrid::updateAutoMarginsInRowAxisIfNeeded(RenderBox& gridItem)
 {
     ASSERT(!gridItem.isOutOfFlowPositioned());
 
-    const RenderStyle& parentStyle = style();
-    Length marginStart = gridItem.style().marginStartUsing(&parentStyle);
-    Length marginEnd = gridItem.style().marginEndUsing(&parentStyle);
+    Length marginStart = gridItem.style().marginStart(writingMode());
+    Length marginEnd = gridItem.style().marginEnd(writingMode());
     LayoutUnit marginLogicalWidth;
     // We should only consider computed margins if their specified value isn't
     // 'auto', since such computed value may come from a previous layout and may
@@ -1784,12 +1784,12 @@ void RenderGrid::updateAutoMarginsInRowAxisIfNeeded(RenderBox& gridItem)
         return;
 
     if (marginStart.isAuto() && marginEnd.isAuto()) {
-        gridItem.setMarginStart(availableAlignmentSpace / 2, &parentStyle);
-        gridItem.setMarginEnd(availableAlignmentSpace / 2, &parentStyle);
+        gridItem.setMarginStart(availableAlignmentSpace / 2, writingMode());
+        gridItem.setMarginEnd(availableAlignmentSpace / 2, writingMode());
     } else if (marginStart.isAuto()) {
-        gridItem.setMarginStart(availableAlignmentSpace, &parentStyle);
+        gridItem.setMarginStart(availableAlignmentSpace, writingMode());
     } else if (marginEnd.isAuto()) {
-        gridItem.setMarginEnd(availableAlignmentSpace, &parentStyle);
+        gridItem.setMarginEnd(availableAlignmentSpace, writingMode());
     }
 }
 
@@ -1798,9 +1798,8 @@ void RenderGrid::updateAutoMarginsInColumnAxisIfNeeded(RenderBox& gridItem)
 {
     ASSERT(!gridItem.isOutOfFlowPositioned());
 
-    const RenderStyle& parentStyle = style();
-    Length marginBefore = gridItem.style().marginBeforeUsing(&parentStyle);
-    Length marginAfter = gridItem.style().marginAfterUsing(&parentStyle);
+    Length marginBefore = gridItem.style().marginBefore(writingMode());
+    Length marginAfter = gridItem.style().marginAfter(writingMode());
     LayoutUnit marginLogicalHeight;
     // We should only consider computed margins if their specified value isn't
     // 'auto', since such computed value may come from a previous layout and may
@@ -1815,12 +1814,12 @@ void RenderGrid::updateAutoMarginsInColumnAxisIfNeeded(RenderBox& gridItem)
         return;
 
     if (marginBefore.isAuto() && marginAfter.isAuto()) {
-        gridItem.setMarginBefore(availableAlignmentSpace / 2, &parentStyle);
-        gridItem.setMarginAfter(availableAlignmentSpace / 2, &parentStyle);
+        gridItem.setMarginBefore(availableAlignmentSpace / 2, writingMode());
+        gridItem.setMarginAfter(availableAlignmentSpace / 2, writingMode());
     } else if (marginBefore.isAuto()) {
-        gridItem.setMarginBefore(availableAlignmentSpace, &parentStyle);
+        gridItem.setMarginBefore(availableAlignmentSpace, writingMode());
     } else if (marginAfter.isAuto()) {
-        gridItem.setMarginAfter(availableAlignmentSpace, &parentStyle);
+        gridItem.setMarginAfter(availableAlignmentSpace, writingMode());
     }
 }
 
@@ -1999,6 +1998,7 @@ GridAxisPosition RenderGrid::columnAxisPositionForGridItem(const RenderBox& grid
         // The alignment axis (column axis) is always orthogonal to the inline axis, hence this value behaves as 'start'.
         return GridAxisPosition::GridAxisStart;
     case ItemPosition::Center:
+    case ItemPosition::AnchorCenter:
         return GridAxisPosition::GridAxisCenter;
     case ItemPosition::FlexStart: // Only used in flex layout, otherwise equivalent to 'start'.
         // Aligns the alignment subject to be flush with the alignment container's 'start' edge (block-start) in the column axis.
@@ -2025,8 +2025,6 @@ GridAxisPosition RenderGrid::columnAxisPositionForGridItem(const RenderBox& grid
     case ItemPosition::Auto:
     case ItemPosition::Normal:
         break;
-    case ItemPosition::AnchorCenter:
-        return GridAxisPosition::GridAxisStart; // TODO: Implement - see https://bugs.webkit.org/show_bug.cgi?id=275451.
     }
 
     ASSERT_NOT_REACHED();
@@ -2058,6 +2056,7 @@ GridAxisPosition RenderGrid::rowAxisPositionForGridItem(const RenderBox& gridIte
         // We want the physical 'right' side, so we have to take account, container's inline-flow direction.
         return writingMode().isBidiLTR() ? GridAxisPosition::GridAxisEnd : GridAxisPosition::GridAxisStart;
     case ItemPosition::Center:
+    case ItemPosition::AnchorCenter:
         return GridAxisPosition::GridAxisCenter;
     case ItemPosition::FlexStart: // Only used in flex layout, otherwise equivalent to 'start'.
         // Aligns the alignment subject to be flush with the alignment container's 'start' edge (inline-start) in the row axis.
@@ -2077,8 +2076,6 @@ GridAxisPosition RenderGrid::rowAxisPositionForGridItem(const RenderBox& gridIte
     case ItemPosition::Auto:
     case ItemPosition::Normal:
         break;
-    case ItemPosition::AnchorCenter:
-        return GridAxisPosition::GridAxisStart; // TODO: Implement - see https://bugs.webkit.org/show_bug.cgi?id=275451.
     }
 
     ASSERT_NOT_REACHED();
@@ -2230,7 +2227,7 @@ LayoutUnit RenderGrid::logicalOffsetForOutOfFlowGridItem(const RenderBox& gridIt
     bool isFlowAwareRowAxis = GridLayoutFunctions::flowAwareDirectionForGridItem(*this, gridItem, direction) == GridTrackSizingDirection::ForColumns;
     LayoutUnit gridItemPosition = isFlowAwareRowAxis ? gridItem.logicalLeft() : gridItem.logicalTop();
     LayoutUnit gridBorder = isRowAxis ? borderLogicalLeft() : borderBefore();
-    LayoutUnit gridItemMargin = isRowAxis ? gridItem.marginLogicalLeft(&style()) : gridItem.marginBefore(&style());
+    LayoutUnit gridItemMargin = isRowAxis ? gridItem.marginLogicalLeft(writingMode()) : gridItem.marginBefore(writingMode());
     LayoutUnit offset = gridItemPosition - gridBorder - gridItemMargin;
     if (!isRowAxis || writingMode().isLogicalLeftInlineStart())
         return offset;

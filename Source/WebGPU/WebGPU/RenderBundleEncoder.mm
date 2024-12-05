@@ -128,9 +128,12 @@ static RenderBundleICBWithResources* makeRenderBundleICBWithResources(id<MTLIndi
     id<MTLArgumentEncoder> argumentEncoder =
         [device.icbCommandClampFunction(MTLIndexTypeUInt32) newArgumentEncoderWithBufferIndex:device.bufferIndexForICBContainer()];
     id<MTLBuffer> container = device.safeCreateBuffer(argumentEncoder.encodedLength);
+    id<MTLBuffer> outOfBoundsRead = device.safeCreateBuffer(sizeof(uint32_t));
+    outOfBoundsRead.label = @"Out of bounds read flag";
     container.label = @"ICB Argument Buffer";
     [argumentEncoder setArgumentBuffer:container offset:0];
-    [argumentEncoder setIndirectCommandBuffer:icb atIndex:0];
+    [argumentEncoder setBuffer:outOfBoundsRead offset:0 atIndex:0];
+    [argumentEncoder setIndirectCommandBuffer:icb atIndex:1];
 
     RenderBundleICBWithResources* renderBundle = [[RenderBundleICBWithResources alloc] initWithICB:icb containerBuffer:container pipelineState:renderPipelineState depthStencilState:depthStencilState cullMode:cullMode frontFace:frontFace depthClipMode:depthClipMode depthBias:depthBias depthBiasSlopeScale:depthBiasSlopeScale depthBiasClamp:depthBiasClamp fragmentDynamicOffsetsBuffer:fragmentDynamicOffsetsBuffer pipeline:pipeline minVertexCounts:&vertexCountContainer];
 
@@ -172,7 +175,7 @@ Ref<RenderBundleEncoder> Device::createRenderBundleEncoder(const WGPURenderBundl
         generateAValidationError(error);
         return RenderBundleEncoder::createInvalid(*this, error);
     }
-    for (auto [ i, textureFormat ] : IndexedRange(descriptor.colorFormatsSpan())) {
+    for (auto [ i, textureFormat ] : indexedRange(descriptor.colorFormatsSpan())) {
         if (textureFormat == WGPUTextureFormat_Undefined)
             continue;
         if (!Texture::isColorRenderableFormat(textureFormat, *this)) {
@@ -686,7 +689,7 @@ RenderBundleEncoder::FinalizeRenderCommand RenderBundleEncoder::drawIndexed(uint
     RefPtr renderPassEncoder = m_renderPassEncoder.get();
     if (renderPassEncoder) {
         auto [minVertexCount, minInstanceCount] = computeMininumVertexInstanceCount();
-        useIndirectCall = RenderPassEncoder::clampIndexBufferToValidValues(indexCount, instanceCount, baseVertex, firstInstance, m_indexType, indexBufferOffsetInBytes, m_indexBuffer.get(), minVertexCount, minInstanceCount, renderPassEncoder->renderCommandEncoder(), m_device.get(), m_descriptor.sampleCount, m_primitiveType);
+        useIndirectCall = RenderPassEncoder::clampIndexBufferToValidValues(indexCount, instanceCount, baseVertex, firstInstance, m_indexType, indexBufferOffsetInBytes, m_indexBuffer.get(), minVertexCount, minInstanceCount, *renderPassEncoder, m_device.get(), m_descriptor.sampleCount, m_primitiveType);
         if (useIndirectCall == RenderPassEncoder::IndexCall::IndirectDraw)
             renderPassEncoder->splitRenderPass();
     }
@@ -713,7 +716,7 @@ RenderBundleEncoder::FinalizeRenderCommand RenderBundleEncoder::drawIndexed(uint
         if (!indexCount || !instanceCount || !indexBuffer || m_indexBuffer->isDestroyed())
             return finalizeRenderCommand();
 
-        storeVertexBufferCountsForValidation(indexCount, instanceCount, firstIndex, baseVertex, firstInstance, m_indexType, indexBufferOffsetInBytes);
+        storeVertexBufferCountsForValidation(indexCount, instanceCount, indexBufferOffsetInBytes / indexSizeInBytes, baseVertex, firstInstance, m_indexType, indexBufferOffsetInBytes);
 
         RefPtr renderPassEncoder = m_renderPassEncoder.get();
         if (renderPassEncoder && (useIndirectCall == RenderPassEncoder::IndexCall::IndirectDraw || useIndirectCall == RenderPassEncoder::IndexCall::CachedIndirectDraw)) {
@@ -902,7 +905,8 @@ void RenderBundleEncoder::endCurrentICB()
     }
 
     uint64_t completedDraws = 0, lastIndexOfRecordedCommand = 0;
-    for (auto& command : m_recordedCommands) {
+    auto recordedCommands = std::exchange(m_recordedCommands, { });
+    for (auto& command : recordedCommands) {
         completedDraws += command() ? 1 : 0;
         ++lastIndexOfRecordedCommand;
 
@@ -910,15 +914,18 @@ void RenderBundleEncoder::endCurrentICB()
             break;
     }
 
-    if (m_renderPassEncoder)
+    if (m_renderPassEncoder) {
+        m_recordedCommands = std::exchange(recordedCommands, { });
         return;
+    }
 
-    if (lastIndexOfRecordedCommand == m_recordedCommands.size()) {
-        m_recordedCommands.clear();
+    if (lastIndexOfRecordedCommand == recordedCommands.size()) {
+        recordedCommands.clear();
         m_icbDescriptor.commandTypes = 0;
     } else
-        m_recordedCommands.remove(0, lastIndexOfRecordedCommand);
+        recordedCommands.remove(0, lastIndexOfRecordedCommand);
 
+    m_recordedCommands = std::exchange(recordedCommands, { });
     m_currentCommandIndex = commandCount - completedDraws;
     [m_icbArray addObject:makeRenderBundleICBWithResources(m_indirectCommandBuffer, m_resources, m_currentPipelineState, m_depthStencilState, m_cullMode, m_frontFace, m_depthClipMode, m_depthBias, m_depthBiasSlopeScale, m_depthBiasClamp, m_dynamicOffsetsFragmentBuffer, m_pipeline.get(), device.get(), m_minVertexCountForDrawCommand)];
     cleanup();
@@ -1200,6 +1207,7 @@ void RenderBundleEncoder::recordCommand(WTF::Function<bool(void)>&& function)
         return;
 
     ASSERT(!m_renderPassEncoder || m_renderPassEncoder->renderCommandEncoder());
+    RELEASE_ASSERT(!m_dynamicOffsetsFragmentBuffer);
     m_recordedCommands.append(WTFMove(function));
 }
 

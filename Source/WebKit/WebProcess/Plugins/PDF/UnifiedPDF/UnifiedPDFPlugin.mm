@@ -49,9 +49,11 @@
 #include "WebEventConversion.h"
 #include "WebEventModifier.h"
 #include "WebEventType.h"
+#include "WebFrame.h"
 #include "WebHitTestResultData.h"
 #include "WebKeyboardEvent.h"
 #include "WebMouseEvent.h"
+#include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <CoreGraphics/CoreGraphics.h>
 #include <PDFKit/PDFKit.h>
@@ -80,6 +82,7 @@
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/ImmediateActionStage.h>
 #include <WebCore/LocalFrame.h>
+#include <WebCore/LocalizedStrings.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
@@ -108,7 +111,7 @@
 #include "PDFKitSoftLink.h"
 
 @interface WKPDFFormMutationObserver : NSObject {
-    WebKit::UnifiedPDFPlugin* _plugin;
+    ThreadSafeWeakPtr<WebKit::UnifiedPDFPlugin> _plugin;
 }
 @end
 
@@ -124,10 +127,11 @@
 
 - (void)formChanged:(NSNotification *)notification
 {
-    _plugin->didMutatePDFDocument();
+    RefPtr plugin = _plugin.get();
+    plugin->didMutatePDFDocument();
 
     NSString *fieldName = (NSString *)[[notification userInfo] objectForKey:@"PDFFormFieldName"];
-    _plugin->repaintAnnotationsForFormField(fieldName);
+    plugin->repaintAnnotationsForFormField(fieldName);
 }
 @end
 
@@ -2679,7 +2683,7 @@ bool UnifiedPDFPlugin::takeFindStringFromSelection()
     if (!m_frame || !m_frame->coreLocalFrame())
         return false;
 
-    if (CheckedPtr client = m_frame->coreLocalFrame()->checkedEditor()->client())
+    if (CheckedPtr client = m_frame->coreLocalFrame()->protectedEditor()->client())
         client->updateStringForFind(findString);
     else
         return false;
@@ -2692,7 +2696,7 @@ bool UnifiedPDFPlugin::forwardEditingCommandToEditor(const String& commandName, 
 {
     if (!m_frame || !m_frame->coreLocalFrame())
         return false;
-    return m_frame->coreLocalFrame()->checkedEditor()->command(commandName).execute(argument);
+    return m_frame->coreLocalFrame()->protectedEditor()->command(commandName).execute(argument);
 }
 
 void UnifiedPDFPlugin::selectAll()

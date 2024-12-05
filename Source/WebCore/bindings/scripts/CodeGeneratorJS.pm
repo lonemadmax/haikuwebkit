@@ -2570,7 +2570,7 @@ sub GenerateEnumerationImplementationContent
     $result .= "    static constexpr std::array<std::pair<ComparableASCIILiteral, $className>, " . scalar(@sortedEnumerationValues) . "> mappings {\n";
     for my $value (@sortedEnumerationValues) {
         my $enumerationValueName = GetEnumerationValueName($value);
-        $result .= "        std::pair<ComparableASCIILiteral, $className> { \"$value\", ${className}::$enumerationValueName },\n";
+        $result .= "        std::pair<ComparableASCIILiteral, $className> { \"$value\"_s, ${className}::$enumerationValueName },\n";
     }
     $result .= "    };\n";
     $result .= "    static constexpr SortedArrayMap enumerationMapping { mappings };\n";
@@ -5309,7 +5309,7 @@ sub GenerateImplementation
         if ($codeGenerator->InheritsExtendedAttribute($interface, "ActiveDOMObject")) {
             push(@implContent, "    SUPPRESS_UNCOUNTED_LOCAL auto* js${interfaceName} = jsCast<JS${interfaceName}*>(handle.slot()->asCell());\n");
             $emittedJSCast = 1;
-            push(@implContent, "    auto& wrapped = js${interfaceName}->wrapped();\n");
+            push(@implContent, "    SUPPRESS_UNCOUNTED_LOCAL auto& wrapped = js${interfaceName}->wrapped();\n");
             push(@implContent, "    if (!wrapped.isContextStopped() && wrapped.hasPendingActivity()) {\n");
             push(@implContent, "        if (UNLIKELY(reason))\n");
             push(@implContent, "            *reason = \"ActiveDOMObject with pending activity\"_s;\n");
@@ -6771,6 +6771,7 @@ sub GenerateCallbackHeaderContent
             
             # FIXME: Change the default name (used for callback functions) to something other than handleEvent. It makes little sense.
             my $functionName = $operation->extendedAttributes->{ImplementedAs} || $operation->name || "handleEvent";
+            $functionName .= "RethrowingException" if $operation->extendedAttributes->{RethrowException};
 
             push(@$contentRef, "    ${nativeReturnType} ${functionName}(" . join(", ", @arguments) . ") override;\n");
         }
@@ -6896,7 +6897,9 @@ sub GenerateCallbackImplementationContent
             
             # FIXME: Change the default name (used for callback functions) to something other than handleEvent. It makes little sense.
             my $functionName = $operation->name || "handleEvent";
+
             my $functionImplementationName = $operation->extendedAttributes->{ImplementedAs} || $functionName;
+            $functionImplementationName .= "RethrowingException" if $operation->extendedAttributes->{RethrowException};
 
             my @arguments = ();
 
@@ -7306,7 +7309,6 @@ sub GetNumberOfNullableMemberTypes
 
     foreach my $memberType (@{$idlUnionType->subtypes}) {
         $count++ if $memberType->isNullable;
-        $count++ if $memberType->name eq "undefined" && $undefinedAsNull;
         $count += GetNumberOfNullableMemberTypes($memberType) if $memberType->isUnion;
     }
 
@@ -7317,7 +7319,7 @@ sub GetIDLUnionMemberTypes
 {
     my ($interface, $idlUnionType) = @_;
 
-    my $numberOfNullableMembers = GetNumberOfNullableMemberTypes($idlUnionType, 1);
+    my $numberOfNullableMembers = GetNumberOfNullableMemberTypes($idlUnionType);
     assert("Union types must only have 0 or 1 nullable types.") if $numberOfNullableMembers > 1;
 
     my @idlUnionMemberTypes = ();
@@ -7325,8 +7327,7 @@ sub GetIDLUnionMemberTypes
     push(@idlUnionMemberTypes, "IDLNull") if $numberOfNullableMembers == 1;
 
     foreach my $memberType (GetFlattenedMemberTypes($idlUnionType)) {
-        my $nonnullType = GetIDLTypeExcludingNullability($interface, $memberType);
-        push(@idlUnionMemberTypes, $nonnullType) if $nonnullType ne "IDLUndefined";
+        push(@idlUnionMemberTypes, GetIDLTypeExcludingNullability($interface, $memberType));
     }
 
     return @idlUnionMemberTypes;

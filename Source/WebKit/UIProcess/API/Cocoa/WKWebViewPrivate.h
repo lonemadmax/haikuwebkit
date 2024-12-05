@@ -248,6 +248,8 @@ for this property.
 
 @property (nonatomic, setter=_setAddsVisitedLinks:) BOOL _addsVisitedLinks;
 
+@property (nonatomic, copy, setter=_setCORSDisablingPatterns:) NSArray<NSString *> *_corsDisablingPatterns WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
 @property (nonatomic, readonly) BOOL _networkRequestsInProgress;
 
 @property (nonatomic, readonly, getter=_isShowingNavigationGestureSnapshot) BOOL _showingNavigationGestureSnapshot;
@@ -434,10 +436,6 @@ for this property.
 - (void)_restoreAndScrollToAppHighlight:(NSData *)highlight WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (void)_addAppHighlight WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (void)_addAppHighlightInNewGroup:(BOOL)newGroup originatedInApp:(BOOL)originatedInApp WK_API_AVAILABLE(macos(12.0), ios(15.0));
-
-- (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
-- (NSUUID *)_enableFinalTextAnimationForElementWithID:(NSString *)elementID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
-- (void)_disableTextAnimationWithUUID:(NSUUID *)nsUUID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 
 #if TARGET_OS_IPHONE && !TARGET_OS_WATCH
 - (void)_targetedPreviewForElementWithID:(NSString *)elementID completionHandler:(WK_SWIFT_UI_ACTOR void (^)(UITargetedPreview *))completionHandler WK_API_AVAILABLE(ios(WK_IOS_TBA), visionos(WK_XROS_TBA));

@@ -200,7 +200,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GetFrameTree() -> (struct WebKit::FrameTreeNodeData data)
     DidFinishLoadInAnotherProcess(WebCore::FrameIdentifier frameID)
     FrameWasRemovedInAnotherProcess(WebCore::FrameIdentifier frameID)
-    MainFrameURLChangedInAnotherProcess(URL newURL)
+
+    ProcessSyncDataChangedInAnotherProcess(struct WebCore::ProcessSyncData processSyncData)
 
     NavigateToPDFLinkWithSimulatedClick(String url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint)
     GetPDFFirstPageSize(WebCore::FrameIdentifier frameID) -> (WebCore::FloatSize size)
@@ -236,7 +237,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GetWebArchiveOfFrame(std::optional<WebCore::FrameIdentifier> frameID) -> (std::optional<IPC::SharedBufferReference> dataReference)
     GetWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, Vector<WebCore::MarkupExclusionRule> markupExclusionRules, String fileName) -> (std::optional<IPC::SharedBufferReference> dataReference)
 
-    RunJavaScriptInFrameInScriptWorld(struct WebCore::RunJavaScriptParameters parameters, std::optional<WebCore::FrameIdentifier> frameID, std::pair<WebKit::ContentWorldIdentifier, String> world) -> (std::span<const uint8_t> resultData, std::optional<WebCore::ExceptionDetails> details)
+    RunJavaScriptInFrameInScriptWorld(struct WebCore::RunJavaScriptParameters parameters, std::optional<WebCore::FrameIdentifier> frameID, struct WebKit::ContentWorldData world) -> (std::span<const uint8_t> resultData, std::optional<WebCore::ExceptionDetails> details)
 
     GetAccessibilityTreeData() -> (std::optional<IPC::SharedBufferReference> dataReference)
     UpdateRenderingWithForcedRepaint() -> ()
@@ -245,7 +246,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
 #if PLATFORM(COCOA)
     # Dictionary support.
-    PerformDictionaryLookupOfCurrentSelection()
     PerformDictionaryLookupAtLocation(WebCore::FloatPoint point)
 #endif
 
@@ -589,6 +589,12 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidEndMagnificationGesture()
 #endif
 
+    StartDeferringResizeEvents();
+    FlushDeferredResizeEvents();
+
+    StartDeferringScrollEvents();
+    FlushDeferredScrollEvents();
+
     FlushDeferredDidReceiveMouseEvent()
 
     PerformHitTestForMouseEvent(WebKit::WebMouseEvent event) -> (struct WebKit::WebHitTestResultData hitTestResult, OptionSet<WebKit::WebEventModifier> modifiers, WebKit::UserData messageBody)
@@ -608,7 +614,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
     PlaybackTargetSelected(WebCore::PlaybackTargetClientContextIdentifier contextId, WebKit::MediaPlaybackTargetContextSerialized target)
     PlaybackTargetAvailabilityDidChange(WebCore::PlaybackTargetClientContextIdentifier contextId, bool available)
-    SetShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier contextId, bool shouldPlay)
+    [DeferSendingIfSuspendedWithBatchingKeys=(contextId)] SetShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier contextId, bool shouldPlay)
     PlaybackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier contextId);
 #endif
 
@@ -814,9 +820,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     CreateTextIndicatorForTextAnimationID(WTF::UUID uuid) -> (std::optional<WebCore::TextIndicatorData> textIndicator)
     UpdateUnderlyingTextVisibilityForTextAnimationID(WTF::UUID uuid, bool visible) -> ()
-
-    EnableSourceTextAnimationAfterElementWithID(String elementID);
-    EnableTextAnimationTypeForElementWithID(String elementID);
 
     IntelligenceTextAnimationsDidComplete();
 #endif

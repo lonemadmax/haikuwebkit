@@ -85,11 +85,11 @@ void PlacedFloats::append(Item newFloatItem)
     }) == notFound);
 
     // When adding a new float item to the list, we have to ensure that it is definitely the left(right)-most item.
-    // Normally it is, but negative horizontal margins can push the float box beyond another float box.
-    // Float items in m_list list should stay in horizontal position order (left/right edge) on the same vertical position.
-    auto horizontalMargin = newFloatItem.horizontalMargin();
-    auto hasNegativeHorizontalMargin = (isStartPositioned && horizontalMargin.start < 0) || (!isStartPositioned && horizontalMargin.end < 0);
-    if (!hasNegativeHorizontalMargin)
+    // Normally it is, but negative inline-axis margins can push the float box beyond another float box.
+    // Float items in m_list list should stay in inline-axis position order (left/right edge) on the same block-axis position.
+    auto inlineAxisMargin = newFloatItem.inlineAxisMargin();
+    auto hasNegativeInlineAxisMargin = (isStartPositioned && inlineAxisMargin.start < 0) || (!isStartPositioned && inlineAxisMargin.end < 0);
+    if (!hasNegativeInlineAxisMargin)
         return m_list.append(newFloatItem);
 
     for (size_t i = m_list.size(); i--;) {
@@ -97,15 +97,15 @@ void PlacedFloats::append(Item newFloatItem)
         if (isStartPositioned != floatItem.isStartPositioned())
             continue;
 
-        auto isHorizontallyOrdered = [&] {
+        auto isInlineAxisOrdered = [&] {
             if (newFloatItem.absoluteRectWithMargin().top() > floatItem.absoluteRectWithMargin().top()) {
-                // There's no more floats on this vertical position.
+                // There's no more floats on this block axis position.
                 return true;
             }
             return (isStartPositioned && newFloatItem.absoluteRectWithMargin().right() >= floatItem.absoluteRectWithMargin().right())
                 || (!isStartPositioned && newFloatItem.absoluteRectWithMargin().left() <= floatItem.absoluteRectWithMargin().left());
         };
-        if (isHorizontallyOrdered())
+        if (isInlineAxisOrdered())
             return m_list.insert(i + 1, newFloatItem);
     }
     m_list.insert(0, newFloatItem);
@@ -127,6 +127,27 @@ void PlacedFloats::clear()
 {
     m_list.clear();
     m_positionTypes = { };
+}
+
+std::optional<LayoutUnit> PlacedFloats::highestPositionOnBlockAxis() const
+{
+    auto highestBlockAxisPosition = std::optional<LayoutUnit> { };
+    for (auto& floatItem : m_list)
+        highestBlockAxisPosition = !highestBlockAxisPosition ? floatItem.absoluteRectWithMargin().top() : std::min(*highestBlockAxisPosition, floatItem.absoluteRectWithMargin().top());
+    return highestBlockAxisPosition;
+}
+
+std::optional<LayoutUnit> PlacedFloats::lowestPositionOnBlockAxis(Clear type) const
+{
+    // TODO: Currently this is only called once for each formatting context root with floats per layout.
+    // Cache the value if we end up calling it more frequently (and update it at append/remove).
+    auto lowestBlockAxisPosition = std::optional<LayoutUnit> { };
+    for (auto& floatItem : m_list) {
+        if ((type == Clear::InlineStart && !floatItem.isStartPositioned()) || (type == Clear::InlineEnd && floatItem.isStartPositioned()))
+            continue;
+        lowestBlockAxisPosition = !lowestBlockAxisPosition ? floatItem.absoluteRectWithMargin().bottom() : std::max(*lowestBlockAxisPosition, floatItem.absoluteRectWithMargin().bottom());
+    }
+    return lowestBlockAxisPosition;
 }
 
 void PlacedFloats::shrinkToFit()

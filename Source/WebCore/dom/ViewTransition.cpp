@@ -52,6 +52,7 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "Styleable.h"
+#include "ViewTransitionTypeSet.h"
 #include "WebAnimation.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -503,8 +504,7 @@ ExceptionOr<void> ViewTransition::captureOldState()
     for (auto& renderer : captureRenderers) {
         CapturedElement capture;
 
-        capture.oldProperties = copyElementBaseProperties(renderer.get(), capture.oldSize);
-        capture.oldOverflowRect = captureOverflowRect(renderer.get());
+        capture.oldProperties = copyElementBaseProperties(renderer.get(), capture.oldSize, capture.oldOverflowRect, capture.initiallyIntersectsViewport);
         if (RefPtr frame = document()->frame())
             capture.oldImage = snapshotElementVisualOverflowClippedToViewport(*frame, renderer.get(), capture.oldOverflowRect);
         capture.oldLayerToLayoutOffset = layerToLayoutOffset(renderer.get());
@@ -517,6 +517,11 @@ ExceptionOr<void> ViewTransition::captureOldState()
         m_namedElements.add(transitionName, capture);
     }
 
+    for (auto& [name, capturedElement] : m_namedElements.map()) {
+        if (capturedElement->initiallyIntersectsViewport && capturedElement->oldImage && *capturedElement->oldImage)
+            (*capturedElement->oldImage)->flushDrawingContextAsync();
+    }
+
     for (auto& renderer : captureRenderers)
         renderer->setCapturedInViewTransition(false);
 
@@ -527,8 +532,8 @@ bool ViewTransition::updatePropertiesForRenderer(CapturedElement& capturedElemen
 {
     RefPtr<MutableStyleProperties> properties;
     if (renderer) {
-        properties = copyElementBaseProperties(*renderer, capturedElement.newSize);
-        capturedElement.newOverflowRect = captureOverflowRect(*renderer);
+        bool initiallyIntersectsViewport;
+        properties = copyElementBaseProperties(*renderer, capturedElement.newSize, capturedElement.newOverflowRect, initiallyIntersectsViewport);
     } else
         properties = capturedElement.oldProperties;
 
@@ -799,7 +804,7 @@ void ViewTransition::clearViewTransition()
         documentElement->invalidateStyleInternal();
 }
 
-Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLayerModelObject& renderer, LayoutSize& size)
+Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLayerModelObject& renderer, LayoutSize& size, LayoutRect& overflowRect, bool& intersectsViewport)
 {
     std::optional<const Styleable> styleable = Styleable::fromRenderer(renderer);
     ASSERT(styleable);
@@ -816,6 +821,8 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
 #endif
     };
 
+    overflowRect = captureOverflowRect(renderer);
+
     Ref<MutableStyleProperties> props = styleExtractor.copyProperties(transitionProperties);
     auto& frameView = renderer.view().frameView();
 
@@ -831,6 +838,9 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
 
             auto offset = -toFloatSize(frameView.visibleContentRect().location());
             transform->translateRight(offset.width(), offset.height());
+
+            auto mapped = transform->mapRect(overflowRect);
+            intersectsViewport = mapped.intersects(frameView.boundsRect());
 
             // Apply the inverse of what will be added by the default value of 'transform-origin',
             // since the computed transform has already included it.
@@ -911,6 +921,11 @@ ExceptionOr<void> ViewTransition::updatePseudoElementSizes()
         document->styleScope().didChangeStyleSheetContents();
 
     return { };
+}
+
+void ViewTransition::setTypes(Ref<ViewTransitionTypeSet>&& newTypes)
+{
+    m_types = WTFMove(newTypes);
 }
 
 RenderViewTransitionCapture* ViewTransition::viewTransitionNewPseudoForCapturedElement(RenderLayerModelObject& renderer)

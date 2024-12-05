@@ -1968,14 +1968,17 @@ Result<Vector<unsigned>> RewriteGlobalVariables::insertStructs(PipelineLayout& l
 
             AST::Variable* variable = nullptr;
 
-            auto groupIt = usedResources.find(group);
-            if (groupIt != usedResources.end()) {
-                auto& bindings = groupIt->value;
-                auto bindingIt = bindings.find(entry.binding);
-                if (bindingIt != bindings.end()) {
-                    variable = bindingIt->value->declaration;
-                    serializedVariables.add(variable, &entry);
-                    entries.append({ entry.binding, &createArgumentBufferEntry(*argumentBufferIndex, *variable) });
+            auto globalIt = m_globalsByBinding.find({ group + 1, entry.binding + 1 });
+            if (globalIt != m_globalsByBinding.end()) {
+                auto groupIt = usedResources.find(group);
+                if (groupIt != usedResources.end()) {
+                    auto& bindings = groupIt->value;
+                    auto bindingIt = bindings.find(entry.binding);
+                    if (bindingIt != bindings.end()) {
+                        variable = bindingIt->value->declaration;
+                        serializedVariables.add(variable, &entry);
+                        entries.append({ entry.binding, &createArgumentBufferEntry(*argumentBufferIndex, *variable) });
+                    }
                 }
             }
 

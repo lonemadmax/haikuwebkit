@@ -34,8 +34,8 @@ import re
 import socket
 import sys
 
-if sys.version_info < (3, 5):
-    print('ERROR: Please use Python 3. This code is not compatible with Python 2.')
+if sys.version_info < (3, 9):  # noqa: UP036
+    print('ERROR: Minimum supported Python version for this code is Python 3.9')
     sys.exit(1)
 
 CURRENT_HOSTNAME = socket.gethostname().strip()
@@ -234,20 +234,27 @@ class CheckOutSource(git.Git):
 
     def getResultSummary(self):
         revision = self.getProperty('got_revision')
-        self.setProperty('revision', revision[:HASH_LENGTH_TO_DISPLAY], 'CheckOutSource')
+        if revision is not None:
+            self.setProperty('revision', revision[:HASH_LENGTH_TO_DISPLAY], 'CheckOutSource')
 
-        if self.results == FAILURE:
-            self.build.addStepsAfterCurrentStep([CleanUpGitIndexLock()])
-
-        if self.results != SUCCESS:
-            return {'step': 'Failed to updated working directory'}
-        else:
+        if self.results == SUCCESS:
             return {'step': 'Cleaned and updated working directory'}
+        return {'step': 'Failed to update working directory'}
 
     @defer.inlineCallbacks
     def run(self):
-        rc = yield super().run()
-        if rc == SUCCESS:
+        try:
+            # The "git fetch" command is executed by the git class with "abandonOnFailure=True"
+            # which means that if the command fails a BuildStepFailed exception is raised here.
+            rc = yield super().run()
+        except buildstep.BuildStepFailed:
+            rc = FAILURE
+        if rc == FAILURE:
+            if self.getProperty("cleanUpGitIndexLockAlreadyTried", False):
+                self.build.buildFinished(['Git issue'], FAILURE)
+            else:
+                self.build.addStepsAfterCurrentStep([CleanUpGitIndexLock()])
+        else:
             yield self._dovccmd(['remote', 'set-url', '--push', 'origin', 'PUSH_DISABLED_BY_ADMIN'])
         defer.returnValue(rc)
 
@@ -268,7 +275,12 @@ class CleanUpGitIndexLock(shell.ShellCommandNewStyle):
 
         rc = yield super().run()
         if rc != SUCCESS:
-            self.build.buildFinished(['Git issue, retrying build'], RETRY)
+            self.build.buildFinished(['Error deleting stale .git/index.lock file. Please inform an admin.'], FAILURE)
+
+        if not self.getProperty("cleanUpGitIndexLockAlreadyTried", False):
+            self.setProperty("cleanUpGitIndexLockAlreadyTried", True)
+            self.build.addStepsAfterCurrentStep([CheckOutSource()])
+
         defer.returnValue(rc)
 
 

@@ -257,7 +257,7 @@ public:
     void setFixedLayoutSize(CGSize);
     CGSize fixedLayoutSize() const;
 
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&);
+    Ref<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&);
     bool isUsingUISideCompositing() const;
     void setDrawingAreaSize(CGSize);
     void updateLayer();
@@ -773,8 +773,10 @@ private:
     bool isRichlyEditableForTouchBar() const;
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    void installImageAnalysisOverlayView(VKCImageAnalysis *);
+    void installImageAnalysisOverlayView(RetainPtr<VKCImageAnalysis>&&);
     void uninstallImageAnalysisOverlayView();
+    void performOrDeferImageAnalysisOverlayViewHierarchyTask(std::function<void()>&&);
+    void fulfillDeferredImageAnalysisOverlayViewHierarchyTask();
 #endif
 
     bool hasContentRelativeChildViews() const;
@@ -857,7 +859,7 @@ private:
 
 #if ENABLE(IMAGE_ANALYSIS)
     CocoaImageAnalyzer *ensureImageAnalyzer();
-    int32_t processImageAnalyzerRequest(CocoaImageAnalyzerRequest *, CompletionHandler<void(CocoaImageAnalysis *, NSError *)>&&);
+    int32_t processImageAnalyzerRequest(CocoaImageAnalyzerRequest *, CompletionHandler<void(RetainPtr<CocoaImageAnalysis>&&, NSError *)>&&);
 #endif
 
     std::optional<EditorState::PostLayoutData> postLayoutDataForContentEditable();
@@ -954,7 +956,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     RetainPtr<WKBrowsingContextController> m_browsingContextController;
 ALLOW_DEPRECATED_DECLARATIONS_END
 
-    std::unique_ptr<ViewGestureController> m_gestureController;
+    RefPtr<ViewGestureController> m_gestureController;
     bool m_allowsBackForwardNavigationGestures { false };
     bool m_allowsMagnification { false };
 
@@ -1019,6 +1021,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<WKImageAnalysisOverlayViewDelegate> m_imageAnalysisOverlayViewDelegate;
     uint32_t m_currentImageAnalysisRequestID { 0 };
     WebCore::FloatRect m_imageAnalysisInteractionBounds;
+    std::function<void()> m_imageAnalysisOverlayViewHierarchyDeferredTask;
 #endif
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)

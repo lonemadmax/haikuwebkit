@@ -64,6 +64,7 @@ WebSWServerToContextConnection::WebSWServerToContextConnection(NetworkConnection
     , m_webProcessIdentifier(connection.webProcessIdentifier())
     , m_connection(connection)
     , m_webPageProxyID(webPageProxyID)
+    , m_processAssertionTimer(*this, &WebSWServerToContextConnection::processAssertionTimerFired)
 {
 }
 
@@ -71,6 +72,18 @@ WebSWServerToContextConnection::~WebSWServerToContextConnection()
 {
     ASSERT(m_ongoingFetches.isEmpty());
     ASSERT(m_ongoingDownloads.isEmpty());
+}
+
+template<typename T>
+void WebSWServerToContextConnection::sendToParentProcess(T&& message)
+{
+    protectedNetworkProcess()->protectedParentProcessConnection()->send(WTFMove(message), 0);
+}
+
+template<typename T, typename C>
+void WebSWServerToContextConnection::sendWithAsyncReplyToParentProcess(T&& message, C&& callback)
+{
+    protectedNetworkProcess()->protectedParentProcessConnection()->sendWithAsyncReply(WTFMove(message), WTFMove(callback), 0);
 }
 
 void WebSWServerToContextConnection::stop()
@@ -135,7 +148,7 @@ uint64_t WebSWServerToContextConnection::messageSenderDestinationID() const
 void WebSWServerToContextConnection::postMessageToServiceWorkerClient(const ScriptExecutionContextIdentifier& destinationIdentifier, const MessageWithMessagePorts& message, ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin)
 {
     RefPtr server = this->server();
-    if (CheckedPtr connection = server ? server->connection(destinationIdentifier.processIdentifier()) : nullptr)
+    if (RefPtr connection = server ? server->connection(destinationIdentifier.processIdentifier()) : nullptr)
         connection->postMessageToServiceWorkerClient(destinationIdentifier, message, sourceIdentifier, sourceOrigin);
 }
 
@@ -149,13 +162,9 @@ void WebSWServerToContextConnection::skipWaiting(ServiceWorkerIdentifier service
     callback();
 }
 
-void WebSWServerToContextConnection::close()
-{
-    send(Messages::WebSWContextManagerConnection::Close { });
-}
-
 void WebSWServerToContextConnection::installServiceWorkerContext(const ServiceWorkerContextData& contextData, const ServiceWorkerData& workerData, const String& userAgent, WorkerThreadMode workerThreadMode, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections)
 {
+    serviceWorkerNeedsRunning();
     send(Messages::WebSWContextManagerConnection::InstallServiceWorker { contextData, workerData, userAgent, workerThreadMode, m_isInspectable, advancedPrivacyProtections });
 }
 
@@ -166,42 +175,34 @@ void WebSWServerToContextConnection::updateAppInitiatedValue(ServiceWorkerIdenti
 
 void WebSWServerToContextConnection::fireInstallEvent(ServiceWorkerIdentifier serviceWorkerIdentifier)
 {
+    serviceWorkerNeedsRunning();
     send(Messages::WebSWContextManagerConnection::FireInstallEvent(serviceWorkerIdentifier));
 }
 
 void WebSWServerToContextConnection::fireActivateEvent(ServiceWorkerIdentifier serviceWorkerIdentifier)
 {
+    serviceWorkerNeedsRunning();
     send(Messages::WebSWContextManagerConnection::FireActivateEvent(serviceWorkerIdentifier));
 }
 
 void WebSWServerToContextConnection::firePushEvent(ServiceWorkerIdentifier serviceWorkerIdentifier, const std::optional<Vector<uint8_t>>& data, std::optional<NotificationPayload>&& proposedPayload, CompletionHandler<void(bool, std::optional<NotificationPayload>&&)>&& callback)
 {
-    if (!m_processingFunctionalEventCount++)
-        protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::StartServiceWorkerBackgroundProcessing { webProcessIdentifier() }, 0);
+    ASSERT(m_isTakingProcessAssertion);
 
     std::optional<std::span<const uint8_t>> ipcData;
     if (data)
         ipcData = data->span();
-    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FirePushEvent(serviceWorkerIdentifier, ipcData, WTFMove(proposedPayload)), [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](bool wasProcessed, std::optional<NotificationPayload>&& resultPayload) mutable {
-        if (RefPtr protectedThis = weakThis.get(); protectedThis && !--protectedThis->m_processingFunctionalEventCount)
-            protectedThis->protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { protectedThis->webProcessIdentifier() }, 0);
-
-        callback(wasProcessed, WTFMove(resultPayload));
-    });
+    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FirePushEvent(serviceWorkerIdentifier, ipcData, WTFMove(proposedPayload)), WTFMove(callback));
 }
 
 void WebSWServerToContextConnection::fireNotificationEvent(ServiceWorkerIdentifier serviceWorkerIdentifier, const NotificationData& data, NotificationEventType eventType, CompletionHandler<void(bool)>&& callback)
 {
-    if (!m_processingFunctionalEventCount++)
-        protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::StartServiceWorkerBackgroundProcessing { webProcessIdentifier() }, 0);
+    ASSERT(m_isTakingProcessAssertion);
 
     sendWithAsyncReply(Messages::WebSWContextManagerConnection::FireNotificationEvent { serviceWorkerIdentifier, data, eventType }, [weakThis = WeakPtr { *this }, eventType, callback = WTFMove(callback)](bool wasProcessed) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !protectedThis->m_connection)
             return callback(wasProcessed);
-
-        if (!--protectedThis->m_processingFunctionalEventCount)
-            protectedThis->protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { protectedThis->webProcessIdentifier() }, 0);
 
         CheckedPtr session = protectedThis->m_connection->networkSession();
         if (auto* resourceLoadStatistics = session ? session->resourceLoadStatistics() : nullptr; resourceLoadStatistics && wasProcessed && eventType == NotificationEventType::Click) {
@@ -216,42 +217,21 @@ void WebSWServerToContextConnection::fireNotificationEvent(ServiceWorkerIdentifi
 
 void WebSWServerToContextConnection::fireBackgroundFetchEvent(ServiceWorkerIdentifier serviceWorkerIdentifier, const BackgroundFetchInformation& info, CompletionHandler<void(bool)>&& callback)
 {
-    if (!m_processingFunctionalEventCount++)
-        protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::StartServiceWorkerBackgroundProcessing { webProcessIdentifier() }, 0);
+    ASSERT(m_isTakingProcessAssertion);
 
-    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FireBackgroundFetchEvent { serviceWorkerIdentifier, info }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](bool wasProcessed) mutable {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return callback(wasProcessed);
-
-        if (!--protectedThis->m_processingFunctionalEventCount)
-            protectedThis->protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { protectedThis->webProcessIdentifier() }, 0);
-
-        callback(wasProcessed);
-    });
+    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FireBackgroundFetchEvent { serviceWorkerIdentifier, info }, WTFMove(callback));
 }
 
 void WebSWServerToContextConnection::fireBackgroundFetchClickEvent(ServiceWorkerIdentifier serviceWorkerIdentifier, const BackgroundFetchInformation& info, CompletionHandler<void(bool)>&& callback)
 {
-    if (!m_processingFunctionalEventCount++)
-        protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::StartServiceWorkerBackgroundProcessing { webProcessIdentifier() }, 0);
+    ASSERT(m_isTakingProcessAssertion);
 
-    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FireBackgroundFetchClickEvent { serviceWorkerIdentifier, info }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](bool wasProcessed) mutable {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return callback(wasProcessed);
-
-        if (!--protectedThis->m_processingFunctionalEventCount)
-            protectedThis->protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { protectedThis->webProcessIdentifier() }, 0);
-
-        callback(wasProcessed);
-    });
+    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FireBackgroundFetchClickEvent { serviceWorkerIdentifier, info }, WTFMove(callback));
 }
 
 void WebSWServerToContextConnection::terminateWorker(ServiceWorkerIdentifier serviceWorkerIdentifier)
 {
-    if (!m_processingFunctionalEventCount++)
-        protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::StartServiceWorkerBackgroundProcessing { webProcessIdentifier() }, 0);
+    serviceWorkerNeedsRunning();
 
     send(Messages::WebSWContextManagerConnection::TerminateWorker(serviceWorkerIdentifier));
 }
@@ -259,9 +239,6 @@ void WebSWServerToContextConnection::terminateWorker(ServiceWorkerIdentifier ser
 void WebSWServerToContextConnection::workerTerminated(ServiceWorkerIdentifier serviceWorkerIdentifier)
 {
     SWServerToContextConnection::workerTerminated(serviceWorkerIdentifier);
-
-    if (--m_processingFunctionalEventCount)
-        protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { webProcessIdentifier() }, 0);
 }
 
 void WebSWServerToContextConnection::didFinishActivation(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier)
@@ -345,7 +322,7 @@ void WebSWServerToContextConnection::openWindow(WebCore::ServiceWorkerIdentifier
         callback(server->topLevelServiceWorkerClientFromPageIdentifier(origin, *pageIdentifier));
     };
 
-    protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::OpenWindowFromServiceWorker { m_connection->sessionID(), url.string(), worker->origin().clientOrigin }, WTFMove(innerCallback));
+    sendWithAsyncReplyToParentProcess(Messages::NetworkProcessProxy::OpenWindowFromServiceWorker { m_connection->sessionID(), url.string(), worker->origin().clientOrigin }, WTFMove(innerCallback));
 }
 
 void WebSWServerToContextConnection::reportConsoleMessage(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, MessageSource source, MessageLevel level, const String& message, unsigned long requestIdentifier)
@@ -354,7 +331,7 @@ void WebSWServerToContextConnection::reportConsoleMessage(WebCore::ServiceWorker
     RefPtr worker = server ? server->workerByID(serviceWorkerIdentifier) : nullptr;
     if (!worker)
         return;
-    protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->send(Messages::NetworkProcessProxy::ReportConsoleMessage { m_connection->sessionID(), worker->scriptURL(), worker->origin().clientOrigin, source, level, message, requestIdentifier }, 0);
+    sendToParentProcess(Messages::NetworkProcessProxy::ReportConsoleMessage { m_connection->sessionID(), worker->scriptURL(), worker->origin().clientOrigin, source, level, message, requestIdentifier });
 }
 
 void WebSWServerToContextConnection::connectionIsNoLongerNeeded()
@@ -409,7 +386,7 @@ void WebSWServerToContextConnection::unregisterDownload(ServiceWorkerDownloadTas
 void WebSWServerToContextConnection::focus(ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(std::optional<WebCore::ServiceWorkerClientData>&&)>&& callback)
 {
     RefPtr server = this->server();
-    CheckedPtr connection = server ? server->connection(clientIdentifier.processIdentifier()) : nullptr;
+    RefPtr connection = server ? server->connection(clientIdentifier.processIdentifier()) : nullptr;
     if (!connection) {
         callback({ });
         return;
@@ -437,7 +414,7 @@ void WebSWServerToContextConnection::navigate(ScriptExecutionContextIdentifier c
     }
 
     auto frameIdentifier = *data->frameIdentifier;
-    protectedConnection()->protectedNetworkProcess()->protectedParentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::NavigateServiceWorkerClient { frameIdentifier, clientIdentifier, url }, [weakThis = WeakPtr { *this }, url, clientOrigin = worker->origin(), callback = WTFMove(callback)](auto pageIdentifier, auto frameIdentifier) mutable {
+    sendWithAsyncReplyToParentProcess(Messages::NetworkProcessProxy::NavigateServiceWorkerClient { frameIdentifier, clientIdentifier, url }, [weakThis = WeakPtr { *this }, url, clientOrigin = worker->origin(), callback = WTFMove(callback)](auto pageIdentifier, auto frameIdentifier) mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || !protectedThis->server()) {
             callback(makeUnexpected(ExceptionData { ExceptionCode::TypeError, "service worker is gone"_s }));
@@ -455,7 +432,7 @@ void WebSWServerToContextConnection::navigate(ScriptExecutionContextIdentifier c
                 clientData = data;
         });
         callback(WTFMove(clientData));
-    }, 0);
+    });
 }
 
 void WebSWServerToContextConnection::setInspectable(ServiceWorkerIsInspectable inspectable)
@@ -465,6 +442,40 @@ void WebSWServerToContextConnection::setInspectable(ServiceWorkerIsInspectable i
 
     m_isInspectable = inspectable;
     send(Messages::WebSWContextManagerConnection::SetInspectable { inspectable });
+}
+
+void WebSWServerToContextConnection::startProcessAssertionTimer()
+{
+    m_processAssertionTimer.startOneShot(server()->isProcessTerminationDelayEnabled() ? SWServer::defaultTerminationDelay : SWServer::defaultFunctionalEventDuration);
+}
+
+void WebSWServerToContextConnection::serviceWorkerNeedsRunning()
+{
+    if (m_isTakingProcessAssertion)
+        return;
+
+    m_isTakingProcessAssertion = true;
+    sendToParentProcess(Messages::NetworkProcessProxy::StartServiceWorkerBackgroundProcessing { webProcessIdentifier() });
+    startProcessAssertionTimer();
+}
+
+bool WebSWServerToContextConnection::areServiceWorkersIdle() const
+{
+    return m_ongoingFetches.isEmpty() && m_ongoingDownloads.isEmpty() && protectedServer()->areServiceWorkersIdle(*this);
+}
+
+void WebSWServerToContextConnection::processAssertionTimerFired()
+{
+    if (!m_isTakingProcessAssertion)
+        return;
+
+    if (!areServiceWorkersIdle()) {
+        startProcessAssertionTimer();
+        return;
+    }
+
+    m_isTakingProcessAssertion = false;
+    sendToParentProcess(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { webProcessIdentifier() });
 }
 
 #undef MESSAGE_CHECK

@@ -614,7 +614,11 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'delete-WebKitBuild-directory',
             'delete-stale-build-files',
             'prune-coresymbolicationd-cache-if-too-large',
+            'install-cmake',
+            'install-ninja',
             'print-clang-version',
+            'checkout-llvm-project',
+            'update-clang',
             'scan-build'
         ],
         'Apple-Ventura-Release-WK1-Tests': [
@@ -1348,18 +1352,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'builtins-generator-tests',
             'API-tests',
             'webdriver-test'
-        ],
-        'GTK-Linux-64-bit-Release-Debian-11-Build': [
-            'configure-build',
-            'configuration',
-            'clean-and-update-working-directory',
-            'checkout-specific-revision',
-            'show-identifier',
-            'kill-old-processes',
-            'delete-WebKitBuild-directory',
-            'delete-stale-build-files',
-            'jhbuild',
-            'compile-webkit'
         ],
         'GTK-Linux-64-bit-Release-Debian-Stable-Build': [
             'configure-build',

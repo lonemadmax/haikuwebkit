@@ -191,6 +191,13 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                         const gl::Extents &size,
                                         bool fixedSampleLocations) override;
 
+    angle::Result setStorageAttribs(const gl::Context *context,
+                                    gl::TextureType type,
+                                    size_t levels,
+                                    GLint internalFormat,
+                                    const gl::Extents &size,
+                                    const GLint *attribList) override;
+
     angle::Result initializeContents(const gl::Context *context,
                                      GLenum binding,
                                      const gl::ImageIndex &imageIndex) override;
@@ -228,16 +235,15 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     void releaseOwnershipOfImage(const gl::Context *context);
 
-    const vk::ImageView &getReadImageView(vk::Context *context,
-                                          GLenum srgbDecode,
+    const vk::ImageView &getReadImageView(GLenum srgbDecode,
                                           bool texelFetchStaticUse,
                                           bool samplerExternal2DY2YEXT) const;
 
-    angle::Result getBufferViewAndRecordUse(vk::Context *context,
-                                            const vk::Format *imageUniformFormat,
-                                            const gl::SamplerBinding *samplerBinding,
-                                            bool isImage,
-                                            const vk::BufferView **viewOut);
+    angle::Result getBufferView(vk::Context *context,
+                                const vk::Format *imageUniformFormat,
+                                const gl::SamplerBinding *samplerBinding,
+                                bool isImage,
+                                const vk::BufferView **viewOut);
 
     // A special view used for texture copies that shouldn't perform swizzle.
     const vk::ImageView &getCopyImageView() const;
@@ -249,11 +255,11 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     {
         if (isSamplerExternalY2Y)
         {
-            ASSERT(mY2YSampler.valid());
-            return mY2YSampler.get();
+            ASSERT(mY2YSampler->valid());
+            return *mY2YSampler.get();
         }
-        ASSERT(mSampler.valid());
-        return mSampler.get();
+        ASSERT(mSampler->valid());
+        return *mSampler.get();
     }
 
     void resetSampler()
@@ -359,6 +365,12 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     bool isMutableTextureConsistentlySpecifiedForFlush();
     bool isMipImageDescDefined(gl::TextureTarget textureTarget, size_t level);
 
+    GLint getImageCompressionRate(const gl::Context *context) override;
+    GLint getFormatSupportedCompressionRates(const gl::Context *context,
+                                             GLenum internalformat,
+                                             GLsizei bufSize,
+                                             GLint *rates) override;
+
   private:
     // Transform an image index from the frontend into one that can be used on the backing
     // ImageHelper, taking into account mipmap or cube face offsets
@@ -432,6 +444,7 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     angle::Result clearSubImageImpl(const gl::Context *context,
                                     GLint level,
                                     const gl::Box &clearArea,
+                                    vk::ClearTextureMode clearMode,
                                     GLenum format,
                                     GLenum type,
                                     const uint8_t *data);
@@ -619,6 +632,15 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                     const gl::TextureTarget target,
                                     GLint level);
 
+    angle::Result setStorageImpl(ContextVk *contextVk,
+                                 gl::TextureType type,
+                                 const vk::Format &format);
+
+    GLint getFormatSupportedCompressionRatesImpl(vk::Renderer *renderer,
+                                                 const vk::Format &format,
+                                                 GLsizei bufSize,
+                                                 GLint *rates);
+
     bool mOwnsImage;
     // Generated from ImageVk if EGLImage target, or from throw-away generator if Surface target.
     UniqueSerial mImageSiblingSerial;
@@ -687,10 +709,10 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     // |mSampler| contains the relevant Vulkan sampler states representing the OpenGL Texture
     // sampling states for the Texture.
-    vk::SamplerBinding mSampler;
+    vk::SharedSamplerPtr mSampler;
     // |mY2YSampler| contains a version of mSampler that is meant for use with
     // __samplerExternal2DY2YEXT (i.e., skipping conversion of YUV to RGB).
-    vk::SamplerBinding mY2YSampler;
+    vk::SharedSamplerPtr mY2YSampler;
 
     // The created vkImage usage flag.
     VkImageUsageFlags mImageUsageFlags;

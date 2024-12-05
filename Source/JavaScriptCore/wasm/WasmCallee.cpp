@@ -67,8 +67,8 @@ Callee::Callee(Wasm::CompilationMode compilationMode)
 Callee::Callee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Public)
     , m_compilationMode(compilationMode)
-    , m_indexOrName(index, WTFMove(name))
     , m_index(index)
+    , m_indexOrName(index, WTFMove(name))
 {
 }
 
@@ -527,7 +527,7 @@ void OptimizingJITCallee::linkExceptionHandlers(Vector<UnlinkedHandlerInfo> unli
 
 BBQCallee::~BBQCallee()
 {
-    if (m_osrEntryCallee) {
+    if (Options::freeRetiredWasmCode() && m_osrEntryCallee) {
         ASSERT(m_osrEntryCallee->hasOneRef());
         m_osrEntryCallee->reportToVMsForDestruction();
     }

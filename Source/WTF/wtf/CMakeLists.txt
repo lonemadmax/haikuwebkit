@@ -349,6 +349,8 @@ set(WTF_PUBLIC_HEADERS
     UniqueRefVector.h
     VMTags.h
     ValueCheck.h
+    VariantList.h
+    VariantListOperations.h
     Vector.h
     VectorHash.h
     VectorTraits.h
@@ -371,6 +373,7 @@ set(WTF_PUBLIC_HEADERS
     WordLock.h
     WorkQueue.h
     WorkerPool.h
+    ZippedRange.h
     dtoa.h
 
     dragonbox/dragonbox.h

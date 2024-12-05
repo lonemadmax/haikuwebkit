@@ -35,7 +35,6 @@
 #import "SharedBuffer.h"
 #import "WebMAudioUtilitiesCocoa.h"
 #import <CoreMedia/CMFormatDescription.h>
-#import <numeric>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AudioToolboxSPI.h>
 #import <wtf/Scope.h>
@@ -99,6 +98,7 @@ static CFStringRef convertToCMColorPrimaries(PlatformVideoColorPrimaries primari
 static CFStringRef convertToCMTransferFunction(PlatformVideoTransferCharacteristics characteristics)
 {
     switch (characteristics) {
+    case PlatformVideoTransferCharacteristics::Smpte170m:
     case PlatformVideoTransferCharacteristics::Bt709:
         return kCVImageBufferTransferFunction_ITU_R_709_2;
     case PlatformVideoTransferCharacteristics::Smpte240m:
@@ -210,12 +210,11 @@ RetainPtr<CMFormatDescriptionRef> createFormatDescriptionFromTrackInfo(const Tra
             CFDictionaryAddValue(extensions.get(), kCVImageBufferYCbCrMatrixKey, cmMatrix.get());
     }
     if (videoInfo.size != videoInfo.displaySize) {
-        uint32_t width = videoInfo.displaySize.width();
-        uint32_t height = videoInfo.displaySize.height();
-        auto gcd = std::gcd(width, height);
+        double horizontalRatio = videoInfo.displaySize.width() / videoInfo.size.width();
+        double verticalRatio = videoInfo.displaySize.height() / videoInfo.size.height();
         CFDictionaryAddValue(extensions.get(), PAL::get_CoreMedia_kCMFormatDescriptionExtension_PixelAspectRatio(), @{
-            (__bridge NSString*)PAL::get_CoreMedia_kCMFormatDescriptionKey_PixelAspectRatioHorizontalSpacing() : @(width / gcd),
-            (__bridge NSString*)PAL::get_CoreMedia_kCMFormatDescriptionKey_PixelAspectRatioVerticalSpacing() : @(height / gcd)
+            (__bridge NSString*)PAL::get_CoreMedia_kCMFormatDescriptionKey_PixelAspectRatioHorizontalSpacing() : @(horizontalRatio),
+            (__bridge NSString*)PAL::get_CoreMedia_kCMFormatDescriptionKey_PixelAspectRatioVerticalSpacing() : @(verticalRatio)
         });
     }
 
@@ -301,6 +300,21 @@ Expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(MediaSamplesBlo
     }
 
     return adoptCF(rawSampleBuffer);
+}
+
+void attachColorSpaceToPixelBuffer(const PlatformVideoColorSpace& colorSpace, CVPixelBufferRef pixelBuffer)
+{
+    ASSERT(pixelBuffer);
+    if (!pixelBuffer)
+        return;
+
+    CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferCGColorSpaceKey);
+    if (colorSpace.primaries)
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferColorPrimariesKey, convertToCMColorPrimaries(*colorSpace.primaries), kCVAttachmentMode_ShouldPropagate);
+    if (colorSpace.transfer)
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferTransferFunctionKey, convertToCMTransferFunction(*colorSpace.transfer), kCVAttachmentMode_ShouldPropagate);
+    if (colorSpace.matrix)
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferYCbCrMatrixKey, convertToCMYCbCRMatrix(*colorSpace.matrix), kCVAttachmentMode_ShouldPropagate);
 }
 
 PacketDurationParser::PacketDurationParser(const AudioInfo& info)

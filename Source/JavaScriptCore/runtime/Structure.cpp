@@ -50,7 +50,7 @@ static HashSet<Structure*>& liveStructureSet = *(new HashSet<Structure*>);
 inline void StructureTransitionTable::setSingleTransition(VM& vm, JSCell* owner, Structure* structure)
 {
     ASSERT(isUsingSingleSlot());
-    m_data = bitwise_cast<intptr_t>(structure) | UsingSingleSlotFlag;
+    m_data = std::bit_cast<intptr_t>(structure) | UsingSingleSlotFlag;
     vm.writeBarrier(owner, structure);
 }
 
@@ -630,7 +630,7 @@ Structure* Structure::removeNewPropertyTransition(VM& vm, Structure* structure, 
     ASSERT(!Structure::removePropertyTransitionFromExistingStructure(structure, propertyName, offset));
     ASSERT(structure->getConcurrently(propertyName.uid()) != invalidOffset);
 
-    if (structure->transitionCountHasOverflowed()) {
+    if (structure->shouldDoCacheableDictionaryTransitionForRemoveAndAttributeChange()) {
         ASSERT(!isCopyOnWrite(structure->indexingMode()));
         Structure* transition = toUncacheableDictionaryTransition(vm, structure, deferred);
         ASSERT(structure != transition);
@@ -770,7 +770,7 @@ Structure* Structure::attributeChangeTransition(VM& vm, Structure* structure, Pr
         return existingTransition;
     }
 
-    if (structure->transitionCountHasOverflowed()) {
+    if (structure->shouldDoCacheableDictionaryTransitionForRemoveAndAttributeChange()) {
         ASSERT(!isCopyOnWrite(structure->indexingMode()));
         Structure* transition = toUncacheableDictionaryTransition(vm, structure, deferred);
         ASSERT(structure != transition);

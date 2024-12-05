@@ -4040,7 +4040,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<BlendMode>(CSSPropertyBackgroundBlendMode, &RenderStyle::backgroundBlendMode, &RenderStyle::setBackgroundBlendMode),
         new DiscretePropertyWrapper<StyleAppearance>(CSSPropertyAppearance, &RenderStyle::appearance, &RenderStyle::setAppearance),
 #if ENABLE(DARK_MODE_CSS)
-        new DiscretePropertyWrapper<StyleColorScheme>(CSSPropertyColorScheme, &RenderStyle::colorScheme, &RenderStyle::setColorScheme),
+        new DiscretePropertyWrapper<Style::ColorScheme>(CSSPropertyColorScheme, &RenderStyle::colorScheme, &RenderStyle::setColorScheme),
 #endif
         new PropertyWrapperAspectRatio,
         new DiscretePropertyWrapper<const FontPalette&>(CSSPropertyFontPalette, &RenderStyle::fontPalette, &RenderStyle::setFontPalette),
@@ -4097,8 +4097,9 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<const Vector<Style::ScopedName>&>(CSSPropertyViewTransitionClass, &RenderStyle::viewTransitionClasses, &RenderStyle::setViewTransitionClasses),
         new DiscretePropertyWrapper<Style::ViewTransitionName>(CSSPropertyViewTransitionName, &RenderStyle::viewTransitionName, &RenderStyle::setViewTransitionName),
         new DiscretePropertyWrapper<FieldSizing>(CSSPropertyFieldSizing, &RenderStyle::fieldSizing, &RenderStyle::setFieldSizing),
-        new DiscretePropertyWrapper<const Vector<AtomString>&>(CSSPropertyAnchorName, &RenderStyle::anchorNames, &RenderStyle::setAnchorNames),
-        new DiscretePropertyWrapper<const AtomString&>(CSSPropertyPositionAnchor, &RenderStyle::positionAnchor, &RenderStyle::setPositionAnchor),
+        new DiscretePropertyWrapper<const Vector<Style::ScopedName>&>(CSSPropertyAnchorName, &RenderStyle::anchorNames, &RenderStyle::setAnchorNames),
+        new DiscretePropertyWrapper<const std::optional<Style::ScopedName>&>(CSSPropertyPositionAnchor, &RenderStyle::positionAnchor, &RenderStyle::setPositionAnchor),
+        new DiscretePropertyWrapper<Style::PositionTryOrder>(CSSPropertyPositionTryOrder, &RenderStyle::positionTryOrder, &RenderStyle::setPositionTryOrder),
         new DiscretePropertyWrapper<const BlockEllipsis&>(CSSPropertyBlockEllipsis, &RenderStyle::blockEllipsis, &RenderStyle::setBlockEllipsis),
         new DiscretePropertyWrapper<size_t>(CSSPropertyMaxLines, &RenderStyle::maxLines, &RenderStyle::setMaxLines),
         new DiscretePropertyWrapper<OverflowContinue>(CSSPropertyContinue, &RenderStyle::overflowContinue, &RenderStyle::setOverflowContinue)

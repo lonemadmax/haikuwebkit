@@ -36,20 +36,13 @@ namespace CSS {
 
 // MARK: - Common Types
 
-using DeprecatedGradientPosition = SpaceSeparatedArray<PercentageOrNumber, 2>;
+using DeprecatedGradientPosition = SpaceSeparatedArray<NumberOrPercentage<>, 2>;
 
-using Horizontal     = std::variant<Left, Right>;
-using Vertical       = std::variant<Top, Bottom>;
+using Horizontal = std::variant<Keyword::Left, Keyword::Right>;
+using Vertical   = std::variant<Keyword::Top, Keyword::Bottom>;
 
-using ClosestCorner  = Constant<CSSValueClosestCorner>;
-using ClosestSide    = Constant<CSSValueClosestSide>;
-using FarthestCorner = Constant<CSSValueFarthestCorner>;
-using FarthestSide   = Constant<CSSValueFarthestSide>;
-using Contain        = Constant<CSSValueContain>;
-using Cover          = Constant<CSSValueCover>;
-
-using RadialGradientExtent         = std::variant<ClosestCorner, ClosestSide, FarthestCorner, FarthestSide>;
-using PrefixedRadialGradientExtent = std::variant<ClosestCorner, ClosestSide, FarthestCorner, FarthestSide, Contain, Cover>;
+using RadialGradientExtent         = std::variant<Keyword::ClosestCorner, Keyword::ClosestSide, Keyword::FarthestCorner, Keyword::FarthestSide>;
+using PrefixedRadialGradientExtent = std::variant<Keyword::ClosestCorner, Keyword::ClosestSide, Keyword::FarthestCorner, Keyword::FarthestSide, Keyword::Contain, Keyword::Cover>;
 
 // MARK: - Gradient Color Interpolation Definitions.
 
@@ -99,7 +92,7 @@ using GradientLinearColorStopPosition = std::optional<LengthPercentage<>>;
 using GradientLinearColorStop = GradientColorStop<GradientLinearColorStopPosition>;
 using GradientLinearColorStopList = GradientColorStopList<GradientLinearColorStop>;
 
-using GradientDeprecatedColorStopPosition = PercentageOrNumber;
+using GradientDeprecatedColorStopPosition = NumberOrPercentageResolvedToNumber<>;
 using GradientDeprecatedColorStop = GradientColorStop<GradientDeprecatedColorStopPosition>;
 using GradientDeprecatedColorStopList = GradientColorStopList<GradientDeprecatedColorStop>;
 

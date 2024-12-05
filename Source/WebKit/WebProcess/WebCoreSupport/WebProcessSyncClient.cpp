@@ -31,8 +31,11 @@
 #include "WebPageProxyMessages.h"
 #include <WebCore/Page.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebProcessSyncClient);
 
 WebProcessSyncClient::WebProcessSyncClient(WebPage& webPage)
     : m_page(webPage)
@@ -50,12 +53,12 @@ bool WebProcessSyncClient::siteIsolationEnabled()
     return corePage ? corePage->settings().siteIsolationEnabled() : false;
 }
 
-void WebProcessSyncClient::broadcastMainFrameURLChangeToOtherProcesses(const URL& url)
+void WebProcessSyncClient::broadcastProcessSyncDataToOtherProcesses(const WebCore::ProcessSyncData& data)
 {
     if (!siteIsolationEnabled())
         return;
 
-    protectedPage()->send(Messages::WebPageProxy::BroadcastMainFrameURLChangeToOtherProcesses(url));
+    protectedPage()->send(Messages::WebPageProxy::BroadcastProcessSyncData(data));
 }
 
 } // namespace WebKit

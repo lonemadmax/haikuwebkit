@@ -40,17 +40,10 @@ namespace Style {
 
 // MARK: - Common Types
 
-using DeprecatedGradientPosition = SpaceSeparatedArray<PercentageOrNumber, 2>;
+using DeprecatedGradientPosition   = SpaceSeparatedArray<NumberOrPercentage<>, 2>;
 
-using Horizontal     = CSS::Horizontal;
-using Vertical       = CSS::Vertical;
-
-using ClosestCorner  = CSS::ClosestCorner;
-using ClosestSide    = CSS::ClosestSide;
-using FarthestCorner = CSS::FarthestCorner;
-using FarthestSide   = CSS::FarthestSide;
-using Contain        = CSS::Contain;
-using Cover          = CSS::Cover;
+using Horizontal                   = CSS::Horizontal;
+using Vertical                     = CSS::Vertical;
 
 using RadialGradientExtent         = CSS::RadialGradientExtent;
 using PrefixedRadialGradientExtent = CSS::PrefixedRadialGradientExtent;
@@ -84,7 +77,7 @@ using GradientLinearColorStopPosition = std::optional<LengthPercentage<>>;
 using GradientLinearColorStop = GradientColorStop<GradientLinearColorStopPosition>;
 using GradientLinearColorStopList = GradientColorStopList<GradientLinearColorStop>;
 
-using GradientDeprecatedColorStopPosition = Number<>;
+using GradientDeprecatedColorStopPosition = NumberOrPercentageResolvedToNumber<>;
 using GradientDeprecatedColorStop = GradientColorStop<GradientDeprecatedColorStopPosition>;
 using GradientDeprecatedColorStopList = GradientColorStopList<GradientDeprecatedColorStop>;
 

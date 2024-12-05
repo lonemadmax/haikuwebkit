@@ -1,7 +1,7 @@
 <!-- webkit-test-runner [ SWVPDecodersAlwaysEnabled=true ] -->
 <html>
 <head>
-<title>videos with fullrange color</title>
+<title>videos with full range color</title>
 <script src=video-test.js></script>
 <script>
     var pixelData;
@@ -13,14 +13,15 @@
 
         let promise = new Promise(resolve => element.requestVideoFrameCallback(resolve));
         await waitFor(element, 'loadedmetadata');
-    
-        await Promise.all([ element.play(), promise ]);
+
+        await element.play();
+        await promise;
 
         const canvas = document.createElement('canvas');
         canvas.width = element.videoWidth;
         canvas.height = element.videoHeight;
         var ctx = canvas.getContext('2d');
-        
+
         ctx.drawImage(element, 0, 0);
         pixelData = ctx.getImageData(20, 20, 1, 1).data;
 
@@ -43,11 +44,6 @@
 
         for (const file of files) {
             await test(document.getElementsByTagName('video')[0], file);
-        }
-
-        // Same test, but with video not in the DOM.
-        for (const file of files) {
-            await test(document.createElement('video'), file);
         }
 
         if (window.testRunner)

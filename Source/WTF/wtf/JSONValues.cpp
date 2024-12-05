@@ -35,7 +35,7 @@
 
 #include <functional>
 #include <wtf/CommaPrinter.h>
-#include <wtf/IndexedRange.h>
+#include <wtf/ZippedRange.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -71,8 +71,8 @@ bool parseConstToken(std::span<const CodeUnit> data, std::span<const CodeUnit>& 
     if (data.size() < token.length())
         return false;
 
-    for (auto [i, tokenCharacter] : IndexedRange(token.span8())) {
-        if (tokenCharacter != data[i])
+    for (auto [character, tokenCharacter] : zippedRange(data, token.span8())) {
+        if (character != tokenCharacter)
             return false;
     }
 
@@ -386,7 +386,7 @@ RefPtr<JSON::Value> buildValue(std::span<const CodeUnit> data, std::span<const C
         String value;
         if (tokenEnd.data() - tokenStart.data() < 2)
             return nullptr;
-        bool ok = decodeString(tokenStart.subspan(1, tokenEnd.begin() - tokenStart.begin() - 2), value);
+        bool ok = decodeString(tokenStart.subspan(1, std::to_address(tokenEnd.begin()) - std::to_address(tokenStart.begin()) - 2), value);
         if (!ok)
             return nullptr;
         result = JSON::Value::create(value);
@@ -429,7 +429,7 @@ RefPtr<JSON::Value> buildValue(std::span<const CodeUnit> data, std::span<const C
             String key;
             if (tokenEnd.data() - tokenStart.data() < 2)
                 return nullptr;
-            if (!decodeString(tokenStart.subspan(1, tokenEnd.begin() - tokenStart.begin() - 2), key))
+            if (!decodeString(tokenStart.subspan(1, std::to_address(tokenEnd.begin()) - std::to_address(tokenStart.begin()) - 2), key))
                 return nullptr;
             data = tokenEnd;
 

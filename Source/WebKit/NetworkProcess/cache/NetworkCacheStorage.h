@@ -53,22 +53,37 @@ public:
     enum class Mode { Normal, AvoidRandomness };
     static RefPtr<Storage> open(const String& cachePath, Mode, size_t capacity);
 
+    enum class ReadOperationIdentifierType { };
+    using ReadOperationIdentifier = ObjectIdentifier<ReadOperationIdentifierType>;
     enum class WriteOperationIdentifierType { };
     using WriteOperationIdentifier = ObjectIdentifier<WriteOperationIdentifierType>;
 
     struct Record {
+        WTF_MAKE_STRUCT_TZONE_ALLOCATED(Record);
+
+        Record() = default;
+        Record(const Key& key, WallTime timeStamp, const Data& header, const Data& body, std::optional<SHA1::Digest> bodyHash)
+            : key(key)
+            , timeStamp(timeStamp)
+            , header(header)
+            , body(body)
+            , bodyHash(bodyHash)
+        {
+        }
         Record isolatedCopy() const & { return { crossThreadCopy(key), timeStamp, header, body, bodyHash }; }
         Record isolatedCopy() && { return { crossThreadCopy(WTFMove(key)), timeStamp, WTFMove(header), WTFMove(body), WTFMove(bodyHash) }; }
+        bool isNull() const { return key.isNull(); }
+
         Key key;
         WallTime timeStamp;
         Data header;
         Data body;
         std::optional<SHA1::Digest> bodyHash;
-
-        WTF_MAKE_TZONE_ALLOCATED(Record);
     };
 
     struct Timings {
+        WTF_MAKE_STRUCT_TZONE_ALLOCATED(Timings);
+
         MonotonicTime startTime;
         MonotonicTime dispatchTime;
         MonotonicTime recordIOStartTime;
@@ -81,12 +96,10 @@ public:
         bool synchronizationInProgressAtDispatch { false };
         bool shrinkInProgressAtDispatch { false };
         bool wasCanceled { false };
-
-        WTF_MAKE_TZONE_ALLOCATED(Timings);
     };
 
     // This may call completion handler synchronously on failure.
-    using RetrieveCompletionHandler = CompletionHandler<bool(std::unique_ptr<Record>, const Timings&)>;
+    using RetrieveCompletionHandler = CompletionHandler<bool(Record&&, const Timings&)>;
     void retrieve(const Key&, unsigned priority, RetrieveCompletionHandler&&);
 
     using MappedBodyHandler = Function<void (const Data& mappedBody)>;
@@ -142,10 +155,10 @@ private:
     void shrinkIfNeeded();
     void shrink();
 
-    struct ReadOperation;
+    class ReadOperation;
     void dispatchReadOperation(std::unique_ptr<ReadOperation>);
     void dispatchPendingReadOperations();
-    void finishReadOperation(ReadOperation&);
+    void finishReadOperation(Storage::ReadOperationIdentifier);
     void cancelAllReadOperations();
 
     class WriteOperation;
@@ -158,7 +171,9 @@ private:
     bool shouldStoreBodyAsBlob(const Data& bodyData);
     std::optional<BlobStorage::Blob> storeBodyAsBlob(WriteOperationIdentifier, const Storage::Record&);
     Data encodeRecord(const Record&, std::optional<BlobStorage::Blob>);
-    void readRecord(ReadOperation&, const Data&);
+    Record readRecord(const Data&);
+    void readRecordFromData(Storage::ReadOperationIdentifier, MonotonicTime, Data&&, int error);
+    void readBlobIfNecessary(Storage::ReadOperationIdentifier, const String& blobPath);
 
     void updateFileModificationTime(String&& path);
     void removeFromPendingWriteOperations(const Key&);
@@ -202,7 +217,7 @@ private:
     Vector<Key::HashType> m_blobFilterHashesAddedDuringSynchronization;
 
     PriorityQueue<std::unique_ptr<ReadOperation>, &isHigherPriority> m_pendingReadOperations;
-    HashSet<std::unique_ptr<ReadOperation>> m_activeReadOperations;
+    HashMap<ReadOperationIdentifier, std::unique_ptr<ReadOperation>> m_activeReadOperations;
     WebCore::Timer m_readOperationTimeoutTimer;
 
     Lock m_activitiesLock;
@@ -210,9 +225,6 @@ private:
     Deque<std::unique_ptr<WriteOperation>> m_pendingWriteOperations;
     HashMap<WriteOperationIdentifier, std::unique_ptr<WriteOperation>> m_activeWriteOperations;
     WebCore::Timer m_writeOperationDispatchTimer;
-
-    struct TraverseOperation;
-    HashSet<std::unique_ptr<TraverseOperation>> m_activeTraverseOperations;
 
     Ref<ConcurrentWorkQueue> m_ioQueue;
     Ref<ConcurrentWorkQueue> m_backgroundIOQueue;

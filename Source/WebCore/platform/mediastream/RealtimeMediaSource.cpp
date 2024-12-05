@@ -397,7 +397,7 @@ void RealtimeMediaSource::start()
 
 void RealtimeMediaSource::stop()
 {
-    if (!m_isProducingData)
+    if (!m_isProducingData || m_isEnded)
         return;
 
     ALWAYS_LOG_IF(m_logger, LOGIDENTIFIER);
@@ -1485,6 +1485,13 @@ auto RealtimeMediaSource::getPhotoSettings() -> Ref<PhotoSettingsNativePromise>
 {
     return PhotoSettingsNativePromise::createAndReject("Not supported"_s);
 }
+
+#if USE(GSTREAMER)
+std::pair<GstClockTime, GstClockTime> RealtimeMediaSource::queryCaptureLatency() const
+{
+    return { GST_CLOCK_TIME_NONE, GST_CLOCK_TIME_NONE };
+}
+#endif
 
 #if !RELEASE_LOG_DISABLED
 void RealtimeMediaSource::setLogger(const Logger& newLogger, uint64_t newLogIdentifier)

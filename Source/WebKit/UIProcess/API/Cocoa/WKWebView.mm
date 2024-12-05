@@ -1380,7 +1380,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _allowsBackForwardNavigationGestures = allowsBackForwardNavigationGestures;
 
     if (allowsBackForwardNavigationGestures && !_gestureController) {
-        _gestureController = makeUnique<WebKit::ViewGestureController>(*_page);
+        _gestureController = WebKit::ViewGestureController::create(*_page);
         _gestureController->installSwipeHandler(self, [self scrollView]);
         if (WKWebView *alternateWebView = [_configuration _alternateWebViewForNavigationGestures])
             _gestureController->setAlternateBackForwardListSourcePage(alternateWebView->_page.get());
@@ -4089,6 +4089,16 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     _page->setAddsVisitedLinks(addsVisitedLinks);
 }
 
+- (NSArray<NSString *> *)_corsDisablingPatterns
+{
+    return createNSArray(_page->corsDisablingPatterns()).autorelease();
+}
+
+- (void)_setCORSDisablingPatterns:(NSArray<NSString *> *)patterns
+{
+    _page->setCORSDisablingPatterns(makeVector<String>(patterns));
+}
+
 - (BOOL)_networkRequestsInProgress
 {
     return _page->pageLoadState().networkRequestsInProgress();
@@ -5143,66 +5153,6 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     });
 }
 #endif
-
-- (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID
-{
-#if ENABLE(WRITING_TOOLS)
-    RetainPtr nsUUID = [NSUUID UUID];
-
-    auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
-    if (!uuid)
-        return nil;
-
-    _page->enableSourceTextAnimationAfterElementWithID(elementID);
-
-#if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationForAnimationID:nsUUID.get() withData:{ WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation }];
-#else
-    _impl->addTextAnimationForAnimationID(*uuid, { WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation });
-#endif
-
-    return nsUUID.get();
-#else
-    return nil;
-#endif
-}
-
-- (NSUUID *)_enableFinalTextAnimationForElementWithID:(NSString *)elementID
-{
-#if ENABLE(WRITING_TOOLS)
-    RetainPtr nsUUID = [NSUUID UUID];
-
-    auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
-    if (!uuid)
-        return nil;
-
-    _page->enableTextAnimationTypeForElementWithID(elementID);
-
-#if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationForAnimationID:nsUUID.get() withData:{ WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation }];
-#else
-    _impl->addTextAnimationForAnimationID(*uuid, { WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation });
-#endif
-
-    return nsUUID.get();
-#else
-    return nil;
-#endif
-}
-
-- (void)_disableTextAnimationWithUUID:(NSUUID *)nsUUID
-{
-#if ENABLE(WRITING_TOOLS)
-#if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextAnimationForAnimationID:nsUUID];
-#else
-    auto uuid = WTF::UUID::fromNSUUID(nsUUID);
-    if (!uuid)
-        return;
-    _impl->removeTextAnimationForAnimationID(*uuid);
-#endif // PLATFORM(IOS_FAMILY)
-#endif // ENABLE(WRITING_TOOLS)
-}
 
 - (_WKWebProcessState)_webProcessState
 {

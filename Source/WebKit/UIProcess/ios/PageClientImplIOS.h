@@ -66,7 +66,7 @@ public:
     
 private:
     // PageClient
-    std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
+    Ref<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
     void setViewNeedsDisplay(const WebCore::Region&) override;
     void requestScroll(const WebCore::FloatPoint& scrollPosition, const WebCore::IntPoint& scrollOrigin, WebCore::ScrollIsAnimated) override;
     WebCore::FloatPoint viewScrollPosition() override;
@@ -201,6 +201,7 @@ private:
     void elementDidBlur() override;
     void focusedElementDidChangeInputMode(WebCore::InputMode) override;
     void didUpdateEditorState() override;
+    void reconcileEnclosingScrollViewContentOffset(EditorState&) final;
     bool isFocusingElement() override;
     void selectionDidChange() override;
     bool interpretKeyEvent(const NativeWebKeyboardEvent&, bool isCharEvent) override;

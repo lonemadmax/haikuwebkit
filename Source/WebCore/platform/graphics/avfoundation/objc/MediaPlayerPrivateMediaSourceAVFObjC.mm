@@ -83,7 +83,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #endif
 
 @interface WebEffectiveRateChangedListenerObjCAdapter : NSObject
-@property (nonatomic, readonly, direct) RefPtr<WebCore::EffectiveRateChangedListener> protectedListener;
+@property (atomic, readonly, direct) RefPtr<WebCore::EffectiveRateChangedListener> protectedListener;
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithEffectiveRateChangedListener:(const WebCore::EffectiveRateChangedListener&)listener;
 @end
@@ -122,18 +122,6 @@ String convertEnumerationToString(MediaPlayerPrivateMediaSourceAVFObjC::SeekStat
     return values[static_cast<size_t>(enumerationValue)];
 }
 
-#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-
-static bool isCopyDisplayedPixelBufferAvailable()
-{
-    static auto result = [] {
-        return [PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(copyDisplayedPixelBuffer)];
-    }();
-    return MediaSessionManagerCocoa::mediaSourceInlinePaintingEnabled() && result;
-}
-
-#endif // HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-
 #pragma mark -
 #pragma mark MediaPlayerPrivateMediaSourceAVFObjC
 
@@ -165,7 +153,7 @@ private:
 static void timebaseEffectiveRateChangedCallback(CFNotificationCenterRef, void* observer, CFNotificationName, const void*, CFDictionaryRef)
 {
     RetainPtr adapter { dynamic_objc_cast<WebEffectiveRateChangedListenerObjCAdapter>(reinterpret_cast<id>(observer)) };
-    if (RefPtr protectedListener = [adapter protectedListener])
+    if (auto protectedListener = [adapter protectedListener])
         protectedListener->effectiveRateChanged();
 }
 
@@ -176,7 +164,7 @@ void EffectiveRateChangedListener::stop(CMTimebaseRef timebase)
 
 EffectiveRateChangedListener::EffectiveRateChangedListener(MediaPlayerPrivateMediaSourceAVFObjC& client, CMTimebaseRef timebase)
     : m_client(client)
-    , m_objcAdapter([[WebEffectiveRateChangedListenerObjCAdapter alloc] initWithEffectiveRateChangedListener:*this])
+    , m_objcAdapter(adoptNS([[WebEffectiveRateChangedListenerObjCAdapter alloc] initWithEffectiveRateChangedListener:*this]))
 {
     // Observer removed MediaPlayerPrivateMediaSourceAVFObjC destructor.
     CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), m_objcAdapter.get(), timebaseEffectiveRateChangedCallback, kCMTimebaseNotification_EffectiveRateChanged, timebase, static_cast<CFNotificationSuspensionBehavior>(_CFNotificationObserverIsObjC));
@@ -593,7 +581,8 @@ void MediaPlayerPrivateMediaSourceAVFObjC::seekInternal()
         ALWAYS_LOG(LOGIDENTIFIER);
         MediaTime synchronizerTime = PAL::toMediaTime([m_synchronizer currentTime]);
 
-        m_isSynchronizerSeeking = synchronizerTime != seekedTime;
+        m_isSynchronizerSeeking = m_isSynchronizerSeeking = std::abs((synchronizerTime - seekedTime).toMicroseconds()) > 1000;
+
         ALWAYS_LOG(LOGIDENTIFIER, "seekedTime = ", seekedTime, ", synchronizerTime = ", synchronizerTime, "synchronizer seeking = ", m_isSynchronizerSeeking);
 
         if (!m_isSynchronizerSeeking) {
@@ -760,18 +749,14 @@ RefPtr<NativeImage> MediaPlayerPrivateMediaSourceAVFObjC::nativeImageForCurrentT
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::updateLastPixelBuffer()
 {
-#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-    if (isCopyDisplayedPixelBufferAvailable()) {
+    if (!m_decompressionSession) {
         if (auto pixelBuffer = adoptCF([layerOrVideoRenderer() copyDisplayedPixelBuffer])) {
             INFO_LOG(LOGIDENTIFIER, "displayed pixelbuffer copied for time ", currentTime());
             m_lastPixelBuffer = WTFMove(pixelBuffer);
             return true;
         }
-    }
-#endif
-
-    if (layerOrVideoRenderer() || !m_decompressionSession)
         return false;
+    }
 
     auto flags = !m_lastPixelBuffer ? WebCoreDecompressionSession::AllowLater : WebCoreDecompressionSession::ExactTime;
     auto newPixelBuffer = m_decompressionSession->imageForTime(currentTime(), flags);
@@ -839,20 +824,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::paintCurrentFrameInContext(GraphicsCo
     context.drawNativeImage(*image, outputRect, imageRect);
 }
 
-#if !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-void MediaPlayerPrivateMediaSourceAVFObjC::willBeAskedToPaintGL()
-{
-    // We have been asked to paint into a WebGL canvas, so take that as a signal to create
-    // a decompression session, even if that means the native video can't also be displayed
-    // in page.
-    if (m_hasBeenAskedToPaintGL)
-        return;
-
-    m_hasBeenAskedToPaintGL = true;
-    acceleratedRenderingStateChanged();
-}
-#endif
-
 RefPtr<VideoFrame> MediaPlayerPrivateMediaSourceAVFObjC::videoFrameForCurrentTime()
 {
     if (!m_isGatheringVideoFrameMetadata)
@@ -882,18 +853,10 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::shouldEnsureLayerOrVideoRenderer() co
 {
     // Decompression sessions do not support encrypted content; force layer
     // creation.
-    if (m_mediaSourcePrivate && m_mediaSourcePrivate->cdmInstance())
+    if (m_mediaSourcePrivate && (m_mediaSourcePrivate->cdmInstance() || m_mediaSourcePrivate->needsVideoLayer()))
         return true;
-#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
-    return isCopyDisplayedPixelBufferAvailable() && [&] {
-        if (m_mediaSourcePrivate && m_mediaSourcePrivate->needsVideoLayer())
-            return true;
-        auto player = m_player.get();
-        return player && player->renderingCanBeAccelerated();
-    }();
-#else
-    return !m_hasBeenAskedToPaintGL;
-#endif
+    auto player = m_player.get();
+    return player && player->renderingCanBeAccelerated();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setPresentationSize(const IntSize& newSize)
@@ -1077,6 +1040,10 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureDecompressionSession()
     m_decompressionSession = WebCoreDecompressionSession::createOpenGL();
     m_decompressionSession->setTimebase([m_synchronizer timebase]);
     m_decompressionSession->setResourceOwner(m_resourceOwner);
+    m_decompressionSession->setErrorListener([weakThis = WeakPtr { *this }](OSStatus) {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->setNetworkState(MediaPlayer::NetworkState::DecodeError);
+    });
 
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setDecompressionSession(m_decompressionSession.get());

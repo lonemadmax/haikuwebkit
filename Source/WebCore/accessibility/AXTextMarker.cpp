@@ -371,7 +371,7 @@ bool AXTextMarkerRange::isConfinedTo(std::optional<AXID> objectID) const
 }
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
-static void appendChildren(RefPtr<AXCoreObject> object, bool isForward, RefPtr<AXCoreObject> startObject, AccessibilityObject::AccessibilityChildrenVector& vector)
+static void appendChildren(Ref<AXCoreObject> object, bool isForward, RefPtr<AXCoreObject> startObject, AccessibilityObject::AccessibilityChildrenVector& vector)
 {
     AccessibilityObject::AccessibilityChildrenVector captionAndRows;
     bool isExposedTable = object->isTable() && object->isExposable();
@@ -393,7 +393,7 @@ static void appendChildren(RefPtr<AXCoreObject> object, bool isForward, RefPtr<A
 
     size_t startIndex = isForward ? childrenSize : 0;
     size_t endIndex = isForward ? 0 : childrenSize;
-    size_t searchPosition = startObject ? children.find(startObject) : notFound;
+    size_t searchPosition = startObject ? children.find(Ref { *startObject }) : notFound;
 
     if (searchPosition != notFound) {
         if (isForward)
@@ -402,17 +402,12 @@ static void appendChildren(RefPtr<AXCoreObject> object, bool isForward, RefPtr<A
             endIndex = searchPosition;
     }
 
-    auto append = [&vector] (RefPtr<AXCoreObject> object) {
-        if (object)
-            vector.append(WTFMove(object));
-    };
-
     if (isForward) {
         for (size_t i = startIndex; i > endIndex; i--)
-            append(children.at(i - 1));
+            vector.append(children.at(i - 1));
     } else {
         for (size_t i = startIndex; i < endIndex; i++)
-            append(children.at(i));
+            vector.append(children.at(i));
     }
 }
 
@@ -452,17 +447,16 @@ static AXIsolatedObject* findObjectWithRuns(AXIsolatedObject& start, AXDirection
         // Only append the children after/before the previous element, so that the search does not check elements that are
         // already behind/ahead of start element.
         AXCoreObject::AccessibilityChildrenVector searchStack;
-        appendChildren(startObject, isForward, previousObject, searchStack);
+        appendChildren(*startObject, isForward, previousObject, searchStack);
 
         // This now does a DFS at the current level of the parent.
         while (!searchStack.isEmpty()) {
-            RefPtr searchObject = searchStack.takeLast();
-
+            Ref searchObject = searchStack.takeLast();
             if (stopAtID && searchObject->objectID() == *stopAtID)
                 return nullptr;
 
             if (searchObject->hasTextRuns())
-                return dynamicDowncast<AXIsolatedObject>(searchObject.get());
+                return dynamicDowncast<AXIsolatedObject>(searchObject);
 
             appendChildren(searchObject, isForward, nullptr, searchStack);
         }
@@ -542,7 +536,7 @@ CharacterRange AXTextMarker::characterRangeForLine(unsigned lineIndex) const
     RELEASE_ASSERT(!offset());
 
     auto* stopObject = object->nextUnignoredSiblingOrParent();
-    auto stopAtID = stopObject ? stopObject->objectID() : std::nullopt;
+    auto stopAtID = stopObject ? std::optional { stopObject->objectID() } : std::nullopt;
 
     auto textRunMarker = toTextRunMarker(stopAtID);
     // If we couldn't convert this object to a text-run marker, it means we are a text control with no text descendant.
@@ -585,7 +579,7 @@ int AXTextMarker::lineNumberForIndex(unsigned index) const
     if (!object)
         return -1;
     auto* stopObject = object->nextUnignoredSiblingOrParent();
-    auto stopAtID = stopObject ? stopObject->objectID() : std::nullopt;
+    auto stopAtID = stopObject ? std::optional { stopObject->objectID() } : std::nullopt;
 
     if (object->isTextControl() && index >= object->textMarkerRange().toString().length()) {
         // Mimic behavior of AccessibilityRenderObject::visiblePositionForIndex.
@@ -937,24 +931,25 @@ AXTextMarker AXTextMarker::findMarker(AXDirection direction, AXTextUnit textUnit
     // Paragraphs must be handled differently from word + sentence boundaries, as there is no paragraph break iterator.
     // Rather, paragraph boundaries are based on rendered newlines and differences in node editability and block-grouping (through containing blocks).
     if (textUnit == AXTextUnit::Paragraph) {
-        size_t startLineIndex = currentRuns->lineID(runIndex).lineIndex;
-        unsigned offsetInStartLine =  startLineIndex ? offset() - currentRuns->runLengthSumTo(startLineIndex) : offset();
+        unsigned sumToRunIndex = runIndex ? currentRuns->runLengthSumTo(runIndex - 1) : 0;
+        unsigned offsetInStartLine = offset() - sumToRunIndex;
 
         while (currentObject) {
             RELEASE_ASSERT(currentRuns->size());
-            unsigned cumulativeOffset = direction == AXDirection::Next ? 0 : currentRuns->runLengthSumTo(startLineIndex);
-            for (size_t i = startLineIndex; i < currentRuns->size() && i >= 0; direction == AXDirection::Next ? i++ : i--) {
+            for (size_t i = runIndex; i < currentRuns->size() && i >= 0; direction == AXDirection::Next ? i++ : i--) {
                 // If a text run starts or ends with a newline character, that indicates a paragraph boundary. However, if the direction
                 // is Next, and our starting offset points to the end of the line (past the newline character), we are past the boundary.
-                if (currentRuns->at(i).endsWithLineBreak() && (i != startLineIndex || (direction == AXDirection::Next && currentRuns->runLength(i) != offsetInStartLine))) {
-                    unsigned newlineOffsetConsideringDirection = direction == AXDirection::Next ? cumulativeOffset + currentRuns->runLength(i) - 1 : cumulativeOffset;
+                if (currentRuns->at(i).endsWithLineBreak() && (i != runIndex || (direction == AXDirection::Next && currentRuns->runLength(i) != offsetInStartLine))) {
+                    unsigned sumIncludingCurrentLine = currentRuns->runLengthSumTo(i);
+                    unsigned newlineOffsetConsideringDirection = direction == AXDirection::Next ? sumIncludingCurrentLine - 1 : sumIncludingCurrentLine;
                     return { *currentObject, newlineOffsetConsideringDirection };
                 }
-                if (currentRuns->at(i).startsWithLineBreak() && (i != startLineIndex || direction == AXDirection::Previous)) {
+
+                if (currentRuns->at(i).startsWithLineBreak() && (i != runIndex || (direction == AXDirection::Previous && offsetInStartLine))) {
+                    unsigned sumUpToCurrentLine = i ? currentRuns->runLengthSumTo(i - 1) : 0;
                     unsigned newlineOffsetConsideringDirection = direction == AXDirection::Next ? 0 : 1;
-                    return { *currentObject, cumulativeOffset + newlineOffsetConsideringDirection };
+                    return { *currentObject, sumUpToCurrentLine + newlineOffsetConsideringDirection };
                 }
-                cumulativeOffset = direction == AXDirection::Next ? cumulativeOffset + currentRuns->runLength(i) : cumulativeOffset - currentRuns->runLength(i);
             }
 
             RefPtr previousObject = currentObject;
@@ -973,6 +968,35 @@ AXTextMarker AXTextMarker::findMarker(AXDirection direction, AXTextUnit textUnit
 
     return { };
 }
+
+AXTextMarker AXTextMarker::previousParagraphStart(std::optional<AXID> stopAtID) const
+{
+    // Mimic previousParagraphStartCharacterOffset and move off the current text marker.
+    auto adjacentMarker = findMarker(AXDirection::Previous, CoalesceObjectBreaks::Yes, IgnoreBRs::No, stopAtID);
+    // Like previousParagraphStartCharacterOffset, advance one if the object is a line break.
+    RefPtr currentObject = isolatedObject();
+    if (RefPtr adjacentObject = adjacentMarker.isolatedObject(); currentObject && adjacentObject) {
+        if (currentObject->roleValue() != AccessibilityRole::LineBreak && adjacentObject->roleValue() == AccessibilityRole::LineBreak)
+            adjacentMarker = adjacentMarker.findMarker(AXDirection::Previous, CoalesceObjectBreaks::No, IgnoreBRs::No, stopAtID);
+    }
+
+    return adjacentMarker.findMarker(AXDirection::Previous, AXTextUnit::Paragraph, AXTextUnitBoundary::Start, stopAtID);
+}
+
+AXTextMarker AXTextMarker::nextParagraphEnd(std::optional<AXID> stopAtID) const
+{
+    // Mimic nextParagraphEndCharacterOffset and move off the current text marker.
+    auto adjacentMarker = findMarker(AXDirection::Next, CoalesceObjectBreaks::Yes, IgnoreBRs::No, stopAtID);
+    // Like nextParagraphEndCharacterOffset, advance one if the object is a line break.
+    RefPtr currentObject = isolatedObject();
+    if (RefPtr adjacentObject = adjacentMarker.isolatedObject(); currentObject && adjacentObject) {
+        if (currentObject->roleValue() != AccessibilityRole::LineBreak && adjacentObject->roleValue() == AccessibilityRole::LineBreak)
+            adjacentMarker = adjacentMarker.findMarker(AXDirection::Next, CoalesceObjectBreaks::No, IgnoreBRs::No, stopAtID);
+    }
+
+    return adjacentMarker.findMarker(AXDirection::Next, AXTextUnit::Paragraph, AXTextUnitBoundary::End, stopAtID);
+}
+
 
 AXTextMarker AXTextMarker::toTextRunMarker(std::optional<AXID> stopAtID) const
 {
@@ -1100,8 +1124,13 @@ AXTextMarkerRange AXTextMarker::paragraphRange() const
     if (!isValid())
         return { { }, { } };
 
-    AXTextMarker startMarker = previousParagraphStart();
-    AXTextMarker endMarker = startMarker.nextParagraphEnd();
+    // paragraphForCharacterOffset on the main thread doesn't directly call nextParagraphEnd and previousParagraphStart.
+    // When actually computing the range from the current position, directly call findMarker.
+    AXTextMarker startMarker = findMarker(AXDirection::Previous, AXTextUnit::Paragraph, AXTextUnitBoundary::Start);
+    AXTextMarker endMarker = findMarker(AXDirection::Next, AXTextUnit::Paragraph, AXTextUnitBoundary::End);
+    auto rangeString = AXTextMarkerRange { startMarker, endMarker }.toString();
+    if (rangeString.containsOnly<isASCIIWhitespace>())
+        endMarker = startMarker;
 
     return { WTFMove(startMarker), WTFMove(endMarker) };
 }

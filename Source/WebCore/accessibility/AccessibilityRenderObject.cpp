@@ -128,7 +128,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 AccessibilityRenderObject::AccessibilityRenderObject(AXID axID, RenderObject& renderer)
-    : AccessibilityNodeObject(axID, renderer.node())
+    : AccessibilityNodeObject(axID, LIKELY(!renderer.isRenderView()) ? renderer.node() : &renderer.document())
     , m_renderer(renderer)
 {
 #if ASSERT_ENABLED
@@ -746,13 +746,6 @@ bool AccessibilityRenderObject::shouldGetTextFromNode(const TextUnderElementMode
     return false;
 }
 
-Node* AccessibilityRenderObject::node() const
-{
-    if (m_renderer)
-        return LIKELY(!m_renderer->isRenderView()) ? m_renderer->node() : &m_renderer->document();
-    return AccessibilityNodeObject::node();
-}
-
 String AccessibilityRenderObject::stringValue() const
 {
     if (!m_renderer)
@@ -791,9 +784,9 @@ String AccessibilityRenderObject::stringValue() const
 
     if (auto* renderListMarker = dynamicDowncast<RenderListMarker>(m_renderer.get())) {
 #if USE(ATSPI)
-        return renderListMarker->textWithSuffix().toString();
+        return renderListMarker->textWithSuffix();
 #else
-        return renderListMarker->textWithoutSuffix().toString();
+        return renderListMarker->textWithoutSuffix();
 #endif
     }
 
@@ -1017,11 +1010,11 @@ void AccessibilityRenderObject::labelText(Vector<AccessibilityText>& textOrder) 
     AccessibilityNodeObject::labelText(textOrder);
 }
 
-AXCoreObject* AccessibilityRenderObject::titleUIElement() const
+AccessibilityObject* AccessibilityRenderObject::titleUIElement() const
 {
     if (m_renderer && isFieldset())
         return axObjectCache()->getOrCreate(dynamicDowncast<RenderBlock>(*m_renderer)->findFieldsetLegend(RenderBlock::FieldsetIncludeFloatingOrOutOfFlow));
-    return AccessibilityNodeObject::titleUIElement();
+    return downcast<AccessibilityObject>(AccessibilityNodeObject::titleUIElement());
 }
     
 bool AccessibilityRenderObject::isAllowedChildOfTree() const
@@ -1069,7 +1062,7 @@ static bool webAreaIsPresentational(RenderObject* renderer)
         return false;
     
     RefPtr ownerElement = renderer->document().ownerElement();
-    return ownerElement && nodeHasPresentationRole(*ownerElement);
+    return ownerElement && hasPresentationRole(*ownerElement);
 }
 
 bool AccessibilityRenderObject::computeIsIgnored() const
@@ -1295,9 +1288,12 @@ bool AccessibilityRenderObject::computeIsIgnored() const
         return false;
 #endif
 
+    // This logic, originally added in:
+    // https://github.com/WebKit/WebKit/commit/ddeb923489b58fd890527bf0e432ebe6a477d2ef
+    // Results in a lot of useless generics being exposed, which is wasteful. We should remove this.
     WeakPtr blockFlow = dynamicDowncast<RenderBlockFlow>(*m_renderer);
     if (blockFlow && m_renderer->childrenInline() && !canSetFocusAttribute())
-        return !blockFlow->hasLines() && !mouseButtonListener();
+        return !blockFlow->hasLines() && !clickableSelfOrAncestor();
 
     if (isCanvas()) {
         if (canvasHasFallbackContent())
@@ -1311,7 +1307,7 @@ bool AccessibilityRenderObject::computeIsIgnored() const
     }
 
     if (m_renderer->isRenderListMarker()) {
-        AXCoreObject* parent = parentObjectUnignored();
+        RefPtr parent = parentObjectUnignored();
         return parent && !parent->isListItem();
     }
 
@@ -1654,18 +1650,22 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::documentLin
     AccessibilityChildrenVector result;
     Document& document = m_renderer->document();
     Ref<HTMLCollection> links = document.links();
+    CheckedPtr cache = document.existingAXObjectCache();
+    if (!cache)
+        return { };
+
     for (unsigned i = 0; auto* current = links->item(i); ++i) {
         if (auto* renderer = current->renderer()) {
-            RefPtr<AccessibilityObject> axObject = document.axObjectCache()->getOrCreate(*renderer);
+            RefPtr axObject = cache->getOrCreate(*renderer);
             ASSERT(axObject);
             if (!axObject->isIgnored() && axObject->isLink())
-                result.append(axObject);
+                result.append(axObject.releaseNonNull());
         } else {
             auto* parent = current->parentNode();
             if (auto* parentMap = dynamicDowncast<HTMLMapElement>(parent); parentMap && is<HTMLAreaElement>(*current)) {
                 RefPtr parentImage = parentMap->imageElement();
                 auto* parentImageRenderer = parentImage ? parentImage->renderer() : nullptr;
-                if (auto* parentImageAxObject = document.axObjectCache()->getOrCreate(parentImageRenderer)) {
+                if (auto* parentImageAxObject = cache->getOrCreate(parentImageRenderer)) {
                     for (const auto& child : parentImageAxObject->unignoredChildren()) {
                         if (is<AccessibilityImageMapLink>(child) && !result.contains(child))
                             result.append(child);
@@ -1673,11 +1673,11 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::documentLin
                 } else {
                     // We couldn't retrieve the already existing image-map links from the parent image, so create a new one.
                     ASSERT_NOT_REACHED("Unexpectedly missing image-map link parent AX object.");
-                    auto& areaObject = uncheckedDowncast<AccessibilityImageMapLink>(*axObjectCache()->create(AccessibilityRole::ImageMapLink));
+                    auto& areaObject = downcast<AccessibilityImageMapLink>(*cache->create(AccessibilityRole::ImageMapLink));
                     areaObject.setHTMLAreaElement(uncheckedDowncast<HTMLAreaElement>(current));
                     areaObject.setHTMLMapElement(parentMap);
                     areaObject.setParent(associatedAXImage(*parentMap));
-                    result.append(&areaObject);
+                    result.append(areaObject);
                 }
             }
         }
@@ -2107,6 +2107,9 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (!m_renderer)
         return AccessibilityNodeObject::determineAccessibilityRole();
 
+    if (m_renderer->isRenderText())
+        return AccessibilityRole::StaticText;
+
 #if ENABLE(APPLE_PAY)
     if (isApplePayButton())
         return AccessibilityRole::Button;
@@ -2117,14 +2120,17 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if ((m_ariaRole = determineAriaRoleAttribute()) != AccessibilityRole::Unknown && !shouldIgnoreAttributeRole())
         return m_ariaRole;
 
-    Node* node = m_renderer->node();
+    RefPtr node = m_renderer->node();
+    if (m_renderer->isRenderListItem()) {
+        // The details / summary disclosure triangle is implemented using RenderListItem
+        // but we want to return `AccessibilityRole::Summary` there, so skip them here.
+        RefPtr summary = dynamicDowncast<HTMLSummaryElement>(node);
+        if (!summary || !summary->isActiveSummary())
+            return AccessibilityRole::ListItem;
+    }
 
-    if (m_renderer->isRenderListItem())
-        return AccessibilityRole::ListItem;
     if (m_renderer->isRenderListMarker())
         return AccessibilityRole::ListMarker;
-    if (m_renderer->isRenderText())
-        return AccessibilityRole::StaticText;
 #if ENABLE(AX_THREAD_TEXT_APIS)
     if (m_renderer->isBR())
         return AccessibilityRole::LineBreak;
@@ -2180,7 +2186,6 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     // the cell should not be treated as a cell (e.g. because it is a layout table.
     if (is<RenderTableCell>(m_renderer.get()))
         return AccessibilityRole::TextGroup;
-    // Table sections should be ignored.
     if (m_renderer->isRenderTableSection())
         return AccessibilityRole::Ignored;
 
@@ -2274,7 +2279,7 @@ void AccessibilityRenderObject::addImageMapChildren()
         areaObject.setHTMLMapElement(map.get());
         areaObject.setParent(this);
         if (!areaObject.isIgnored())
-            addChild(&areaObject);
+            addChild(areaObject);
         else
             axObjectCache()->remove(areaObject.objectID());
     }
@@ -2293,7 +2298,7 @@ void AccessibilityRenderObject::addTextFieldChildren()
     auto& axSpinButton = uncheckedDowncast<AccessibilitySpinButton>(*axObjectCache()->create(AccessibilityRole::SpinButton));
     axSpinButton.setSpinButtonElement(spinButtonElement);
     axSpinButton.setParent(this);
-    addChild(&axSpinButton);
+    addChild(axSpinButton);
 }
     
 bool AccessibilityRenderObject::isSVGImage() const
@@ -2357,7 +2362,7 @@ void AccessibilityRenderObject::addRemoteSVGChildren()
     // In order to connect the AX hierarchy from the SVG root element from the loaded resource
     // the parent must be set, because there's no other way to get back to who created the image.
     root->setParent(this);
-    addChild(root.get());
+    addChild(*root);
 }
 
 void AccessibilityRenderObject::addAttachmentChildren()
@@ -2429,17 +2434,17 @@ void AccessibilityRenderObject::addNodeOnlyChildren()
     for (Node* child = node->firstChild(); child; child = child->nextSibling()) {
         if (child->renderer()) {
             // Find out where the last render sibling is located within m_children.
-            AXCoreObject* childObject = cache->get(child->renderer());
+            RefPtr<AXCoreObject> childObject = cache->get(child->renderer());
             if (childObject && childObject->isIgnored()) {
                 const auto& children = childObject->unignoredChildren();
                 if (children.size())
-                    childObject = children.last().get();
+                    childObject = children.last().ptr();
                 else
                     childObject = nullptr;
             }
 
             if (childObject)
-                insertionIndex = m_children.find(childObject) + 1;
+                insertionIndex = m_children.find(Ref { *childObject }) + 1;
             continue;
         }
 
@@ -2550,10 +2555,10 @@ void AccessibilityRenderObject::addChildren()
             return;
 #endif
         auto owners = object.owners();
-        if (owners.size() && !owners.contains(this))
+        if (owners.size() && !owners.contains(Ref { *this }))
             return;
 
-        addChild(&object);
+        addChild(object);
     };
 
 #if !USE(ATSPI)
