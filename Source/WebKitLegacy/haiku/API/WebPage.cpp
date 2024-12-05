@@ -93,6 +93,7 @@
 #include "WebCore/ResourceHandle.h"
 #include "WebCore/ResourceRequest.h"
 #include "WebCore/ScriptController.h"
+#include "WebCore/ScrollingCoordinatorTypes.h"
 #include "WebCore/Settings.h"
 #include "WebCore/ThreadGlobalData.h"
 #include "WebCore/UserContentController.h"

@@ -31,6 +31,7 @@
 #include "ChromeClientHaiku.h"
 
 #include <WebCore/CookieConsentDecisionResult.h>
+#include <WebCore/Cursor.h>
 #include "WebCore/FileChooser.h"
 #include <WebCore/FileIconLoader.h>
 #include "WebCore/Frame.h"
@@ -39,6 +40,7 @@
 #include "WebCore/FrameView.h"
 #include "WebCore/HitTestResult.h"
 #include "WebCore/Icon.h"
+#include "WebCore/LocalFrameView.h"
 #include "WebCore/ModalContainerTypes.h"
 #include "WebCore/NotImplemented.h"
 #include "WebCore/Page.h"
