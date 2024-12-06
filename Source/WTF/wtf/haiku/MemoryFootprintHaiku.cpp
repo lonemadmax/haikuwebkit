@@ -36,7 +36,7 @@ size_t memoryFootprint()
 	image_info info;
 	int32* cookie = NULL;
 
-	size_t heapSize;
+	size_t heapSize = 0;
 
 	while(get_next_image_info(B_CURRENT_TEAM, cookie, &info) == B_OK)
 	{
