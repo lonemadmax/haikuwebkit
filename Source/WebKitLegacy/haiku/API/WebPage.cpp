@@ -73,7 +73,6 @@
 #include "WebCore/HandleUserInputEventResult.h"
 #include "WebCore/LibWebRTCProvider.h"
 #include "WebCore/LogInitialization.h"
-#include "WebCore/MediaRecorderProvider.h"
 #include "WebCore/MemoryCache.h"
 #include "WebNavigatorContentUtilsClient.h"
 #include "WebCore/MHTMLArchive.h"
@@ -249,13 +248,6 @@ void WebKitInitializeLogChannelsIfNecessary();
     MemoryCache::singleton().setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
     MemoryCache::singleton().setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
 }
-
-
-class MediaRecorderProviderHaiku: public MediaRecorderProvider
-{
-	public:
-		MediaRecorderProviderHaiku() = default;
-};
 
 
 BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
