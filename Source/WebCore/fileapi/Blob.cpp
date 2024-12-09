@@ -53,10 +53,9 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/CString.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BlobLoader);
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Blob);
 
 class BlobURLRegistry final : public URLRegistry {
@@ -308,6 +307,13 @@ void Blob::arrayBuffer(DOMPromiseDeferred<IDLArrayBuffer>&& promise)
     });
 }
 
+void Blob::getArrayBuffer(CompletionHandler<void(ExceptionOr<Ref<JSC::ArrayBuffer>>)>&& completionHandler)
+{
+    loadBlob(FileReaderLoader::ReadAsArrayBuffer, [completionHandler = WTFMove(completionHandler)](BlobLoader& blobLoader) mutable {
+        completionHandler(arrayBufferFromBlobLoader(blobLoader));
+    });
+}
+
 void Blob::bytes(Ref<DeferredPromise>&& promise)
 {
     loadBlob(FileReaderLoader::ReadAsArrayBuffer, [promise = WTFMove(promise)](BlobLoader& blobLoader) mutable {
@@ -454,12 +460,10 @@ bool Blob::isNormalizedContentType(const String& contentType)
 bool Blob::isNormalizedContentType(const CString& contentType)
 {
     // FIXME: Do we really want to treat the empty string and null string as valid content types?
-    size_t length = contentType.length();
-    const char* characters = contentType.data();
-    for (size_t i = 0; i < length; ++i) {
-        if (characters[i] < 0x20 || characters[i] > 0x7e)
+    for (auto character : contentType.span()) {
+        if (character < 0x20 || character > 0x7e)
             return false;
-        if (isASCIIUpper(characters[i]))
+        if (isASCIIUpper(character))
             return false;
     }
     return true;
@@ -482,5 +486,3 @@ WebCoreOpaqueRoot root(Blob* blob)
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

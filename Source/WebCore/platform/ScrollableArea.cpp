@@ -1003,10 +1003,18 @@ FloatSize ScrollableArea::deltaForPropagation(const FloatSize& biasedDelta) cons
 
 bool ScrollableArea::shouldBlockScrollPropagation(const FloatSize& biasedDelta) const
 {
-    return ((horizontalOverscrollBehaviorPreventsPropagation() || verticalOverscrollBehaviorPreventsPropagation())
-        && ((horizontalOverscrollBehaviorPreventsPropagation() && verticalOverscrollBehaviorPreventsPropagation())
-        || (horizontalOverscrollBehaviorPreventsPropagation() && !biasedDelta.height()) || (verticalOverscrollBehaviorPreventsPropagation()
-        && !biasedDelta.width())));
+    bool preventsHorizontalPropagation = horizontalOverscrollBehaviorPreventsPropagation();
+    bool preventsVerticalPropagation = verticalOverscrollBehaviorPreventsPropagation();
+    if (preventsHorizontalPropagation && preventsVerticalPropagation)
+        return true;
+
+    if (preventsHorizontalPropagation)
+        return !biasedDelta.height();
+
+    if (preventsVerticalPropagation)
+        return !biasedDelta.width();
+
+    return false;
 }
 
 ScrollingNodeID ScrollableArea::scrollingNodeIDForTesting()

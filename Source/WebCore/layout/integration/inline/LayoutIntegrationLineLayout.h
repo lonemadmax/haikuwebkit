@@ -37,6 +37,7 @@
 #include "LayoutPoint.h"
 #include "LayoutState.h"
 #include "RenderObjectEnums.h"
+#include "SVGTextChunk.h"
 #include <wtf/CheckedPtr.h>
 
 namespace WebCore {
@@ -103,6 +104,7 @@ public:
 
     LayoutUnit contentLogicalHeight() const;
     std::optional<LayoutUnit> clampedContentLogicalHeight() const;
+    bool hasEllipsisInBlockDirectionOnLastFormattedLine() const;
     bool contains(const RenderElement& renderer) const;
 
     bool isPaginated() const;
@@ -137,6 +139,8 @@ public:
 #ifndef NDEBUG
     bool hasDetachedContent() const { return m_lineDamage && m_lineDamage->hasDetachedContent(); }
 #endif
+
+    FloatRect applySVGTextFragments(SVGTextFragmentMap&&);
 
 private:
     void preparePlacedFloats();

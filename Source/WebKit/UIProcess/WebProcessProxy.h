@@ -200,9 +200,7 @@ public:
 #endif
     void waitForSharedPreferencesForWebProcessToSync(uint64_t sharedPreferencesVersion, CompletionHandler<void(bool success)>&&);
 
-    bool isMatchingRegistrableDomain(const WebCore::RegistrableDomain& domain) const { return m_site ? m_site->domain() == domain : false; }
-    WebCore::RegistrableDomain registrableDomain() const { return m_site ? m_site->domain() : WebCore::RegistrableDomain(); }
-    const std::optional<WebCore::Site>& optionalSite() const { return m_site; }
+    const std::optional<WebCore::Site>& site() const { return m_site; }
 
     enum class WillShutDown : bool { No, Yes };
     void setIsInProcessCache(bool, WillShutDown = WillShutDown::No);
@@ -373,6 +371,7 @@ public:
     ShutdownPreventingScopeCounter::Token shutdownPreventingScope() { return m_shutdownPreventingScopeCounter.count(); }
 
     void didStartProvisionalLoadForMainFrame(const URL&);
+    void didStartUsingProcessForSiteIsolation(const WebCore::Site&);
 
     // ProcessThrottlerClient
     void sendPrepareToSuspend(IsSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&&) final;
@@ -464,6 +463,7 @@ public:
 #if ENABLE(MEDIA_STREAM)
     static void muteCaptureInPagesExcept(WebCore::PageIdentifier);
     SpeechRecognitionRemoteRealtimeMediaSourceManager& ensureSpeechRecognitionRemoteRealtimeMediaSourceManager();
+    RefPtr<SpeechRecognitionRemoteRealtimeMediaSourceManager> protectedSpeechRecognitionRemoteRealtimeMediaSourceManager();
 #endif
     void pageMutedStateChanged(WebCore::PageIdentifier, WebCore::MediaProducerMutedStateFlags);
     void pageIsBecomingInvisible(WebCore::PageIdentifier);
@@ -523,8 +523,6 @@ public:
     const WebCore::ProcessIdentity& processIdentity();
 #endif
 
-    void markAsUsedForSiteIsolation() { m_usedForSiteIsolation = true; }
-
     bool isAlwaysOnLoggingAllowed() const;
 
 private:
@@ -546,7 +544,7 @@ private:
 #endif
 
     // ProcessLauncher::Client
-    void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
+    void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier&&) override;
     bool shouldConfigureJSCForTesting() const final;
     bool isJITEnabled() const final;
     bool shouldEnableSharedArrayBuffer() const final { return m_crossOriginMode == WebCore::CrossOriginMode::Isolated; }
@@ -572,7 +570,6 @@ private:
 
     // IPC message handlers.
     void updateBackForwardItem(Ref<FrameState>&&);
-    void didDestroyFrame(IPC::Connection&, WebCore::FrameIdentifier, WebPageProxyIdentifier);
     void didDestroyUserGestureToken(WebCore::PageIdentifier, WebCore::UserGestureTokenIdentifier);
 
     bool canBeAddedToWebProcessCache() const;
@@ -721,7 +718,6 @@ private:
 
     std::optional<WebCore::Site> m_site;
     bool m_isInProcessCache { false };
-    bool m_usedForSiteIsolation { false };
 
     enum class NoOrMaybe { No, Maybe } m_isResponsive;
     Vector<CompletionHandler<void(bool webProcessIsResponsive)>> m_isResponsiveCallbacks;

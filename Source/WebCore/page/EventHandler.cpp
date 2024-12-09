@@ -2325,13 +2325,12 @@ bool EventHandler::swallowAnyClickEvent(const PlatformMouseEvent& platformMouseE
     // The click event should only be fired for the primary pointer button.
 
     auto& eventName = isPrimaryPointerButton ? eventNames().clickEvent : eventNames().auxclickEvent;
-    if (dispatchMouseEvent(eventName, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes))
-        return false;
+    bool swallowed = !dispatchMouseEvent(eventName, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
 
     if (RefPtr page = m_frame->protectedPage())
-        page->chrome().client().didSwallowClickEvent(platformMouseEvent, *nodeToClick);
+        page->chrome().client().didDispatchClickEvent(platformMouseEvent, *nodeToClick);
 
-    return true;
+    return swallowed;
 }
 
 HandleUserInputEventResult EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& platformMouseEvent)
@@ -3156,7 +3155,7 @@ bool EventHandler::completeWidgetWheelEvent(const PlatformWheelEvent& event, con
     return platformCompletePlatformWidgetWheelEvent(event, *widget.get(), scrollableArea);
 }
 
-HandleUserInputEventResult EventHandler::handleWheelEvent(const PlatformWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
+std::pair<HandleUserInputEventResult, OptionSet<EventHandling>> EventHandler::handleWheelEvent(const PlatformWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
 {
     Ref frame = m_frame.get();
 #if ENABLE(KINETIC_SCROLLING)
@@ -3168,7 +3167,7 @@ HandleUserInputEventResult EventHandler::handleWheelEvent(const PlatformWheelEve
     auto handleWheelEventResult = handleWheelEventInternal(wheelEvent, processingSteps, handling);
     // wheelEventWasProcessedByMainThread() may have already been called via performDefaultWheelEventHandling(), but this ensures that it's always called if that code path doesn't run.
     wheelEventWasProcessedByMainThread(wheelEvent, handling);
-    return handleWheelEventResult;
+    return { handleWheelEventResult, handling };
 }
 
 HandleUserInputEventResult EventHandler::handleWheelEventInternal(const PlatformWheelEvent& event, OptionSet<WheelEventProcessingSteps> processingSteps, OptionSet<EventHandling>& handling)
@@ -5286,7 +5285,8 @@ bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widge
     if (!frameView)
         return false;
 
-    return frameView->frame().eventHandler().handleWheelEvent(event, processingSteps).wasHandled();
+    auto [result, _] = frameView->frame().eventHandler().handleWheelEvent(event, processingSteps);
+    return result.wasHandled();
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)

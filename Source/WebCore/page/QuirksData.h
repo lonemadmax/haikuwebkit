@@ -29,7 +29,10 @@ namespace WebCore {
 
 struct WEBCORE_EXPORT QuirksData {
     std::optional<bool> isAmazon;
+    std::optional<bool> isCBSSports;
     std::optional<bool> isESPN;
+    std::optional<bool> isFacebook;
+    std::optional<bool> isGoogleDocs;
     std::optional<bool> isGoogleMaps;
     std::optional<bool> isNetflix;
     std::optional<bool> isSoundCloud;
@@ -64,12 +67,10 @@ struct WEBCORE_EXPORT QuirksData {
     std::optional<bool> shouldIgnorePlaysInlineRequirementQuirk;
     std::optional<bool> shouldLayOutAtMinimumWindowWidthWhenIgnoringScalingConstraintsQuirk;
     std::optional<bool> shouldPreventOrientationMediaQueryFromEvaluatingToLandscapeQuirk;
-    std::optional<bool> shouldStarBePermissionsPolicyDefaultValueQuirk;
     std::optional<bool> shouldUseLegacySelectPopoverDismissalBehaviorInDataActivationQuirk;
 
 #if PLATFORM(IOS_FAMILY)
     std::optional<bool> mayNeedToIgnoreContentObservation;
-    std::optional<bool> needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk;
     std::optional<bool> needsFullscreenDisplayNoneQuirk;
     std::optional<bool> needsFullscreenObjectFitQuirk;
     std::optional<bool> needsGMailOverflowScrollQuirk;
@@ -81,8 +82,6 @@ struct WEBCORE_EXPORT QuirksData {
     std::optional<bool> shouldEnableApplicationCacheQuirk;
     std::optional<bool> shouldIgnoreAriaForFastPathContentObservationCheckQuirk;
     std::optional<bool> shouldNavigatorPluginsBeEmpty;
-    std::optional<bool> shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreasQuirk;
-    std::optional<bool> shouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk;
 #endif
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
@@ -97,7 +96,6 @@ struct WEBCORE_EXPORT QuirksData {
 
 #if PLATFORM(MAC)
     std::optional<bool> isNeverRichlyEditableForTouchBarQuirk;
-    std::optional<bool> isTouchBarUpdateSuppressedForHiddenContentEditableQuirk;
     std::optional<bool> needsFormControlToBeMouseFocusableQuirk;
     std::optional<bool> needsPrimeVideoUserSelectNoneQuirk;
 #endif

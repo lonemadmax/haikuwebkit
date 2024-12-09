@@ -57,8 +57,9 @@ public:
     static Ref<VideoMediaSampleRenderer> create(WebSampleBufferVideoRendering *renderer) { return adoptRef(*new VideoMediaSampleRenderer(renderer)); }
     ~VideoMediaSampleRenderer();
 
-    bool prefersDecompressionSession() { return m_prefersDecompressionSession; }
+    bool prefersDecompressionSession() const { return m_prefersDecompressionSession; }
     void setPrefersDecompressionSession(bool);
+    bool isUsingDecompressionSession() const;
 
     void setTimebase(RetainPtr<CMTimebaseRef>&&);
     RetainPtr<CMTimebaseRef> timebase() const;
@@ -77,7 +78,10 @@ public:
     void resetUpcomingSampleBufferPresentationTimeExpectations();
 
     WebSampleBufferVideoRendering *renderer() const;
-    AVSampleBufferDisplayLayer *displayLayer() const;
+
+    template <typename T> T* as() const;
+    template <> AVSampleBufferVideoRenderer* as() const;
+    template <> AVSampleBufferDisplayLayer* as() const { return m_displayLayer.get(); }
 
     struct DisplayedPixelBufferEntry {
         RetainPtr<CVPixelBufferRef> pixelBuffer;

@@ -104,8 +104,14 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     auto& object = axObject.get();
 
     // These properties are cached for all objects, ignored and unignored.
-    setProperty(AXPropertyName::HasBodyTag, object.hasBodyTag());
     setProperty(AXPropertyName::HasClickHandler, object.hasClickHandler());
+    auto tag = object.tagName();
+    if (tag == bodyTag)
+        setProperty(AXPropertyName::HasBodyTag, true);
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    else if (tag == markTag)
+        setProperty(AXPropertyName::HasMarkTag, true);
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
 
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
     if (object.includeIgnoredInCoreTree()) {
@@ -190,7 +196,9 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::HasBoldFont, object.hasBoldFont());
     setProperty(AXPropertyName::HasItalicFont, object.hasItalicFont());
     setProperty(AXPropertyName::HasPlainText, object.hasPlainText());
+#if !ENABLE(AX_THREAD_TEXT_APIS)
     setProperty(AXPropertyName::HasUnderline, object.hasUnderline());
+#endif
     setProperty(AXPropertyName::IsKeyboardFocusable, object.isKeyboardFocusable());
     setProperty(AXPropertyName::BrailleRoleDescription, object.brailleRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::BrailleLabel, object.brailleLabel().isolatedCopy());
@@ -613,6 +621,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         },
 #if ENABLE(AX_THREAD_TEXT_APIS)
         [](AXTextRuns& runs) { return !runs.size(); },
+        [](RetainPtr<CTFontRef>& typedValue) { return !typedValue; },
 #endif
         [] (WallTime& time) { return !time; },
         [] (DateComponentsType& typedValue) { return typedValue == DateComponentsType::Invalid; },

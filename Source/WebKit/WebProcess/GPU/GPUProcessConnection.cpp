@@ -49,13 +49,13 @@
 #include "SampleBufferDisplayLayerManager.h"
 #include "SampleBufferDisplayLayerMessages.h"
 #include "SourceBufferPrivateRemoteMessageReceiverMessages.h"
-#include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebPageCreationParameters.h"
 #include "WebPageMessages.h"
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/PlatformMediaSessionManager.h>
+#include <WebCore/RenderingMode.h>
 #include <WebCore/SharedBuffer.h>
 
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -174,8 +174,8 @@ void GPUProcessConnection::didClose(IPC::Connection&)
         arbitrator->leaveRoutingAbritration();
 #endif
 
-    m_clients.forEach([this] (auto& client) {
-        client.gpuProcessConnectionDidClose(*this);
+    m_clients.forEach([protectedThis = Ref { *this }] (auto& client) {
+        client.gpuProcessConnectionDidClose(protectedThis);
     });
     m_clients.clear();
 }

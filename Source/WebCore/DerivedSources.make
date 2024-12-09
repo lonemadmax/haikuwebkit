@@ -359,6 +359,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/filesystemaccess/FileSystemFileHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl \
+	$(WebCore)/Modules/filesystemaccess/FileSystemWritableFileStream.idl \
     $(WebCore)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl \
     $(WebCore)/Modules/gamepad/Gamepad.idl \
     $(WebCore)/Modules/gamepad/GamepadButton.idl \
@@ -993,6 +994,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSPageRule.idl \
     $(WebCore)/css/CSSPaintCallback.idl \
     $(WebCore)/css/CSSPaintSize.idl \
+    $(WebCore)/css/CSSPositionTryRule.idl \
     $(WebCore)/css/CSSPropertyRule.idl \
     $(WebCore)/css/CSSRule.idl \
     $(WebCore)/css/CSSRuleList.idl \
@@ -1040,14 +1042,14 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/typedom/CSSUnitValue.idl \
     $(WebCore)/css/typedom/CSSUnparsedValue.idl \
     $(WebCore)/css/typedom/CSSOMVariableReferenceValue.idl \
-    $(WebCore)/css/typedom/color/CSSColor.idl \
-    $(WebCore)/css/typedom/color/CSSColorValue.idl \
     $(WebCore)/css/typedom/color/CSSHSL.idl \
     $(WebCore)/css/typedom/color/CSSHWB.idl \
     $(WebCore)/css/typedom/color/CSSLCH.idl \
     $(WebCore)/css/typedom/color/CSSLab.idl \
     $(WebCore)/css/typedom/color/CSSOKLCH.idl \
     $(WebCore)/css/typedom/color/CSSOKLab.idl \
+    $(WebCore)/css/typedom/color/CSSOMColor.idl \
+    $(WebCore)/css/typedom/color/CSSOMColorValue.idl \
     $(WebCore)/css/typedom/color/CSSRGB.idl \
     $(WebCore)/css/typedom/numeric/CSSMathClamp.idl \
     $(WebCore)/css/typedom/numeric/CSSMathInvert.idl \
@@ -1186,6 +1188,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/NonDocumentTypeChildNode.idl \
     $(WebCore)/dom/NonElementParentNode.idl \
     $(WebCore)/dom/Observable.idl \
+    $(WebCore)/dom/ObservableInspector.idl \
+    $(WebCore)/dom/ObservableInspectorAbortCallback.idl \
     $(WebCore)/dom/PageRevealEvent.idl \
     $(WebCore)/dom/PageSwapEvent.idl \
     $(WebCore)/dom/PageTransitionEvent.idl \

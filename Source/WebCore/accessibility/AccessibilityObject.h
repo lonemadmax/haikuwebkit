@@ -406,6 +406,16 @@ public:
     RetainPtr<NSArray> contentForRange(const SimpleRange&, SpellCheck = SpellCheck::No) const;
     RetainPtr<NSAttributedString> attributedStringForRange(const SimpleRange&, SpellCheck) const;
     RetainPtr<NSAttributedString> attributedStringForTextMarkerRange(AXTextMarkerRange&&, SpellCheck = SpellCheck::No) const override;
+    // The following functions are PLATFORM(COCOA) because these are currently only used to power a
+    // Cocoa API (attributed strings).
+    AttributedStringStyle stylesForAttributedString() const final;
+    RetainPtr<CTFontRef> font() const;
+    Color textColor() const;
+    Color backgroundColor() const;
+    bool isSubscript() const;
+    bool isSuperscript() const;
+    bool hasTextShadow() const;
+    LineDecorationStyle lineDecorationStyle() const;
 #endif
     virtual String ariaLabeledByAttribute() const { return String(); }
     virtual String ariaDescribedByAttribute() const { return String(); }
@@ -565,6 +575,7 @@ public:
     int getIntegralAttribute(const QualifiedName&) const;
     bool hasTagName(const QualifiedName&) const;
     bool hasBodyTag() const final { return hasTagName(HTMLNames::bodyTag); }
+    bool hasMarkTag() const final { return hasTagName(HTMLNames::markTag); }
     AtomString tagName() const;
     bool hasDisplayContents() const;
 
@@ -759,7 +770,7 @@ public:
     bool hasClickHandler() const override { return false; }
     AccessibilityObject* clickableSelfOrAncestor(ClickHandlerFilter filter = ClickHandlerFilter::ExcludeBody) const final { return Accessibility::clickableSelfOrAncestor(*this, filter); };
     AccessibilityObject* focusableAncestor() final { return Accessibility::focusableAncestor(*this); }
-    AccessibilityObject* editableAncestor() final { return Accessibility::editableAncestor(*this); };
+    AccessibilityObject* editableAncestor() const final { return Accessibility::editableAncestor(*this); };
     AccessibilityObject* highestEditableAncestor() final { return Accessibility::highestEditableAncestor(*this); }
     AccessibilityObject* exposedTableAncestor(bool includeSelf = false) const final { return Accessibility::exposedTableAncestor(*this, includeSelf); }
 
@@ -1020,6 +1031,13 @@ public:
 private:
     Ref<const AccessibilityObject> m_parent;
 }; // class AXChildIterator
+
+#if PLATFORM(COCOA)
+// Helpers to extract information from RenderStyle needed for accessibility purposes.
+RetainPtr<CTFontRef> fontFrom(const RenderStyle&);
+Color textColorFrom(const RenderStyle&);
+Color backgroundColorFrom(const RenderStyle&);
+#endif // PLATFORM(COCOA)
 
 } // namespace WebCore
 

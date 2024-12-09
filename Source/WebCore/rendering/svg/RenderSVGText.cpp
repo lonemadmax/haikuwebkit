@@ -462,10 +462,18 @@ void RenderSVGText::computePerCharacterLayoutInformation()
     // Perform SVG text layout phase three (see SVGTextChunkBuilder for details).
     auto fragmentMap = characterLayout.finishLayout();
 
-    // Perform SVG text layout phase four
-    // Position & resize all SVGInlineText/FlowBoxes in the inline box tree, resize the root box as well as the RenderSVGText parent block.
-    auto childRect = layoutChildBoxes(legacyRootBox(), fragmentMap);
-    layoutRootBox(childRect);
+    if (legacyRootBox()) {
+        // Perform SVG text layout phase four
+        // Position & resize all SVGInlineText/FlowBoxes in the inline box tree, resize the root box as well as the RenderSVGText parent block.
+        auto childRect = layoutChildBoxes(legacyRootBox(), fragmentMap);
+        layoutRootBox(childRect);
+        return;
+    }
+
+    if (inlineLayout()) {
+        auto boundaries = inlineLayout()->applySVGTextFragments(WTFMove(fragmentMap));
+        updatePositionAndOverflow(boundaries);
+    }
 }
 
 void RenderSVGText::layoutCharactersInTextBoxes(const InlineIterator::InlineBoxIterator& parent, SVGTextLayoutEngine& characterLayout)
@@ -862,6 +870,9 @@ void RenderSVGText::paintInlineChildren(PaintInfo& paintInfo, const LayoutPoint&
                 if (textBox->legacyInlineBox()) {
                     LegacySVGTextBoxPainter painter(*textBox->legacyInlineBox(), paintInfo, paintOffset);
                     painter.paintSelectionBackground();
+                } else {
+                    ModernSVGTextBoxPainter painter(textBox->modernPath().inlineContent(), textBox->modernPath().boxIndex(), paintInfo, paintOffset);
+                    painter.paintSelectionBackground();
                 }
             }
         }
@@ -876,6 +887,9 @@ void RenderSVGText::paintInlineChildren(PaintInfo& paintInfo, const LayoutPoint&
         if (auto* textBox = dynamicDowncast<InlineIterator::SVGTextBox>(*box)) {
             if (textBox->legacyInlineBox()) {
                 LegacySVGTextBoxPainter painter(*textBox->legacyInlineBox(), paintInfo, paintOffset);
+                painter.paint();
+            } else {
+                ModernSVGTextBoxPainter painter(textBox->modernPath().inlineContent(), textBox->modernPath().boxIndex(), paintInfo, paintOffset);
                 painter.paint();
             }
         } else {

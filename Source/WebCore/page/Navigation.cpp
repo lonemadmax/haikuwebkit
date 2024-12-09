@@ -154,31 +154,29 @@ void Navigation::initializeForNewWindow(std::optional<NavigationNavigationType> 
 
             RELEASE_ASSERT(m_entries.size() > previousNavigation->m_currentEntryIndex);
 
-            // FIXME: This should handle Push, however somewhere before here the currentEntry of previousNavigation was updated
-            // to the new navigation so we get duplicate entries.
-            if (navigationType != NavigationNavigationType::Push) {
-                if (navigationType == NavigationNavigationType::Traverse) {
-                    m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, *currentItem);
-                    if (m_currentEntryIndex) {
-                        updateForActivation(frame()->history().previousItem(), navigationType);
-                        return;
-                    }
-                    // We are doing a cross document subframe traversal, we can't rely on previous window, so clear
-                    // m_entries and fall back to the normal algorithm for new windows.
-                    m_entries = { };
-                } else {
-                    auto previousEntry = m_entries[*previousNavigation->m_currentEntryIndex];
-
-                    if (navigationType == NavigationNavigationType::Replace)
-                        m_entries[*previousNavigation->m_currentEntryIndex] = NavigationHistoryEntry::create(protectedScriptExecutionContext().get(), *currentItem);
-
-                    m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, *currentItem);
-
-                    if (navigationType) // Unset in the case of forms/POST requests.
-                        m_activation = NavigationActivation::create(*navigationType, *currentEntry(), previousEntry.get());
-
+            if (navigationType == NavigationNavigationType::Traverse) {
+                m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, *currentItem);
+                if (m_currentEntryIndex) {
+                    updateForActivation(frame()->history().previousItem(), navigationType);
                     return;
                 }
+                // We are doing a cross document subframe traversal, we can't rely on previous window, so clear
+                // m_entries and fall back to the normal algorithm for new windows.
+                m_entries = { };
+            } else if (navigationType == NavigationNavigationType::Push)
+                m_entries.shrink(*previousNavigation->m_currentEntryIndex + 1); // Prune forward entries.
+            else {
+                auto previousEntry = m_entries[*previousNavigation->m_currentEntryIndex];
+
+                if (navigationType == NavigationNavigationType::Replace)
+                    m_entries[*previousNavigation->m_currentEntryIndex] = NavigationHistoryEntry::create(protectedScriptExecutionContext().get(), *currentItem);
+
+                m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, *currentItem);
+
+                if (navigationType) // Unset in the case of forms/POST requests.
+                    m_activation = NavigationActivation::create(*navigationType, *currentEntry(), previousEntry.get());
+
+                return;
             }
         }
     }
@@ -618,7 +616,7 @@ void Navigation::notifyCommittedToEntry(NavigationAPIMethodTracker* apiMethodTra
 }
 
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#update-the-navigation-api-entries-for-a-same-document-navigation
-void Navigation::updateForNavigation(Ref<HistoryItem>&& item, NavigationNavigationType navigationType)
+void Navigation::updateForNavigation(Ref<HistoryItem>&& item, NavigationNavigationType navigationType, ShouldCopyStateObjectFromCurrentEntry shouldCopyStateObjectFromCurrentEntry)
 {
     if (hasEntriesAndEventsDisabled())
         return;
@@ -641,8 +639,11 @@ void Navigation::updateForNavigation(Ref<HistoryItem>&& item, NavigationNavigati
     } else if (navigationType == NavigationNavigationType::Replace)
         disposedEntries.append(*oldCurrentEntry);
 
-    if (navigationType == NavigationNavigationType::Push || navigationType == NavigationNavigationType::Replace)
+    if (navigationType == NavigationNavigationType::Push || navigationType == NavigationNavigationType::Replace) {
         m_entries[*m_currentEntryIndex] = NavigationHistoryEntry::create(protectedScriptExecutionContext().get(), WTFMove(item));
+        if (shouldCopyStateObjectFromCurrentEntry == ShouldCopyStateObjectFromCurrentEntry::Yes)
+            m_entries[*m_currentEntryIndex]->setState(oldCurrentEntry->state());
+    }
 
     if (m_ongoingAPIMethodTracker)
         notifyCommittedToEntry(m_ongoingAPIMethodTracker.get(), currentEntry(), navigationType);

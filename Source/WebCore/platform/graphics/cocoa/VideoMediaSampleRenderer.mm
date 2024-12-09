@@ -94,7 +94,7 @@ VideoMediaSampleRenderer::~VideoMediaSampleRenderer()
 
     flushCompressedSampleQueue();
 
-    if (auto renderer = rendererOrDisplayLayer()) {
+    if (auto renderer = this->renderer()) {
         [renderer flush];
         [renderer stopRequestingMediaData];
     }
@@ -163,31 +163,26 @@ bool VideoMediaSampleRenderer::areSamplesQueuesReadyForMoreMediaData(size_t wate
 
 void VideoMediaSampleRenderer::maybeBecomeReadyForMoreMediaData()
 {
-    ensureOnDispatcher([weakThis = ThreadSafeWeakPtr { *this }, this] {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return;
-        RetainPtr renderer = rendererOrDisplayLayer();
-        if (renderer && ![renderer isReadyForMoreMediaData]) {
-            if (m_decompressionSession) {
-                ThreadSafeWeakPtr weakThis { *this };
-                [renderer requestMediaDataWhenReadyOnQueue:dispatchQueue() usingBlock:^{
-                    if (RefPtr protectedThis = weakThis.get()) {
-                        [protectedThis->rendererOrDisplayLayer() stopRequestingMediaData];
-                        protectedThis->maybeBecomeReadyForMoreMediaData();
-                    }
-                }];
+    assertIsCurrent(dispatcher().get());
+
+    RetainPtr renderer = rendererOrDisplayLayer();
+    if (renderer && ![renderer isReadyForMoreMediaData]) {
+        ThreadSafeWeakPtr weakThis { *this };
+        [renderer requestMediaDataWhenReadyOnQueue:dispatchQueue() usingBlock:^{
+            if (RefPtr protectedThis = weakThis.get()) {
+                [protectedThis->rendererOrDisplayLayer() stopRequestingMediaData];
+                protectedThis->maybeBecomeReadyForMoreMediaData();
             }
-            return;
-        }
+        }];
+        return;
+    }
 
-        if (!areSamplesQueuesReadyForMoreMediaData(SampleQueueLowWaterMark))
-            return;
+    if (!areSamplesQueuesReadyForMoreMediaData(SampleQueueLowWaterMark))
+        return;
 
-        callOnMainThread([weakThis = ThreadSafeWeakPtr { *this }] {
-            if (RefPtr protectedThis = weakThis.get(); protectedThis && protectedThis->m_readyForMoreSampleFunction)
-                protectedThis->m_readyForMoreSampleFunction();
-        });
+    callOnMainThread([weakThis = ThreadSafeWeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get(); protectedThis && protectedThis->m_readyForMoreSampleFunction)
+            protectedThis->m_readyForMoreSampleFunction();
     });
 }
 
@@ -197,15 +192,15 @@ void VideoMediaSampleRenderer::stopRequestingMediaData()
 
     m_readyForMoreSampleFunction = nil;
 
-    auto stopRequestingMediaData = [weakThis = ThreadSafeWeakPtr { *this }] {
-        if (RefPtr protectedThis = weakThis.get())
-            [protectedThis->rendererOrDisplayLayer() stopRequestingMediaData];
-    };
-
-    if (m_decompressionSession)
-        dispatcher()->dispatch(WTFMove(stopRequestingMediaData)); // stopRequestingMediaData may deadlock if used on the main thread while enqueuing on the workqueue
-    else
-        stopRequestingMediaData();
+    if (m_decompressionSession) {
+        // stopRequestingMediaData may deadlock if used on the main thread while enqueuing on the workqueue
+        dispatcher()->dispatch([weakThis = ThreadSafeWeakPtr { *this }] {
+            if (RefPtr protectedThis = weakThis.get())
+                [protectedThis->rendererOrDisplayLayer() stopRequestingMediaData];
+        });
+        return;
+    }
+    [renderer() stopRequestingMediaData];
 }
 
 void VideoMediaSampleRenderer::setPrefersDecompressionSession(bool prefers)
@@ -214,6 +209,11 @@ void VideoMediaSampleRenderer::setPrefersDecompressionSession(bool prefers)
         return;
 
     m_prefersDecompressionSession = prefers;
+}
+
+bool VideoMediaSampleRenderer::isUsingDecompressionSession() const
+{
+    return !!m_decompressionSession;
 }
 
 void VideoMediaSampleRenderer::setTimebase(RetainPtr<CMTimebaseRef>&& timebase)
@@ -638,14 +638,23 @@ void VideoMediaSampleRenderer::resetReadyForMoreSample()
     assertIsMainThread();
 
     if (!rendererOrDisplayLayer() || m_decompressionSession) {
-        maybeBecomeReadyForMoreMediaData();
+        dispatcher()->dispatch([weakThis = ThreadSafeWeakPtr { *this }] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->maybeBecomeReadyForMoreMediaData();
+        });
         return;
     }
 
     ThreadSafeWeakPtr weakThis { *this };
-    [rendererOrDisplayLayer() requestMediaDataWhenReadyOnQueue:dispatchQueue() usingBlock:^{
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->maybeBecomeReadyForMoreMediaData();
+    [renderer() requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
+        assertIsMainThread();
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        if (![protectedThis->renderer() isReadyForMoreMediaData])
+            return;
+        if (protectedThis->m_readyForMoreSampleFunction)
+            protectedThis->m_readyForMoreSampleFunction();
     }];
 }
 
@@ -680,6 +689,16 @@ WebSampleBufferVideoRendering *VideoMediaSampleRenderer::renderer() const
 #endif
 }
 
+template <>
+AVSampleBufferVideoRenderer* VideoMediaSampleRenderer::as() const
+{
+#if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
+    return m_renderer.get();
+#else
+    return nil;
+#endif
+}
+
 WebSampleBufferVideoRendering *VideoMediaSampleRenderer::rendererOrDisplayLayer() const
 {
 #if HAVE(AVSAMPLEBUFFERVIDEORENDERER)
@@ -691,12 +710,6 @@ WebSampleBufferVideoRendering *VideoMediaSampleRenderer::rendererOrDisplayLayer(
     }
     return nil;
 #endif
-}
-
-AVSampleBufferDisplayLayer *VideoMediaSampleRenderer::displayLayer() const
-{
-    assertIsMainThread();
-    return m_displayLayer.get();
 }
 
 auto VideoMediaSampleRenderer::copyDisplayedPixelBuffer() -> DisplayedPixelBufferEntry

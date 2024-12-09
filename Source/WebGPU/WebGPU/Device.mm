@@ -245,7 +245,7 @@ Ref<Device> Device::create(id<MTLDevice> device, String&& deviceLabel, HardwareC
 
 Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareCapabilities&& capabilities, Adapter& adapter)
     : m_device(device)
-    , m_defaultQueue(Queue::create(defaultQueue, *this))
+    , m_defaultQueue(Queue::create(defaultQueue, adapter, *this))
     , m_xrSubImage(XRSubImage::create(*this))
     , m_capabilities(WTFMove(capabilities))
     , m_adapter(adapter)
@@ -309,7 +309,7 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
 }
 
 Device::Device(Adapter& adapter)
-    : m_defaultQueue(Queue::createInvalid(*this))
+    : m_defaultQueue(Queue::createInvalid(adapter, *this))
     , m_adapter(adapter)
     , m_instance(adapter.weakInstance())
 {
@@ -948,7 +948,7 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
 
         device const IndexDataUint& data = *indexData;
         uint32_t k = (data.primitiveType == primitive_type::triangle_strip || data.primitiveType == primitive_type::line_strip) ? 1 : 0;
-        uint32_t vertexIndex = data.indexBuffer[indexId] + k;
+        uint32_t vertexIndex = data.indexBuffer[indexId + data.firstIndex] + k;
         if (data.baseVertex + vertexIndex >= data.minVertexCount + k) {
             *icb_container->outOfBoundsRead = 1;
             render_command cmd(icb_container->commandBuffer, data.renderCommand);
@@ -967,7 +967,7 @@ id<MTLFunction> Device::icbCommandClampFunction(MTLIndexType indexType)
 
         device const IndexDataUshort& data = *indexData;
         uint32_t k = (data.primitiveType == primitive_type::triangle_strip || data.primitiveType == primitive_type::line_strip) ? 1 : 0;
-        ushort vertexIndex = data.indexBuffer[indexId] + k;
+        ushort vertexIndex = data.indexBuffer[indexId + data.firstIndex] + k;
         if (data.baseVertex + vertexIndex >= data.minVertexCount + k) {
             *icb_container->outOfBoundsRead = 1;
             render_command cmd(icb_container->commandBuffer, data.renderCommand);

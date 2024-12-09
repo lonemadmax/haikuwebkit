@@ -81,8 +81,7 @@ StyleSheetContents::StyleSheetContents(StyleRuleImport* ownerRule, const String&
 }
 
 StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
-    : CanMakeWeakPtr<StyleSheetContents>()
-    , m_originalURL(o.m_originalURL)
+    : m_originalURL(o.m_originalURL)
     , m_encodingFromCharsetRule(o.m_encodingFromCharsetRule)
     , m_layerRulesBeforeImportRules(o.m_layerRulesBeforeImportRules.size())
     , m_importRules(o.m_importRules.size())
@@ -584,6 +583,7 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
         case StyleRuleType::Scope:
         case StyleRuleType::StartingStyle:
         case StyleRuleType::ViewTransition:
+        case StyleRuleType::PositionTry:
             return false;
         };
         ASSERT_NOT_REACHED();
@@ -659,6 +659,7 @@ bool StyleSheetContents::mayDependOnBaseURL() const
         case StyleRuleType::Scope:
         case StyleRuleType::StartingStyle:
         case StyleRuleType::ViewTransition:
+        case StyleRuleType::PositionTry:
             return false;
         };
         ASSERT_NOT_REACHED();

@@ -486,6 +486,7 @@ $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemFileHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl
+$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemWritableFileStream.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
 $(PROJECT_DIR)/Modules/gamepad/Gamepad.idl
 $(PROJECT_DIR)/Modules/gamepad/GamepadButton.idl
@@ -1272,6 +1273,7 @@ $(PROJECT_DIR)/css/CSSNestedDeclarations.idl
 $(PROJECT_DIR)/css/CSSPageRule.idl
 $(PROJECT_DIR)/css/CSSPaintCallback.idl
 $(PROJECT_DIR)/css/CSSPaintSize.idl
+$(PROJECT_DIR)/css/CSSPositionTryRule.idl
 $(PROJECT_DIR)/css/CSSProperties.json
 $(PROJECT_DIR)/css/CSSPropertyRule.idl
 $(PROJECT_DIR)/css/CSSPseudoSelectors.json
@@ -1341,14 +1343,14 @@ $(PROJECT_DIR)/css/typedom/CSSUnitValue.idl
 $(PROJECT_DIR)/css/typedom/CSSUnparsedValue.idl
 $(PROJECT_DIR)/css/typedom/StylePropertyMap.idl
 $(PROJECT_DIR)/css/typedom/StylePropertyMapReadOnly.idl
-$(PROJECT_DIR)/css/typedom/color/CSSColor.idl
-$(PROJECT_DIR)/css/typedom/color/CSSColorValue.idl
 $(PROJECT_DIR)/css/typedom/color/CSSHSL.idl
 $(PROJECT_DIR)/css/typedom/color/CSSHWB.idl
 $(PROJECT_DIR)/css/typedom/color/CSSLCH.idl
 $(PROJECT_DIR)/css/typedom/color/CSSLab.idl
 $(PROJECT_DIR)/css/typedom/color/CSSOKLCH.idl
 $(PROJECT_DIR)/css/typedom/color/CSSOKLab.idl
+$(PROJECT_DIR)/css/typedom/color/CSSOMColor.idl
+$(PROJECT_DIR)/css/typedom/color/CSSOMColorValue.idl
 $(PROJECT_DIR)/css/typedom/color/CSSRGB.idl
 $(PROJECT_DIR)/css/typedom/numeric/CSSMathClamp.idl
 $(PROJECT_DIR)/css/typedom/numeric/CSSMathInvert.idl
@@ -1493,6 +1495,8 @@ $(PROJECT_DIR)/dom/NodeList.idl
 $(PROJECT_DIR)/dom/NonDocumentTypeChildNode.idl
 $(PROJECT_DIR)/dom/NonElementParentNode.idl
 $(PROJECT_DIR)/dom/Observable.idl
+$(PROJECT_DIR)/dom/ObservableInspector.idl
+$(PROJECT_DIR)/dom/ObservableInspectorAbortCallback.idl
 $(PROJECT_DIR)/dom/PageRevealEvent.idl
 $(PROJECT_DIR)/dom/PageSwapEvent.idl
 $(PROJECT_DIR)/dom/PageTransitionEvent.idl

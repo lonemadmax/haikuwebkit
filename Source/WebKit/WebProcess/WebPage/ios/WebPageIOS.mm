@@ -56,7 +56,6 @@
 #import "WebAutocorrectionContext.h"
 #import "WebAutocorrectionData.h"
 #import "WebChromeClient.h"
-#import "WebCoreArgumentCoders.h"
 #import "WebEventConversion.h"
 #import "WebFrame.h"
 #import "WebImage.h"
@@ -3280,6 +3279,7 @@ static void boundsPositionInformation(RenderObject& renderer, InteractionInforma
 
 static void elementPositionInformation(WebPage& page, Element& element, const InteractionInformationRequest& request, const Node* innerNonSharedNode, InteractionInformationAtPosition& info)
 {
+    Ref document = element.document();
     Element* linkElement = nullptr;
     if (element.renderer() && element.renderer()->isRenderImage())
         linkElement = containingLinkAnchorElement(element);
@@ -3298,7 +3298,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
 
     if (linkElement && !info.isImageOverlayText) {
         info.isLink = true;
-        info.url = page.applyLinkDecorationFiltering(linkElement->document().completeURL(linkElement->getAttribute(HTMLNames::hrefAttr)), LinkDecorationFilteringTrigger::Unspecified);
+        info.url = page.applyLinkDecorationFiltering(document->completeURL(linkElement->getAttribute(HTMLNames::hrefAttr)), LinkDecorationFilteringTrigger::Unspecified);
 
         linkIndicatorPositionInformation(page, *linkElement, request, info);
 #if ENABLE(DATA_DETECTION)
@@ -3314,6 +3314,8 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
 #endif
     }
 
+    info.needsPointerTouchCompatibilityQuirk = document->quirks().needsPointerTouchCompatibility(element);
+
     if (auto* renderer = element.renderer()) {
         bool shouldCollectImagePositionInformation = renderer->isRenderImage();
         if (shouldCollectImagePositionInformation && info.isImageOverlayText) {
@@ -3321,7 +3323,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
             if (request.includeImageData) {
                 if (auto rendererAndImage = imageRendererAndImage(element)) {
                     auto& [renderImage, image] = *rendererAndImage;
-                    info.imageURL = page.applyLinkDecorationFiltering(element.document().completeURL(renderImage.cachedImage()->url().string()), LinkDecorationFilteringTrigger::Unspecified);
+                    info.imageURL = page.applyLinkDecorationFiltering(document->completeURL(renderImage.cachedImage()->url().string()), LinkDecorationFilteringTrigger::Unspecified);
                     info.imageMIMEType = image.mimeType();
                     info.image = createShareableBitmap(renderImage, { screenSize() * page.corePage()->deviceScaleFactor(), AllowAnimatedImages::Yes, UseSnapshotForTransparentImages::Yes });
                 }
@@ -5683,27 +5685,23 @@ void WebPage::computeEnclosingLayerID(EditorState& state, const VisibleSelection
     if (!state.isContentEditable && selection.isCaret())
         return;
 
-    RefPtr startContainer = selection.start().containerNode();
-    if (!startContainer)
-        return;
+    auto findEnclosingLayer = [](const Position& position) -> RenderLayer* {
+        RefPtr container = position.containerNode();
+        if (!container)
+            return nullptr;
 
-    RefPtr endContainer = selection.end().containerNode();
-    if (!endContainer)
-        return;
+        CheckedPtr renderer = container->renderer();
+        if (!renderer)
+            return nullptr;
 
-    CheckedPtr startRenderer = startContainer->renderer();
-    if (!startRenderer)
-        return;
+        return renderer->enclosingLayer();
+    };
 
-    CheckedPtr endRenderer = startContainer->renderer();
-    if (!endRenderer)
-        return;
-
-    CheckedPtr startLayer = startRenderer->enclosingLayer();
+    CheckedPtr startLayer = findEnclosingLayer(selection.start());
     if (!startLayer)
         return;
 
-    CheckedPtr endLayer = endRenderer->enclosingLayer();
+    CheckedPtr endLayer = findEnclosingLayer(selection.end());
     if (!endLayer)
         return;
 
@@ -5733,7 +5731,7 @@ void WebPage::computeEnclosingLayerID(EditorState& state, const VisibleSelection
         return layer.enclosingScrollableLayer(includeSelf, CrossFrameBoundaries::Yes);
     };
 
-    for (CheckedPtr layer = nextScroller(*enclosingLayer, IncludeSelfOrNot::IncludeSelf); layer; layer = nextScroller(*layer, IncludeSelfOrNot::ExcludeSelf)) {
+    auto scrollPositionAndNodeIDForLayer = [](RenderLayer* layer) -> std::pair<ScrollPosition, std::optional<ScrollingNodeID>> {
         CheckedRef renderer = layer->renderer();
         WeakPtr scrollableArea = [&] -> ScrollableArea* {
             if (renderer->isRenderView())
@@ -5743,16 +5741,44 @@ void WebPage::computeEnclosingLayerID(EditorState& state, const VisibleSelection
         }();
 
         if (!scrollableArea)
-            continue;
+            return { };
 
         auto scrollingNodeID = scrollableArea->scrollingNodeID();
         if (!scrollingNodeID)
-            continue;
+            return { };
 
-        state.visualData->enclosingScrollPosition = scrollableArea->scrollPosition();
-        state.visualData->enclosingScrollingNodeID = WTFMove(scrollingNodeID);
-        break;
+        return { scrollableArea->scrollPosition(), WTFMove(scrollingNodeID) };
+    };
+
+    CheckedPtr<RenderLayer> scrollableLayer;
+    for (CheckedPtr layer = nextScroller(*enclosingLayer, IncludeSelfOrNot::IncludeSelf); layer; layer = nextScroller(*layer, IncludeSelfOrNot::ExcludeSelf)) {
+        if (auto [scrollPosition, scrollingNodeID] = scrollPositionAndNodeIDForLayer(layer.get()); scrollingNodeID) {
+            state.visualData->enclosingScrollPosition = scrollPosition;
+            state.visualData->enclosingScrollingNodeID = WTFMove(scrollingNodeID);
+            scrollableLayer = WTFMove(layer);
+            break;
+        }
     }
+
+    if (!state.visualData->enclosingScrollingNodeID)
+        return;
+
+    if (selection.isCaret()) {
+        state.visualData->scrollingNodeIDAtStart = state.visualData->enclosingScrollingNodeID;
+        state.visualData->scrollingNodeIDAtEnd = state.visualData->enclosingScrollingNodeID;
+        return;
+    }
+
+    auto scrollingNodeIDForEndpoint = [&](RenderLayer* endpointLayer) {
+        for (CheckedPtr layer = endpointLayer; layer && layer != scrollableLayer; layer = nextScroller(*layer, IncludeSelfOrNot::ExcludeSelf)) {
+            if (auto scrollingNodeID = scrollPositionAndNodeIDForLayer(layer.get()).second)
+                return scrollingNodeID;
+        }
+        return state.visualData->enclosingScrollingNodeID;
+    };
+
+    state.visualData->scrollingNodeIDAtStart = scrollingNodeIDForEndpoint(startLayer.get());
+    state.visualData->scrollingNodeIDAtEnd = scrollingNodeIDForEndpoint(endLayer.get());
 }
 
 void WebPage::invokePendingSyntheticClickCallback(SyntheticClickResult result)
@@ -5783,7 +5809,7 @@ void WebPage::callAfterPendingSyntheticClick(CompletionHandler<void(SyntheticCli
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 
-void WebPage::didSwallowClickEvent(const PlatformMouseEvent& event, Node& node)
+void WebPage::didDispatchClickEvent(const PlatformMouseEvent& event, Node& node)
 {
     if (!m_userIsInteracting)
         return;
@@ -5794,16 +5820,16 @@ void WebPage::didSwallowClickEvent(const PlatformMouseEvent& event, Node& node)
     if (event.syntheticClickType() != SyntheticClickType::NoTap)
         return;
 
-    RefPtr element = dynamicDowncast<Element>(node);
+    RefPtr element = dynamicDowncast<Element>(node) ?: node.parentElementInComposedTree();
     if (!element)
         return;
 
     Ref document = node.document();
-    if (!document->quirks().shouldSynthesizeTouchEventsAfterNonSyntheticClick(node))
+    if (!document->quirks().shouldSynthesizeTouchEventsAfterNonSyntheticClick(*element))
         return;
 
     bool isReplaced = false;
-    auto bounds = node.absoluteBoundingRect(&isReplaced);
+    auto bounds = element->absoluteBoundingRect(&isReplaced);
     if (bounds.isEmpty())
         return;
 

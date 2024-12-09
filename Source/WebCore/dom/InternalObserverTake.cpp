@@ -52,7 +52,7 @@ public:
             return adoptRef(*new InternalObserverTake::SubscriberCallbackTake(context, source, amount));
         }
 
-        CallbackResult<void> handleEventRethrowingException(Subscriber& subscriber) final
+        CallbackResult<void> handleEvent(Subscriber& subscriber) final
         {
             RefPtr context = scriptExecutionContext();
 
@@ -66,6 +66,11 @@ public:
             m_sourceObservable->subscribeInternal(*context, InternalObserverTake::create(*context, subscriber, m_amount), options);
 
             return { };
+        }
+
+        CallbackResult<void> handleEventRethrowingException(Subscriber& subscriber) final
+        {
+            return handleEvent(subscriber);
         }
 
     private:
@@ -87,32 +92,29 @@ private:
         if (!m_amount)
             return;
 
-        m_subscriber->next(value);
+        protectedSubscriber()->next(value);
         m_amount -= 1;
         if (!m_amount)
-            m_subscriber->complete();
+            protectedSubscriber()->complete();
     }
 
     void error(JSC::JSValue value) final
     {
-        m_subscriber->error(value);
+        protectedSubscriber()->error(value);
     }
 
     void complete() final
     {
         InternalObserver::complete();
-        m_subscriber->complete();
+        protectedSubscriber()->complete();
     }
 
     void visitAdditionalChildren(JSC::AbstractSlotVisitor& visitor) const final
     {
-        m_subscriber->visitAdditionalChildren(visitor);
+        protectedSubscriber()->visitAdditionalChildren(visitor);
     }
 
-    void visitAdditionalChildren(JSC::SlotVisitor& visitor) const final
-    {
-        m_subscriber->visitAdditionalChildren(visitor);
-    }
+    Ref<Subscriber> protectedSubscriber() const { return m_subscriber; }
 
     InternalObserverTake(ScriptExecutionContext& context, Ref<Subscriber> subscriber, uint64_t amount)
         : InternalObserver(context)

@@ -53,7 +53,7 @@ public:
             return adoptRef(*new InternalObserverMap::SubscriberCallbackMap(context, source, mapper));
         }
 
-        CallbackResult<void> handleEventRethrowingException(Subscriber& subscriber) final
+        CallbackResult<void> handleEvent(Subscriber& subscriber) final
         {
             RefPtr context = scriptExecutionContext();
 
@@ -67,6 +67,11 @@ public:
             m_sourceObservable->subscribeInternal(*context, InternalObserverMap::create(*context, subscriber, m_mapper), options);
 
             return { };
+        }
+
+        CallbackResult<void> handleEventRethrowingException(Subscriber& subscriber) final
+        {
+            return handleEvent(subscriber);
         }
 
     private:
@@ -93,49 +98,44 @@ private:
         JSC::JSLockHolder lock(vm);
 
         // The exception is not reported, instead it is forwarded to the
-        // error handler. As such, MapperCallback has `[RethrowException]`
-        // and here a catch scope is declared so the error can be passed
-        // to the subscription error handler.
+        // error handler.
         JSC::Exception* previousException = nullptr;
         {
             auto catchScope = DECLARE_CATCH_SCOPE(vm);
-            auto result = m_mapper->handleEventRethrowingException(value, m_idx);
+            auto result = protectedMapper()->handleEventRethrowingException(value, m_idx);
             previousException = catchScope.exception();
             if (previousException) {
                 catchScope.clearException();
-                m_subscriber->error(previousException->value());
+                protectedSubscriber()->error(previousException->value());
                 return;
             }
 
             m_idx += 1;
 
             if (result.type() == CallbackResultType::Success)
-                m_subscriber->next(result.releaseReturnValue());
+                protectedSubscriber()->next(result.releaseReturnValue());
         }
     }
 
     void error(JSC::JSValue value) final
     {
-        m_subscriber->error(value);
+        protectedSubscriber()->error(value);
     }
 
     void complete() final
     {
         InternalObserver::complete();
-        m_subscriber->complete();
+        protectedSubscriber()->complete();
     }
 
     void visitAdditionalChildren(JSC::AbstractSlotVisitor& visitor) const final
     {
-        m_subscriber->visitAdditionalChildren(visitor);
-        m_mapper->visitJSFunction(visitor);
+        protectedSubscriber()->visitAdditionalChildren(visitor);
+        protectedMapper()->visitJSFunction(visitor);
     }
 
-    void visitAdditionalChildren(JSC::SlotVisitor& visitor) const final
-    {
-        m_subscriber->visitAdditionalChildren(visitor);
-        m_mapper->visitJSFunction(visitor);
-    }
+    Ref<Subscriber> protectedSubscriber() const { return m_subscriber; }
+    Ref<MapperCallback> protectedMapper() const { return m_mapper; }
 
     InternalObserverMap(ScriptExecutionContext& context, Ref<Subscriber> subscriber, Ref<MapperCallback> mapper)
         : InternalObserver(context)

@@ -55,12 +55,12 @@ class SandboxInitializationParameters;
 struct AuxiliaryProcessInitializationParameters;
 struct AuxiliaryProcessCreationParameters;
 
-class AuxiliaryProcess : public IPC::Connection::Client, public IPC::MessageSender, public AbstractRefCounted {
+class AuxiliaryProcess : public IPC::Connection::Client, public IPC::MessageSender {
     WTF_MAKE_NONCOPYABLE(AuxiliaryProcess);
     WTF_MAKE_FAST_ALLOCATED;
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(AuxiliaryProcess);
 public:
-    void initialize(const AuxiliaryProcessInitializationParameters&);
+    void initialize(AuxiliaryProcessInitializationParameters&&);
 
     // disable and enable termination of the process. when disableTermination is called, the
     // process won't terminate unless a corresponding enableTermination call is made.
