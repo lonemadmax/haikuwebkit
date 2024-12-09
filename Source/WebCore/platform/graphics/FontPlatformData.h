@@ -260,6 +260,12 @@ struct FontPlatformSerializedData {
     LOGFONT logFont;
 #endif
 };
+#elif USE(HAIKU)
+struct FontPlatformSerializedCreationData {
+};
+
+struct FontPlatformSerializedData {
+};
 #endif
 
 // This class is conceptually immutable. Once created, no instances should ever change (in an observable way).
