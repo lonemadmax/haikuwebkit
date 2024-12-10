@@ -340,6 +340,10 @@ private:
 
     bool advancedTextRenderingMode() const
     {
+#if PLATFORM(HAIKU)
+        if (m_fontDescription.textRenderingMode() == TextRenderingMode::AutoTextRendering)
+             return false;
+#endif
         return m_fontDescription.textRenderingMode() != TextRenderingMode::OptimizeSpeed;
     }
 
