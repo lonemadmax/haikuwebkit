@@ -43,6 +43,7 @@
 #include "StyleDeprecatedFlexibleBoxData.h"
 #include "StyleFilterData.h"
 #include "StyleFlexibleBoxData.h"
+#include "StyleFontData.h"
 #include "StyleGridData.h"
 #include "StyleGridItemData.h"
 #include "StyleInheritedData.h"
@@ -63,6 +64,10 @@
 #include "ApplePayButtonPart.h"
 #endif
 
+#if HAVE(CORE_MATERIAL)
+#include "AppleVisualEffect.h"
+#endif
+
 namespace WebCore {
 
 inline const Style::Color& RenderStyle::accentColor() const { return m_rareInheritedData->accentColor; }
@@ -76,6 +81,9 @@ inline AnimationList* RenderStyle::animations() { return m_nonInheritedData->mis
 inline const Vector<Style::ScopedName>& RenderStyle::anchorNames() const { return m_nonInheritedData->rareData->anchorNames; }
 inline StyleAppearance RenderStyle::appearance() const { return static_cast<StyleAppearance>(m_nonInheritedData->miscData->appearance); }
 inline const FilterOperations& RenderStyle::appleColorFilter() const { return m_rareInheritedData->appleColorFilter->operations; }
+#if HAVE(CORE_MATERIAL)
+inline AppleVisualEffect RenderStyle::appleVisualEffect() const { return static_cast<AppleVisualEffect>(m_nonInheritedData->rareData->appleVisualEffect); }
+#endif
 inline double RenderStyle::aspectRatioHeight() const { return m_nonInheritedData->miscData->aspectRatioHeight; }
 inline double RenderStyle::aspectRatioLogicalHeight() const { return writingMode().isHorizontal() ? aspectRatioHeight() : aspectRatioWidth(); }
 inline double RenderStyle::aspectRatioLogicalWidth() const { return writingMode().isHorizontal() ? aspectRatioWidth() : aspectRatioHeight(); }
@@ -222,7 +230,7 @@ inline FlexWrap RenderStyle::flexWrap() const { return static_cast<FlexWrap>(m_n
 inline std::optional<FontSelectionValue> RenderStyle::fontItalic() const { return fontDescription().italic(); }
 inline const FontPalette& RenderStyle::fontPalette() const { return fontDescription().fontPalette(); }
 inline FontSizeAdjust RenderStyle::fontSizeAdjust() const { return fontDescription().fontSizeAdjust(); }
-inline FontSelectionValue RenderStyle::fontStretch() const { return fontDescription().stretch(); }
+inline FontSelectionValue RenderStyle::fontWidth() const { return fontDescription().width(); }
 inline FontOpticalSizing RenderStyle::fontOpticalSizing() const { return fontDescription().opticalSizing(); }
 inline FontVariationSettings RenderStyle::fontVariationSettings() const { return fontDescription().variationSettings(); }
 inline FontSelectionValue RenderStyle::fontWeight() const { return fontDescription().weight(); }
@@ -334,6 +342,9 @@ constexpr auto RenderStyle::individualTransformOperations() -> OptionSet<Transfo
 inline const StyleCustomPropertyData& RenderStyle::inheritedCustomProperties() const { return m_rareInheritedData->customProperties.get(); }
 inline Vector<Style::ScopedName> RenderStyle::initialAnchorNames() { return { }; }
 constexpr StyleAppearance RenderStyle::initialAppearance() { return StyleAppearance::None; }
+#if HAVE(CORE_MATERIAL)
+constexpr AppleVisualEffect RenderStyle::initialAppleVisualEffect() { return AppleVisualEffect::None; }
+#endif
 inline FilterOperations RenderStyle::initialAppleColorFilter() { return { }; }
 constexpr AspectRatioType RenderStyle::initialAspectRatioType() { return AspectRatioType::Auto; }
 constexpr BackfaceVisibility RenderStyle::initialBackfaceVisibility() { return BackfaceVisibility::Visible; }
@@ -453,6 +464,7 @@ inline Length RenderStyle::initialPerspectiveOriginY() { return { 50.0f, LengthT
 constexpr PointerEvents RenderStyle::initialPointerEvents() { return PointerEvents::Auto; }
 constexpr PositionType RenderStyle::initialPosition() { return PositionType::Static; }
 inline std::optional<Style::ScopedName> RenderStyle::initialPositionAnchor() { return { }; }
+inline Vector<PositionTryFallback> RenderStyle::initialPositionTryFallbacks() { return { }; }
 constexpr Style::PositionTryOrder RenderStyle::initialPositionTryOrder() { return Style::PositionTryOrder::Normal; }
 constexpr PrintColorAdjust RenderStyle::initialPrintColorAdjust() { return PrintColorAdjust::Economy; }
 constexpr Order RenderStyle::initialRTLOrdering() { return Order::Logical; }
@@ -558,7 +570,7 @@ inline const StyleContentAlignmentData& RenderStyle::justifyContent() const { re
 inline const StyleSelfAlignmentData& RenderStyle::justifyItems() const { return m_nonInheritedData->miscData->justifyItems; }
 inline const StyleSelfAlignmentData& RenderStyle::justifySelf() const { return m_nonInheritedData->miscData->justifySelf; }
 inline const Length& RenderStyle::left() const { return m_nonInheritedData->surroundData->offset.left(); }
-inline float RenderStyle::letterSpacing() const { return m_inheritedData->fontCascade.letterSpacing(); }
+inline float RenderStyle::letterSpacing() const { return m_inheritedData->fontData->fontCascade.letterSpacing(); }
 inline LineAlign RenderStyle::lineAlign() const { return static_cast<LineAlign>(m_rareInheritedData->lineAlign); }
 inline OptionSet<LineBoxContain> RenderStyle::lineBoxContain() const { return OptionSet<LineBoxContain>::fromRaw(m_rareInheritedData->lineBoxContain); }
 inline LineBreak RenderStyle::lineBreak() const { return static_cast<LineBreak>(m_rareInheritedData->lineBreak); }
@@ -785,9 +797,11 @@ inline const Length& RenderStyle::width() const { return m_nonInheritedData->box
 inline WillChangeData* RenderStyle::willChange() const { return m_nonInheritedData->rareData->willChange.get(); }
 inline bool RenderStyle::willChangeCreatesStackingContext() const { return willChange() && willChange()->canCreateStackingContext(); }
 inline WordBreak RenderStyle::wordBreak() const { return static_cast<WordBreak>(m_rareInheritedData->wordBreak); }
-inline float RenderStyle::wordSpacing() const { return m_inheritedData->fontCascade.wordSpacing(); }
+inline float RenderStyle::wordSpacing() const { return m_inheritedData->fontData->fontCascade.wordSpacing(); }
 constexpr LengthType RenderStyle::zeroLength() { return LengthType::Fixed; }
 inline float RenderStyle::zoom() const { return m_nonInheritedData->rareData->zoom; }
+
+inline bool RenderStyle::nativeAppearanceDisabled() const { return m_nonInheritedData->rareData->nativeAppearanceDisabled; }
 
 // ignore non-standard ::-webkit-scrollbar when standard properties are in use
 inline bool RenderStyle::usesStandardScrollbarStyle() const { return scrollbarWidth() != ScrollbarWidth::Auto || scrollbarColor().has_value(); }
@@ -1162,6 +1176,13 @@ inline bool isSkippedContentRoot(const RenderStyle& style, const Element& elemen
         ASSERT_NOT_REACHED();
         return false;
     }
+}
+
+inline bool RenderStyle::fontCascadeEqual(const RenderStyle& other) const
+{
+    return m_inheritedData.ptr() == other.m_inheritedData.ptr()
+        || m_inheritedData->fontData.ptr() == other.m_inheritedData->fontData.ptr()
+        || m_inheritedData->fontData->fontCascade == other.m_inheritedData->fontData->fontCascade;
 }
 
 } // namespace WebCore

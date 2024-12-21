@@ -25,6 +25,7 @@
 #pragma once
 
 #include "AccessibilityObject.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -80,7 +81,7 @@ struct TextMarkerData {
     // For an example of such byte-comparison, see the TestRunner WTR::AccessibilityTextMarker::isEqual.
     TextMarkerData()
     {
-        memset(static_cast<void*>(this), 0, sizeof(*this));
+        zeroBytes(*this);
     }
 
     TextMarkerData(std::optional<AXID> axTreeID, std::optional<AXID> axObjectID,
@@ -89,7 +90,7 @@ struct TextMarkerData {
         Affinity affinityParam = Affinity::Downstream,
         unsigned charStart = 0, unsigned charOffset = 0, bool ignoredParam = false)
     {
-        memset(static_cast<void*>(this), 0, sizeof(*this));
+        zeroBytes(*this);
         treeID = axTreeID ? axTreeID->toUInt64() : 0;
         objectID = axObjectID ? axObjectID->toUInt64() : 0;
         offset = offsetParam;
@@ -203,6 +204,8 @@ public:
     AXTextMarkerRange sentenceRange(SentenceRangeType) const;
     // Creates a range for the paragraph at the current marker.
     AXTextMarkerRange paragraphRange() const;
+    // Returns a range pointing to the start and end positions that have the same text styles as `this`.
+    AXTextMarkerRange rangeWithSameStyle() const;
     // Given a character offset relative to this marker, find the next marker the offset points to.
     AXTextMarker nextMarkerFromOffset(unsigned) const;
     // Returns the number of intermediate text markers between this and the root.
@@ -290,7 +293,7 @@ public:
     // Traverses from m_start to m_end, collecting all text along the way.
     String toString() const;
 #if PLATFORM(COCOA)
-    RetainPtr<NSAttributedString> toAttributedString() const;
+    RetainPtr<NSAttributedString> toAttributedString(AXCoreObject::SpellCheck) const;
 #endif // PLATFORM(COCOA)
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
@@ -340,5 +343,13 @@ inline bool operator>=(const AXTextMarkerRange& range1, const AXTextMarkerRange&
 {
     return range1 == range2 || range1 > range2;
 }
+
+namespace Accessibility {
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+AXIsolatedObject* findObjectWithRuns(AXIsolatedObject& start, AXDirection direction, std::optional<AXID> stopAtID = std::nullopt, const std::function<void(AXIsolatedObject&)>& exitObject = [] (AXIsolatedObject&) { });
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
+
+} // namespace Accessibility
 
 } // namespace WebCore

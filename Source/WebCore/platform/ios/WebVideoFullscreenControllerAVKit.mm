@@ -32,11 +32,11 @@
 #import "LocalFrameView.h"
 #import "Logging.h"
 #import "MediaSelectionOption.h"
-#import "PlaybackSessionInterfaceAVKit.h"
+#import "PlaybackSessionInterfaceAVKitLegacy.h"
 #import "PlaybackSessionModelMediaElement.h"
 #import "RenderVideo.h"
 #import "TimeRanges.h"
-#import "VideoPresentationInterfaceAVKit.h"
+#import "VideoPresentationInterfaceAVKitLegacy.h"
 #import "VideoPresentationModelVideoElement.h"
 #import "WebCoreThreadRun.h"
 #import <QuartzCore/CoreAnimation.h>
@@ -1024,13 +1024,13 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
     RunLoop::main().dispatch([protectedThis = Ref { *this }, this, videoElementClientRect, videoDimensions, viewRef, mode, allowsPictureInPicture] {
         ASSERT(isUIThread());
         WebThreadLock();
-        Ref<PlaybackSessionInterfaceIOS> sessionInterface = PlaybackSessionInterfaceAVKit::create(*this);
-        m_interface = VideoPresentationInterfaceAVKit::create(sessionInterface.get());
+        Ref<PlaybackSessionInterfaceIOS> sessionInterface = PlaybackSessionInterfaceAVKitLegacy::create(*this);
+        m_interface = VideoPresentationInterfaceAVKitLegacy::create(sessionInterface.get());
         m_interface->setVideoPresentationModel(this);
 
         m_videoFullscreenView = adoptNS([PAL::allocUIViewInstance() init]);
 
-        m_interface->setupFullscreen(videoElementClientRect, videoDimensions, viewRef.get(), mode, allowsPictureInPicture, false, false);
+        m_interface->setupFullscreen(*m_videoFullscreenView.get(), videoElementClientRect, videoDimensions, viewRef.get(), mode, allowsPictureInPicture, false, false);
     });
 }
 

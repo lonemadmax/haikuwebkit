@@ -1478,7 +1478,7 @@ struct WebCore::HTMLModelElementCamera {
 };
 
 struct WebCore::NotificationData {
-    URL defaultActionURL;
+    URL navigateURL;
     String title;
     String body;
     String iconURL;
@@ -2504,10 +2504,6 @@ enum class WebCore::SelectionRenderingBehavior : bool;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-enum class WebCore::TextDirection : bool;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
 class WebCore::SelectionGeometry {
     WebCore::FloatQuad quad();
     WebCore::SelectionRenderingBehavior behavior();
@@ -2621,9 +2617,6 @@ headers: <wtf/unix/UnixFileDescriptor.h> "ArgumentCodersUnix.h"
 #endif
 #if OS(DARWIN)
 header: <wtf/MachSendRight.h>
-#endif
-#if OS(WINDOWS)
-headers: <wtf/win/Win32Handle.h> "ArgumentCodersWin.h"
 #endif
 
 [CustomHeader, RValue] class WebCore::SharedMemoryHandle {
@@ -4104,8 +4097,6 @@ header: <WebCore/SVGFilterExpression.h>
     WebCore::SVGPreserveAspectRatioValue::SVGPreserveAspectRatioType m_align;
     WebCore::SVGPreserveAspectRatioValue::SVGMeetOrSliceType m_meetOrSlice;
 };
-
-enum class WebCore::HasInsecureContent : bool
 
 header: <WebCore/ModalContainerTypes.h>
 [CustomHeader] enum class WebCore::ModalContainerDecision : uint8_t {
@@ -7345,6 +7336,7 @@ struct WebCore::MediaUsageInfo {
     bool isVideoAndRequiresUserGestureForVideoRateChange;
     bool isAudioAndRequiresUserGestureForAudioRateChange;
     bool isVideoAndRequiresUserGestureForVideoDueToLowPowerMode;
+    bool isVideoAndRequiresUserGestureForVideoDueToAggressiveThermalMitigation;
     bool noUserGestureRequired;
     bool requiresPlaybackAndIsNotPlaying;
     bool hasEverNotifiedAboutPlaying;
@@ -7453,9 +7445,7 @@ header: <WebCore/GraphicsContextState.h>
     ShouldSubpixelQuantizeFonts,
     ShadowsIgnoreTransforms,
     DrawLuminanceMask,
-#if HAVE(OS_DARK_MODE_SUPPORT)
     UseDarkAppearance,
-#endif
 };
 
 header: <WebCore/GraphicsContextState.h>
@@ -7483,10 +7473,7 @@ header: <WebCore/GraphicsContextState.h>
     bool m_shouldSubpixelQuantizeFonts;
     bool m_shadowsIgnoreTransforms;
     bool m_drawLuminanceMask;
-#if HAVE(OS_DARK_MODE_SUPPORT)
     bool m_useDarkAppearance;
-#endif
-
     WebCore::GraphicsContextState::Purpose m_purpose;
 };
 
@@ -8736,3 +8723,137 @@ enum class WebCore::FileSystemWriteCommandType : uint8_t {
     Seek,
     Truncate
 };
+
+enum class WebCore::FileSystemWriteCloseReason : bool;
+
+struct WebCore::RsaOtherPrimesInfo {
+    String r;
+    String d;
+    String t;
+};
+
+enum class WebCore::CryptoKeyUsage : uint8_t {
+    Encrypt,
+    Decrypt,
+    Sign,
+    Verify,
+    DeriveKey,
+    DeriveBits,
+    WrapKey,
+    UnwrapKey
+};
+
+struct WebCore::JsonWebKey {
+    String kty;
+    String use
+    std::optional<Vector<WebCore::CryptoKeyUsage>> key_ops;
+    int usages;
+    String alg;
+    std::optional<bool> ext;
+    String crv;
+    String x;
+    String y;
+    String d;
+    String n;
+    String e;
+    String p;
+    String q;
+    String dp;
+    String dq;
+    String qi;
+    std::optional<Vector<WebCore::RsaOtherPrimesInfo>> oth;
+    String k;
+};
+
+enum class WebCore::CryptoAlgorithmIdentifier : uint8_t {
+    RSAES_PKCS1_v1_5,
+    RSASSA_PKCS1_v1_5,
+    RSA_PSS,
+    RSA_OAEP,
+    ECDSA,
+    ECDH,
+    AES_CTR,
+    AES_CBC,
+    AES_GCM,
+    AES_CFB,
+    AES_KW,
+    HMAC,
+    SHA_1,
+    SHA_224,
+    SHA_256,
+    SHA_384,
+    SHA_512,
+    HKDF,
+    PBKDF2,
+    Ed25519,
+    X25519
+};
+
+header: <WebCore/CryptoKeyData.h>
+[CustomHeader] enum class WebCore::CryptoKeyClass : uint8_t {
+    AES,
+    EC,
+    HMAC,
+    OKP,
+    RSA,
+    Raw
+};
+
+enum class WebCore::CryptoKeyType : uint8_t {
+    Public,
+    Private,
+    Secret
+};
+
+struct WebCore::CryptoKeyData {
+    WebCore::CryptoKeyClass keyClass;
+    WebCore::CryptoAlgorithmIdentifier algorithmIdentifier;
+    bool extractable;
+    int usages;
+    std::optional<Vector<uint8_t>> key;
+    std::optional<WebCore::JsonWebKey> jwk;
+    std::optional<WebCore::CryptoAlgorithmIdentifier> hashAlgorithmIdentifier;
+    std::optional<String> namedCurveString;
+    std::optional<size_t> lengthBits;
+    std::optional<WebCore::CryptoKeyType> type;
+};
+
+[Nested] enum class WebCore::ResourceError::IsSanitized : bool
+
+#if ENABLE(DOM_AUDIO_SESSION)
+header: <WebCore/DOMAudioSession.h>
+enum class WebCore::DOMAudioSessionType : uint8_t {
+    Auto,
+    Playback,
+    Transient,
+    TransientSolo,
+    Ambient,
+    PlayAndRecord
+};
+#endif
+
+header: <WebCore/MediaSample.h>
+[Nested] enum class WebCore::TrackInfo::TrackType : uint8_t {
+    Unknown,
+    Audio,
+    Video
+};
+
+header: <WebCore/MediaSample.h>
+[Nested] class WebCore::MediaSamplesBlock::MediaSampleItem {
+    MediaTime presentationTime;
+    MediaTime decodeTime;
+    MediaTime duration;
+    std::pair<MediaTime, MediaTime> trimInterval;
+    RefPtr<WebCore::FragmentedSharedBuffer> data;
+    uint32_t flags;
+};
+
+#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
+header: <WebCore/MediaRecorderPrivateWriter.h>
+[Nested] enum class WebCore::MediaRecorderPrivateWriter::Result : uint8_t {
+    Success,
+    Failure,
+    NotReady
+};
+#endif

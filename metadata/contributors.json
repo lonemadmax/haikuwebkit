@@ -1415,7 +1415,7 @@
       ],
       "github" : "briannafan",
       "name" : "Brianna Fan",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -2093,7 +2093,8 @@
       "nicks" : [
          "darryl-apple",
          "darryl.p"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -4221,6 +4222,17 @@
          "jingzhao@chromium.org"
       ],
       "name" : "Jing Zhao"
+   },
+   {
+      "emails" : [
+         "jintian_wang@apple.com",
+         "macchiatoelliott@gmail.com"
+      ],
+      "github" : "MKevinn",
+      "name" : "Jintian Wang",
+      "nicks" : [
+         "kevinw"
+      ]
    },
    {
       "emails" : [
@@ -7159,6 +7171,14 @@
    },
    {
       "emails" : [
+         "sa_engida@apple.com",
+         "samuel.adisu@gmail.com"
+      ],
+      "github" : "samuelengida",
+      "name" : "Samuel Engida"
+   },
+   {
+      "emails" : [
          "samuel_white@apple.com"
       ],
       "expertise" : "Accessibility",
@@ -7381,10 +7401,10 @@
    },
    {
       "emails" : [
-         "simon.pena@samsung.com",
-         "spenap@gmail.com",
-         "spena@igalia.com"
+         "spena@igalia.com",
+         "simon.pena@samsung.com"
       ],
+      "github" : "spenap",
       "name" : "Simon Pena",
       "nicks" : [
          "spenap"
@@ -8358,6 +8378,14 @@
       ],
       "github" : "aYukiSekiguchi",
       "name" : "Yuki Sekiguchi"
+   },
+   {
+      "emails" : [
+         "yulun_wu@apple.com",
+         "yulunwu@chromium.org"
+      ],
+      "github" : "yulunwu2",
+      "name" : "Yulun Wu"
    },
    {
       "emails" : [

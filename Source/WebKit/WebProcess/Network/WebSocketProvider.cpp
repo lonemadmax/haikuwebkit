@@ -34,7 +34,7 @@
 #include "WebProcess.h"
 #include "WebSocketChannelManager.h"
 #include "WebTransportSession.h"
-#include <WebCore/Document.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/WorkerGlobalScope.h>
 
 namespace WebKit {
@@ -52,8 +52,15 @@ void WebSocketProvider::initializeWebTransportSession(WebCore::ScriptExecutionCo
         // off the main thread without unnecessarily copying the data.
         return completionHandler(nullptr);
     }
-    ASSERT(is<Document>(context));
-    WebKit::WebTransportSession::initialize(url, WTFMove(completionHandler));
+    if (is<Document>(context)) {
+        if (RefPtr document = dynamicDowncast<Document>(context)) {
+            WebKit::WebTransportSession::initialize(url, m_webPageProxyID, document->clientOrigin(), WTFMove(completionHandler));
+            return;
+        }
+    }
+    ASSERT_NOT_REACHED();
+    return completionHandler(nullptr);
+
 }
 
 } // namespace WebKit

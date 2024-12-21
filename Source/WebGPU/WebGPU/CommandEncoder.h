@@ -60,7 +60,7 @@ class RenderPassEncoder;
 class Texture;
 
 // https://gpuweb.github.io/gpuweb/#gpucommandencoder
-class CommandEncoder : public RefCountedAndCanMakeWeakPtr<CommandEncoder>, public CommandsMixin, public WGPUCommandEncoderImpl {
+class CommandEncoder : public CommandsMixin, public RefCountedAndCanMakeWeakPtr<CommandEncoder>, public WGPUCommandEncoderImpl {
     WTF_MAKE_TZONE_ALLOCATED(CommandEncoder);
 public:
     static Ref<CommandEncoder> create(id<MTLCommandBuffer> commandBuffer, Device& device)
@@ -76,7 +76,7 @@ public:
 
     Ref<ComputePassEncoder> beginComputePass(const WGPUComputePassDescriptor&);
     Ref<RenderPassEncoder> beginRenderPass(const WGPURenderPassDescriptor&);
-    void copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, Buffer& destination, uint64_t destinationOffset, uint64_t size);
+    void copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, Buffer& destination, uint64_t destinationOffset, uint64_t size) HAS_SWIFTCXX_THUNK;
     void copyBufferToTexture(const WGPUImageCopyBuffer& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize) HAS_SWIFTCXX_THUNK;
     void copyTextureToBuffer(const WGPUImageCopyTexture& source, const WGPUImageCopyBuffer& destination, const WGPUExtent3D& copySize) HAS_SWIFTCXX_THUNK;
     void copyTextureToTexture(const WGPUImageCopyTexture& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize) HAS_SWIFTCXX_THUNK;
@@ -89,7 +89,7 @@ public:
     void writeTimestamp(QuerySet&, uint32_t queryIndex);
     void setLabel(String&&);
 
-    Device& device() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_device; }
+    Device& device() const { return m_device; }
     Ref<Device> protectedDevice() const SWIFT_RETURNS_INDEPENDENT_VALUE { return m_device; }
 
     bool isValid() const { return m_commandBuffer; }
@@ -114,6 +114,7 @@ public:
     bool encoderIsCurrent(id<MTLCommandEncoder>) const;
     bool submitWillBeInvalid() const { return m_makeSubmitInvalid; }
     void addBuffer(id<MTLBuffer>);
+    void addTexture(id<MTLTexture>);
     void addTexture(const Texture&);
     id<MTLCommandBuffer> commandBuffer() const;
     void setExistingEncoder(id<MTLCommandEncoder>);
@@ -125,7 +126,9 @@ private:
     CommandEncoder(id<MTLCommandBuffer>, Device&);
     CommandEncoder(Device&);
 
+private PUBLIC_IN_WEBGPU_SWIFT:
     NSString* errorValidatingCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size);
+private:
     NSString* validateFinishError() const;
     bool validatePopDebugGroup() const;
     NSString* errorValidatingComputePassDescriptor(const WGPUComputePassDescriptor&) const;
@@ -141,15 +144,13 @@ private PUBLIC_IN_WEBGPU_SWIFT:
 private:
     void discardCommandBuffer();
 
-    RefPtr<CommandBuffer> protectedCachedCommandBuffer() const { return m_cachedCommandBuffer.get(); }
-
     id<MTLCommandBuffer> m_commandBuffer { nil };
     id<MTLSharedEvent> m_abortCommandBuffer { nil };
     id<MTLBlitCommandEncoder> m_blitCommandEncoder { nil };
     id<MTLCommandEncoder> m_existingCommandEncoder { nil };
 
     uint64_t m_debugGroupStackSize { 0 };
-    WeakPtr<CommandBuffer> m_cachedCommandBuffer;
+    ThreadSafeWeakPtr<CommandBuffer> m_cachedCommandBuffer;
     NSString* m_lastErrorString { nil };
     int m_bufferMapCount { 0 };
     bool m_makeSubmitInvalid { false };
@@ -158,6 +159,8 @@ private:
     NSMutableSet<id<MTLTexture>> *m_managedTextures { nil };
     NSMutableSet<id<MTLBuffer>> *m_managedBuffers { nil };
 #endif
+    NSMutableSet<id<MTLTexture>> *m_retainedTextures { nil };
+    NSMutableSet<id<MTLBuffer>> *m_retainedBuffers { nil };
     id<MTLSharedEvent> m_sharedEvent { nil };
     uint64_t m_sharedEventSignalValue { 0 };
 private PUBLIC_IN_WEBGPU_SWIFT:

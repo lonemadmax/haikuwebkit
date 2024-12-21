@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,10 +166,8 @@ public:
     bool drawLuminanceMask() const { return m_state.drawLuminanceMask(); }
     void setDrawLuminanceMask(bool drawLuminanceMask) { m_state.setDrawLuminanceMask(drawLuminanceMask); didUpdateSingleState(m_state, GraphicsContextState::toIndex(GraphicsContextState::Change::DrawLuminanceMask)); }
 
-#if HAVE(OS_DARK_MODE_SUPPORT)
     bool useDarkAppearance() const { return m_state.useDarkAppearance(); }
     void setUseDarkAppearance(bool useDarkAppearance) { m_state.setUseDarkAppearance(useDarkAppearance); didUpdateSingleState(m_state, GraphicsContextState::toIndex(GraphicsContextState::Change::UseDarkAppearance)); }
-#endif
 
     virtual const GraphicsContextState& state() const { return m_state; }
     void mergeLastChanges(const GraphicsContextState&, const std::optional<GraphicsContextState>& lastDrawingState = std::nullopt);
@@ -354,6 +352,10 @@ public:
     virtual void applyDeviceScaleFactor(float factor) { scale(factor); }
     WEBCORE_EXPORT FloatSize scaleFactor() const;
     WEBCORE_EXPORT FloatSize scaleFactorForDrawing(const FloatRect& destRect, const FloatRect& srcRect) const;
+
+    // PDF, printing and snapshotting
+    virtual void beginPage(const IntSize&) { }
+    virtual void endPage() { }
 
     // Links
 

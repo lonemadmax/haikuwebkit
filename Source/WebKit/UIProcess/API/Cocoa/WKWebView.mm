@@ -50,6 +50,7 @@
 #import "NavigationState.h"
 #import "PageClient.h"
 #import "PlatformWritingToolsUtilities.h"
+#import "ProcessTerminationReason.h"
 #import "ProvisionalPageProxy.h"
 #import "QuickLookThumbnailLoader.h"
 #import "RemoteLayerTreeScrollingPerformanceData.h"
@@ -69,7 +70,7 @@
 #import "WKErrorInternal.h"
 #import "WKFindConfiguration.h"
 #import "WKFindResultInternal.h"
-#import "WKFrameInfoPrivate.h"
+#import "WKFrameInfoInternal.h"
 #import "WKHistoryDelegatePrivate.h"
 #import "WKLayoutMode.h"
 #import "WKNSData.h"
@@ -180,6 +181,8 @@
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/persistence/PersistentDecoder.h>
+#import <wtf/persistence/PersistentEncoder.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/StringToIntegerConversion.h>
@@ -187,6 +190,10 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 #import "WKWebExtensionControllerInternal.h"
+#endif
+
+#if ENABLE(SCREEN_TIME)
+#import <pal/cocoa/ScreenTimeSoftLink.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -224,6 +231,10 @@ static const BOOL defaultFastClickingEnabled = YES;
 #elif PLATFORM(IOS_FAMILY)
 static const BOOL defaultAllowsViewportShrinkToFit = NO;
 static const BOOL defaultFastClickingEnabled = NO;
+#endif
+
+#if ENABLE(SCREEN_TIME)
+static void *screenTimeWebpageControllerBlockedKVOContext = &screenTimeWebpageControllerBlockedKVOContext;
 #endif
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
@@ -337,6 +348,60 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 }
 
 #endif // PLATFORM(MAC)
+
+#if ENABLE(SCREEN_TIME)
+- (void)_installScreenTimeWebpageController
+{
+    if (!PAL::isScreenTimeFrameworkAvailable())
+        return;
+
+    if (_page && !_page->preferences().screenTimeEnabled())
+        return;
+
+    if (!_screenTimeWebpageController) {
+        _screenTimeWebpageController = adoptNS([PAL::allocSTWebpageControllerInstance() init]);
+        [_screenTimeWebpageController addObserver:self forKeyPath:@"URLIsBlocked" options:(NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew) context:&screenTimeWebpageControllerBlockedKVOContext];
+
+        RetainPtr screenTimeView = [_screenTimeWebpageController view];
+        [screenTimeView setTranslatesAutoresizingMaskIntoConstraints:NO];
+        [self addSubview:screenTimeView.get()];
+        [NSLayoutConstraint activateConstraints:@[
+            [[screenTimeView widthAnchor] constraintEqualToAnchor:self.widthAnchor],
+            [[screenTimeView heightAnchor] constraintEqualToAnchor:self.heightAnchor],
+            [[screenTimeView leadingAnchor] constraintEqualToAnchor:self.leadingAnchor],
+            [[screenTimeView topAnchor] constraintEqualToAnchor:self.topAnchor]
+        ]];
+    }
+}
+
+- (void)_uninstallScreenTimeWebpageController
+{
+    if (!PAL::isScreenTimeFrameworkAvailable())
+        return;
+
+    if (!_screenTimeWebpageController)
+        return;
+
+    [[_screenTimeWebpageController view] removeFromSuperview];
+    [_screenTimeWebpageController removeObserver:self forKeyPath:@"URLIsBlocked" context:&screenTimeWebpageControllerBlockedKVOContext];
+    _screenTimeWebpageController = nil;
+}
+#endif // ENABLE(SCREEN_TIME)
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey, id> *)change context:(void *)context
+{
+#if ENABLE(SCREEN_TIME)
+    if (context == &screenTimeWebpageControllerBlockedKVOContext) {
+        BOOL urlWasBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeOldKey]).boolValue;
+        BOOL urlIsBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeNewKey]).boolValue;
+
+        if (urlWasBlocked != urlIsBlocked)
+            [self setAllMediaPlaybackSuspended:urlIsBlocked completionHandler:nil];
+        return;
+    }
+#endif
+    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+}
 
 - (void)_initializeWithConfiguration:(WKWebViewConfiguration *)configuration
 {
@@ -671,6 +736,9 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 {
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKWebView.class, self))
         return;
+#if ENABLE(SCREEN_TIME)
+    [self _uninstallScreenTimeWebpageController];
+#endif
 
 #if PLATFORM(MAC)
     [_textFinderClient willDestroyView:self];
@@ -1861,6 +1929,13 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     return _page.get();
 }
 
+#if ENABLE(SCREEN_TIME)
+- (STWebpageController *)_screenTimeWebpageController
+{
+    return _screenTimeWebpageController.get();
+}
+#endif
+
 - (std::optional<BOOL>)_resolutionForShareSheetImmediateCompletionForTesting
 {
     return _resolutionForShareSheetImmediateCompletionForTesting;
@@ -2749,6 +2824,16 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
         for (auto& data : vector)
             [set addObject:wrapper(API::FrameTreeNode::create(WTFMove(data), page.get())).get()];
         completionHandler(set.get());
+    });
+}
+
+- (void)_frameInfoFromHandle:(_WKFrameHandle *)handle completionHandler:(void (^)(WKFrameInfo *))completionHandler
+{
+    auto frameID = handle->_frameHandle->frameID();
+    if (!frameID)
+        completionHandler(nil);
+    _page->getFrameInfo(*frameID, [completionHandler = makeBlockPtr(completionHandler)] (auto* frameInfo) {
+        completionHandler(wrapper(frameInfo));
     });
 }
 
@@ -5168,6 +5253,121 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     default:
         return _WKWebProcessStateNotRunning;
     }
+}
+
+namespace WebKit {
+enum class WebViewDataType : uint32_t {
+    SessionStorage
+};
+}
+
+namespace WTF {
+template<> struct EnumTraitsForPersistence<WebKit::WebViewDataType> {
+    using values = EnumValues<
+        WebKit::WebViewDataType,
+        WebKit::WebViewDataType::SessionStorage
+    >;
+};
+}
+
+struct WKWebViewData {
+    std::optional<HashMap<WebCore::ClientOrigin, HashMap<String, String>>> sessionStorage;
+};
+
+- (void)_fetchDataOfTypes:(_WKWebViewDataType)dataTypes completionHandler:(void (^)(NSData *))completionHandler
+{
+    Vector<WebKit::WebViewDataType> dataTypesToEncode;
+    if (dataTypes & _WKWebViewDataTypeSessionStorage)
+        dataTypesToEncode.append(WebKit::WebViewDataType::SessionStorage);
+
+    auto data = Box<WKWebViewData>::create();
+
+    auto callbackAggregator = CallbackAggregator::create([completionHandler = makeBlockPtr(completionHandler), dataTypesToEncode = WTFMove(dataTypesToEncode), data] {
+        WTF::Persistence::Encoder encoder;
+        constexpr unsigned currentWKWebViewDataSerializationVersion = 1;
+        encoder << currentWKWebViewDataSerializationVersion;
+        encoder << dataTypesToEncode;
+
+        for (auto& dataTypeToEncode : dataTypesToEncode) {
+            switch (dataTypeToEncode) {
+            case WebKit::WebViewDataType::SessionStorage:
+                encoder << data->sessionStorage.value();
+                break;
+            default:
+                ASSERT_NOT_REACHED();
+                break;
+            }
+        }
+
+        completionHandler(toNSData(encoder.span()).get());
+    });
+
+    if (dataTypes & _WKWebViewDataTypeSessionStorage) {
+        RefPtr page = [self _protectedPage];
+        page->fetchSessionStorage([callbackAggregator, protectedPage = page, data](auto&& sessionStorage) {
+            data->sessionStorage = WTFMove(sessionStorage);
+        });
+    }
+}
+
+- (void)_restoreData:(NSData *)data completionHandler:(void(^)(BOOL))completionHandler
+{
+    WTF::Persistence::Decoder decoder(span(data));
+
+    std::optional<unsigned> currentWKWebViewDataSerializationVersion;
+    decoder >> currentWKWebViewDataSerializationVersion;
+    if (!currentWKWebViewDataSerializationVersion) {
+        completionHandler(NO);
+        return;
+    }
+
+    std::optional<Vector<WebKit::WebViewDataType>> encodedDataTypes;
+    decoder >> encodedDataTypes;
+    if (!encodedDataTypes) {
+        completionHandler(NO);
+        return;
+    }
+
+    auto succeeded = Box<bool>::create(true);
+    auto callbackAggregator = CallbackAggregator::create([completionHandler = makeBlockPtr(completionHandler), succeeded] {
+        completionHandler(*succeeded);
+    });
+
+    for (auto& encodedDataType : *encodedDataTypes) {
+        switch (encodedDataType) {
+        case WebKit::WebViewDataType::SessionStorage: {
+            std::optional<HashMap<WebCore::ClientOrigin, HashMap<String, String>>> sessionStorage;
+            decoder >> sessionStorage;
+
+            if (!sessionStorage) {
+                *succeeded = false;
+                return;
+            }
+
+            if (!sessionStorage->isEmpty()) {
+                RefPtr page = [self _protectedPage];
+                page->restoreSessionStorage(WTFMove(*sessionStorage), [callbackAggregator, succeeded](bool restoreSucceeded) {
+                    if (!restoreSucceeded)
+                        *succeeded = false;
+                });
+            }
+            break;
+        }
+        default:
+            ASSERT_NOT_REACHED();
+            break;
+        }
+    }
+}
+
+- (audit_token_t)presentingApplicationAuditToken
+{
+    return self._protectedPage->presentingApplicationAuditToken().value_or(audit_token_t { });
+}
+
+- (void)setPresentingApplicationAuditToken:(audit_token_t)presentingApplicationAuditToken
+{
+    self._protectedPage->setPresentingApplicationAuditToken(presentingApplicationAuditToken);
 }
 
 @end

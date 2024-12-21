@@ -780,14 +780,24 @@ void RenderLayerCompositor::scheduleRenderingUpdate()
     page().scheduleRenderingUpdate(RenderingUpdateStep::LayerFlush);
 }
 
+static inline ScrollableArea::VisibleContentRectIncludesScrollbars scrollbarInclusionForVisibleRect()
+{
+#if USE(COORDINATED_GRAPHICS)
+    return ScrollableArea::VisibleContentRectIncludesScrollbars::Yes;
+#else
+    return ScrollableArea::VisibleContentRectIncludesScrollbars::No;
+#endif
+}
+
 FloatRect RenderLayerCompositor::visibleRectForLayerFlushing() const
 {
     const LocalFrameView& frameView = m_renderView.frameView();
 #if PLATFORM(IOS_FAMILY)
     return frameView.exposedContentRect();
 #else
+
     // Having a m_scrolledContentsLayer indicates that we're doing scrolling via GraphicsLayers.
-    FloatRect visibleRect = m_scrolledContentsLayer ? FloatRect({ }, frameView.sizeForVisibleContent()) : frameView.visibleContentRect();
+    FloatRect visibleRect = m_scrolledContentsLayer ? FloatRect({ }, frameView.sizeForVisibleContent(scrollbarInclusionForVisibleRect())) : frameView.visibleContentRect();
 
     if (auto exposedRect = frameView.viewExposedRect())
         visibleRect.intersect(*exposedRect);
@@ -2217,6 +2227,21 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
     auto* backing = layer.backing();
     if (!backing)
         return;
+
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    auto styleChangeAffectsSeparatedProperties = [](const RenderStyle* oldStyle, const RenderStyle& newStyle) {
+        if (!oldStyle)
+            return newStyle.usedTransformStyle3D() == TransformStyle3D::Separated;
+
+        return oldStyle->usedTransformStyle3D() != newStyle.usedTransformStyle3D()
+            && (oldStyle->usedTransformStyle3D() == TransformStyle3D::Separated
+                || newStyle.usedTransformStyle3D() == TransformStyle3D::Separated);
+    };
+
+    // We need a full compositing configuration update since this also impacts the clipping strategy.
+    if (styleChangeAffectsSeparatedProperties(oldStyle, newStyle))
+        layer.setNeedsCompositingConfigurationUpdate();
+#endif
 
     backing->updateConfigurationAfterStyleChange();
 
@@ -3945,7 +3970,7 @@ bool RenderLayerCompositor::requiresCompositingForScrollableFrame(RequiresCompos
     if (isRootFrameCompositor())
         return false;
 
-#if PLATFORM(COCOA) || USE(NICOSIA)
+#if PLATFORM(COCOA) || USE(COORDINATED_GRAPHICS)
     if (!m_renderView.settings().asyncFrameScrollingEnabled())
         return false;
 #endif

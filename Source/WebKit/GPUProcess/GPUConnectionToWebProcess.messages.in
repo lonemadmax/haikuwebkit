@@ -23,6 +23,7 @@
 #if ENABLE(GPU_PROCESS)
 
 [
+    ExceptionForEnabledBy,
     DispatchedFrom=WebContent,
     DispatchedTo=GPU
 ]
@@ -62,7 +63,7 @@ messages -> GPUConnectionToWebProcess WantsDispatchMessage {
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    UpdateSampleBufferDisplayLayerBoundsAndPosition(WebKit::SampleBufferDisplayLayerIdentifier identifier, WebCore::FloatRect bounds, std::optional<MachSendRight> fence);
+    [EnabledBy=MediaPlaybackEnabled] UpdateSampleBufferDisplayLayerBoundsAndPosition(WebKit::SampleBufferDisplayLayerIdentifier identifier, WebCore::FloatRect bounds, std::optional<MachSendRight> fence);
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)

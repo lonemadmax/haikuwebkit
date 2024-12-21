@@ -92,7 +92,7 @@ public:
     virtual void setNeedsRepaintInDocumentRect(OptionSet<RepaintRequirement>, const WebCore::FloatRect& rectInDocumentCoordinates, std::optional<PDFLayoutRow>) = 0;
 
     virtual std::optional<PDFLayoutRow> visibleRow() const { return { }; }
-    virtual std::optional<PDFLayoutRow> rowForLayerID(WebCore::PlatformLayerIdentifier) const { return { }; }
+    virtual std::optional<PDFLayoutRow> rowForLayer(const WebCore::GraphicsLayer*) const { return { }; }
 
     struct VisiblePDFPosition {
         PDFDocumentLayout::PageIndex pageIndex { 0 };
@@ -118,6 +118,9 @@ public:
     RetainPtr<PDFDocument> pluginPDFDocument() const;
     bool pluginShouldCachePagePreviews() const;
 
+    virtual std::optional<WebCore::PlatformLayerIdentifier> contentsLayerIdentifier() const { return std::nullopt; }
+
+    float scaleForPagePreviews() const;
 protected:
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String&, WebCore::GraphicsLayer::Type);
     RefPtr<WebCore::GraphicsLayer> makePageContainerLayer(PDFDocumentLayout::PageIndex);

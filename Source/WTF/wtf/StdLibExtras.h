@@ -828,7 +828,7 @@ std::span<uint8_t, Extent == std::dynamic_extent ? std::dynamic_extent: Extent *
 }
 
 template<typename T>
-std::span<const T> singleElementSpan(const T& object)
+std::span<T> singleElementSpan(T& object)
 {
     return unsafeMakeSpan(std::addressof(object), 1);
 }
@@ -849,7 +849,7 @@ template<typename T, std::size_t Extent = std::dynamic_extent>
 std::span<uint8_t, Extent> asMutableByteSpan(T& input)
 {
     static_assert(!std::is_const_v<T>);
-    return unsafeMakeSpan<uint8_t, Extent>(reinterpret_cast<uint8_t*>(&input), sizeof(input));
+    return unsafeMakeSpan<uint8_t, Extent>(reinterpret_cast<uint8_t*>(std::addressof(input)), sizeof(input));
 }
 
 template<typename T, std::size_t Extent>
@@ -883,22 +883,26 @@ T& reinterpretCastSpanStartTo(std::span<std::byte, Extent> span)
     return spanReinterpretCast<T>(span.first(sizeof(T)))[0];
 }
 
-template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
+enum class IgnoreTypeChecks : bool { No, Yes };
+
+template<IgnoreTypeChecks ignoreTypeChecks = IgnoreTypeChecks::No, typename T, std::size_t TExtent, typename U, std::size_t UExtent>
 bool equalSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
 {
     static_assert(sizeof(T) == sizeof(U));
-    static_assert(std::has_unique_object_representations_v<T>);
-    static_assert(std::has_unique_object_representations_v<U>);
+    static_assert(ignoreTypeChecks == IgnoreTypeChecks::Yes || std::has_unique_object_representations_v<T>);
+    static_assert(ignoreTypeChecks == IgnoreTypeChecks::Yes || std::has_unique_object_representations_v<U>);
     if (a.size() != b.size())
         return false;
     return !memcmp(a.data(), b.data(), a.size_bytes());
 }
 
-template<typename T>
-int compareSpans(std::span<const T> a, std::span<const T> b)
+template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
+int compareSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
 {
+    static_assert(sizeof(T) == sizeof(U));
     static_assert(std::has_unique_object_representations_v<T>);
-    int result = memcmp(a.data(), b.data(), std::min(a.size(), b.size()));
+    static_assert(std::has_unique_object_representations_v<U>);
+    int result = memcmp(a.data(), b.data(), std::min(a.size_bytes(), b.size_bytes()));
     if (!result && a.size() != b.size())
         result = (a.size() > b.size()) ? 1 : -1;
     return result;
@@ -908,8 +912,8 @@ template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
 void memcpySpan(std::span<T, TExtent> destination, std::span<U, UExtent> source)
 {
     static_assert(sizeof(T) == sizeof(U));
-    static_assert(std::is_trivially_copyable_v<T>);
-    static_assert(std::is_trivially_copyable_v<U>);
+    static_assert(std::is_trivially_copyable_v<T> || std::is_floating_point_v<T>);
+    static_assert(std::is_trivially_copyable_v<U> || std::is_floating_point_v<U>);
     RELEASE_ASSERT(destination.size() >= source.size());
     memcpy(destination.data(), source.data(), source.size_bytes());
 }
@@ -918,8 +922,8 @@ template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
 void memmoveSpan(std::span<T, TExtent> destination, std::span<U, UExtent> source)
 {
     static_assert(sizeof(T) == sizeof(U));
-    static_assert(std::is_trivially_copyable_v<T>);
-    static_assert(std::is_trivially_copyable_v<U>);
+    static_assert(std::is_trivially_copyable_v<T> || std::is_floating_point_v<T>);
+    static_assert(std::is_trivially_copyable_v<U> || std::is_floating_point_v<U>);
     RELEASE_ASSERT(destination.size() >= source.size());
     memmove(destination.data(), source.data(), source.size_bytes());
 }
@@ -929,6 +933,30 @@ void memsetSpan(std::span<T, Extent> destination, uint8_t byte)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     memset(destination.data(), byte, destination.size_bytes());
+}
+
+template<typename T, std::size_t Extent>
+void zeroSpan(std::span<T, Extent> destination)
+{
+    static_assert(std::is_trivially_copyable_v<T> || std::is_floating_point_v<T>);
+    memset(destination.data(), 0, destination.size_bytes());
+}
+
+template<typename T>
+void zeroBytes(T& object)
+{
+    zeroSpan(asMutableByteSpan(object));
+}
+
+template<typename T, std::size_t Extent>
+void secureMemsetSpan(std::span<T, Extent> destination, uint8_t byte)
+{
+    static_assert(std::is_trivially_copyable_v<T>);
+#ifdef __STDC_LIB_EXT1__
+    memset_s(destination.data(), byte, destination.size_bytes());
+#else
+    memset(destination.data(), byte, destination.size_bytes());
+#endif
 }
 
 template<typename T> concept ByteType = sizeof(T) == 1 && ((std::is_integral_v<T> && !std::same_as<T, bool>) || std::same_as<T, std::byte>) && !std::is_const_v<T>;
@@ -1203,6 +1231,7 @@ using WTF::roundUpToMultipleOf;
 using WTF::roundUpToMultipleOfNonPowerOfTwo;
 using WTF::roundDownToMultipleOf;
 using WTF::safeCast;
+using WTF::secureMemsetSpan;
 using WTF::singleElementSpan;
 using WTF::spanConstCast;
 using WTF::spanReinterpretCast;
@@ -1211,6 +1240,8 @@ using WTF::tryBinarySearch;
 using WTF::unsafeMakeSpan;
 using WTF::valueOrCompute;
 using WTF::valueOrDefault;
+using WTF::zeroBytes;
+using WTF::zeroSpan;
 using WTF::Invocable;
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

@@ -57,7 +57,7 @@ template<size_t I> const auto& get(const BoxShadow& value)
 }
 
 template<> struct ToCSS<BoxShadow> { auto operator()(const BoxShadow&, const RenderStyle&) -> CSS::BoxShadow; };
-template<> struct ToStyle<CSS::BoxShadow> { auto operator()(const CSS::BoxShadow&, const BuilderState&, const CSSCalcSymbolTable&) -> BoxShadow; };
+template<> struct ToStyle<CSS::BoxShadow> { auto operator()(const CSS::BoxShadow&, const BuilderState&) -> BoxShadow; };
 
 template<> struct Blending<BoxShadow> {
     auto canBlend(const BoxShadow&, const BoxShadow&, const RenderStyle&, const RenderStyle&) -> bool;
@@ -67,4 +67,4 @@ template<> struct Blending<BoxShadow> {
 } // namespace Style
 } // namespace WebCore
 
-STYLE_TUPLE_LIKE_CONFORMANCE(BoxShadow, 5)
+STYLE_SPACE_SEPARATED_TUPLE_LIKE_CONFORMANCE(BoxShadow, 5)

@@ -96,6 +96,10 @@
         "Indicates that this CSS property can use the fast-path inheritance mechanism.",
         "This generates code that disables the mechanism if the property is explicitly mutated.",
         "",
+        "* disables-native-appearance",
+        "Indicates that this CSS property, when declared in the Author Origin,",
+        "will disable the native appearance of devolvable widgets.",
+        "",
         "* logical-property-group:",
         "Indicates that this CSS property belongs to a logical property group",
         "(https://drafts.csswg.org/css-logical/#logical-property-group)",
@@ -675,7 +679,7 @@
                 "url": "https://www.w3.org/TR/css-fonts-4/#font-weight-prop"
             }
         },
-        "font-stretch": {
+        "font-width": {
             "inherited": true,
             "values": [
                 "normal",
@@ -691,19 +695,22 @@
             "codegen-properties": [
                 {
                     "enable-if": "ENABLE_VARIATION_FONTS",
-                    "name-for-methods": "Stretch",
+                    "aliases": ["font-stretch"],
+                    "enable-if": "ENABLE_VARIATION_FONTS",
+                    "name-for-methods": "Width",
                     "font-property": true,
                     "high-priority": true,
-                    "converter": "FontStretch",
-                    "parser-grammar": "<font-stretch-absolute> | <percentage [0,inf]>"
+                    "converter": "FontWidth",
+                    "parser-grammar": "<font-width-absolute> | <percentage [0,inf]>"
                 },
                 {
+                    "aliases": ["font-stretch"],
                     "enable-if": "!ENABLE_VARIATION_FONTS",
-                    "name-for-methods": "Stretch",
+                    "name-for-methods": "Width",
                     "font-property": true,
                     "high-priority": true,
-                    "converter": "FontStretch",
-                    "parser-grammar": "<font-stretch-absolute>"
+                    "converter": "FontWidth",
+                    "parser-grammar": "<font-width-absolute>"
                 }
             ],
             "specification": {
@@ -1121,7 +1128,7 @@
                     "font-style",
                     "font-variant-caps",
                     "font-weight",
-                    "font-stretch",
+                    "font-width",
                     "font-size",
                     "line-height",
                     "font-family",
@@ -1685,7 +1692,7 @@
                 ],
                 "name-for-methods": "TimingFunction",
                 "separator": ",",
-                "parser-grammar": "<timing-function>#"
+                "parser-grammar": "<easing-function>#"
             },
             "specification": {
                 "category": "css-animations",
@@ -1720,6 +1727,7 @@
             "codegen-properties": {
                 "name-for-methods": "Attachment",
                 "fill-layer-property": true,
+                "disables-native-appearance": true,
                 "separator": ",",
                 "parser-grammar": "<single-background-attachment>#"
             },
@@ -1794,6 +1802,7 @@
                 "name-for-methods": "Clip",
                 "fill-layer-property": true,
                 "separator": " ",
+                "disables-native-appearance": true,
                 "parser-function": "consumeBackgroundClip",
                 "parser-grammar-unused": "<single-background-clip>#",
                 "parser-grammar-unused-reason": "Needs support for settings-enabled keywords in the grammaer."
@@ -1807,6 +1816,7 @@
             "codegen-properties": {
                 "visited-link-color-support": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "parser-grammar": "<color accept-quirky-colors-in-quirks-mode>"
             },
             "specification": {
@@ -1818,6 +1828,7 @@
             "codegen-properties": {
                 "name-for-methods": "Image",
                 "fill-layer-property": true,
+                "disables-native-appearance": true,
                 "separator": " ",
                 "parser-grammar": "<single-background-image>#"
             },
@@ -1830,6 +1841,7 @@
             "codegen-properties": {
                 "name-for-methods": "Origin",
                 "fill-layer-property": true,
+                "disables-native-appearance": true,
                 "separator": " ",
                 "parser-grammar": "<single-background-origin>#"
             },
@@ -1854,6 +1866,7 @@
             "codegen-properties": {
                 "name-for-methods": "XPosition",
                 "fill-layer-property": true,
+                "disables-native-appearance": true,
                 "parser-grammar": "<single-background-position-x>#"
             },
             "specification": {
@@ -1865,6 +1878,7 @@
             "codegen-properties": {
                 "name-for-methods": "YPosition",
                 "fill-layer-property": true,
+                "disables-native-appearance": true,
                 "parser-grammar": "<single-background-position-y>#"
             },
             "specification": {
@@ -1887,6 +1901,7 @@
             "codegen-properties": {
                 "name-for-methods": "Size",
                 "fill-layer-property": true,
+                "disables-native-appearance": true,
                 "separator": " ",
                 "parser-grammar": "<single-background-size>#"
             },
@@ -2021,6 +2036,7 @@
                 ],
                 "skip-builder": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "block-end"
@@ -2050,6 +2066,7 @@
                     "-webkit-border-after-style"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "block-end"
@@ -2072,6 +2089,7 @@
                     "-webkit-border-after-width"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "block-end"
@@ -2106,6 +2124,7 @@
                 ],
                 "skip-builder": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "block-start"
@@ -2135,6 +2154,7 @@
                     "-webkit-border-before-style"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "block-start"
@@ -2157,6 +2177,7 @@
                     "-webkit-border-before-width"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "block-start"
@@ -2210,6 +2231,7 @@
                 "initial": "currentColor",
                 "visited-link-color-support": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "bottom"
@@ -2230,6 +2252,7 @@
                     "-webkit-border-bottom-left-radius"
                 ],
                 "custom": "All",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "bottom-left"
@@ -2249,6 +2272,7 @@
                     "-webkit-border-bottom-right-radius"
                 ],
                 "custom": "All",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "bottom-right"
@@ -2277,6 +2301,7 @@
             ],
             "codegen-properties": {
                 "initial": "initialBorderStyle",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "bottom"
@@ -2297,6 +2322,7 @@
             "codegen-properties": {
                 "initial": "initialBorderWidth",
                 "converter": "LineWidth<float>",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "bottom"
@@ -2342,6 +2368,7 @@
         "border-end-end-radius": {
             "codegen-properties": {
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "end-end"
@@ -2358,6 +2385,7 @@
         "border-end-start-radius": {
             "codegen-properties": {
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "end-start"
@@ -2389,6 +2417,7 @@
         "border-image-outset": {
             "codegen-properties": {
                 "custom": "All",
+                "disables-native-appearance": true,
                 "parser-function": "consumeBorderImageOutset",
                 "parser-function-allows-number-or-integer-input": true,
                 "parser-grammar-unused": "[ <length [0,inf]> | <number [0,inf]> ]{1,4}",
@@ -2408,6 +2437,7 @@
             ],
             "codegen-properties": {
                 "custom": "All",
+                "disables-native-appearance": true,
                 "parser-function": "consumeBorderImageRepeat",
                 "parser-grammar-unused": "[ stretch | repeat | round | space ]{1,2}",
                 "parser-grammar-unused-reason": "Needs support for '{A,B}' multipliers."
@@ -2423,6 +2453,7 @@
             ],
             "codegen-properties": {
                 "custom": "All",
+                "disables-native-appearance": true,
                 "parser-function": "consumeBorderImageSlice",
                 "parser-function-allows-number-or-integer-input": true,
                 "parser-function-requires-current-property": true,
@@ -2440,6 +2471,7 @@
             ],
             "codegen-properties": {
                 "converter": "StyleImage<CSSPropertyBorderImageSource>",
+                "disables-native-appearance": true,
                 "parser-grammar": "none | <image>"
             },
             "specification": {
@@ -2453,6 +2485,7 @@
             ],
             "codegen-properties": {
                 "custom": "All",
+                "disables-native-appearance": true,
                 "parser-function": "consumeBorderImageWidth",
                 "parser-function-allows-number-or-integer-input": true,
                 "parser-function-requires-current-property": true,
@@ -2515,6 +2548,7 @@
                 ],
                 "skip-builder": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "inline-end"
@@ -2544,6 +2578,7 @@
                     "-webkit-border-end-style"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "inline-end"
@@ -2566,6 +2601,7 @@
                     "-webkit-border-end-width"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "inline-end"
@@ -2600,6 +2636,7 @@
                 ],
                 "skip-builder": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "inline-start"
@@ -2629,6 +2666,7 @@
                     "-webkit-border-start-style"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "inline-start"
@@ -2651,6 +2689,7 @@
                     "-webkit-border-start-width"
                 ],
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "inline-start"
@@ -2704,6 +2743,7 @@
                 "initial": "currentColor",
                 "visited-link-color-support": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "left"
@@ -2733,6 +2773,7 @@
             ],
             "codegen-properties": {
                 "initial": "initialBorderStyle",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "left"
@@ -2753,6 +2794,7 @@
             "codegen-properties": {
                 "initial": "initialBorderWidth",
                 "converter": "LineWidth<float>",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "left"
@@ -2799,6 +2841,7 @@
                 "initial": "currentColor",
                 "visited-link-color-support": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "right"
@@ -2828,6 +2871,7 @@
             ],
             "codegen-properties": {
                 "initial": "initialBorderStyle",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "right"
@@ -2848,6 +2892,7 @@
             "codegen-properties": {
                 "initial": "initialBorderWidth",
                 "converter": "LineWidth<float>",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "right"
@@ -2878,6 +2923,7 @@
         "border-start-end-radius": {
             "codegen-properties": {
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "start-end"
@@ -2894,6 +2940,7 @@
         "border-start-start-radius": {
             "codegen-properties": {
                 "skip-builder": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "start-start"
@@ -2939,6 +2986,7 @@
                 "initial": "currentColor",
                 "visited-link-color-support": true,
                 "color-property": true,
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-color",
                     "resolver": "top"
@@ -2959,6 +3007,7 @@
                     "-webkit-border-top-left-radius"
                 ],
                 "custom": "All",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "top-left"
@@ -2978,6 +3027,7 @@
                     "-webkit-border-top-right-radius"
                 ],
                 "custom": "All",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-radius",
                     "resolver": "top-right"
@@ -3006,6 +3056,7 @@
             ],
             "codegen-properties": {
                 "initial": "initialBorderStyle",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-style",
                     "resolver": "top"
@@ -3026,6 +3077,7 @@
             "codegen-properties": {
                 "initial": "initialBorderWidth",
                 "converter": "LineWidth<float>",
+                "disables-native-appearance": true,
                 "logical-property-group": {
                     "name": "border-width",
                     "resolver": "top"
@@ -6267,7 +6319,7 @@
                     "-webkit-transition-timing-function"
                 ],
                 "name-for-methods": "TimingFunction",
-                "parser-grammar": "<timing-function>#"
+                "parser-grammar": "<easing-function>#"
             },
             "specification": {
                 "category": "css-transitions",
@@ -9475,6 +9527,19 @@
                 "url": "https://drafts.csswg.org/css-anchor-position-1/#position-try-order-property"
             }
         },
+        "position-try-fallbacks": {
+            "codegen-properties": {
+                "settings-flag": "cssAnchorPositioningEnabled",
+                "parser-function": "consumePositionTryFallbacks",
+                "parser-grammar-unused": "none | [ [<dashed-ident> || <try-tactic>] | <position-area> ]#",
+                "parser-grammar-unused-reason": "Needs support for '||' groups.",
+                "converter": "PositionTryFallbacks"
+            },
+            "specification": {
+                "category": "css-anchor-position",
+                "url": "https://drafts.csswg.org/css-anchor-position-1/#position-try-fallbacks"
+            }
+        },
         "-webkit-tap-highlight-color": {
             "inherited": true,
             "codegen-properties": {
@@ -9549,6 +9614,30 @@
                 "name-for-methods": "TouchCalloutEnabled",
                 "converter": "TouchCallout",
                 "enable-if": "WTF_PLATFORM_IOS_FAMILY",
+                "parser-grammar": "<<values>>"
+            },
+            "status": "non-standard"
+        },
+        "-apple-visual-effect": {
+            "values": [
+                "none",
+                "-apple-system-blur-material-ultra-thin",
+                "-apple-system-blur-material-thin",
+                "-apple-system-blur-material",
+                "-apple-system-blur-material-thick",
+                "-apple-system-blur-material-chrome",
+                "-apple-system-vibrancy-label",
+                "-apple-system-vibrancy-secondary-label",
+                "-apple-system-vibrancy-tertiary-label",
+                "-apple-system-vibrancy-quaternary-label",
+                "-apple-system-vibrancy-fill",
+                "-apple-system-vibrancy-secondary-fill",
+                "-apple-system-vibrancy-tertiary-fill",
+                "-apple-system-vibrancy-separator"
+            ],
+            "codegen-properties": {
+                "enable-if": "HAVE_CORE_MATERIAL",
+                "settings-flag": "appleSystemVisualEffectsEnabled",
                 "parser-grammar": "<<values>>"
             },
             "status": "non-standard"
@@ -9779,7 +9868,7 @@
                     "url": "https://www.w3.org/TR/css-fonts-4/#descdef-font-face-font-feature-settings"
                 }
             },
-            "font-stretch": {
+            "font-width": {
                 "values": [
                     {
                         "value": "auto",
@@ -9799,13 +9888,15 @@
                 "codegen-properties": [
                     {
                         "enable-if": "ENABLE_VARIATION_FONTS",
-                        "parser-function": "consumeFontFaceFontStretch",
-                        "parser-grammar-unused": "auto | [ <font-stretch-absolute> | <percentage [0,inf]> ]{1,2}",
-                        "parser-grammar-unused-reason": "Needs support for '{A,B}' multipliers and referencing style properties grammars (actual grammar uses <'font-stretch'>{1,2})."
+                        "aliases": ["font-stretch"],
+                        "parser-function": "consumeFontFaceFontWidth",
+                        "parser-grammar-unused": "auto | [ <font-width-absolute> | <percentage [0,inf]> ]{1,2}",
+                        "parser-grammar-unused-reason": "Needs support for '{A,B}' multipliers and referencing style properties grammars (actual grammar uses <'font-width'>{1,2})."
                     },
                     {
                         "enable-if": "!ENABLE_VARIATION_FONTS",
-                        "parser-grammar": "<font-stretch-absolute>"
+                        "aliases": ["font-stretch"],
+                        "parser-grammar": "<font-width-absolute>"
                     }
                 ],
                 "specification": {
@@ -10455,7 +10546,7 @@
                 "url": "https://drafts.csswg.org/css-fonts-4/#font-weight-absolute-values"
             }
         },
-        "<font-stretch-absolute>": {
+        "<font-width-absolute>": {
             "grammar": "normal | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded",
             "exported": true,
             "specification": {

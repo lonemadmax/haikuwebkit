@@ -398,7 +398,7 @@ public:
 #if ENABLE(AX_THREAD_TEXT_APIS)
     virtual AXTextRuns textRuns() { return { }; }
     bool hasTextRuns() final { return textRuns().size(); }
-    bool shouldEmitNewlinesBeforeAndAfterNode() const override { return false; }
+    TextEmissionBehavior emitTextAfterBehavior() const override { return TextEmissionBehavior::None; }
 #endif
 #if PLATFORM(COCOA)
     // Returns an array of strings and AXObject wrappers corresponding to the
@@ -919,7 +919,7 @@ protected:
     unsigned getLengthForTextRange() const;
 
 private:
-    ProcessID processID() const final { return presentingApplicationPID(); }
+    ProcessID processID() const final { return legacyPresentingApplicationPID(); }
     bool hasAncestorFlag(AXAncestorFlag flag) const { return ancestorFlagsAreInitialized() && m_ancestorFlags.contains(flag); }
     std::optional<SimpleRange> rangeOfStringClosestToRangeInDirection(const SimpleRange&, AccessibilitySearchDirection, const Vector<String>&) const;
     std::optional<SimpleRange> selectionRange() const;

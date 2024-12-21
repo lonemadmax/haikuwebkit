@@ -966,13 +966,13 @@ protected:
     StackCheck m_stackCheck;
 };
 
-static std::optional<Vector<uint8_t>> wrapCryptoKey(JSGlobalObject* lexicalGlobalObject, const Vector<uint8_t>& key)
+static std::optional<Vector<uint8_t>> serializeAndWrapCryptoKey(JSGlobalObject* lexicalGlobalObject, WebCore::CryptoKeyData&& key)
 {
     auto context = executionContext(lexicalGlobalObject);
     if (!context)
         return std::nullopt;
 
-    return context->wrapCryptoKey(key);
+    return context->serializeAndWrapCryptoKey(WTFMove(key));
 }
 
 static std::optional<Vector<uint8_t>> unwrapCryptoKey(JSGlobalObject* lexicalGlobalObject, const Vector<uint8_t>& wrappedKey)
@@ -1037,6 +1037,60 @@ static void validateSerializedResult(CloneSerializer&, SerializationReturnCode, 
 class CloneSerializer : public CloneBase {
     WTF_FORBID_HEAP_ALLOCATION;
 public:
+    static Vector<uint8_t> serializeCryptoKey(JSC::JSGlobalObject& globalObject, const CryptoKey& key)
+    {
+        Vector<uint8_t> serializedKey;
+        Vector<URLKeepingBlobAlive> dummyBlobHandles;
+        Vector<Ref<MessagePort>> dummyMessagePorts;
+        Vector<RefPtr<JSC::ArrayBuffer>> dummyArrayBuffers;
+#if ENABLE(WEB_CODECS)
+        Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>> dummyVideoChunks;
+        Vector<RefPtr<WebCodecsVideoFrame>> dummyVideoFrames;
+        Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>> dummyAudioChunks;
+        Vector<RefPtr<WebCodecsAudioData>> dummyAudioData;
+#endif
+#if ENABLE(MEDIA_STREAM)
+        Vector<RefPtr<MediaStreamTrack>> dummyMediaStreamTracks;
+#endif
+#if ENABLE(WEBASSEMBLY)
+        WasmModuleArray dummyModules;
+        WasmMemoryHandleArray dummyMemoryHandles;
+#endif
+        ArrayBufferContentsArray dummySharedBuffers;
+#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
+        Vector<RefPtr<OffscreenCanvas>> dummyInMemoryOffscreenCanvases;
+#endif
+        Vector<Ref<MessagePort>> dummyInMemoryMessagePorts;
+        CloneSerializer rawKeySerializer(&globalObject, dummyMessagePorts, dummyArrayBuffers, { },
+#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
+            { },
+            dummyInMemoryOffscreenCanvases,
+#endif
+            dummyInMemoryMessagePorts,
+#if ENABLE(WEB_RTC)
+            { },
+#endif
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
+            { },
+#endif
+#if ENABLE(WEB_CODECS)
+            dummyVideoChunks,
+            dummyVideoFrames,
+            dummyAudioChunks,
+            dummyAudioData,
+#endif
+#if ENABLE(MEDIA_STREAM)
+            dummyMediaStreamTracks,
+#endif
+#if ENABLE(WEBASSEMBLY)
+            dummyModules,
+            dummyMemoryHandles,
+#endif
+            dummyBlobHandles, serializedKey, SerializationContext::Default, dummySharedBuffers, SerializationForStorage::No);
+        rawKeySerializer.write(&key);
+        return serializedKey;
+    }
+
     static SerializationReturnCode serialize(JSGlobalObject* lexicalGlobalObject, JSValue value, Vector<Ref<MessagePort>>& messagePorts, Vector<RefPtr<JSC::ArrayBuffer>>& arrayBuffers, const Vector<RefPtr<ImageBitmap>>& imageBitmaps,
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
             const Vector<RefPtr<OffscreenCanvas>>& offscreenCanvases,
@@ -1874,7 +1928,7 @@ private:
                 }
                 write(static_cast<uint32_t>(data->width()));
                 write(static_cast<uint32_t>(data->height()));
-                CheckedUint32 dataLength = data->data().length();
+                CheckedUint32 dataLength = data->data().byteLength();
                 if (dataLength.hasOverflowed()) {
                     code = SerializationReturnCode::DataCloneError;
                     return true;
@@ -1978,57 +2032,7 @@ private:
             }
             if (auto* key = JSCryptoKey::toWrapped(vm, obj)) {
                 write(CryptoKeyTag);
-                Vector<uint8_t> serializedKey;
-                Vector<URLKeepingBlobAlive> dummyBlobHandles;
-                Vector<Ref<MessagePort>> dummyMessagePorts;
-                Vector<RefPtr<JSC::ArrayBuffer>> dummyArrayBuffers;
-#if ENABLE(WEB_CODECS)
-                Vector<RefPtr<WebCodecsEncodedVideoChunkStorage>> dummyVideoChunks;
-                Vector<RefPtr<WebCodecsVideoFrame>> dummyVideoFrames;
-                Vector<RefPtr<WebCodecsEncodedAudioChunkStorage>> dummyAudioChunks;
-                Vector<RefPtr<WebCodecsAudioData>> dummyAudioData;
-#endif
-#if ENABLE(MEDIA_STREAM)
-                Vector<RefPtr<MediaStreamTrack>> dummyMediaStreamTracks;
-#endif
-#if ENABLE(WEBASSEMBLY)
-                WasmModuleArray dummyModules;
-                WasmMemoryHandleArray dummyMemoryHandles;
-#endif
-                ArrayBufferContentsArray dummySharedBuffers;
-#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
-                Vector<RefPtr<OffscreenCanvas>> dummyInMemoryOffscreenCanvases;
-#endif
-                Vector<Ref<MessagePort>> dummyInMemoryMessagePorts;
-                CloneSerializer rawKeySerializer(m_lexicalGlobalObject, dummyMessagePorts, dummyArrayBuffers, { },
-#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
-                    { },
-                    dummyInMemoryOffscreenCanvases,
-#endif
-                    dummyInMemoryMessagePorts,
-#if ENABLE(WEB_RTC)
-                    { },
-#endif
-#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
-                    { },
-#endif
-#if ENABLE(WEB_CODECS)
-                    dummyVideoChunks,
-                    dummyVideoFrames,
-                    dummyAudioChunks,
-                    dummyAudioData,
-#endif
-#if ENABLE(MEDIA_STREAM)
-                    dummyMediaStreamTracks,
-#endif
-#if ENABLE(WEBASSEMBLY)
-                    dummyModules,
-                    dummyMemoryHandles,
-#endif
-                    dummyBlobHandles, serializedKey, SerializationContext::Default, dummySharedBuffers, m_forStorage);
-                rawKeySerializer.write(key);
-
-                auto wrappedKey = wrapCryptoKey(m_lexicalGlobalObject, serializedKey);
+                auto wrappedKey = serializeAndWrapCryptoKey(m_lexicalGlobalObject, key->data());
                 if (!wrappedKey) {
                     code = SerializationReturnCode::DataCloneError;
                     return true;
@@ -4966,16 +4970,12 @@ private:
             if (!m_isDOMGlobalObject)
                 return jsNull();
 
-            auto result = ImageData::createUninitialized(width, height, resultColorSpace);
+            auto result = ImageData::create(width, height, resultColorSpace, { }, std::span(bufferStart, length));
             if (result.hasException()) {
                 SERIALIZE_TRACE("FAIL deserialize");
                 fail();
                 return JSValue();
             }
-            if (length)
-                memcpy(result.returnValue()->data().data(), bufferStart, length);
-            else
-                result.returnValue()->data().zeroFill();
             m_imageDataPool.append(result.returnValue().copyRef());
             return getJSValue(result.releaseReturnValue());
         }
@@ -6326,6 +6326,15 @@ RefPtr<SerializedScriptValue> SerializedScriptValue::create(JSContextRef originC
     }
     ASSERT(serializedValue);
     return serializedValue;
+}
+
+Vector<uint8_t> SerializedScriptValue::serializeCryptoKey(JSContextRef context, const WebCore::CryptoKey& key)
+{
+    JSGlobalObject* lexicalGlobalObject = toJS(context);
+    VM& vm = lexicalGlobalObject->vm();
+    JSLockHolder locker(vm);
+
+    return CloneSerializer::serializeCryptoKey(*lexicalGlobalObject, key);
 }
 
 String SerializedScriptValue::toString() const

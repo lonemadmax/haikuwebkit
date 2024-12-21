@@ -27,7 +27,7 @@ webkit_platform_headers: "StreamConnectionEncoder.h"
 }
 
 header: <wtf/text/CString.h>
-[CustomHeader] class WTF::CString {
+[CustomHeader, WebKitPlatform, AdditionalEncoder=StreamConnectionEncoder] class WTF::CString {
    std::span<const uint8_t> span()
 }
 
@@ -94,6 +94,7 @@ template: enum class WebKit::RemoteCDMInstanceIdentifierType
 template: enum class WebKit::RemoteCDMInstanceSessionIdentifierType
 template: enum class WebKit::RemoteLegacyCDMIdentifierType
 template: enum class WebKit::RemoteLegacyCDMSessionIdentifierType
+template: enum class WebKit::RemoteMediaRecorderPrivateWriterIdentifierType
 template: enum class WebKit::RemoteMediaResourceIdentifierType
 template: enum class WebKit::RemoteMediaSourceIdentifierType
 template: enum class WebKit::RemoteRemoteCommandListenerIdentifierType

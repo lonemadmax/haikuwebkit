@@ -321,7 +321,7 @@ accentcolortext
 -apple-system-opaque-tertiary-fill enable-if=WTF_PLATFORM_IOS_FAMILY
 -apple-system-quaternary-fill enable-if=WTF_PLATFORM_IOS_FAMILY
 -apple-system-opaque-separator enable-if=WTF_PLATFORM_IOS_FAMILY
--webkit-control-background enable-if=WTF_PLATFORM_COCOA|HAVE_OS_DARK_MODE_SUPPORT
+-webkit-control-background enable-if=WTF_PLATFORM_COCOA
 activebuttontext
 -webkit-activelink
 -webkit-link
@@ -1414,6 +1414,21 @@ spring
 steps
 apple-invert-lightness
 
+// -apple-visual-effect
+-apple-system-blur-material-ultra-thin enable-if=HAVE_CORE_MATERIAL
+-apple-system-blur-material-thin enable-if=HAVE_CORE_MATERIAL
+-apple-system-blur-material enable-if=HAVE_CORE_MATERIAL
+-apple-system-blur-material-thick enable-if=HAVE_CORE_MATERIAL
+-apple-system-blur-material-chrome enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-label enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-secondary-label enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-tertiary-label enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-quaternary-label enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-fill enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-secondary-fill enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-tertiary-fill enable-if=HAVE_CORE_MATERIAL
+-apple-system-vibrancy-separator enable-if=HAVE_CORE_MATERIAL
+
 // colors
 rgb
 rgba
@@ -1504,8 +1519,8 @@ rem
 to-zero
 // nearest
 // progress
-// from
-// to
+media-progress
+container-progress
 infinity
 -infinity id=NegativeInfinity
 NaN
@@ -1815,3 +1830,8 @@ most-width
 most-height
 most-block-size
 most-inline-size
+// position-try-fallbacks
+// none
+flip-block
+flip-inline
+flip-start

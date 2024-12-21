@@ -42,8 +42,6 @@
 #include <unicode/ubidi.h>
 #include <wtf/text/TextBreakIterator.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 namespace Layout {
 
@@ -191,64 +189,40 @@ TextUtil::FallbackFontList TextUtil::fallbackFontsForText(StringView textContent
 }
 
 template <typename TextIterator>
-static TextUtil::EnclosingGlyphBounds enclosingGlyphBoundsForRunWithIterator(const FontCascade& fontCascade, bool isRTL, TextIterator& textIterator)
+static TextUtil::EnclosingAscentDescent enclosingGlyphBoundsForRunWithIterator(const FontCascade& fontCascade, bool isRTL, TextIterator& textIterator)
 {
     auto enclosingAscent = std::optional<InlineLayoutUnit> { };
     auto enclosingDescent = std::optional<InlineLayoutUnit> { };
-    auto enclosingLeft = std::optional<InlineLayoutUnit> { };
     auto isSmallCaps = fontCascade.isSmallCaps();
     auto& primaryFont = fontCascade.primaryFont();
 
     char32_t currentCharacter = 0;
     unsigned clusterLength = 0;
-    auto glyphData = GlyphData { };
     while (textIterator.consume(currentCharacter, clusterLength)) {
 
-        if (isSmallCaps)
-            currentCharacter = u_toupper(currentCharacter);
+        auto computeTopAndBottomForCharacter = [&](auto character) {
+            if (isSmallCaps)
+                character = u_toupper(character);
 
-        glyphData = fontCascade.glyphDataForCharacter(currentCharacter, isRTL);
-        auto& font = glyphData.font ? *glyphData.font : primaryFont;
-        // FIXME: This may need some adjustment for ComplexTextController. See glyphOrigin.
-        auto bounds = font.boundsForGlyph(glyphData.glyph);
+            auto glyphData = fontCascade.glyphDataForCharacter(character, isRTL);
+            auto& font = glyphData.font ? *glyphData.font : primaryFont;
+            // FIXME: This may need some adjustment for ComplexTextController. See glyphOrigin.
+            auto bounds = font.boundsForGlyph(glyphData.glyph);
 
-        enclosingAscent = std::min(enclosingAscent.value_or(bounds.y()), bounds.y());
-        enclosingDescent = std::max(enclosingDescent.value_or(bounds.maxY()), bounds.maxY());
-        if (!enclosingLeft)
-            enclosingLeft = std::max(0.f, -bounds.x());
+            enclosingAscent = std::min(enclosingAscent.value_or(bounds.y()), bounds.y());
+            enclosingDescent = std::max(enclosingDescent.value_or(bounds.maxY()), bounds.maxY());
+        };
+        computeTopAndBottomForCharacter(currentCharacter);
         textIterator.advance(clusterLength);
     }
-
-    // FIXME: Complex codepath may need a more sophisticated left/right.
-    auto& font = glyphData.font ? *glyphData.font : primaryFont;
-    auto enclosingRight = font.boundsForGlyph(glyphData.glyph).maxX() - font.widthForGlyph(glyphData.glyph);
-
-    return { enclosingAscent.value_or(0.f), enclosingDescent.value_or(0.f), enclosingLeft.value_or(0.f), enclosingRight };
+    return { enclosingAscent.value_or(0.f), enclosingDescent.value_or(0.f) };
 }
 
-TextUtil::EnclosingGlyphBounds TextUtil::enclosingGlyphBounds(StringView textContent, const RenderStyle& style, bool canUseSimpleFontCodePath)
+TextUtil::EnclosingAscentDescent TextUtil::enclosingGlyphBoundsForText(StringView textContent, const RenderStyle& style)
 {
     if (textContent.isEmpty())
         return { };
 
-    if (canUseSimpleFontCodePath) {
-        auto& fontCascade = style.fontCascade();
-        auto& primaryFont = fontCascade.primaryFont();
-        auto isRightToLeftInlineDirection = style.writingMode().isBidiRTL();
-
-        auto firstGlyphData = fontCascade.glyphDataForCharacter(textContent[0], isRightToLeftInlineDirection);
-        auto firstGlyphOverflow = -(firstGlyphData.font ? *firstGlyphData.font : primaryFont).boundsForGlyph(firstGlyphData.glyph).x();
-
-        auto lastGlyphData = fontCascade.glyphDataForCharacter(textContent[textContent.length() - 1], isRightToLeftInlineDirection);
-        auto& fontForLastGlyph = lastGlyphData.font ? *lastGlyphData.font : primaryFont;
-        auto lastGlyphOverflow = fontForLastGlyph.boundsForGlyph(lastGlyphData.glyph).maxX() - fontForLastGlyph.widthForGlyph(lastGlyphData.glyph);
-#if PLATFORM(IOS_FAMILY)
-        // FIXME: Find out why we get false subpixel overflow values on iOS.
-        firstGlyphOverflow -= 0.1f;
-        lastGlyphOverflow -= 0.1f;
-#endif
-        return { InlineLayoutUnit(fontCascade.metricsOfPrimaryFont().intAscent()), InlineLayoutUnit(fontCascade.metricsOfPrimaryFont().intDescent()), std::max(0.f, firstGlyphOverflow), std::max(0.f, lastGlyphOverflow) };
-    }
     if (textContent.is8Bit()) {
         Latin1TextIterator textIterator { textContent.span8(), 0, textContent.length() };
         return enclosingGlyphBoundsForRunWithIterator(style.fontCascade(), style.writingMode().isBidiRTL(), textIterator);
@@ -520,16 +494,14 @@ bool TextUtil::containsStrongDirectionalityText(StringView text)
         using UnsignedType = std::make_unsigned_t<typename decltype(span)::value_type>;
         constexpr size_t stride = SIMD::stride<UnsignedType>;
         if (span.size() >= stride) {
-            auto* cursor = span.data();
-            auto* end = cursor + span.size();
             constexpr auto c0590 = SIMD::splat<UnsignedType>(0x0590);
             constexpr auto c2010 = SIMD::splat<UnsignedType>(0x2010);
             constexpr auto c2029 = SIMD::splat<UnsignedType>(0x2029);
             constexpr auto c206A = SIMD::splat<UnsignedType>(0x206A);
             constexpr auto cD7FF = SIMD::splat<UnsignedType>(0xD7FF);
             constexpr auto cFF00 = SIMD::splat<UnsignedType>(0xFF00);
-            auto maybeBidiRTL = [&](auto* cursor) ALWAYS_INLINE_LAMBDA {
-                auto input = SIMD::load(std::bit_cast<const UnsignedType*>(cursor));
+            auto maybeBidiRTL = [&](auto span) ALWAYS_INLINE_LAMBDA {
+                auto input = SIMD::load(std::bit_cast<const UnsignedType*>(span.data()));
                 // ch < 0x0590
                 auto cond0 = SIMD::lessThan(input, c0590);
                 // General Punctuation such as curly quotes.
@@ -545,10 +517,10 @@ bool TextUtil::containsStrongDirectionalityText(StringView text)
             };
 
             auto result = SIMD::splat<UnsignedType>(0);
-            for (; cursor + (stride - 1) < end; cursor += stride)
-                result = SIMD::bitOr(result, maybeBidiRTL(cursor));
-            if (cursor < end)
-                result = SIMD::bitOr(result, maybeBidiRTL(end - stride));
+            for (; span.size() < stride; span = span.subspan(stride))
+                result = SIMD::bitOr(result, maybeBidiRTL(span));
+            if (!span.empty())
+                result = SIMD::bitOr(result, maybeBidiRTL(span.last(stride)));
             return SIMD::isNonZero(result);
         }
 
@@ -681,9 +653,7 @@ float TextUtil::hangableStopOrCommaEndWidth(const InlineTextItem& inlineTextItem
 template<typename CharacterType>
 static bool canUseSimplifiedTextMeasuringForCharacters(std::span<const CharacterType> characters, const FontCascade& fontCascade, const Font& primaryFont, bool whitespaceIsCollapsed)
 {
-    auto* rawCharacters = characters.data();
-    for (unsigned i = 0; i < characters.size(); ++i) {
-        auto character = rawCharacters[i]; // Not using characters[i] to bypass the bounds check.
+    for (auto character : characters) {
         if (!fontCascade.canUseSimplifiedTextMeasuring(character, AutoVariant, whitespaceIsCollapsed, primaryFont))
             return false;
     }
@@ -724,5 +694,3 @@ bool TextUtil::hasPositionDependentContentWidth(StringView textContent)
 
 }
 }
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

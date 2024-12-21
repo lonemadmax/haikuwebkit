@@ -551,7 +551,7 @@ class GitHubMixin(object):
 
 
 class ShellMixin(object):
-    WINDOWS_SHELL_PLATFORMS = ['win']
+    WINDOWS_SHELL_PLATFORMS = ['win', 'playstation']
 
     def has_windows_shell(self):
         return self.getProperty('platform', '*') in self.WINDOWS_SHELL_PLATFORMS
@@ -1304,8 +1304,14 @@ class CheckChangeRelevance(AnalyzeChange):
     ]
 
     safer_cpp_path_regexes = [
-        re.compile(rb'Source/WebKit', re.IGNORECASE),
         re.compile(rb'Source/WebCore', re.IGNORECASE),
+        re.compile(rb'Source/WebDriver', re.IGNORECASE),
+        re.compile(rb'Source/WebGPU', re.IGNORECASE),
+        re.compile(rb'Source/WebInspectorUI', re.IGNORECASE),
+        re.compile(rb'Source/WebKit', re.IGNORECASE),
+        re.compile(rb'Source/WebKitLegacy', re.IGNORECASE),
+        re.compile(rb'Source/WTF', re.IGNORECASE),
+        re.compile(rb'Source/JavaScriptCore', re.IGNORECASE),
         re.compile(rb'Tools/Scripts/build-and-analyze', re.IGNORECASE),
         re.compile(rb'Tools/Scripts/generate-dirty-files', re.IGNORECASE),
         re.compile(rb'Tools/Scripts/compare-static-analysis-results', re.IGNORECASE),
@@ -2037,6 +2043,54 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
         except Exception as e:
             yield self._addToLog('stdio', f'Error in sending email for github failure: {e}')
         return defer.returnValue(None)
+
+
+class ValidateUserForQueue(buildstep.BuildStep, AddToLogMixin):
+    name = 'validate-user-for-queue'
+    description = ['validate-user-for-queue running']
+    descriptionDone = ['Validated user for queue']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.contributors = {}
+
+    def getResultSummary(self):
+        if self.results == [FAILURE, SKIPPED]:
+            return {'step': self.descriptionDone}
+        return buildstep.BuildStep.getResultSummary(self)
+
+    def is_committer(self, email):
+        contributor = self.contributors.get(email.lower())
+        return contributor and contributor['status'] in ['reviewer', 'committer']
+
+    @defer.inlineCallbacks
+    def run(self):
+        self.contributors, errors = yield Contributors.load(use_network=True)
+        for error in errors:
+            yield self._addToLog('stdio', error)
+
+        if not self.contributors:
+            self.descriptionDone = 'Failed to get contributors information'
+            self.build.buildFinished(['Failed to get contributors information'], FAILURE)
+            defer.returnValue(FAILURE)
+            return
+
+        pr_number = self.getProperty('github.number', '')
+        if pr_number:
+            committer = (self.getProperty('owners', []) or [''])[0]
+        else:
+            committer = self.getProperty('patch_committer', '').lower()
+
+        if not self.is_committer(committer):
+            yield self._addToLog('stdio', f'{committer} does not have committer status.\n')
+            self.descriptionDone = f'Skipping queue, as {committer} lacks committer status'
+            self.build.results = SKIPPED
+            self.build.buildFinished([f'Skipping queue, as {committer} lacks committer status'], SKIPPED)
+            defer.returnValue(FAILURE)
+            return
+
+        yield self._addToLog('stdio', f'{committer} has committer status.\n')
+        defer.returnValue(SUCCESS)
 
 
 class ValidateCommitterAndReviewer(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
@@ -7427,7 +7481,7 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
         if num_passes:
             pluralSuffix = 's' if num_passes > 1 else ''
             pluralCommand = 's' if len(commands_for_comment) > 1 else ''
-            comment += f'\n:warning: Found {num_passes} fixed file{pluralSuffix}! Please update expectations in `Source/[WebKit/WebCore]/SaferCPPExpectations` by running the following command{pluralCommand} and update your {self.change_type}:\n'
+            comment += f'\n:warning: Found {num_passes} fixed file{pluralSuffix}! Please update expectations in `Source/[Project]/SaferCPPExpectations` by running the following command{pluralCommand} and update your {self.change_type}:\n'
             comment += '\n'.join([f"- `{c}`" for c in commands_for_comment])
 
         self.setProperty('comment_text', comment)

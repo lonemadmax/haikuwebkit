@@ -30,6 +30,7 @@
 #include "FrameDestructionObserverInlines.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
+#include "Page.h"
 #include "ResourceLoadObserver.h"
 #include "SecurityOrigin.h"
 #include <wtf/MainThread.h>
@@ -120,14 +121,18 @@ UserGestureIndicator::UserGestureIndicator(std::optional<IsProcessingUserGesture
         currentToken() = UserGestureToken::create(isProcessingUserGesture.value(), gestureType, document, authorizationToken, canRequestDOMPaste);
 
     if (isProcessingUserGesture && document && currentToken()->processingUserGesture()) {
+        bool oldHadUserInteraction = document->hasHadUserInteraction();
         document->updateLastHandledUserGestureTimestamp(currentToken()->startTime());
         if (processInteractionStyle == ProcessInteractionStyle::Immediate)
             ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(document->topDocument());
-        document->topDocument().setUserDidInteractWithPage(true);
-        if (RefPtr frame = document->frame(); frame && !frame->hasHadUserInteraction()) {
+        if (RefPtr page = document->protectedPage())
+            page->setUserDidInteractWithPage(true);
+        if (RefPtr frame = document->frame(); frame && !oldHadUserInteraction) {
             for (RefPtr<Frame> ancestor = WTFMove(frame); ancestor; ancestor = ancestor->tree().parent()) {
-                if (RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor))
-                    localAncestor->setHasHadUserInteraction();
+                if (RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor)) {
+                    if (RefPtr ancestorDocument = localAncestor->protectedDocument())
+                        ancestorDocument->updateLastHandledUserGestureTimestamp(currentToken()->startTime());
+                }
             }
         }
 

@@ -165,13 +165,15 @@ bool GraphicsLayer::supportsLayerType(Type type)
 }
 #endif
 
-#if !USE(COORDINATED_GRAPHICS)
 bool GraphicsLayer::supportsContentsTiling()
 {
+#if USE(COORDINATED_GRAPHICS)
+    return true;
+#else
     // FIXME: Enable the feature on different ports.
     return false;
-}
 #endif
+}
 
 // Singleton client used for layers on which clearClient has been called.
 class EmptyGraphicsLayerClient final : public GraphicsLayerClient {
@@ -212,6 +214,7 @@ GraphicsLayer::GraphicsLayer(Type type, GraphicsLayerClient& layerClient)
     , m_shouldPaintUsingCompositeCopy(false)
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     , m_isSeparated(false)
+    , m_isSeparatedImage(false)
 #if HAVE(CORE_ANIMATION_SEPARATED_PORTALS)
     , m_isSeparatedPortal(false)
     , m_isDescendentOfSeparatedPortal(false)

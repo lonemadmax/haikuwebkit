@@ -27,6 +27,7 @@
 #include "PixelBuffer.h"
 
 #include <JavaScriptCore/TypedArrayInlines.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/TextStream.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -108,7 +109,7 @@ bool PixelBuffer::setRange(std::span<const uint8_t> data, size_t byteOffset)
     if (!isSumSmallerThanOrEqual(byteOffset, data.size(), m_bytes.size()))
         return false;
 
-    memmove(m_bytes.data() + byteOffset, data.data(), data.size());
+    memmoveSpan(m_bytes.subspan(byteOffset), data);
     return true;
 }
 
@@ -117,7 +118,7 @@ bool PixelBuffer::zeroRange(size_t byteOffset, size_t rangeByteLength)
     if (!isSumSmallerThanOrEqual(byteOffset, rangeByteLength, m_bytes.size()))
         return false;
 
-    memset(m_bytes.data() + byteOffset, 0, rangeByteLength);
+    zeroSpan(m_bytes.subspan(byteOffset, rangeByteLength));
     return true;
 }
 

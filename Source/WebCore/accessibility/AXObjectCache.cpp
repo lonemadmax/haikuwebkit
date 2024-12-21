@@ -115,6 +115,7 @@
 #include "RenderProgress.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSlider.h"
+#include "RenderStyleInlines.h"
 #include "RenderTable.h"
 #include "RenderTableCell.h"
 #include "RenderTableRow.h"
@@ -1050,7 +1051,6 @@ RefPtr<AXIsolatedTree> AXObjectCache::getOrCreateIsolatedTree()
             m_buildIsolatedTreeTimer.startOneShot(0_s);
     } else
         tree = AXIsolatedTree::create(*this);
-    setIsolatedTreeRoot(tree->rootNode().get());
 
     initializeAXThreadIfNeeded();
 
@@ -1065,8 +1065,6 @@ void AXObjectCache::buildIsolatedTree()
         return;
 
     auto tree = AXIsolatedTree::create(*this);
-    setIsolatedTreeRoot(tree->rootNode().get());
-
     if (RefPtr webArea = rootWebArea()) {
         postPlatformNotification(*webArea, AXNotification::LoadComplete);
         postPlatformNotification(*webArea, AXNotification::FocusedUIElementChanged);
@@ -1076,7 +1074,7 @@ void AXObjectCache::buildIsolatedTree()
 AXCoreObject* AXObjectCache::isolatedTreeRootObject()
 {
     if (auto tree = getOrCreateIsolatedTree())
-        return tree->rootNode().get();
+        return tree->rootNode();
 
     // Should not get here, couldn't create the IsolatedTree.
     ASSERT_NOT_REACHED();
@@ -1994,7 +1992,7 @@ void AXObjectCache::onStyleChange(RenderText& renderText, StyleDifference differ
     if (!object)
         return;
 
-    if (oldStyle->fontCascade() != newStyle.fontCascade())
+    if (!oldStyle->fontCascadeEqual(newStyle))
         tree->queueNodeUpdate(object->objectID(), { AXPropertyName::Font });
 
     if (oldStyle->visitedDependentColor(CSSPropertyColor) != newStyle.visitedDependentColor(CSSPropertyColor))

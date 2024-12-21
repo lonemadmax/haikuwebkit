@@ -42,7 +42,9 @@
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
 #include "RenderMenuList.h"
+#include "RenderSVGInline.h"
 #include "RenderSlider.h"
+#include "RenderStyleInlines.h"
 #include "RenderStyleSetters.h"
 #include "RenderTable.h"
 #include "RenderTextControl.h"
@@ -177,7 +179,16 @@ void BoxTreeUpdater::adjustStyleIfNeeded(const RenderElement& renderer, RenderSt
                 styleToAdjust.resetBorderRight();
                 styleToAdjust.setPaddingRight(RenderStyle::initialPadding());
             }
-            if ((styleToAdjust.display() == DisplayType::RubyBase || styleToAdjust.display() == DisplayType::RubyAnnotation) && renderInline->parent()->style().display() != DisplayType::Ruby)
+
+            auto isSupportedInlineDisplay = [&] {
+                auto display = styleToAdjust.display();
+                if (display == DisplayType::RubyBase || display == DisplayType::RubyAnnotation)
+                    return renderInline->parent()->style().display() == DisplayType::Ruby;
+                if (is<RenderSVGInline>(*renderInline))
+                    return display == DisplayType::Inline;
+                return styleToAdjust.isDisplayInlineType();
+            };
+            if (!isSupportedInlineDisplay())
                 styleToAdjust.setDisplay(DisplayType::Inline);
             return;
         }
@@ -301,7 +312,7 @@ void BoxTreeUpdater::insertChild(UniqueRef<Layout::Box> childBox, RenderObject& 
 static void updateContentCharacteristic(const RenderText& rendererText, Layout::InlineTextBox& inlineTextBox)
 {
     auto& rendererStyle = rendererText.style();
-    auto shouldUpdateContentCharacteristic = rendererStyle.fontCascade() != inlineTextBox.style().fontCascade();
+    auto shouldUpdateContentCharacteristic = !rendererStyle.fontCascadeEqual(inlineTextBox.style());
     if (!shouldUpdateContentCharacteristic)
         return;
 

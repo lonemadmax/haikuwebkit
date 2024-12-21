@@ -742,6 +742,7 @@ struct LineDecorationStyle {
         , hasLinethrough(hasLinethrough)
         , linethroughColor(linethroughColor)
     { }
+    bool operator==(const LineDecorationStyle&) const = default;
 
     String debugDescription() const;
 };
@@ -757,6 +758,8 @@ struct AttributedStringStyle {
     bool hasTextShadow { false };
     LineDecorationStyle lineStyle;
 
+    bool operator==(const AttributedStringStyle&) const = default;
+
     bool hasUnderline() const { return lineStyle.hasUnderline; }
     Color underlineColor() const { return lineStyle.underlineColor; }
     bool hasLinethrough() const { return lineStyle.hasLinethrough; }
@@ -768,6 +771,14 @@ enum class AXDebugStringOption {
     IsRemoteFrame,
     RelativeFrame,
     RemoteFrameOffset
+};
+
+enum class TextEmissionBehavior : uint8_t {
+    None,
+    Space,
+    Tab,
+    Newline,
+    DoubleNewline
 };
 
 class AXCoreObject : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<AXCoreObject> {
@@ -1036,6 +1047,7 @@ public:
     virtual AccessibilityChildrenVector radioButtonGroup() const = 0;
 
     bool hasPopup() const;
+    bool selfOrAncestorLinkHasPopup() const;
     virtual String popupValue() const = 0;
     virtual bool supportsHasPopup() const = 0;
     virtual bool pressedIsPresent() const = 0;
@@ -1043,6 +1055,7 @@ public:
     virtual bool supportsExpanded() const = 0;
     virtual bool supportsChecked() const = 0;
     virtual AccessibilitySortDirection sortDirection() const = 0;
+    AccessibilitySortDirection sortDirectionIncludingAncestors() const;
     virtual bool supportsRangeValue() const = 0;
     virtual String identifierAttribute() const = 0;
     virtual String linkRelValue() const = 0;
@@ -1111,7 +1124,8 @@ public:
     virtual std::optional<String> textContent() const = 0;
 #if ENABLE(AX_THREAD_TEXT_APIS)
     virtual bool hasTextRuns() = 0;
-    virtual bool shouldEmitNewlinesBeforeAndAfterNode() const = 0;
+    virtual TextEmissionBehavior emitTextAfterBehavior() const = 0;
+    bool emitsNewlineAfter() const;
 #endif
 
     // Methods for determining accessibility text.
@@ -1332,7 +1346,6 @@ public:
     static bool liveRegionStatusIsEnabled(const AtomString&);
     bool supportsLiveRegion(bool excludeIfOff = true) const;
     virtual AXCoreObject* liveRegionAncestor(bool excludeIfOff = true) const = 0;
-    bool isInsideLiveRegion(bool excludeIfOff = true) const;
     virtual const String liveRegionStatus() const = 0;
     virtual const String liveRegionRelevant() const = 0;
     virtual bool liveRegionAtomic() const = 0;
@@ -1515,11 +1528,6 @@ inline SpinButtonType AXCoreObject::spinButtonType()
     return incrementButton() || decrementButton() ? SpinButtonType::Composite : SpinButtonType::Standalone;
 }
 
-inline bool AXCoreObject::isInsideLiveRegion(bool excludeIfOff) const
-{
-    return liveRegionAncestor(excludeIfOff);
-}
-
 inline bool AXCoreObject::canSetTextRangeAttributes() const
 {
     return isTextControl();
@@ -1552,6 +1560,14 @@ inline Vector<AXID> AXCoreObject::childrenIDs(bool updateChildrenIfNeeded)
 {
     return axIDs(children(updateChildrenIfNeeded));
 }
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+inline bool AXCoreObject::emitsNewlineAfter() const
+{
+    auto behavior = emitTextAfterBehavior();
+    return behavior == TextEmissionBehavior::Newline || behavior == TextEmissionBehavior::DoubleNewline;
+}
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
 
 namespace Accessibility {
 

@@ -27,6 +27,7 @@
 
 #if ENABLE(PDF_PLUGIN)
 
+#include "CursorContext.h"
 #include "FrameInfoData.h"
 #include "PDFPluginIdentifier.h"
 #include "WebFoundTextRange.h"
@@ -34,6 +35,8 @@
 #include <WebCore/AffineTransform.h>
 #include <WebCore/FindOptions.h>
 #include <WebCore/FloatRect.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/PluginViewBase.h>
 #include <WebCore/ScrollTypes.h>
@@ -42,6 +45,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/Identified.h>
 #include <wtf/Lock.h>
+#include <wtf/MainThread.h>
 #include <wtf/Range.h>
 #include <wtf/RangeSet.h>
 #include <wtf/RetainPtr.h>
@@ -83,6 +87,9 @@ class WebFrame;
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebWheelEvent;
+enum class SelectionEndpoint : bool;
+enum class SelectionWasFlipped : bool;
+struct EditorState;
 struct WebHitTestResultData;
 
 enum class ByteRangeRequestIdentifierType;
@@ -90,12 +97,18 @@ using ByteRangeRequestIdentifier = ObjectIdentifier<ByteRangeRequestIdentifierTy
 
 enum class CheckValidRanges : bool { No, Yes };
 
+template<typename T>
+concept CanMakeFloatRect = requires(T t)
+{
+    { WebCore::FloatRect { t } } -> std::same_as<WebCore::FloatRect>;
+};
+
 struct PDFPluginPasteboardItem {
     RetainPtr<NSData> data;
     RetainPtr<NSString> type;
 };
 
-class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public CanMakeThreadSafeCheckedPtr<PDFPluginBase>, public WebCore::ScrollableArea, public Identified<PDFPluginIdentifier> {
+class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase, WTF::DestructionThread::Main>, public CanMakeThreadSafeCheckedPtr<PDFPluginBase>, public WebCore::ScrollableArea, public Identified<PDFPluginIdentifier> {
     WTF_MAKE_NONCOPYABLE(PDFPluginBase);
     WTF_MAKE_TZONE_ALLOCATED(PDFPluginBase);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PDFPluginBase);
@@ -166,6 +179,7 @@ public:
     virtual bool handleEditingCommand(const String& commandName, const String& argument) = 0;
     virtual bool isEditingCommandEnabled(const String& commandName) = 0;
 
+    virtual String fullDocumentString() const { return { }; }
     virtual String selectionString() const = 0;
     virtual bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const = 0;
     virtual WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const = 0;
@@ -203,10 +217,25 @@ public:
     void streamDidFinishLoading();
     void streamDidFail();
 
-    WebCore::IntPoint convertFromRootViewToPlugin(const WebCore::IntPoint&) const;
-    WebCore::IntRect convertFromRootViewToPlugin(const WebCore::IntRect&) const;
-    WebCore::IntPoint convertFromPluginToRootView(const WebCore::IntPoint&) const;
-    WebCore::IntRect convertFromPluginToRootView(const WebCore::IntRect&) const;
+    template<typename T>
+    T convertFromRootViewToPlugin(const T& value) const
+    {
+        if constexpr (CanMakeFloatRect<T>)
+            return m_rootViewToPluginTransform.mapRect(value);
+        else
+            return m_rootViewToPluginTransform.mapPoint(value);
+    }
+
+    template<typename T>
+    T convertFromPluginToRootView(const T& value) const
+    {
+        auto inverseTransform = m_rootViewToPluginTransform.inverse();
+        if constexpr (CanMakeFloatRect<T>)
+            return inverseTransform->mapRect(value);
+        else
+            return inverseTransform->mapPoint(value);
+    }
+
     WebCore::IntRect boundsOnScreen() const;
 
     bool showContextMenuAtPoint(const WebCore::IntPoint&);
@@ -260,7 +289,7 @@ public:
     virtual void setPDFDisplayModeForTesting(const String&) { }
     void registerPDFTest(RefPtr<WebCore::VoidCallback>&&);
 
-    void navigateToURL(const URL&);
+    void navigateToURL(const URL&, std::optional<WebCore::PlatformMouseEvent>&& = std::nullopt);
 
     virtual void attemptToUnlockPDF(const String& password) = 0;
 
@@ -281,15 +310,27 @@ public:
     virtual void didSameDocumentNavigationForFrame(WebFrame&) { }
 
     using PasteboardItem = PDFPluginPasteboardItem;
-#if PLATFORM(MAC)
-    void writeItemsToPasteboard(NSString *pasteboardName, Vector<PasteboardItem>&&) const;
-#endif
+    void writeItemsToGeneralPasteboard(Vector<PasteboardItem>&&) const;
 
     uint64_t streamedBytes() const;
     std::optional<WebCore::FrameIdentifier> rootFrameID() const final;
 
+#if PLATFORM(IOS_FAMILY)
+    virtual void setSelectionRange(WebCore::FloatPoint /* pointInRootView */, WebCore::TextGranularity) { }
+    virtual void clearSelection() { }
+    virtual std::pair<URL, WebCore::FloatRect> linkURLAndBoundsAtPoint(WebCore::FloatPoint /* pointInRootView */) const { return { }; }
+    virtual std::optional<WebCore::FloatRect> highlightRectForTapAtPoint(WebCore::FloatPoint /* pointInRootView */) const { return std::nullopt; }
+    virtual void handleSyntheticClick(WebCore::PlatformMouseEvent&&) { }
+    virtual SelectionWasFlipped moveSelectionEndpoint(WebCore::FloatPoint /* pointInRootView */, SelectionEndpoint);
+    virtual SelectionEndpoint extendInitialSelection(WebCore::FloatPoint /* pointInRootView */, WebCore::TextGranularity);
+    virtual CursorContext cursorContext(WebCore::FloatPoint /* pointInRootView */) const { return { }; }
+#endif
+
+    bool populateEditorStateIfNeeded(EditorState&) const;
+
 protected:
     virtual double contentScaleFactor() const = 0;
+    virtual bool platformPopulateEditorStateIfNeeded(EditorState&) const { return false; }
 
 private:
     bool documentFinishedLoading() const { return m_documentFinishedLoading; }
@@ -391,6 +432,17 @@ protected:
     virtual void teardownPasswordEntryForm() = 0;
 
     String annotationStyle() const;
+
+    static NSString *htmlPasteboardType();
+    static NSString *rtfPasteboardType();
+    static NSString *stringPasteboardType();
+    static NSString *urlPasteboardType();
+
+#if PLATFORM(MAC)
+    void writeStringToFindPasteboard(const String&) const;
+#endif
+
+    std::optional<WebCore::PageIdentifier> pageIdentifier() const;
 
     SingleThreadWeakPtr<PluginView> m_view;
     WeakPtr<WebFrame> m_frame;

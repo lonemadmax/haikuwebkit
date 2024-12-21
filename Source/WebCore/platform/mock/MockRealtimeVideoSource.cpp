@@ -138,10 +138,9 @@ const FontCascade& MockRealtimeVideoSource::DrawingState::statsFont()
 MockRealtimeVideoSource::MockRealtimeVideoSource(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : RealtimeVideoCaptureSource(CaptureDevice { WTFMove(deviceID), CaptureDevice::DeviceType::Camera, WTFMove(name) }, WTFMove(hashSalts), pageIdentifier)
     , m_runLoop(RunLoop::create("WebKit::MockRealtimeVideoSource generateFrame runloop"_s))
-    , m_emitFrameTimer(m_runLoop.get(), [protectedThis = Ref { *this }] { protectedThis->generateFrame(); })
+    , m_emitFrameTimer(m_runLoop.get(), this, &MockRealtimeVideoSource::generateFrame)
     , m_deviceOrientation { VideoFrameRotation::None }
 {
-
     allMockRealtimeVideoSource().add(*this);
 
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(persistentID());
@@ -700,8 +699,26 @@ bool MockRealtimeVideoSource::mockDisplayType(CaptureDevice::DeviceType type) co
     return std::get<MockDisplayProperties>(m_device.properties).type == type;
 }
 
+void MockRealtimeVideoSource::rotationAngleForHorizonLevelDisplayChanged(const String& persistentID, VideoFrameRotation rotation)
+{
+    if (this->persistentID() != persistentID) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    m_isUsingRotationAngleForHorizonLevelDisplayChanged = true;
+    if (rotation == m_deviceOrientation)
+        return;
+
+    m_deviceOrientation = rotation;
+    notifySettingsDidChangeObservers({ RealtimeMediaSourceSettings::Flag::Width, RealtimeMediaSourceSettings::Flag::Height });
+}
+
 void MockRealtimeVideoSource::orientationChanged(IntDegrees orientation)
 {
+    if (m_isUsingRotationAngleForHorizonLevelDisplayChanged)
+        return;
+
     auto deviceOrientation = m_deviceOrientation;
     switch (orientation) {
     case 0:

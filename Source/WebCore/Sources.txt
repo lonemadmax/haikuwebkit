@@ -328,7 +328,6 @@ Modules/push-api/PushDatabase.cpp
 Modules/push-api/PushEvent.cpp
 Modules/push-api/PushMessageCrypto.cpp
 Modules/push-api/PushMessageData.cpp
-Modules/push-api/PushNotificationEvent.cpp
 Modules/push-api/PushSubscription.cpp
 Modules/push-api/PushSubscriptionChangeEvent.cpp
 Modules/push-api/PushSubscriptionData.cpp
@@ -463,6 +462,7 @@ Modules/webcodecs/WebCodecsAudioDecoder.cpp
 Modules/webcodecs/WebCodecsAudioData.cpp
 Modules/webcodecs/WebCodecsAudioDataAlgorithms.cpp
 Modules/webcodecs/WebCodecsAudioEncoder.cpp
+Modules/webcodecs/WebCodecsBase.cpp
 Modules/webcodecs/WebCodecsEncodedAudioChunk.cpp
 Modules/webcodecs/WebCodecsEncodedVideoChunk.cpp
 Modules/webcodecs/WebCodecsVideoDecoder.cpp
@@ -877,6 +877,7 @@ css/CSSCounterValue.cpp
 css/CSSCrossfadeValue.cpp
 css/CSSCursorImageValue.cpp
 css/CSSCustomPropertyValue.cpp
+css/CSSEasingFunctionValue.cpp
 css/CSSFilterImageValue.cpp
 css/CSSFilterPropertyValue.cpp
 css/CSSFontFace.cpp
@@ -946,7 +947,6 @@ css/CSSStyleSheetObservableArray.cpp
 css/CSSSubgridValue.cpp
 css/CSSSupportsRule.cpp
 css/CSSTextShadowPropertyValue.cpp
-css/CSSTimingFunctionValue.cpp
 css/CSSToLengthConversionData.cpp
 css/CSSToStyleMap.cpp
 css/CSSTransformListValue.cpp
@@ -1001,8 +1001,10 @@ css/calc/CSSCalcSymbolTable.cpp
 css/calc/CSSCalcSymbolsAllowed.cpp
 css/calc/CSSCalcTree+CalculationValue.cpp
 css/calc/CSSCalcTree+ComputedStyleDependencies.cpp
+css/calc/CSSCalcTree+ContainerProgressEvaluator.cpp
 css/calc/CSSCalcTree+Copy.cpp
 css/calc/CSSCalcTree+Evaluation.cpp
+css/calc/CSSCalcTree+MediaProgressEvaluator.cpp
 css/calc/CSSCalcTree+Parser.cpp
 css/calc/CSSCalcTree+Serialization.cpp
 css/calc/CSSCalcTree+Simplification.cpp
@@ -1027,7 +1029,6 @@ css/parser/CSSPropertyParserConsumer+Animations.cpp
 css/parser/CSSPropertyParserConsumer+Attr.cpp
 css/parser/CSSPropertyParserConsumer+Background.cpp
 css/parser/CSSPropertyParserConsumer+Box.cpp
-css/parser/CSSPropertyParserConsumer+CSSPrimitiveValueResolver.cpp
 css/parser/CSSPropertyParserConsumer+Color.cpp
 css/parser/CSSPropertyParserConsumer+ColorAdjust.cpp
 css/parser/CSSPropertyParserConsumer+ColorInterpolationMethod.cpp
@@ -1036,6 +1037,7 @@ css/parser/CSSPropertyParserConsumer+Contain.cpp
 css/parser/CSSPropertyParserConsumer+Content.cpp
 css/parser/CSSPropertyParserConsumer+CounterStyles.cpp
 css/parser/CSSPropertyParserConsumer+Display.cpp
+css/parser/CSSPropertyParserConsumer+Easing.cpp
 css/parser/CSSPropertyParserConsumer+Filter.cpp
 css/parser/CSSPropertyParserConsumer+Font.cpp
 css/parser/CSSPropertyParserConsumer+Grid.cpp
@@ -1056,6 +1058,7 @@ css/parser/CSSPropertyParserConsumer+Page.cpp
 css/parser/CSSPropertyParserConsumer+Percentage.cpp
 css/parser/CSSPropertyParserConsumer+PointerEvents.cpp
 css/parser/CSSPropertyParserConsumer+Position.cpp
+css/parser/CSSPropertyParserConsumer+PositionTry.cpp
 css/parser/CSSPropertyParserConsumer+Primitives.cpp
 css/parser/CSSPropertyParserConsumer+Resolution.cpp
 css/parser/CSSPropertyParserConsumer+Ruby.cpp
@@ -1072,7 +1075,6 @@ css/parser/CSSPropertyParserConsumer+Text.cpp
 css/parser/CSSPropertyParserConsumer+TextDecoration.cpp
 css/parser/CSSPropertyParserConsumer+Time.cpp
 css/parser/CSSPropertyParserConsumer+Timeline.cpp
-css/parser/CSSPropertyParserConsumer+TimingFunction.cpp
 css/parser/CSSPropertyParserConsumer+Transform.cpp
 css/parser/CSSPropertyParserConsumer+Transitions.cpp
 css/parser/CSSPropertyParserConsumer+UI.cpp
@@ -1289,12 +1291,12 @@ dom/InternalObserverFromScript.cpp
 dom/InternalObserverInspect.cpp
 dom/InternalObserverLast.cpp
 dom/InternalObserverMap.cpp
+dom/InternalObserverReduce.cpp
 dom/InternalObserverSome.cpp
 dom/InternalObserverTake.cpp
 dom/KeyboardEvent.cpp
 dom/LiveNodeList.cpp
 dom/LoadableClassicScript.cpp
-dom/LoadableImportMap.cpp
 dom/LoadableModuleScript.cpp
 dom/LoadableScript.cpp
 dom/MessageChannel.cpp
@@ -2018,6 +2020,8 @@ loader/ResourceLoadNotifier.cpp
 loader/ResourceLoadObserver.cpp
 loader/ResourceLoadStatistics.cpp
 loader/ResourceLoader.cpp
+loader/ResourceMonitor.cpp
+loader/ResourceMonitorChecker.cpp
 loader/ResourceTiming.cpp
 loader/ResourceTimingInformation.cpp
 loader/ServerTiming.cpp
@@ -2955,6 +2959,7 @@ rendering/style/StyleDeprecatedFlexibleBoxData.cpp
 rendering/style/StyleFilterData.cpp
 rendering/style/StyleFilterImage.cpp
 rendering/style/StyleFlexibleBoxData.cpp
+rendering/style/StyleFontData.cpp
 rendering/style/StyleGeneratedImage.cpp
 rendering/style/StyleGradientImage.cpp
 rendering/style/StyleGridData.cpp
@@ -3133,6 +3138,11 @@ style/values/color/StyleHexColor.cpp
 style/values/color/StyleKeywordColor.cpp
 style/values/color/StyleLightDarkColor.cpp
 style/values/color/StyleResolvedColor.cpp
+style/values/easing/StyleCubicBezierEasingFunction.cpp
+style/values/easing/StyleEasingFunction.cpp
+style/values/easing/StyleLinearEasingFunction.cpp
+style/values/easing/StyleSpringEasingFunction.cpp
+style/values/easing/StyleStepsEasingFunction.cpp
 style/values/filter-effects/StyleAppleColorFilterProperty.cpp
 style/values/filter-effects/StyleAppleInvertLightnessFunction.cpp
 style/values/filter-effects/StyleBlurFunction.cpp
@@ -3418,6 +3428,7 @@ xml/parser/XMLDocumentParserScope.cpp
 CSSPropertyParsing.cpp
 CSSValueKeywords.cpp
 ColorData.cpp
+DocumentSyncData.cpp
 EventFactory.cpp
 EventNames.cpp
 EventTargetFactory.cpp
@@ -4344,8 +4355,6 @@ JSPushEvent.cpp
 JSPushEventInit.cpp
 JSPushManager.cpp
 JSPushMessageData.cpp
-JSPushNotificationEvent.cpp
-JSPushNotificationEventInit.cpp
 JSPushPermissionState.cpp
 JSPushSubscription.cpp
 JSPushSubscriptionChangeEvent.cpp
@@ -4354,6 +4363,7 @@ JSPushSubscriptionJSON.cpp
 JSPushSubscriptionOptions.cpp
 JSPushSubscriptionOptionsInit.cpp
 JSRedEyeReduction.cpp
+JSReducerCallback.cpp
 JSRTCAnswerOptions.cpp
 JSRTCLogsCallback.cpp
 JSRTCCertificate.cpp

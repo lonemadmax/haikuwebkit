@@ -31,6 +31,7 @@
 #include "LibWebRTCMacros.h"
 #include "Logging.h"
 #include <algorithm>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/UniqueRef.h>
 
@@ -173,7 +174,7 @@ int32_t Dav1dDecoder::Decode(const webrtc::EncodedImage& encodedImage, bool /*mi
 
     ScopedDav1dData scopedDav1dData;
     Dav1dData& dav1dData = scopedDav1dData.Data();
-    memset(&dav1dData, 0, sizeof(Dav1dData));
+    zeroBytes(dav1dData);
     auto* data = encodedImage.data();
     auto size = encodedImage.size();
     if (!data || !size) {
@@ -189,7 +190,7 @@ int32_t Dav1dDecoder::Decode(const webrtc::EncodedImage& encodedImage, bool /*mi
 
     ScopedDav1dPicture scopedDav1dPicture;
     Dav1dPicture& dav1dPicture = scopedDav1dPicture.Picture();
-    memset(&dav1dPicture, 0, sizeof(Dav1dPicture));
+    zeroBytes(dav1dPicture);
 
     if (int res = dav1d_get_picture(m_context, &dav1dPicture)) {
         RELEASE_LOG_ERROR(WebRTC, "Dav1dDecoder::Decode getting picture failed with error code %d", res);
@@ -227,7 +228,7 @@ int32_t Dav1dDecoder::Decode(const webrtc::EncodedImage& encodedImage, bool /*mi
         .set_color_space(encodedImage.ColorSpace())
         .build();
 
-    m_decodeCompleteCallback->Decoded(decodedFrame, absl::nullopt, absl::nullopt);
+    m_decodeCompleteCallback->Decoded(decodedFrame, std::nullopt, std::nullopt);
     return WEBRTC_VIDEO_CODEC_OK;
 }
 

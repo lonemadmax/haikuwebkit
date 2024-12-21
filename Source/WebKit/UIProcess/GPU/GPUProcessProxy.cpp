@@ -37,6 +37,7 @@
 #include "GPUProcessSessionParameters.h"
 #include "Logging.h"
 #include "OverrideLanguages.h"
+#include "ProcessTerminationReason.h"
 #include "ProvisionalPageProxy.h"
 #include "WebPageGroup.h"
 #include "WebPageMessages.h"
@@ -179,8 +180,6 @@ GPUProcessProxy::GPUProcessProxy()
 #endif
 #endif // ENABLE(MEDIA_STREAM)
 
-    parameters.parentPID = getCurrentProcessID();
-
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
     parameters.containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory());
     auto containerTemporaryDirectory = WebsiteDataStore::defaultResolvedContainerTemporaryDirectory();
@@ -274,6 +273,7 @@ static const ASCIILiteral appleCameraUserClientIOKitClientClass { "H11ANEInDirec
 static const ASCIILiteral appleCameraUserClientIOKitServiceClass { "H11ANEIn"_s };
 #endif
 
+#if PLATFORM(COCOA)
 static inline bool addCameraSandboxExtensions(Vector<SandboxExtension::Handle>& extensions)
 {
     auto sandboxExtensionHandle = SandboxExtension::createHandleForGenericExtension("com.apple.webkit.camera"_s);
@@ -338,6 +338,7 @@ static inline bool addMicrophoneSandboxExtension(Vector<SandboxExtension::Handle
     extensions.append(WTFMove(*sandboxExtensionHandle));
     return true;
 }
+#endif // PLATFORM(COCOA)
 
 #if HAVE(SCREEN_CAPTURE_KIT)
 static inline bool addDisplayCaptureSandboxExtension(std::optional<audit_token_t> auditToken, Vector<SandboxExtension::Handle>& extensions)
@@ -569,6 +570,7 @@ void GPUProcessProxy::gpuProcessExited(ProcessTerminationReason reason)
     case ProcessTerminationReason::RequestedByModelProcess:
     case ProcessTerminationReason::GPUProcessCrashedTooManyTimes:
     case ProcessTerminationReason::ModelProcessCrashedTooManyTimes:
+    case ProcessTerminationReason::NonMainFrameWebContentProcessCrash:
         ASSERT_NOT_REACHED();
         break;
     }
@@ -901,6 +903,13 @@ void GPUProcessProxy::statusBarWasTapped(CompletionHandler<void()>&& completionH
 }
 #endif
 #endif // ENABLE(MEDIA_STREAM)
+
+#if HAVE(AUDIT_TOKEN)
+void GPUProcessProxy::setPresentingApplicationAuditToken(WebCore::ProcessIdentifier processIdentifier, WebCore::PageIdentifier pageIdentifier, std::optional<CoreIPCAuditToken> auditToken)
+{
+    send(Messages::GPUProcess::SetPresentingApplicationAuditToken(processIdentifier, pageIdentifier, auditToken), 0);
+}
+#endif
 
 } // namespace WebKit
 

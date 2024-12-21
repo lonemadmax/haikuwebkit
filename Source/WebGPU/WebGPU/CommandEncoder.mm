@@ -134,6 +134,8 @@ CommandEncoder::CommandEncoder(id<MTLCommandBuffer> commandBuffer, Device& devic
     m_managedTextures = [NSMutableSet set];
     m_managedBuffers = [NSMutableSet set];
 #endif
+    m_retainedBuffers = [NSMutableSet set];
+    m_retainedTextures = [NSMutableSet set];
 }
 
 CommandEncoder::CommandEncoder(Device& device)
@@ -352,15 +354,18 @@ static std::pair<id<MTLRenderPipelineState>, id<MTLDepthStencilState>> createSim
 
     static id<MTLFunction> function = nil;
     NSError *error = nil;
-    if (!function) {
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
         MTLCompileOptions* options = [MTLCompileOptions new];
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options.fastMathEnabled = YES;
         ALLOW_DEPRECATED_DECLARATIONS_END
-        id<MTLLibrary> library = [device newLibraryWithSource:@"[[vertex]] float4 vs() { return (float4)0; }" options:options error:&error];
-        ASSERT_UNUSED(error, !error);
-        function = [library newFunctionWithName:@"vs"];
-    }
+        id<MTLLibrary> library = [device newLibraryWithSource:@"[[vertex]] float4 vsNop() { return (float4)0; }" options:options error:&error];
+        if (error)
+            WTFLogAlways("%@", error); // NOLINT
+        function = [library newFunctionWithName:@"vsNop"];
+    });
+    RELEASE_ASSERT(function);
 
     mtlRenderPipelineDescriptor.vertexFunction = function;
     mtlRenderPipelineDescriptor.fragmentFunction = nil;
@@ -792,17 +797,18 @@ NSString* CommandEncoder::errorValidatingCopyBufferToBuffer(const Buffer& source
 void CommandEncoder::incrementBufferMapCount()
 {
     ++m_bufferMapCount;
-    if (m_cachedCommandBuffer)
-        m_cachedCommandBuffer->setBufferMapCount(m_bufferMapCount);
+    if (RefPtr commandBuffer = m_cachedCommandBuffer.get())
+        commandBuffer->setBufferMapCount(m_bufferMapCount);
 }
 
 void CommandEncoder::decrementBufferMapCount()
 {
     --m_bufferMapCount;
-    if (m_cachedCommandBuffer)
-        m_cachedCommandBuffer->setBufferMapCount(m_bufferMapCount);
+    if (RefPtr commandBuffer = m_cachedCommandBuffer.get())
+        commandBuffer->setBufferMapCount(m_bufferMapCount);
 }
 
+#if !ENABLE(WEBGPU_SWIFT)
 void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, Buffer& destination, uint64_t destinationOffset, uint64_t size)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copybuffertobuffer
@@ -826,6 +832,13 @@ void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOff
 
     [m_blitCommandEncoder copyFromBuffer:source.buffer() sourceOffset:static_cast<NSUInteger>(sourceOffset) toBuffer:destination.buffer() destinationOffset:static_cast<NSUInteger>(destinationOffset) size:static_cast<NSUInteger>(size)];
 }
+#else
+void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, Buffer& destination, uint64_t destinationOffset, uint64_t size)
+{
+    // FIXME: rdar://138047285
+    WebGPU::CommandEncoder_copyBufferToBuffer_thunk(this, &const_cast<Buffer&>(source), sourceOffset, &destination, destinationOffset, size);
+}
+#endif
 
 NSString* CommandEncoder::errorValidatingImageCopyBuffer(const WGPUImageCopyBuffer& imageCopyBuffer) const
 {
@@ -1358,40 +1371,50 @@ void CommandEncoder::makeInvalid(NSString* errorString)
 
     m_commandBuffer = nil;
     m_lastErrorString = errorString;
-    if (m_cachedCommandBuffer)
-        protectedCachedCommandBuffer()->makeInvalid(errorString);
+    if (RefPtr commandBuffer = m_cachedCommandBuffer.get())
+        commandBuffer->makeInvalid(errorString);
 }
 
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 void CommandEncoder::addBuffer(id<MTLBuffer> buffer)
 {
+    if (!buffer)
+        return;
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     if (buffer.storageMode == MTLStorageModeManaged)
         [m_managedBuffers addObject:buffer];
+    else
+#endif
+        [m_retainedBuffers addObject:buffer];
 }
-void CommandEncoder::addTexture(const Texture& baseTexture)
+void CommandEncoder::addTexture(id<MTLTexture> texture)
 {
-    id<MTLTexture> texture = baseTexture.texture();
+    if (!texture)
+        return;
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     if (texture.storageMode == MTLStorageModeManaged)
         [m_managedTextures addObject:texture];
+    else
+#endif
+        [m_retainedTextures addObject:texture];
 }
-#else
-void CommandEncoder::addBuffer(id<MTLBuffer>)
-{
-}
+
 void CommandEncoder::addTexture(const Texture& baseTexture)
 {
+    addTexture(baseTexture.texture());
+
     if (id<MTLSharedEvent> event = baseTexture.sharedEvent()) {
         m_sharedEvent = event;
         m_sharedEventSignalValue = baseTexture.sharedEventSignalValue();
     }
 }
-#endif
 
 void CommandEncoder::makeSubmitInvalid(NSString* errorString)
 {
     m_makeSubmitInvalid = true;
-    if (m_cachedCommandBuffer)
-        protectedCachedCommandBuffer()->makeInvalid(errorString ?: m_lastErrorString);
+    if (RefPtr commandBuffer = m_cachedCommandBuffer.get())
+        commandBuffer->makeInvalid(errorString ?: m_lastErrorString);
 }
 
 #if !ENABLE(WEBGPU_SWIFT)
@@ -2012,10 +2035,10 @@ Ref<CommandBuffer> CommandEncoder::finish(const WGPUCommandBufferDescriptor& des
 
     auto result = CommandBuffer::create(commandBuffer, m_device, m_sharedEvent, m_sharedEventSignalValue, *this);
     m_sharedEvent = nil;
-    m_cachedCommandBuffer = result;
-    m_cachedCommandBuffer->setBufferMapCount(m_bufferMapCount);
+    m_cachedCommandBuffer = result.ptr();
+    result->setBufferMapCount(m_bufferMapCount);
     if (m_makeSubmitInvalid)
-        protectedCachedCommandBuffer()->makeInvalid(m_lastErrorString);
+        result->makeInvalid(m_lastErrorString);
 
     return result;
 }

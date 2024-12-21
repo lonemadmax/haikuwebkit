@@ -606,7 +606,7 @@ static inline void findFirstAndLastAttributesInVector(Vector<SVGTextLayoutAttrib
 }
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-static inline void reverseInlineBoxRangeAndValueListsIfNeeded(Vector<SVGTextLayoutAttributes*>& attributes, Vector<InlineIterator::LeafBoxIterator>::iterator first, Vector<InlineIterator::LeafBoxIterator>::iterator last)
+static inline void reverseInlineBoxRangeAndValueListsIfNeeded(Vector<SVGTextLayoutAttributes*>& attributes, std::span<InlineIterator::LeafBoxIterator>::iterator first, std::span<InlineIterator::LeafBoxIterator>::iterator last)
 {
     // This is a copy of std::reverse(first, last). It additionally assures that the metrics map within the renderers belonging to the InlineBoxes are reordered as well.
     while (true)  {
@@ -651,8 +651,8 @@ void RenderSVGText::reorderValueListsToLogicalOrder()
     if (!lineBox)
         return;
 
-    InlineIterator::leafBoxesInLogicalOrder(lineBox, [&](auto first, auto last) {
-        reverseInlineBoxRangeAndValueListsIfNeeded(m_layoutAttributes, first, last);
+    InlineIterator::leafBoxesInLogicalOrder(lineBox, [&](auto span) {
+        reverseInlineBoxRangeAndValueListsIfNeeded(m_layoutAttributes, span.begin(), span.end());
     });
 
 }
@@ -782,16 +782,30 @@ void RenderSVGText::applyTransform(TransformationMatrix& transform, const Render
 
 VisiblePosition RenderSVGText::positionForPoint(const LayoutPoint& pointInContents, HitTestSource source, const RenderFragmentContainer* fragment)
 {
-    auto* rootBox = legacyRootBox();
-    if (!rootBox)
-        return createVisiblePosition(0, Affinity::Downstream);
+    InlineIterator::BoxIterator closestBox;
+    InlineIterator::BoxIterator lastBox;
+    for (auto& box : InlineIterator::boxesFor(*this)) {
+        auto* textBox = dynamicDowncast<InlineIterator::SVGTextBox>(box);
+        if (!textBox)
+            continue;
+        lastBox = *textBox;
+        auto rect = textBox->visualRectIgnoringBlockDirection();
+        if (pointInContents.y() < rect.y())
+            continue;
+        if (pointInContents.y() > rect.maxY())
+            continue;
+        closestBox = *textBox;
+        if (pointInContents.x() < rect.maxX())
+            break;
+    }
 
-    ASSERT(childrenInline());
-    LegacyInlineBox* closestBox = rootBox->closestLeafChildForPosition(pointInContents);
+    if (!closestBox)
+        closestBox = lastBox;
+
     if (!closestBox)
         return createVisiblePosition(0, Affinity::Downstream);
 
-    return closestBox->renderer().positionForPoint({ pointInContents.x(), LayoutUnit(closestBox->y()) }, source, fragment);
+    return const_cast<RenderObject&>(closestBox->renderer()).positionForPoint({ pointInContents.x(), LayoutUnit(closestBox->visualRectIgnoringBlockDirection().y()) }, source, fragment);
 }
 
 void RenderSVGText::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)

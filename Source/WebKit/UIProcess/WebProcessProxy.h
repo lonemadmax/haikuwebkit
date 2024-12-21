@@ -32,10 +32,10 @@
 #include "MessageReceiverMap.h"
 #include "NetworkProcessProxy.h"
 #include "ProcessLauncher.h"
-#include "ProcessTerminationReason.h"
 #include "ProcessThrottler.h"
 #include "RemoteWorkerInitializationData.h"
 #include "ResponsivenessTimer.h"
+#include "ScopedActiveMessageReceiveQueue.h"
 #include "SharedPreferencesForWebProcess.h"
 #include "SpeechRecognitionServer.h"
 #include "UserContentControllerIdentifier.h"
@@ -87,6 +87,7 @@ class PageConfiguration;
 namespace WebCore {
 class DeferrableOneShotTimer;
 class ResourceRequest;
+struct CryptoKeyData;
 struct NotificationData;
 struct PluginInfo;
 struct PrewarmInformation;
@@ -135,6 +136,7 @@ struct WebPageCreationParameters;
 struct WebPreferencesStore;
 struct WebsiteData;
 
+enum class ProcessTerminationReason : uint8_t;
 enum class ProcessThrottleState : uint8_t;
 enum class RemoteWorkerType : uint8_t;
 enum class WebsiteDataType : uint32_t;
@@ -485,6 +487,7 @@ public:
 #endif
     void getNotifications(const URL&, const String&, CompletionHandler<void(Vector<WebCore::NotificationData>&&)>&&);
     void wrapCryptoKey(Vector<uint8_t>&&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
+    void serializeAndWrapCryptoKey(WebCore::CryptoKeyData&&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
     void unwrapCryptoKey(WebCore::WrappedCryptoKey&&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
 
     void setAppBadge(std::optional<WebPageProxyIdentifier>, const WebCore::SecurityOriginData&, std::optional<uint64_t> badge);
@@ -524,6 +527,14 @@ public:
 #endif
 
     bool isAlwaysOnLoggingAllowed() const;
+
+    bool shouldRegisterServiceWorkerClients(const WebCore::Site&, PAL::SessionID) const;
+    void registerServiceWorkerClients(CompletionHandler<void()>&&);
+    void resetHasRegisteredServiceWorkerClients() { m_hasRegisteredServiceWorkerClients = false; }
+
+#if HAVE(AUDIT_TOKEN)
+    HashMap<WebCore::PageIdentifier, CoreIPCAuditToken> presentingApplicationAuditTokens() const;
+#endif
 
 private:
     Type type() const final { return Type::WebContent; }
@@ -567,6 +578,8 @@ private:
 
     void platformInitialize();
     void platformDestroy();
+
+    ProcessTerminationReason terminationReason() const;
 
     // IPC message handlers.
     void updateBackForwardItem(Ref<FrameState>&&);
@@ -813,8 +826,10 @@ private:
     Seconds m_totalSuspendedTime;
     WebCore::ProcessIdentity m_processIdentity;
 
+    bool m_hasRegisteredServiceWorkerClients { true };
+
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-    LogStream m_logStream;
+    IPC::ScopedActiveMessageReceiveQueue<LogStream> m_logStream;
 #endif
 };
 

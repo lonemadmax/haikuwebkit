@@ -29,6 +29,7 @@
 #include "APIFrameHandle.h"
 #include "APIPageConfiguration.h"
 #include "APIPageHandle.h"
+#include "APISerializedScriptValue.h"
 #include "APIUIClient.h"
 #include "AuthenticatorManager.h"
 #include "DownloadProxyMap.h"
@@ -43,6 +44,7 @@
 #include "NotificationManagerMessageHandlerMessages.h"
 #include "PageLoadState.h"
 #include "PlatformXRSystem.h"
+#include "ProcessTerminationReason.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemotePageProxy.h"
@@ -299,7 +301,7 @@ private:
         return protectedProcess()->logger();
     }
 
-    bool willStartCapture(CaptureDevice::DeviceType) const final
+    bool willStartCapture(CaptureDevice::DeviceType, PageIdentifier) const final
     {
         // FIXME: We should validate this is granted.
         return true;
@@ -310,6 +312,11 @@ private:
         // FIXME: should obtain WebContent process identity from WebContent.
         static NeverDestroyed<WebCore::ProcessIdentity> dummy;
         return dummy.get();
+    }
+
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const
+    {
+        return m_process->sharedPreferencesForWebProcess();
     }
 
     Ref<WebProcessProxy> protectedProcess() const { return m_process.get(); }
@@ -1163,6 +1170,9 @@ void WebProcessProxy::createGPUProcessConnection(GPUProcessConnectionIdentifier 
     parameters.ignoreInvalidMessageForTesting = ignoreInvalidMessageForTesting();
 #endif
     parameters.isLockdownModeEnabled = lockdownMode() == WebProcessProxy::LockdownMode::Enabled;
+#if HAVE(AUDIT_TOKEN)
+    parameters.presentingApplicationAuditTokens = presentingApplicationAuditTokens();
+#endif
     ASSERT(!m_gpuProcessConnectionIdentifier);
     m_gpuProcessConnectionIdentifier = identifier;
     protectedProcessPool()->createGPUProcessConnection(*this, WTFMove(connectionHandle), WTFMove(parameters));
@@ -1265,6 +1275,19 @@ bool WebProcessProxy::dispatchSyncMessage(IPC::Connection& connection, IPC::Deco
     return true;
 }
 
+ProcessTerminationReason WebProcessProxy::terminationReason() const
+{
+    if (!m_sharedPreferencesForWebProcess.siteIsolationEnabled)
+        return ProcessTerminationReason::Crash;
+
+    for (auto& page : m_pageMap.values()) {
+        if (this == &page->siteIsolatedProcess())
+            return ProcessTerminationReason::Crash;
+    }
+
+    return ProcessTerminationReason::NonMainFrameWebContentProcessCrash;
+}
+
 void WebProcessProxy::didClose(IPC::Connection& connection)
 {
 #if OS(DARWIN)
@@ -1273,7 +1296,7 @@ void WebProcessProxy::didClose(IPC::Connection& connection)
     WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "didClose (web process crash)");
 #endif
 
-    processDidTerminateOrFailedToLaunch(ProcessTerminationReason::Crash);
+    processDidTerminateOrFailedToLaunch(terminationReason());
 }
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
@@ -1428,7 +1451,7 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 
     if (didTerminate) {
         WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "didFinishLaunching: Invalid connection identifier (web process failed to launch)");
-        processDidTerminateOrFailedToLaunch(ProcessTerminationReason::Crash);
+        processDidTerminateOrFailedToLaunch(terminationReason());
         return;
     }
 
@@ -2808,6 +2831,15 @@ void WebProcessProxy::wrapCryptoKey(Vector<uint8_t>&& key, CompletionHandler<voi
     });
 }
 
+void WebProcessProxy::serializeAndWrapCryptoKey(WebCore::CryptoKeyData&& keyData, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&& completionHandler)
+{
+    auto key = WebCore::CryptoKey::create(WTFMove(keyData));
+    MESSAGE_CHECK_COMPLETION(key, completionHandler(std::nullopt));
+
+    auto serializedKey = API::SerializedScriptValue::serializeCryptoKey(*key);
+    wrapCryptoKey(WTFMove(serializedKey), WTFMove(completionHandler));
+}
+
 void WebProcessProxy::unwrapCryptoKey(WrappedCryptoKey&& wrappedKey, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&& completionHandler)
 {
     getWebCryptoMasterKey([wrappedKey = WTFMove(wrappedKey), completionHandler = WTFMove(completionHandler)](std::optional<Vector<uint8_t>> && masterKey) mutable {
@@ -2968,6 +3000,51 @@ bool WebProcessProxy::isAlwaysOnLoggingAllowed() const
         return page->isAlwaysOnLoggingAllowed();
     });
 }
+
+bool WebProcessProxy::shouldRegisterServiceWorkerClients(const Site& site, PAL::SessionID sessionID) const
+{
+    if (m_hasRegisteredServiceWorkerClients)
+        return false;
+
+    if (!m_websiteDataStore || this->sessionID() != sessionID)
+        return false;
+
+    if (m_site && !m_site->isEmpty() && *m_site != site)
+        return false;
+
+    for (Ref page : pages()) {
+        if (RefPtr webFrame = page->mainFrame()) {
+            if (site.matches(webFrame->url()))
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void WebProcessProxy::registerServiceWorkerClients(CompletionHandler<void()>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebProcess::RegisterServiceWorkerClients { }, [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](bool result) mutable {
+        {
+            RefPtr protectedThis = weakThis.get();
+            if (result && protectedThis)
+                protectedThis->m_hasRegisteredServiceWorkerClients = true;
+        }
+        completionHandler();
+    });
+}
+
+#if HAVE(AUDIT_TOKEN)
+HashMap<WebCore::PageIdentifier, CoreIPCAuditToken> WebProcessProxy::presentingApplicationAuditTokens() const
+{
+    HashMap<WebCore::PageIdentifier, CoreIPCAuditToken> presentingApplicationAuditTokens;
+    WTF::forEach(pages(), [&] (auto& page) {
+        if (page->presentingApplicationAuditToken())
+            presentingApplicationAuditTokens.add(page->webPageIDInMainFrameProcess(), page->presentingApplicationAuditToken().value());
+    });
+    return presentingApplicationAuditTokens;
+}
+#endif
 
 TextStream& operator<<(TextStream& ts, const WebProcessProxy& process)
 {

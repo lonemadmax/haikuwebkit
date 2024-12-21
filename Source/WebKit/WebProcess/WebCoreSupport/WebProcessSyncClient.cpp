@@ -49,7 +49,7 @@ Ref<WebPage> WebProcessSyncClient::protectedPage() const
 
 bool WebProcessSyncClient::siteIsolationEnabled()
 {
-    RefPtr<WebCore::Page> corePage = m_page->protectedCorePage();
+    RefPtr<WebCore::Page> corePage = protectedPage()->protectedCorePage();
     return corePage ? corePage->settings().siteIsolationEnabled() : false;
 }
 
@@ -59,6 +59,14 @@ void WebProcessSyncClient::broadcastProcessSyncDataToOtherProcesses(const WebCor
         return;
 
     protectedPage()->send(Messages::WebPageProxy::BroadcastProcessSyncData(data));
+}
+
+void WebProcessSyncClient::broadcastTopDocumentSyncDataToOtherProcesses(WebCore::DocumentSyncData& data)
+{
+    if (!siteIsolationEnabled())
+        return;
+
+    protectedPage()->send(Messages::WebPageProxy::BroadcastTopDocumentSyncData(data));
 }
 
 } // namespace WebKit

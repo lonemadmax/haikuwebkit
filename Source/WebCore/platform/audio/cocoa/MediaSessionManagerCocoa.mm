@@ -35,6 +35,7 @@
 #import "MediaPlayer.h"
 #import "MediaStrategy.h"
 #import "NowPlayingInfo.h"
+#import "Page.h"
 #import "PlatformMediaSession.h"
 #import "PlatformStrategies.h"
 #import "SharedBuffer.h"
@@ -60,6 +61,8 @@ static const size_t kLowPowerVideoBufferSize = 4096;
 - (void)suppressPresentationOverBundleIdentifiers:(NSSet *)bundleIdentifiers;
 @end
 #endif
+
+#define MEDIASESSIONMANAGER_RELEASE_LOG(fmt, ...) RELEASE_LOG_FORWARDABLE(Media, fmt, ##__VA_ARGS__)
 
 namespace WebCore {
 
@@ -154,13 +157,7 @@ void MediaSessionManagerCocoa::updateSessionState()
         }
     });
 
-    ALWAYS_LOG(LOGIDENTIFIER, "types: "
-        "AudioCapture(", captureCount, "), "
-        "AudioTrack(", audioMediaStreamTrackCount, "), "
-        "Video(", videoCount, "), "
-        "Audio(", audioCount, "), "
-        "VideoAudio(", videoAudioCount, "), "
-        "WebAudio(", webAudioCount, ")");
+    MEDIASESSIONMANAGER_RELEASE_LOG(MEDIASESSIONMANAGERCOCOA_UPDATESESSIONSTATE, captureCount, audioMediaStreamTrackCount, videoCount, audioCount, videoAudioCount, webAudioCount);
 
     size_t bufferSize = m_defaultBufferSize;
     if (webAudioCount)
@@ -242,9 +239,9 @@ void MediaSessionManagerCocoa::beginInterruption(PlatformMediaSession::Interrupt
     PlatformMediaSessionManager::beginInterruption(type);
 }
 
-void MediaSessionManagerCocoa::prepareToSendUserMediaPermissionRequest()
+void MediaSessionManagerCocoa::prepareToSendUserMediaPermissionRequestForPage(Page& page)
 {
-    providePresentingApplicationPIDIfNecessary();
+    providePresentingApplicationPIDIfNecessary(page.presentingApplicationPID());
 }
 
 String MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(MediaPlayer::PitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool preservesPitch, double rate)
@@ -353,13 +350,13 @@ void MediaSessionManagerCocoa::sessionWillEndPlayback(PlatformMediaSession& sess
 
 void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession& session, bool)
 {
-    ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier());
+    MEDIASESSIONMANAGER_RELEASE_LOG(MEDIASESSIONMANAGERCOCOA_CLIENTCHARACTERISTICSCHANGED, session.logIdentifier());
     scheduleSessionStatusUpdate();
 }
 
 void MediaSessionManagerCocoa::sessionCanProduceAudioChanged()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    MEDIASESSIONMANAGER_RELEASE_LOG(MEDIASESSIONMANAGERCOCOA_SESSIONCANPRODUCEAUDIOCHANGED);
     PlatformMediaSessionManager::sessionCanProduceAudioChanged();
     scheduleSessionStatusUpdate();
 }
@@ -530,7 +527,7 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
     }
     if (!m_registeredAsNowPlayingApplication) {
         m_registeredAsNowPlayingApplication = true;
-        providePresentingApplicationPIDIfNecessary();
+        providePresentingApplicationPIDIfNecessary(session->presentingApplicationPID());
     }
 
     updateActiveNowPlayingSession(session);

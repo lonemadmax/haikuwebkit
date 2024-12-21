@@ -1065,6 +1065,10 @@ void LocalDOMWindow::focus(bool allowFocus)
     if (!frame)
         return;
 
+    RefPtr document = frame->protectedDocument();
+    if (!document)
+        return;
+
     RefPtr page = frame->page();
     if (!page)
         return;
@@ -1075,7 +1079,7 @@ void LocalDOMWindow::focus(bool allowFocus)
     if (frame->isMainFrame() && allowFocus)
         page->chrome().focus();
 
-    if (!frame->hasHadUserInteraction() && !isSameSecurityOriginAsMainFrame())
+    if (!document->hasHadUserInteraction() && !isSameSecurityOriginAsMainFrame())
         return;
 
     // Clear the current frame's focused node if a new frame is about to be focused.
@@ -1147,10 +1151,6 @@ void LocalDOMWindow::stop()
         return;
 
     SetForScope isStopping { m_isStopping, true };
-
-    if (frame->document() && frame->document()->settings().navigationAPIEnabled())
-        protectedNavigation()->abortOngoingNavigationIfNeeded();
-
     // We must check whether the load is complete asynchronously, because we might still be parsing
     // the document until the callstack unwinds.
     frame->protectedLoader()->stopForUserCancel(true);

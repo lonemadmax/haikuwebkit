@@ -392,11 +392,6 @@ WKSelectionDrawingInfo::WKSelectionDrawingInfo(const EditorState& editorState)
         return;
     }
 
-    if (editorState.isInPlugin) {
-        type = SelectionType::Plugin;
-        return;
-    }
-
     type = SelectionType::Range;
     if (!editorState.postLayoutData)
         return;
@@ -453,7 +448,6 @@ static TextStream& operator<<(TextStream& stream, WKSelectionDrawingInfo::Select
 {
     switch (type) {
     case WKSelectionDrawingInfo::SelectionType::None: stream << "none"; break;
-    case WKSelectionDrawingInfo::SelectionType::Plugin: stream << "plugin"; break;
     case WKSelectionDrawingInfo::SelectionType::Range: stream << "range"; break;
     }
     
@@ -2154,7 +2148,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
         _layerTreeTransactionIdAtLastInteractionStart = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).lastCommittedMainFrameLayerTreeTransactionID();
 
 #if ENABLE(TOUCH_EVENTS)
-        _page->resetPotentialTapSecurityOrigin();
+        _page->didBeginTouchPoint(lastTouchEvent.locationInRootViewCoordinates);
 #endif
 
         WebKit::InteractionInformationRequest positionInformationRequest { WebCore::IntPoint(_lastInteractionLocation) };
@@ -5646,8 +5640,9 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
         return;
     }
 
+    auto source = _usingMouseDragForSelection ? WebKit::TextInteractionSource::Mouse : WebKit::TextInteractionSource::Touch;
     ++_suppressNonEditableSingleTapTextInteractionCount;
-    _page->updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint(point), toWKTextGranularity(granularity), self._hasFocusedElement, [completionHandler = makeBlockPtr(completionHandler), protectedSelf = retainPtr(self)] (bool endIsMoving) {
+    _page->updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint(point), toWKTextGranularity(granularity), self._hasFocusedElement, source, [completionHandler = makeBlockPtr(completionHandler), protectedSelf = retainPtr(self)] (bool endIsMoving) {
         completionHandler(static_cast<BOOL>(endIsMoving));
         --protectedSelf->_suppressNonEditableSingleTapTextInteractionCount;
     });
@@ -9571,6 +9566,9 @@ static String fallbackLabelTextForUnlabeledInputFieldInZoomedFormControls(WebCor
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant performAction:(WebKit::SheetAction)action
 {
+    if (action == WebKit::SheetAction::Copy && [self _tryToCopyLinkURLFromPlugin])
+        return;
+
     _page->performActionOnElement((uint32_t)action);
 }
 
@@ -9631,6 +9629,21 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     return NO;
+}
+
+- (BOOL)_tryToCopyLinkURLFromPlugin
+{
+    if (!_positionInformation.isLink || !_positionInformation.isInPlugin)
+        return NO;
+
+    RetainPtr urlToCopy = (NSURL *)_positionInformation.url;
+    if (!urlToCopy)
+        return NO;
+
+    [UIPasteboard _performAsDataOwner:[_webView _effectiveDataOwner:self._dataOwnerForCopy] block:^{
+        UIPasteboard.generalPasteboard.URL = urlToCopy.get();
+    }];
+    return YES;
 }
 
 // FIXME: Likely we can remove this special case for watchOS.
@@ -11767,7 +11780,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 {
     WebKit::InteractionInformationRequest interactionInformationRequest;
     interactionInformationRequest.point = WebCore::roundedIntPoint(request.location);
-    interactionInformationRequest.includeCaretContext = true;
+    interactionInformationRequest.includeCursorContext = true;
     interactionInformationRequest.includeHasDoubleClickHandler = false;
 
     if ([self _currentPositionInformationIsValidForRequest:interactionInformationRequest]) {
@@ -11782,7 +11795,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     // WebKit) may have queried position information at a totally different location, for unrelated
     // reasons. However, this seems to work well in practice, since pointer updates are very frequent,
     // so any invalid state would only persist for a single frame.
-    if (self.webView._editable && !_positionInformation.shouldNotUseIBeamInEditableContent) {
+    if (self.webView._editable && !_positionInformation.cursorContext.shouldNotUseIBeamInEditableContent) {
         auto lastRegionRect = _lastPointerRegion ? [_lastPointerRegion rect] : self.bounds;
         _lastPointerRegion = [UIPointerRegion regionWithRect:lastRegionRect identifier:editablePointerRegionIdentifier];
     }
@@ -11806,15 +11819,15 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 
 - (UIPointerRegion *)pointerRegionForPositionInformation:(const WebKit::InteractionInformationAtPosition&)interactionInformation point:(CGPoint)location
 {
-    WebCore::FloatRect expandedLineRect = enclosingIntRect(interactionInformation.lineCaretExtent);
+    WebCore::FloatRect expandedLineRect = enclosingIntRect(interactionInformation.cursorContext.lineCaretExtent);
 
     // Pad lines of text in order to avoid switching back to the dot cursor between lines.
     // This matches the value that UIKit uses.
     // FIXME: Should this account for vertical writing mode?
     expandedLineRect.inflateY(10);
 
-    if (interactionInformation.cursor) {
-        WebCore::Cursor::Type cursorType = interactionInformation.cursor->type();
+    if (auto cursor = interactionInformation.cursorContext.cursor) {
+        auto cursorType = cursor->type();
         if (cursorType == WebCore::Cursor::Type::Hand)
             return [UIPointerRegion regionWithRect:interactionInformation.bounds identifier:pointerRegionIdentifier];
 
@@ -11835,11 +11848,13 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 {
     double scaleFactor = self._contentZoomScale;
 
+    auto lineCaretExtent = _positionInformation.cursorContext.lineCaretExtent;
     UIPointerStyle *(^iBeamCursor)(void) = ^{
-        float beamLength = _positionInformation.caretLength * scaleFactor;
-        auto axisOrientation = _positionInformation.isVerticalWritingMode ? UIAxisHorizontal : UIAxisVertical;
-        auto iBeamConstraintAxes = _positionInformation.isVerticalWritingMode ? UIAxisHorizontal : UIAxisVertical;
-        auto regionLengthInBlockAxis = _positionInformation.isVerticalWritingMode ? CGRectGetWidth(region.rect) : CGRectGetHeight(region.rect);
+        bool isVertical = _positionInformation.cursorContext.isVerticalWritingMode;
+        float beamLength = (isVertical ? lineCaretExtent.width() : lineCaretExtent.height()) * scaleFactor;
+        auto axisOrientation = isVertical ? UIAxisHorizontal : UIAxisVertical;
+        auto iBeamConstraintAxes = isVertical ? UIAxisHorizontal : UIAxisVertical;
+        auto regionLengthInBlockAxis = isVertical ? CGRectGetWidth(region.rect) : CGRectGetHeight(region.rect);
 
         // If the I-beam is so large that the magnetism is hard to fight, we should not apply any magnetism.
         static constexpr auto maximumBeamSnappingLength = 100;
@@ -11854,18 +11869,17 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     };
 
     if (self.webView._editable) {
-        if (_positionInformation.shouldNotUseIBeamInEditableContent)
+        if (_positionInformation.cursorContext.shouldNotUseIBeamInEditableContent)
             return [UIPointerStyle systemPointerStyle];
         return iBeamCursor();
     }
 
-    if (_positionInformation.cursor && [region.identifier isEqual:pointerRegionIdentifier]) {
-        WebCore::Cursor::Type cursorType = _positionInformation.cursor->type();
-
+    if (auto cursor = _positionInformation.cursorContext.cursor; cursor && [region.identifier isEqual:pointerRegionIdentifier]) {
+        auto cursorType = cursor->type();
         if (cursorType == WebCore::Cursor::Type::Hand)
             return [UIPointerStyle systemPointerStyle];
 
-        if (cursorType == WebCore::Cursor::Type::IBeam && _positionInformation.lineCaretExtent.contains(_positionInformation.request.point))
+        if (cursorType == WebCore::Cursor::Type::IBeam && lineCaretExtent.contains(_positionInformation.request.point))
             return iBeamCursor();
     }
 

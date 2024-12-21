@@ -34,23 +34,33 @@ public class WebPage_v0 {
         WKWebView.handlesURLScheme(scheme)
     }
 
-    private init(configuration: Configuration, _navigationDecider navigationDecider: (any NavigationDeciding)?) {
-        self.configuration = configuration
+    private init(_configuration: Configuration, _navigationDecider navigationDecider: (any NavigationDeciding)?, _dialogPresenter dialogPresenter: (any DialogPresenting)?) {
+        self.configuration = _configuration
 
         // FIXME: Consider whether we want to have a single value here or if the getter for `navigations` should return a fresh sequence every time.
         let (stream, continuation) = AsyncStream.makeStream(of: NavigationEvent.self)
         navigations = Navigations(source: stream)
 
+        backingUIDelegate = WKUIDelegateAdapter(dialogPresenter: dialogPresenter)
+
         backingNavigationDelegate = WKNavigationDelegateAdapter(navigationProgressContinuation: continuation, navigationDecider: navigationDecider)
         backingNavigationDelegate.owner = self
     }
 
+    public convenience init(configuration: Configuration = Configuration(), navigationDecider: some NavigationDeciding, dialogPresenter: some DialogPresenting) {
+        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: dialogPresenter)
+    }
+
+    public convenience init(configuration: Configuration = Configuration(), dialogPresenter: some DialogPresenting) {
+        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: dialogPresenter)
+    }
+
     public convenience init(configuration: Configuration = Configuration(), navigationDecider: some NavigationDeciding) {
-        self.init(configuration: configuration, _navigationDecider: navigationDecider)
+        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: nil)
     }
 
     public convenience init(configuration: Configuration = Configuration()) {
-        self.init(configuration: configuration, _navigationDecider: nil)
+        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: nil)
     }
 
     public let navigations: Navigations
@@ -106,6 +116,7 @@ public class WebPage_v0 {
     }
 
     private let backingNavigationDelegate: WKNavigationDelegateAdapter
+    private let backingUIDelegate: WKUIDelegateAdapter
 
     @ObservationIgnored
     private var observations = KeyValueObservations()
@@ -117,6 +128,7 @@ public class WebPage_v0 {
     lazy var backingWebView: WKWebView = {
         let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration(configuration))
         webView.navigationDelegate = backingNavigationDelegate
+        webView.uiDelegate = backingUIDelegate
         return webView
     }()
 
@@ -145,7 +157,12 @@ public class WebPage_v0 {
     }
 
     @discardableResult
-    public func load(_ request: URLRequest, allowingReadAccessTo readAccessURL: URL) -> NavigationID? {
+    public func load(fileURL url: URL, allowingReadAccessTo readAccessURL: URL) -> NavigationID? {
+        backingWebView.loadFileURL(url, allowingReadAccessTo: readAccessURL).map(NavigationID.init(_:))
+    }
+
+    @discardableResult
+    public func load(fileRequest request: URLRequest, allowingReadAccessTo readAccessURL: URL) -> NavigationID? {
         // `WKWebView` annotates this method as returning non-nil, but it may return nil.
 
         let navigation = backingWebView.loadFileRequest(request, allowingReadAccessTo: readAccessURL) as WKNavigation?
@@ -153,7 +170,7 @@ public class WebPage_v0 {
     }
 
     @discardableResult
-    public func loadSimulatedRequest(_ request: URLRequest, response: URLResponse, responseData: Data) -> NavigationID? {
+    public func load(simulatedRequest request: URLRequest, response: URLResponse, responseData: Data) -> NavigationID? {
         // `WKWebView` annotates this method as returning non-nil, but it may return nil.
 
         let navigation = backingWebView.loadSimulatedRequest(request, response: response, responseData: responseData) as WKNavigation?
@@ -161,7 +178,7 @@ public class WebPage_v0 {
     }
 
     @discardableResult
-    public func loadSimulatedRequest(_ request: URLRequest, responseHTML: String) -> NavigationID? {
+    public func load(simulatedRequest request: URLRequest, responseHTML: String) -> NavigationID? {
         // `WKWebView` annotates this method as returning non-nil, but it may return nil.
 
         let navigation = backingWebView.loadSimulatedRequest(request, responseHTML: responseHTML) as WKNavigation?

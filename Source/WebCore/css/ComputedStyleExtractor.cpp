@@ -32,6 +32,7 @@
 #include "CSSBoxShadowPropertyValue.h"
 #include "CSSColorSchemeValue.h"
 #include "CSSCounterValue.h"
+#include "CSSEasingFunctionValue.h"
 #include "CSSFilterPropertyValue.h"
 #include "CSSFontFeatureValue.h"
 #include "CSSFontStyleWithAngleValue.h"
@@ -54,7 +55,6 @@
 #include "CSSRegisteredCustomProperty.h"
 #include "CSSScrollValue.h"
 #include "CSSTextShadowPropertyValue.h"
-#include "CSSTimingFunctionValue.h"
 #include "CSSTransformListValue.h"
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
@@ -88,6 +88,7 @@
 #include "StyleAppleColorFilterProperty.h"
 #include "StyleBoxShadow.h"
 #include "StyleColorScheme.h"
+#include "StyleEasingFunction.h"
 #include "StyleFilterProperty.h"
 #include "StylePathData.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
@@ -1101,6 +1102,22 @@ static Ref<CSSValue> valueForTextShadow(const ShadowData* shadow, const RenderSt
     return CSSTextShadowPropertyValue::create(CSS::TextShadowProperty { WTFMove(list) });
 }
 
+static Ref<CSSValue> valueForPositionTryFallbacks(const Vector<PositionTryFallback>& fallbacks)
+{
+    if (fallbacks.isEmpty())
+        return CSSPrimitiveValue::create(CSSValueNone);
+
+    CSSValueListBuilder list;
+    for (auto& fallback : fallbacks) {
+        CSSValueListBuilder tacticsList;
+        for (auto& tactic : fallback.tactics)
+            tacticsList.append(createConvertingToCSSValueID(tactic));
+        list.append(CSSValueList::createSpaceSeparated(tacticsList));
+    }
+
+    return CSSValueList::createCommaSeparated(WTFMove(list));
+}
+
 Ref<CSSValue> ComputedStyleExtractor::cssValueForFilter(const RenderStyle& style, const FilterOperations& filterOperations)
 {
     return CSSFilterPropertyValue::create(Style::toCSSFilterProperty(filterOperations, style));
@@ -1613,82 +1630,52 @@ static Ref<CSSPrimitiveValue> valueForScopedName(const Style::ScopedName& scoped
 
 static Ref<CSSValue> valueForAnimationTimeline(const RenderStyle& style, const Animation::Timeline& timeline)
 {
+    auto valueForAnonymousScrollTimeline = [](const Animation::AnonymousScrollTimeline& anonymousScrollTimeline) {
+        auto scroller = [&]() {
+            switch (anonymousScrollTimeline.scroller) {
+            case Scroller::Nearest:
+                return CSSValueNearest;
+            case Scroller::Root:
+                return CSSValueRoot;
+            case Scroller::Self:
+                return CSSValueSelf;
+            default:
+                ASSERT_NOT_REACHED();
+                return CSSValueNearest;
+            }
+        }();
+        return CSSScrollValue::create(CSSPrimitiveValue::create(scroller), createConvertingToCSSValueID(anonymousScrollTimeline.axis));
+    };
+
+    auto valueForAnonymousViewTimeline = [&](const Animation::AnonymousViewTimeline& anonymousViewTimeline) {
+        auto insetCSSValue = [&](const std::optional<Length>& inset) -> RefPtr<CSSValue> {
+            if (!inset)
+                return nullptr;
+            return CSSPrimitiveValue::create(*inset, style);
+        };
+        return CSSViewValue::create(
+            createConvertingToCSSValueID(anonymousViewTimeline.axis),
+            insetCSSValue(anonymousViewTimeline.insets.start),
+            insetCSSValue(anonymousViewTimeline.insets.end)
+        );
+    };
+
     return WTF::switchOn(timeline,
         [&] (Animation::TimelineKeyword keyword) -> Ref<CSSValue> {
             return CSSPrimitiveValue::create(keyword == Animation::TimelineKeyword::None ? CSSValueNone : CSSValueAuto);
         }, [&] (const AtomString& customIdent) -> Ref<CSSValue> {
             return CSSPrimitiveValue::createCustomIdent(customIdent);
-        }, [&] (const Ref<ScrollTimeline>& scrollTimeline) -> Ref<CSSValue> {
-            return scrollTimeline->toCSSValue(style);
+        }, [&] (const Animation::AnonymousScrollTimeline& anonymousScrollTimeline) -> Ref<CSSValue> {
+            return valueForAnonymousScrollTimeline(anonymousScrollTimeline);
+        }, [&] (const Animation::AnonymousViewTimeline& anonymousViewTimeline) -> Ref<CSSValue> {
+            return valueForAnonymousViewTimeline(anonymousViewTimeline);
         }
     );
 }
 
-static Ref<CSSValue> valueForAnimationTimingFunction(const TimingFunction& timingFunction)
+static Ref<CSSValue> valueForAnimationTimingFunction(const RenderStyle& style, const TimingFunction& timingFunction)
 {
-    switch (timingFunction.type()) {
-    case TimingFunction::Type::CubicBezierFunction: {
-        auto& function = uncheckedDowncast<CubicBezierTimingFunction>(timingFunction);
-        if (function.timingFunctionPreset() != CubicBezierTimingFunction::TimingFunctionPreset::Custom) {
-            CSSValueID valueId = CSSValueInvalid;
-            switch (function.timingFunctionPreset()) {
-            case CubicBezierTimingFunction::TimingFunctionPreset::Ease:
-                valueId = CSSValueEase;
-                break;
-            case CubicBezierTimingFunction::TimingFunctionPreset::EaseIn:
-                valueId = CSSValueEaseIn;
-                break;
-            case CubicBezierTimingFunction::TimingFunctionPreset::EaseOut:
-                valueId = CSSValueEaseOut;
-                break;
-            case CubicBezierTimingFunction::TimingFunctionPreset::Custom:
-            case CubicBezierTimingFunction::TimingFunctionPreset::EaseInOut:
-                ASSERT(function.timingFunctionPreset() == CubicBezierTimingFunction::TimingFunctionPreset::EaseInOut);
-                valueId = CSSValueEaseInOut;
-                break;
-            }
-            return CSSPrimitiveValue::create(valueId);
-        }
-        return CSSCubicBezierTimingFunctionValue::create(
-            CSSPrimitiveValue::create(function.x1()),
-            CSSPrimitiveValue::create(function.y1()),
-            CSSPrimitiveValue::create(function.x2()),
-            CSSPrimitiveValue::create(function.y2())
-        );
-    }
-    case TimingFunction::Type::StepsFunction: {
-        auto& function = uncheckedDowncast<StepsTimingFunction>(timingFunction);
-        return CSSStepsTimingFunctionValue::create(
-            CSSPrimitiveValue::createInteger(function.numberOfSteps()),
-            function.stepPosition()
-        );
-    }
-    case TimingFunction::Type::SpringFunction: {
-        auto& function = uncheckedDowncast<SpringTimingFunction>(timingFunction);
-        return CSSSpringTimingFunctionValue::create(
-            CSSPrimitiveValue::create(function.mass()),
-            CSSPrimitiveValue::create(function.stiffness()),
-            CSSPrimitiveValue::create(function.damping()),
-            CSSPrimitiveValue::create(function.initialVelocity())
-        );
-    }
-    case TimingFunction::Type::LinearFunction: {
-        auto& function = uncheckedDowncast<LinearTimingFunction>(timingFunction);
-        if (function.points().isEmpty())
-            return CSSPrimitiveValue::create(CSSValueLinear);
-
-        return CSSLinearTimingFunctionValue::create(function.points().map([](const auto& point) {
-            return CSSLinearTimingFunctionValue::LinearStop {
-                .output = CSSPrimitiveValue::create(point.value),
-                .input = CSSLinearTimingFunctionValue::LinearStop::Length {
-                    .input = CSSPrimitiveValue::create(point.progress * 100, CSSUnitType::CSS_PERCENTAGE),
-                    .extra = nullptr
-                }
-            };
-        }));
-    }
-    }
-    RELEASE_ASSERT_NOT_REACHED();
+    return CSSEasingFunctionValue::create(Style::toCSSEasingFunction(timingFunction, style));
 }
 
 static Ref<CSSValue> valueForSingleAnimationRange(const RenderStyle& style, const SingleTimelineRange& range, SingleTimelineRange::Type type)
@@ -1776,9 +1763,9 @@ static void addValueForAnimationPropertyToList(const RenderStyle& style, CSSValu
     case CSSPropertyTransitionTimingFunction:
         if (animation) {
             if (!animation->isTimingFunctionFilled())
-                list.append(valueForAnimationTimingFunction(*animation->timingFunction()));
+                list.append(valueForAnimationTimingFunction(style, *animation->timingFunction()));
         } else
-            list.append(valueForAnimationTimingFunction(CubicBezierTimingFunction::defaultTimingFunction()));
+            list.append(valueForAnimationTimingFunction(style, CubicBezierTimingFunction::defaultTimingFunction()));
         break;
     case CSSPropertyAnimationRangeStart:
         if (!animation || !animation->isRangeStartFilled())
@@ -1875,7 +1862,7 @@ static Ref<CSSValue> singleAnimationValue(const RenderStyle& style, const Animat
     if (showsDuration)
         list.append(valueForAnimationDuration(animation.duration()));
     if (showsTimingFunction())
-        list.append(valueForAnimationTimingFunction(*animation.timingFunction()));
+        list.append(valueForAnimationTimingFunction(style, *animation.timingFunction()));
     if (showsDelay)
         list.append(valueForAnimationDelay(animation.delay()));
     if (showsIterationCount())
@@ -1909,7 +1896,7 @@ static Ref<CSSValue> animationShorthandValue(const RenderStyle& style, const Ani
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
 
-static Ref<CSSValue> singleTransitionValue(const Animation& transition)
+static Ref<CSSValue> singleTransitionValue(const RenderStyle& style, const Animation& transition)
 {
     static NeverDestroyed<Ref<TimingFunction>> initialTimingFunction(Animation::initialTimingFunction());
 
@@ -1925,7 +1912,7 @@ static Ref<CSSValue> singleTransitionValue(const Animation& transition)
     if (showsDuration)
         list.append(valueForAnimationDuration(transition.duration()));
     if (auto* timingFunction = transition.timingFunction(); *timingFunction != initialTimingFunction.get())
-        list.append(valueForAnimationTimingFunction(*timingFunction));
+        list.append(valueForAnimationTimingFunction(style, *timingFunction));
     if (showsDelay)
         list.append(valueForAnimationDelay(transition.delay()));
     if (transition.allowsDiscreteTransitions() != Animation::initialAllowsDiscreteTransitions())
@@ -1935,14 +1922,14 @@ static Ref<CSSValue> singleTransitionValue(const Animation& transition)
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
-static Ref<CSSValue> transitionShorthandValue(const AnimationList* transitions)
+static Ref<CSSValue> transitionShorthandValue(const RenderStyle& style, const AnimationList* transitions)
 {
     if (!transitions || transitions->isEmpty())
         return CSSPrimitiveValue::create(CSSValueAll);
 
     CSSValueListBuilder list;
     for (auto& transition : *transitions)
-        list.append(singleTransitionValue(transition));
+        list.append(singleTransitionValue(style, transition));
     ASSERT(!list.isEmpty());
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
@@ -2559,14 +2546,14 @@ static Ref<CSSPrimitiveValue> fontWeight(const RenderStyle& style)
     return fontWeight(style.fontDescription().weight());
 }
 
-static Ref<CSSPrimitiveValue> fontStretch(FontSelectionValue stretch)
+static Ref<CSSPrimitiveValue> fontWidth(FontSelectionValue width)
 {
-    return CSSPrimitiveValue::create(static_cast<float>(stretch), CSSUnitType::CSS_PERCENTAGE);
+    return CSSPrimitiveValue::create(static_cast<float>(width), CSSUnitType::CSS_PERCENTAGE);
 }
 
-static Ref<CSSPrimitiveValue> fontStretch(const RenderStyle& style)
+static Ref<CSSPrimitiveValue> fontWidth(const RenderStyle& style)
 {
-    return fontStretch(style.fontDescription().stretch());
+    return fontWidth(style.fontDescription().width());
 }
 
 static Ref<CSSValue> fontStyle(std::optional<FontSelectionValue> italic, FontStyleAxis axis)
@@ -3292,7 +3279,7 @@ String ComputedStyleExtractor::customPropertyText(const AtomString& propertyName
 static Ref<CSSFontValue> fontShorthandValue(const RenderStyle& style, ComputedStyleExtractor::PropertyValueType valueType)
 {
     auto& description = style.fontDescription();
-    auto fontStretch = fontStretchKeyword(description.stretch());
+    auto fontWidth = fontWidthKeyword(description.width());
     auto fontStyle = fontStyleKeyword(description.italic(), description.fontStyleAxis());
 
     auto propertiesResetByShorthandAreExpressible = [&] {
@@ -3303,7 +3290,7 @@ static Ref<CSSFontValue> fontShorthandValue(const RenderStyle& style, ComputedSt
 
         // When we add font-language-override, also add code to check for non-expressible values for it here.
         return variantSettingsOmittingExpressible.isAllNormal()
-            && fontStretch
+            && fontWidth
             && fontStyle
             && description.fontSizeAdjust().isNone()
             && description.kerning() == Kerning::Auto
@@ -3321,8 +3308,8 @@ static Ref<CSSFontValue> fontShorthandValue(const RenderStyle& style, ComputedSt
         computedFont->variant = CSSPrimitiveValue::create(CSSValueSmallCaps);
     if (float weight = description.weight(); weight != 400)
         computedFont->weight = CSSPrimitiveValue::create(weight);
-    if (*fontStretch != CSSValueNormal)
-        computedFont->stretch = CSSPrimitiveValue::create(*fontStretch);
+    if (*fontWidth != CSSValueNormal)
+        computedFont->width = CSSPrimitiveValue::create(*fontWidth);
     if (*fontStyle != CSSValueNormal)
         computedFont->style = CSSPrimitiveValue::create(*fontStyle);
     computedFont->size = fontSize(style);
@@ -3773,8 +3760,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return fontSizeAdjustFromStyle(style);
     case CSSPropertyFontStyle:
         return fontStyle(style);
-    case CSSPropertyFontStretch:
-        return fontStretch(style);
+    case CSSPropertyFontWidth:
+        return fontWidth(style);
     case CSSPropertyFontVariant:
         return fontVariantShorthandValue();
     case CSSPropertyFontWeight:
@@ -4560,7 +4547,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyTransitionProperty:
         return valueListForAnimationOrTransitionProperty(style, propertyID, style.transitions());
     case CSSPropertyTransition:
-        return transitionShorthandValue(style.transitions());
+        return transitionShorthandValue(style, style.transitions());
     case CSSPropertyPointerEvents:
         return createConvertingToCSSValueID(style.pointerEvents());
     case CSSPropertyWebkitLineGrid:
@@ -4792,6 +4779,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return createConvertingToCSSValueID(style.applePayButtonType());
 #endif
 
+#if HAVE(CORE_MATERIAL)
+    case CSSPropertyAppleVisualEffect:
+        return createConvertingToCSSValueID(style.appleVisualEffect());
+#endif
+
 #if ENABLE(DARK_MODE_CSS)
     case CSSPropertyColorScheme:
         return CSSColorSchemeValue::create(Style::toCSS(style.colorScheme(), style));
@@ -4842,6 +4834,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         if (!style.positionAnchor())
             return CSSPrimitiveValue::create(CSSValueAuto);
         return valueForScopedName(*style.positionAnchor());
+    case CSSPropertyPositionTryFallbacks:
+        return valueForPositionTryFallbacks(style.positionTryFallbacks());
     case CSSPropertyPositionTryOrder: {
         switch (style.positionTryOrder()) {
         case Style::PositionTryOrder::Normal:

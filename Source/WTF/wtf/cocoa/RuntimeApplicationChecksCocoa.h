@@ -129,6 +129,8 @@ enum class SDKAlignedBehavior {
     UseCFNetworkNetworkLoader,
     BlockCrossOriginRedirectDownloads,
     BlobFileAccessEnforcement,
+    DevolvableWidgets,
+    SetSelectionRangeCachesSelectionIfNotFocusedOrSelected,
 
     NumberOfBehaviors
 };

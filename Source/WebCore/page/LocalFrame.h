@@ -93,6 +93,7 @@ class Page;
 class RenderLayer;
 class RenderView;
 class RenderWidget;
+class ResourceMonitor;
 class ScriptController;
 class SecurityOrigin;
 class VisiblePosition;
@@ -179,9 +180,6 @@ public:
     WEBCORE_EXPORT RenderView* contentRenderer() const; // Root of the render tree for the document contained in this frame.
 
     bool documentIsBeingReplaced() const { return m_documentIsBeingReplaced; }
-
-    bool hasHadUserInteraction() const { return m_hasHadUserInteraction; }
-    void setHasHadUserInteraction() { m_hasHadUserInteraction = true; }
 
     bool requestDOMPasteAccess(DOMPasteAccessCategory = DOMPasteAccessCategory::General);
 
@@ -332,6 +330,10 @@ public:
     WEBCORE_EXPORT void updateScrollingMode() final;
     WEBCORE_EXPORT void setScrollingMode(ScrollbarMode);
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    void networkUsageDidExceedThreshold();
+#endif
+
 protected:
     void frameWasDisconnectedFromOwner() const final;
 
@@ -353,6 +355,10 @@ private:
     void reinitializeDocumentSecurityContext() final;
     FrameLoaderClient& loaderClient() final;
     void documentURLForConsoleLog(CompletionHandler<void(const URL&)>&&) final;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    void showResourceMonitoringError(String&& htmlContent);
+#endif
 
     WeakHashSet<FrameDestructionObserver> m_destructionObservers;
 
@@ -392,7 +398,6 @@ private:
     bool m_documentIsBeingReplaced { false };
     unsigned m_navigationDisableCount { 0 };
     unsigned m_selfOnlyRefCount { 0 };
-    bool m_hasHadUserInteraction { false };
 
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
     OptionSet<WindowProxyProperty> m_accessedWindowProxyPropertiesViaOpener;

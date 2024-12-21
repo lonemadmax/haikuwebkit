@@ -462,8 +462,6 @@ webkit.org/b/104954 http/tests/canvas/canvas-slow-font-loading.html [ ImageOnlyF
 
 webkit.org/b/104962 platform/mac/fast/loader/file-url-mimetypes-2.html [ Failure ]
 
-webkit.org/b/105777 editing/mac/spelling/autocorrection-in-textarea.html [ Failure Pass ]
-
 # Enable when support drag-and-drop autoscrolling
 webkit.org/b/39725 fast/events/drag-and-drop-autoscroll.html [ Skip ]
 
@@ -2416,11 +2414,34 @@ imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/
 [ Sequoia arm64 ] http/tests/media/fairplay/fps-mse-unmuxed-same-key.html [ Failure ]
 http/tests/media/fairplay/fps-mse-multi-key-renewal.html [ Pass Failure ] 
 
-# webkit.org/b/284075 Opus and MP3 decoder aren't working with raw content (no magic cookie)
-[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?mp3 [ Failure ]
-[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?opus [ Failure ]
-[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?mp3 [ Failure ]
-[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?opus [ Failure ]
+# webkit.org/b/284075 Opus and MP3 decoders aren't working with raw content (no magic cookie)
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?mp3 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?opus [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?mp3 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?opus [ Skip ]
+
+# Ventura doesn't support some sampling rates or contents used by the tests. tracked by webkit.org/b/284671
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?adts_aac [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?mp4_aac [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_alaw [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_ulaw [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_u8 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_s16 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_s24 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_s32 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.html?pcm_f32 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?adts_aac [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?mp4_aac [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_alaw [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_ulaw [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_u8 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_s16 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_s24 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_s32 [ Skip ]
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_f32 [ Skip ]
+
+# Ventura doesn't support resampling when encoding to Opus, causing the test to fail.
+[ Ventura ] imported/w3c/web-platform-tests/webcodecs/audio-encoder.https.any.html [ Failure ]
 
 # webkit.org/b/280424 [ Sequoia ] fast/table/col-and-colgroup-offsets.html is a constant failure.
 [ Sequoia+ ] fast/table/col-and-colgroup-offsets.html [ Failure ]
@@ -2458,3 +2479,8 @@ inspector/worker/console-basic-subworker.html [ Skip ]
 webkit.org/b/283203 [ Ventura+ ] fast/canvas/imageData-consistency.html [ Pass Timeout ]
 
 webkit.org/b/284082 [ Sequoia+ ] http/tests/media/fairplay/legacy-fairplay-mse-muxed-nowait.html [ Timeout Failure ]
+
+webkit.org/b/284597 [ Ventura+ ] http/tests/misc/repeat-open-cancel.html [ Slow ]
+
+webkit.org/b/284653 [ Ventura+ ] http/tests/site-isolation/compositing/iframes/resize-from-zero-size.html [ Pass Failure ]
+

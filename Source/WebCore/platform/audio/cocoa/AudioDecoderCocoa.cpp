@@ -35,6 +35,7 @@
 #include "MediaUtilities.h"
 #include "PlatformRawAudioData.h"
 #include "SharedBuffer.h"
+#include "WebMAudioUtilitiesCocoa.h"
 #include <CoreAudio/CoreAudioTypes.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -49,12 +50,12 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AudioDecoderCocoa);
 
-static WorkQueue& queueSingleton()
+WorkQueue& AudioDecoderCocoa::queueSingleton()
 {
     static std::once_flag onceKey;
     static LazyNeverDestroyed<Ref<WorkQueue>> workQueue;
     std::call_once(onceKey, [] {
-        workQueue.construct(WorkQueue::create("AudioDecoder queue"_s));
+        workQueue.construct(WorkQueue::create("WebCodecCocoa queue"_s));
     });
     return workQueue.get();
 }
@@ -80,8 +81,9 @@ public:
 private:
     InternalAudioDecoderCocoa(AudioDecoder::OutputCallback&&);
 
+    static WorkQueue& queueSingleton() { return AudioDecoderCocoa::queueSingleton(); }
     static void decompressedAudioOutputBufferCallback(void*, CMBufferQueueTriggerToken);
-    Ref<AudioSampleBufferConverter> converter()
+    Ref<AudioSampleBufferConverter> converter() const
     {
         assertIsCurrent(queueSingleton());
         ASSERT(!m_isClosed);
@@ -248,9 +250,10 @@ String InternalAudioDecoderCocoa::initialize(const String& codecName, const Audi
     if (!result)
         return result.error();
 
+    unsigned preSkip = 0;
     auto [codec, format] = *result;
     if (!format) {
-        if (codec == kAudioFormatOpus && config.numberOfChannels >= 2)
+        if (codec == kAudioFormatOpus && config.numberOfChannels > 2)
             return "Opus with more than 2 channels isn't supported"_s;
 
         if (codec == kAudioFormatFLAC && config.description.empty())
@@ -261,32 +264,39 @@ String InternalAudioDecoderCocoa::initialize(const String& codecName, const Audi
 
         mIsAAC = codec == kAudioFormatMPEG4AAC || codec == kAudioFormatMPEG4AAC_HE || codec == kAudioFormatMPEG4AAC_LD || codec == kAudioFormatMPEG4AAC_HE_V2 || codec == kAudioFormatMPEG4AAC_ELD;
 
-        AudioStreamBasicDescription absd { };
-        absd.mFormatID = codec;
+        AudioStreamBasicDescription asbd { };
+        asbd.mFormatID = codec;
         // Attempt to create description with provided cookie.
         bool succeeded = false;
         if (config.description.size()) {
-            UInt32 size = sizeof(absd);
-            succeeded = PAL::AudioFormatGetProperty(kAudioFormatProperty_FormatInfo, config.description.size(), config.description.data(), &size, &absd) == noErr;
+            UInt32 size = sizeof(asbd);
+            succeeded = PAL::AudioFormatGetProperty(kAudioFormatProperty_FormatInfo, config.description.size(), config.description.data(), &size, &asbd) == noErr;
+            if (codec == kAudioFormatOpus) {
+                if (auto cookie = parseOpusPrivateData(config.description, { }))
+                    preSkip = cookie->preSkip;
+            }
         }
         if (!succeeded) {
-            absd.mSampleRate = double(config.sampleRate);
-            absd.mChannelsPerFrame = uint32_t(config.numberOfChannels);
+            asbd.mSampleRate = double(config.sampleRate);
+            asbd.mChannelsPerFrame = uint32_t(config.numberOfChannels);
         } else
             m_codecDescription = config.description;
 
-        m_inputDescription = absd;
+        m_inputDescription = asbd;
     } else
         m_inputDescription = CAAudioStreamDescription { double(config.sampleRate), uint32_t(config.numberOfChannels), *format, CAAudioStreamDescription::IsInterleaved::Yes };
 
     m_inputFormatDescription = createAudioFormatDescription(*m_inputDescription, m_codecDescription.span());
 
-    m_outputDescription = CAAudioStreamDescription { double(config.sampleRate), uint32_t(config.numberOfChannels), AudioStreamDescription::Float32, CAAudioStreamDescription::IsInterleaved::No };
+    // FIXME: we choose to create interleaved AudioData as tests incorrectly requires it (planar is more compatible with WebAudio)
+    // https://github.com/w3c/webcodecs/issues/859
+    m_outputDescription = CAAudioStreamDescription { double(config.sampleRate), uint32_t(config.numberOfChannels), AudioStreamDescription::Float32, CAAudioStreamDescription::IsInterleaved::Yes };
 
     AudioSampleBufferConverter::Options options = {
         .format = kAudioFormatLinearPCM,
         .description = m_outputDescription->streamDescription(),
-        .generateTimestamp = false
+        .generateTimestamp = false,
+        .preSkip = preSkip
     };
 
     m_converter = AudioSampleBufferConverter::create(decompressedAudioOutputBufferCallback, this, options);

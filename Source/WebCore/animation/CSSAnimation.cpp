@@ -132,12 +132,15 @@ void CSSAnimation::syncPropertiesWithBackingAnimation()
             }, [&] (const AtomString& name) {
                 CheckedRef timelinesController = document->ensureTimelinesController();
                 timelinesController->setTimelineForName(name, target, *this);
-            }, [&] (Ref<ScrollTimeline> anonymousTimeline) {
-                if (RefPtr viewTimeline = dynamicDowncast<ViewTimeline>(anonymousTimeline))
-                    viewTimeline->setSubject(target.ptr());
-                else
-                    anonymousTimeline->setSource(target.ptr());
-                setTimeline(RefPtr { anonymousTimeline.ptr() });
+            }, [&] (const Animation::AnonymousScrollTimeline& anonymousScrollTimeline) {
+                auto scrollTimeline = ScrollTimeline::create(anonymousScrollTimeline.scroller, anonymousScrollTimeline.axis);
+                scrollTimeline->setSource(target.ptr());
+                setTimeline(WTFMove(scrollTimeline));
+            }, [&] (const Animation::AnonymousViewTimeline& anonymousViewTimeline) {
+                auto insets = anonymousViewTimeline.insets;
+                auto viewTimeline = ViewTimeline::create(nullAtom(), anonymousViewTimeline.axis, WTFMove(insets));
+                viewTimeline->setSubject(target.ptr());
+                setTimeline(WTFMove(viewTimeline));
             }
         );
     }
@@ -173,7 +176,7 @@ void CSSAnimation::setBindingsTimeline(RefPtr<AnimationTimeline>&& timeline)
 void CSSAnimation::setBindingsRangeStart(TimelineRangeValue&& range)
 {
     m_overriddenProperties.add(Property::Range);
-    StyleOriginatedAnimation::setBindingsRangeEnd(WTFMove(range));
+    StyleOriginatedAnimation::setBindingsRangeStart(WTFMove(range));
 }
 
 void CSSAnimation::setBindingsRangeEnd(TimelineRangeValue&& range)

@@ -4530,8 +4530,8 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
             Ref userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { WTFMove(styleSheetString), URL { m_baseURL, styleSheetPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectedFrames, styleLevel, std::nullopt }, executionWorld);
             originInjectedStyleSheets.append(userStyleSheet);
 
-            for (auto& userContentController : userContentControllers)
-                userContentController.addUserStyleSheet(userStyleSheet);
+            for (Ref userContentController : userContentControllers)
+                userContentController->addUserStyleSheet(userStyleSheet);
 
             if (isRegisteredScript) {
                 RefPtr registeredScript = m_registeredScriptsMap.get(scriptID);
@@ -4953,6 +4953,20 @@ _WKWebExtensionStorageSQLiteStore *WebExtensionContext::storageForType(WebExtens
 
     ASSERT_NOT_REACHED();
     return nil;
+}
+
+void WebExtensionContext::sendTestMessage(const String& message, id argument)
+{
+    ASSERT(isLoaded() && inTestingMode());
+    if (!isLoaded() || !inTestingMode())
+        return;
+
+    String argumentJSON = encodeJSONString(argument, JSONOptions::FragmentsAllowed);
+
+    constexpr auto eventType = WebExtensionEventListenerType::TestOnMessage;
+    wakeUpBackgroundContentIfNecessaryToFireEvents({ eventType }, [=, this, protectedThis = Ref { *this }] {
+        sendToProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchTestMessageEvent(message, argumentJSON));
+    });
 }
 
 } // namespace WebKit

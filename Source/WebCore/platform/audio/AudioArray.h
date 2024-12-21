@@ -32,6 +32,7 @@
 #include <span>
 #include <string.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -101,27 +102,23 @@ public:
     T& operator[](size_t i) { return at(i); }
     const T& operator[](size_t i) const { return at(i); }
 
-    void zero()
-    {
-        // This multiplication is made safe by the check in resize().
-        memset(this->data(), 0, sizeof(T) * this->size());
-    }
+    void zero() { zeroSpan(span()); }
 
     void zeroRange(unsigned start, unsigned end)
     {
-        bool isSafe = (start <= end) && (end <= this->size());
+        bool isSafe = (start <= end) && (end <= size());
         ASSERT(isSafe);
         if (!isSafe)
             return;
 
         // This expression cannot overflow because end - start cannot be
         // greater than m_size, which is safe due to the check in resize().
-        memset(this->data() + start, 0, sizeof(T) * (end - start));
+        zeroSpan(span().subspan(start, end - start));
     }
 
     void copyToRange(const T* sourceData, unsigned start, unsigned end)
     {
-        bool isSafe = (start <= end) && (end <= this->size());
+        bool isSafe = (start <= end) && (end <= size());
         ASSERT(isSafe);
         if (!isSafe)
             return;

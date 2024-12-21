@@ -94,7 +94,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'layout-tests',
             'set-build-summary'
         ],
-        'iOS-17-Build-EWS': [
+        'iOS-18-Build-EWS': [
             'configure-build',
             'validate-change',
             'configuration',
@@ -109,7 +109,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'validate-change',
             'compile-webkit'
         ],
-        'iOS-17-Simulator-Build-EWS': [
+        'iOS-18-Simulator-Build-EWS': [
             'configure-build',
             'validate-change',
             'configuration',
@@ -124,7 +124,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'validate-change',
             'compile-webkit'
         ],
-        'iOS-17-Simulator-WK2-Tests-EWS': [
+        'iOS-18-Simulator-WK2-Tests-EWS': [
             'configure-build',
             'validate-change',
             'configuration',
@@ -147,7 +147,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'trigger-crash-log-submission',
             'set-build-summary'
         ],
-        'iOS-17-Simulator-WPT-WK2-Tests-EWS': [
+        'iOS-18-Simulator-WPT-WK2-Tests-EWS': [
             'configure-build',
             'validate-change',
             'configuration',
@@ -444,6 +444,22 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'show-identifier',
             'apply-patch',
             'checkout-pull-request',
+            'kill-old-processes',
+            'validate-change',
+            'compile-webkit'
+        ],
+        'PlayStation-Build-EWS': [
+            'configure-build',
+            'validate-change',
+            'configuration',
+            'clean-up-git-repo',
+            'checkout-source',
+            'fetch-branch-references',
+            'checkout-specific-revision',
+            'show-identifier',
+            'apply-patch',
+            'checkout-pull-request',
+            'validate-user-for-queue',
             'kill-old-processes',
             'validate-change',
             'compile-webkit'

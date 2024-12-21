@@ -40,7 +40,6 @@ class RoundedRectRadii;
 struct PaintInfo;
 
 enum class AvailableLogicalHeightType : bool { ExcludeMarginBorderPadding, IncludeMarginBorderPadding };
-enum class OverlayScrollbarSizeRelevancy : bool { IgnoreOverlayScrollbarSize, IncludeOverlayScrollbarSize };
 
 enum class ShouldComputePreferred : bool { ComputeActual, ComputePreferred };
 
@@ -417,7 +416,9 @@ public:
     virtual LayoutUnit computeReplacedLogicalWidth(ShouldComputePreferred  = ShouldComputePreferred::ComputeActual) const;
     virtual LayoutUnit computeReplacedLogicalHeight(std::optional<LayoutUnit> estimatedUsedWidth = std::nullopt) const;
 
+    enum class UpdatePercentageHeightDescendants : bool { No, Yes };
     std::optional<LayoutUnit> computePercentageLogicalHeight(const Length& height, UpdatePercentageHeightDescendants = UpdatePercentageHeightDescendants::Yes) const;
+    bool hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHeightDescendants = UpdatePercentageHeightDescendants::Yes) const;
 
     inline LayoutUnit availableLogicalWidth() const;
     virtual LayoutUnit availableLogicalHeight(AvailableLogicalHeightType) const;
@@ -511,9 +512,9 @@ public:
     
     RenderLayer* enclosingFloatPaintingLayer() const;
     
-    virtual std::optional<LayoutUnit> firstLineBaseline() const { return std::optional<LayoutUnit>(); }
-    virtual std::optional<LayoutUnit> lastLineBaseline() const { return std::optional<LayoutUnit>(); }
-    virtual std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const { return std::optional<LayoutUnit>(); } // Returns empty if we should skip this box when computing the baseline of an inline-block.
+    virtual std::optional<LayoutUnit> firstLineBaseline() const { return { }; }
+    virtual std::optional<LayoutUnit> lastLineBaseline() const { return { }; }
+    virtual std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const { return { }; } // Returns empty if we should skip this box when computing the baseline of an inline-block.
     LayoutUnit synthesizeBaseline(FontBaseline baselineType, BaselineSynthesisEdge) const;
 
     bool shrinkToAvoidFloats() const;

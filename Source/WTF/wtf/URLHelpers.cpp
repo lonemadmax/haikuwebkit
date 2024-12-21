@@ -35,6 +35,7 @@
 #include <unicode/uidna.h>
 #include <unicode/uscript.h>
 #include <wtf/IteratorRange.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/WTFString.h>
 
 namespace WTF {
@@ -453,7 +454,7 @@ static inline bool isSecondLevelDomainNameAllowedByTLDRules(std::span<const UCha
 #define CHECK_RULES_IF_SUFFIX_MATCHES(suffix, function) \
     { \
         static constexpr size_t suffixLength = suffix.size(); \
-        if (buffer.size() > suffixLength && !memcmp(buffer.last(suffixLength).data(), suffix.data(), suffix.size())) \
+        if (buffer.size() > suffixLength && equalSpans(buffer.last(suffixLength), std::span { suffix })) \
             return isSecondLevelDomainNameAllowedByTLDRules(buffer.first(buffer.size() - suffixLength), function); \
     }
 
@@ -937,7 +938,7 @@ String userVisibleURL(const CString& url)
         // as we convert.
         int afterlength = afterIndex;
         auto p = after.mutableSpan().subspan(bufferLength.value() - afterlength - 1);
-        memmove(p.data(), after.data(), afterlength + 1); // copies trailing '\0'
+        memmoveSpan(p, after.span().first(afterlength + 1)); // copies trailing '\0'
         afterIndex = 0;
         while (p.front()) {
             unsigned char c = p.front();

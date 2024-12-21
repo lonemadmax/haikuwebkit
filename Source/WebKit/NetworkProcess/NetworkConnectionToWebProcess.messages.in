@@ -21,6 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [
+    ExceptionForEnabledBy,
     DispatchedFrom=WebContent,
     DispatchedTo=Networking
 ]
@@ -97,6 +98,7 @@ messages -> NetworkConnectionToWebProcess WantsDispatchMessage {
 
     EstablishSWContextConnection(WebKit::WebPageProxyIdentifier webPageProxyID, WebCore::Site site, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier) -> ()
     CloseSWContextConnection()
+    PingPongForServiceWorkers() -> (bool isSuccess)
 
     EstablishSharedWorkerContextConnection(WebKit::WebPageProxyIdentifier webPageProxyID, WebCore::Site site) -> ()
     CloseSharedWorkerContextConnection()
@@ -135,7 +137,7 @@ messages -> NetworkConnectionToWebProcess WantsDispatchMessage {
     NavigatorGetPushPermissionState(URL scopeURL) -> (Expected<uint8_t, WebCore::ExceptionData> result)
 #endif
 
-    [EnabledBy=WebTransportEnabled] InitializeWebTransportSession(URL url) -> (std::optional<WebKit::WebTransportSessionIdentifier> identifier)
+    [EnabledBy=WebTransportEnabled] InitializeWebTransportSession(URL url, WebKit::WebPageProxyIdentifier pageID, struct WebCore::ClientOrigin clientOrigin) -> (std::optional<WebKit::WebTransportSessionIdentifier> identifier)
     [EnabledBy=WebTransportEnabled] DestroyWebTransportSession(WebKit::WebTransportSessionIdentifier identifier)
 
     ClearFrameLoadRecordsForStorageAccess(WebCore::FrameIdentifier frameID)

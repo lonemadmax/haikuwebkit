@@ -58,17 +58,17 @@ AudioBus::AudioBus(unsigned numberOfChannels, size_t length, bool allocate)
     : m_length(length)
 {
     m_channels = Vector<std::unique_ptr<AudioChannel>>(numberOfChannels, [&](size_t) {
-        return allocate ? makeUnique<AudioChannel>(length) : makeUnique<AudioChannel>(nullptr, length);
+        return allocate ? makeUnique<AudioChannel>(length) : makeUnique<AudioChannel>();
     });
 
     m_layout = LayoutCanonical; // for now this is the only layout we define
 }
 
-void AudioBus::setChannelMemory(unsigned channelIndex, float* storage, size_t length)
+void AudioBus::setChannelMemory(unsigned channelIndex, std::span<float> storage)
 {
     if (channelIndex < m_channels.size()) {
-        channel(channelIndex)->set(storage, length);
-        m_length = length; // FIXME: verify that this length matches all the other channel lengths
+        channel(channelIndex)->set(storage);
+        m_length = storage.size(); // FIXME: verify that this length matches all the other channel lengths
     }
 }
 
@@ -449,12 +449,12 @@ void AudioBus::copyWithGainFrom(const AudioBus& sourceBus, float gain)
         return;
 
     AudioBus& sourceBusSafe = const_cast<AudioBus&>(sourceBus);
-    const float* sources[MaxBusChannels];
-    float* destinations[MaxBusChannels];
+    std::array<std::span<const float>, MaxBusChannels> sources;
+    std::array<std::span<float>, MaxBusChannels> destinations;
 
     for (unsigned i = 0; i < numberOfChannels; ++i) {
-        sources[i] = sourceBusSafe.channel(i)->data();
-        destinations[i] = channel(i)->mutableData();
+        sources[i] = sourceBusSafe.channel(i)->span();
+        destinations[i] = channel(i)->mutableSpan();
     }
 
     unsigned framesToProcess = length();
@@ -462,17 +462,17 @@ void AudioBus::copyWithGainFrom(const AudioBus& sourceBus, float gain)
     // Handle gains of 0 and 1 (exactly) specially.
     if (gain == 1) {
         for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
-            memcpy(destinations[channelIndex], sources[channelIndex], framesToProcess * sizeof(*destinations[channelIndex]));
+            memcpySpan(destinations[channelIndex], sources[channelIndex].first(framesToProcess));
     } else if (!gain) {
         for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
-            memset(destinations[channelIndex], 0, framesToProcess * sizeof(*destinations[channelIndex]));
+            zeroSpan(destinations[channelIndex].first(framesToProcess));
     } else {
         for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex)
-            VectorMath::multiplyByScalar(sources[channelIndex], gain, destinations[channelIndex], framesToProcess);
+            VectorMath::multiplyByScalar(sources[channelIndex].data(), gain, destinations[channelIndex].data(), framesToProcess);
     }
 }
 
-void AudioBus::copyWithSampleAccurateGainValuesFrom(const AudioBus &sourceBus, float* gainValues, unsigned numberOfGainValues)
+void AudioBus::copyWithSampleAccurateGainValuesFrom(const AudioBus& sourceBus, std::span<float> gainValues)
 {
     // Make sure we're processing from the same type of bus.
     // We *are* able to process from mono -> stereo
@@ -481,12 +481,12 @@ void AudioBus::copyWithSampleAccurateGainValuesFrom(const AudioBus &sourceBus, f
         return;
     }
 
-    if (!gainValues || numberOfGainValues > sourceBus.length()) {
+    if (!gainValues.data() || gainValues.size() > sourceBus.length()) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    if (sourceBus.length() == numberOfGainValues && sourceBus.length() == length() && sourceBus.isSilent()) {
+    if (sourceBus.length() == gainValues.size() && sourceBus.length() == length() && sourceBus.isSilent()) {
         zero();
         return;
     }
@@ -497,7 +497,7 @@ void AudioBus::copyWithSampleAccurateGainValuesFrom(const AudioBus &sourceBus, f
         if (sourceBus.numberOfChannels() == numberOfChannels())
             source = sourceBus.channel(channelIndex)->data();
         float* destination = channel(channelIndex)->mutableData();
-        VectorMath::multiply(source, gainValues, destination, numberOfGainValues);
+        VectorMath::multiply(source, gainValues.data(), destination, gainValues.size());
     }
 }
 

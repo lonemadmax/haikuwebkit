@@ -26,9 +26,23 @@
 #include "config.h"
 #include "WebTransportReceiveStreamSource.h"
 
+#include "WebTransportSession.h"
 #include <wtf/RunLoop.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebKit {
+
+WebTransportReceiveStreamSource::WebTransportReceiveStreamSource(WebTransportSession& session, WebTransportStreamIdentifier identifier)
+    : m_session(session)
+    , m_identifier(identifier)
+{
+    ASSERT(RunLoop::isMain());
+}
+
+WebTransportReceiveStreamSource::~WebTransportReceiveStreamSource()
+{
+    ASSERT(RunLoop::isMain());
+}
 
 void WebTransportReceiveStreamSource::receiveBytes(std::span<const uint8_t> bytes, bool)
 {
@@ -37,7 +51,7 @@ void WebTransportReceiveStreamSource::receiveBytes(std::span<const uint8_t> byte
         return;
     auto arrayBuffer = ArrayBuffer::tryCreateUninitialized(bytes.size(), 1);
     if (arrayBuffer)
-        memcpy(static_cast<uint8_t*>(arrayBuffer->data()), bytes.data(), bytes.size());
+        memcpySpan(arrayBuffer->mutableSpan(), bytes);
     if (!controller().enqueue(WTFMove(arrayBuffer)))
         doCancel();
 }

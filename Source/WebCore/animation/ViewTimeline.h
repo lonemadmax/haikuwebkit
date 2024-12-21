@@ -38,7 +38,6 @@ namespace Style {
 class BuilderState;
 }
 
-class CSSViewValue;
 class Element;
 
 struct TimelineRange;
@@ -53,7 +52,6 @@ class ViewTimeline final : public ScrollTimeline {
 public:
     static Ref<ViewTimeline> create(ViewTimelineOptions&& = { });
     static Ref<ViewTimeline> create(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
-    static Ref<ViewTimeline> createFromCSSValue(const Style::BuilderState&, const CSSViewValue&);
 
     Element* subject() const { return m_subject.get(); }
     void setSubject(const Element*);
@@ -72,13 +70,12 @@ public:
     TimelineRange defaultRange() const final;
 
 private:
-    ScrollTimeline::Data computeTimelineData(const TimelineRange&) const final;
+    ScrollTimeline::Data computeTimelineData() const final;
+    std::pair<WebAnimationTime, WebAnimationTime> intervalForAttachmentRange(const TimelineRange&) const final;
 
     explicit ViewTimeline(ViewTimelineOptions&& = { });
     explicit ViewTimeline(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
 
-    void dump(TextStream&) const final;
-    Ref<CSSValue> toCSSValue(const RenderStyle&) const final;
     bool isViewTimeline() const final { return true; }
 
     struct CurrentTimeData {
@@ -86,8 +83,8 @@ private:
         float scrollContainerSize { 0 };
         float subjectOffset { 0 };
         float subjectSize { 0 };
-        Length insetStart { };
-        Length insetEnd { };
+        float insetStart { 0 };
+        float insetEnd { 0 };
     };
 
     void cacheCurrentTime();

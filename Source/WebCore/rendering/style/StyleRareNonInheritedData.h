@@ -33,6 +33,7 @@
 #include "NinePieceImage.h"
 #include "OffsetRotation.h"
 #include "PathOperation.h"
+#include "PositionTryFallback.h"
 #include "RotateTransformOperation.h"
 #include "ScaleTransformOperation.h"
 #include "ScopedName.h"
@@ -211,6 +212,7 @@ public:
 
     Vector<Style::ScopedName> anchorNames;
     std::optional<Style::ScopedName> positionAnchor;
+    Vector<PositionTryFallback> positionTryFallbacks;
 
     std::optional<Length> blockStepSize;
     unsigned blockStepAlign : 2; // BlockStepAlign
@@ -261,6 +263,12 @@ public:
     unsigned positionTryOrder : 3; // Style::PositionTryOrder; 5 values so 3 bits.
 
     FieldSizing fieldSizing { FieldSizing::Fixed };
+
+#if HAVE(CORE_MATERIAL)
+    unsigned appleVisualEffect : 4; // AppleVisualEffect
+#endif
+
+    unsigned nativeAppearanceDisabled : 1;
 
 private:
     StyleRareNonInheritedData();

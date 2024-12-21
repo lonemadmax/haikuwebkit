@@ -58,6 +58,7 @@
 #include <WebCore/SWServer.h>
 #include <numeric>
 #include <wtf/RuntimeApplicationChecks.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(COCOA)
@@ -135,7 +136,7 @@ static WebPushD::WebPushDaemonConnectionConfiguration configurationWithHostAudit
     auto token = networkProcess.parentProcessConnection()->getAuditToken();
     if (token) {
         Vector<uint8_t> auditTokenData(sizeof(*token));
-        memcpy(auditTokenData.data(), &(*token), sizeof(*token));
+        memcpySpan(auditTokenData.mutableSpan(), asByteSpan(*token));
         configuration.hostAppAuditTokenData = WTFMove(auditTokenData);
     }
 #endif
@@ -166,7 +167,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     , m_inspectionForServiceWorkersAllowed(parameters.inspectionForServiceWorkersAllowed)
     , m_storageManager(createNetworkStorageManager(networkProcess, parameters))
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
-    , m_notificationManager(NetworkNotificationManager::create(parameters.sessionID.isEphemeral() ? String { } : parameters.webPushMachServiceName, configurationWithHostAuditToken(networkProcess, parameters.webPushDaemonConnectionConfiguration)))
+    , m_notificationManager(NetworkNotificationManager::create(parameters.sessionID.isEphemeral() ? String { } : parameters.webPushMachServiceName, configurationWithHostAuditToken(networkProcess, parameters.webPushDaemonConnectionConfiguration), networkProcess))
 #endif
 {
     if (!m_sessionID.isEphemeral()) {
@@ -202,7 +203,9 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
 
     setBlobRegistryTopOriginPartitioningEnabled(parameters.isBlobRegistryTopOriginPartitioningEnabled);
     setShouldSendPrivateTokenIPCForTesting(parameters.shouldSendPrivateTokenIPCForTesting);
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
     setOptInCookiePartitioningEnabled(parameters.isOptInCookiePartitioningEnabled);
+#endif
 
     SandboxExtension::consumePermanently(parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
     m_serviceWorkerInfo = ServiceWorkerInfo {
@@ -520,12 +523,14 @@ void NetworkSession::setShouldSendPrivateTokenIPCForTesting(bool enabled)
     m_shouldSendPrivateTokenIPCForTesting = enabled;
 }
 
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
 void NetworkSession::setOptInCookiePartitioningEnabled(bool enabled)
 {
     RELEASE_LOG(Storage, "NetworkSession::setOptInCookiePartitioningEnabled as %" PUBLIC_LOG_STRING " for session %" PRIu64, enabled ? "enabled" : "disabled", m_sessionID.toUInt64());
     if (CheckedPtr storageSession = networkStorageSession())
         storageSession->setOptInCookiePartitioningEnabled(enabled);
 }
+#endif
 
 void NetworkSession::allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo& certificateInfo)
 {

@@ -427,7 +427,7 @@ static CSSPrimitiveValue* valueFromPool(std::span<LazyNeverDestroyed<CSSPrimitiv
     // integer is undefined behavior.
     unsigned poolIndex = static_cast<unsigned>(static_cast<int>(value));
     double roundTripValue = poolIndex;
-    if (!memcmp(&value, &roundTripValue, sizeof(double)) && poolIndex < pool.size())
+    if (equalSpans(asByteSpan(value), asByteSpan(roundTripValue)) && poolIndex < pool.size())
         return &pool[poolIndex].get();
     return nullptr;
 }
@@ -1041,7 +1041,7 @@ double CSSPrimitiveValue::doubleValue(const CSSToLengthConversionData& conversio
 
 double CSSPrimitiveValue::doubleValueDeprecated() const
 {
-    return isCalculated() ? m_value.calc->doubleValueDeprecated({ }) : m_value.number;
+    return isCalculated() ? m_value.calc->doubleValueDeprecated() : m_value.number;
 }
 
 // MARK: `doubleValueDividingBy100IfPercentage`.
@@ -1072,7 +1072,7 @@ double CSSPrimitiveValue::doubleValueDividingBy100IfPercentageDeprecated() const
     ASSERT(isNumberOrInteger() || isPercentage());
 
     if (isCalculated())
-        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValueDeprecated({ }) / 100.0 : m_value.calc->doubleValueDeprecated({ });
+        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValueDeprecated() / 100.0 : m_value.calc->doubleValueDeprecated();
     if (isPercentage())
         return m_value.number / 100.0;
     return m_value.number;

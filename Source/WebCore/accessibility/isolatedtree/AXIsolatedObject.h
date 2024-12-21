@@ -71,15 +71,16 @@ public:
 
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) final;
 #if ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
-    AXIsolatedObject* parentObject() const final { return tree()->objectForID(parent()).get(); }
+    AXIsolatedObject* parentObject() const final { return tree()->objectForID(parent()); }
     AXIsolatedObject* parentObjectUnignored() const final { return downcast<AXIsolatedObject>(AXCoreObject::parentObjectUnignored()); }
 #else
     AXIsolatedObject* parentObject() const final { return parentObjectUnignored(); }
-    AXIsolatedObject* parentObjectUnignored() const final { return tree()->objectForID(parent()).get(); }
+    AXIsolatedObject* parentObjectUnignored() const final { return tree()->objectForID(parent()); }
 #endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
     AXIsolatedObject* clickableSelfOrAncestor(ClickHandlerFilter filter = ClickHandlerFilter::ExcludeBody) const final { return Accessibility::clickableSelfOrAncestor(*this, filter); };
     AXIsolatedObject* editableAncestor() const final { return Accessibility::editableAncestor(*this); };
     bool canSetFocusAttribute() const final { return boolAttributeValue(AXPropertyName::CanSetFocusAttribute); }
+    AttributedStringStyle stylesForAttributedString() const final;
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
     const AXTextRuns* textRuns() const;
@@ -88,7 +89,7 @@ public:
         const auto* runs = textRuns();
         return runs && runs->size();
     }
-    bool shouldEmitNewlinesBeforeAndAfterNode() const final { return boolAttributeValue(AXPropertyName::ShouldEmitNewlinesBeforeAndAfterNode); }
+    TextEmissionBehavior emitTextAfterBehavior() const final { return propertyValue<TextEmissionBehavior>(AXPropertyName::EmitTextAfterBehavior); }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
     AXTextMarkerRange textMarkerRange() const final;
@@ -505,7 +506,6 @@ private:
     unsigned textLength() const final;
 #if PLATFORM(COCOA)
     RetainPtr<NSAttributedString> attributedStringForTextMarkerRange(AXTextMarkerRange&&, SpellCheck) const final;
-    AttributedStringStyle stylesForAttributedString() const final;
 #endif
     AXObjectCache* axObjectCache() const final;
     Element* actionElement() const final;

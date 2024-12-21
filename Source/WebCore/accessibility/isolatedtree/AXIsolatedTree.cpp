@@ -132,7 +132,10 @@ void AXIsolatedTree::createEmptyContent(AccessibilityObject& axRoot)
 
     {
         Locker locker { m_changeLogLock };
-        setRootNode(root.ptr());
+        // Typically, m_rootNode is only allowed to be read or written on the AX thread.
+        // However, we have not called `storeTree` with `this` yet, so there's no way
+        // for this tree to actually be in use by the AX thread.
+        m_rootNode = root.ptr();
         m_pendingFocusedNodeID = webArea->objectID();
     }
     queueAppendsAndRemovals({ rootAppend, webAreaAppend }, { });
@@ -160,6 +163,8 @@ Ref<AXIsolatedTree> AXIsolatedTree::create(AXObjectCache& axObjectCache)
     auto* axRoot = axObjectCache.getOrCreate(document.view());
     if (axRoot)
         tree->generateSubtree(*axRoot);
+    tree->applyPendingRootNode();
+
     auto* axFocus = axObjectCache.focusedObjectForPage(document.page());
     if (axFocus)
         tree->setFocusedNodeID(axFocus->objectID());
@@ -180,12 +185,25 @@ Ref<AXIsolatedTree> AXIsolatedTree::create(AXObjectCache& axObjectCache)
     return tree;
 }
 
-void AXIsolatedTree::storeTree(AXObjectCache& axObjectCache, const Ref<AXIsolatedTree>& tree)
+void AXIsolatedTree::applyPendingRootNode()
 {
+    Locker locker { m_changeLogLock };
+    if (m_pendingRootNode)
+        m_rootNode = std::exchange(m_pendingRootNode, { });
+}
+
+void AXIsolatedTree::storeTree(AXObjectCache& cache, const Ref<AXIsolatedTree>& tree)
+{
+    ASSERT(isMainThread());
+
+    // Once we set this tree in the AXTreeStore, the secondary thread can start using it,
+    // and we can no longer access AXIsolatedTree::rootNode off the main-thread. Set the
+    // root now while we still can.
+    cache.setIsolatedTreeRoot(tree->rootNode());
     AXTreeStore::set(tree->treeID(), tree.ptr());
     tree->m_replacingTree = nullptr;
     Locker locker { s_storeLock };
-    treePageCache().set(*axObjectCache.pageID(), tree.copyRef());
+    treePageCache().set(*cache.pageID(), tree.copyRef());
 }
 
 double AXIsolatedTree::loadingProgress()
@@ -237,11 +255,10 @@ RefPtr<AXIsolatedTree> AXIsolatedTree::treeForPageID(PageIdentifier pageID)
     return nullptr;
 }
 
-RefPtr<AXIsolatedObject> AXIsolatedTree::objectForID(std::optional<AXID> axID) const
+AXIsolatedObject* AXIsolatedTree::objectForID(AXID axID) const
 {
     ASSERT(!isMainThread());
-
-    return axID ? m_readerThreadNodeMap.get(*axID) : nullptr;
+    return m_readerThreadNodeMap.get(axID);
 }
 
 void AXIsolatedTree::generateSubtree(AccessibilityObject& axObject)
@@ -284,7 +301,7 @@ std::optional<AXIsolatedTree::NodeChange> AXIsolatedTree::nodeChangeForObject(Re
 
     if (!nodeChange.isolatedObject->parent() && nodeChange.isolatedObject->isScrollView()) {
         Locker locker { m_changeLogLock };
-        setRootNode(nodeChange.isolatedObject.ptr());
+        setPendingRootNodeLocked(nodeChange.isolatedObject.get());
     }
 
     return nodeChange;
@@ -1071,13 +1088,6 @@ RefPtr<AXIsolatedObject> AXIsolatedTree::focusedNode()
     return objectForID(focusedNodeID());
 }
 
-RefPtr<AXIsolatedObject> AXIsolatedTree::rootNode()
-{
-    AXTRACE("AXIsolatedTree::rootNode"_s);
-    Locker locker { m_changeLogLock };
-    return m_rootNode;
-}
-
 RefPtr<AXIsolatedObject> AXIsolatedTree::rootWebArea()
 {
     AXTRACE("AXIsolatedTree::rootWebArea"_s);
@@ -1089,15 +1099,13 @@ RefPtr<AXIsolatedObject> AXIsolatedTree::rootWebArea()
     }) : nullptr;
 }
 
-void AXIsolatedTree::setRootNode(AXIsolatedObject* root)
+void AXIsolatedTree::setPendingRootNodeLocked(AXIsolatedObject& root)
 {
     AXTRACE("AXIsolatedTree::setRootNode"_s);
     ASSERT(isMainThread());
     ASSERT(m_changeLogLock.isLocked());
-    ASSERT(!m_rootNode);
-    ASSERT(root);
 
-    m_rootNode = root;
+    m_pendingRootNode = &root;
 }
 
 void AXIsolatedTree::setFocusedNodeID(std::optional<AXID> axID)
@@ -1166,10 +1174,8 @@ void AXIsolatedTree::updateRootScreenRelativePosition()
     AXTRACE("AXIsolatedTree::updateRootScreenRelativePosition"_s);
     ASSERT(isMainThread());
 
-    if (!rootNode())
-        return;
-
-    if (auto* axRoot = rootNode()->associatedAXObject())
+    CheckedPtr cache = m_axObjectCache.get();
+    if (auto* axRoot = cache ? cache->getOrCreate(cache->document().view()) : nullptr)
         updateNodeProperties(*axRoot, { AXPropertyName::ScreenRelativePosition });
 }
 
@@ -1261,6 +1267,7 @@ void AXIsolatedTree::applyPendingChanges()
         // that holds an AXIsolatedObject so the ref-cycle is broken and this tree can be destroyed.
         m_readerThreadNodeMap.clear();
         m_rootNode = nullptr;
+        m_pendingRootNode = nullptr;
         m_pendingAppends.clear();
         // We don't need to bother clearing out any other non-cycle-causing member variables as they
         // will be cleaned up automatically when the tree is destroyed.
@@ -1269,6 +1276,9 @@ void AXIsolatedTree::applyPendingChanges()
         AXTreeStore::remove(treeID());
         return;
     }
+
+    if (m_pendingRootNode)
+        m_rootNode = std::exchange(m_pendingRootNode, { });
 
     if (m_pendingFocusedNodeID != m_focusedNodeID) {
         AXLOG(makeString("focusedNodeID "_s, m_focusedNodeID ? m_focusedNodeID->loggingString() : ""_str, " pendingFocusedNodeID "_s, m_pendingFocusedNodeID ? m_pendingFocusedNodeID->loggingString() : ""_str));

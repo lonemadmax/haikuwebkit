@@ -25,6 +25,11 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+[
+    ExceptionForEnabledBy,
+    DispatchedFrom=WebContent,
+    DispatchedTo=UI
+]
 messages -> WebExtensionContext {
     // Action APIs
     [Validator=isActionMessageAllowed] ActionGetTitle(std::optional<WebKit::WebExtensionWindowIdentifier> windowIdentifier, std::optional<WebKit::WebExtensionTabIdentifier> tabIdentifier) -> (Expected<String, WebKit::WebExtensionError> result)

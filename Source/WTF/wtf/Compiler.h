@@ -128,7 +128,7 @@
 
 #endif
 
-#if !COMPILER(CLANG) && !COMPILER(MSVC)
+#if !COMPILER(CLANG)
 #define WTF_COMPILER_QUIRK_CONSIDERS_UNREACHABLE_CODE 1
 #endif
 
@@ -293,6 +293,7 @@
 #if !defined(MUST_TAIL_CALL) && defined(__cplusplus) && defined(__has_cpp_attribute)
 #if __has_cpp_attribute(clang::musttail) && !defined(__powerpc__) && !defined(_WIN32)
 #define MUST_TAIL_CALL [[clang::musttail]]
+#define HAVE_MUST_TAIL_CALL 1
 #endif
 #endif
 #endif
@@ -300,6 +301,7 @@
 
 #if !defined(MUST_TAIL_CALL)
 #define MUST_TAIL_CALL
+#define HAVE_MUST_TAIL_CALL 0
 #endif
 
 /* RETURNS_NONNULL */
@@ -557,6 +559,9 @@
 #define SUPPRESS_REFCOUNTED_WITHOUT_VIRTUAL_DESTRUCTOR \
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE_ON_CLASS("webkit.RefCntblBaseVirtualDtor")
 
+#define SUPPRESS_MEMORY_UNSAFE_CAST \
+    IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.MemoryUnsafeCastChecker")
+
 #define IGNORE_RETURN_TYPE_WARNINGS_BEGIN IGNORE_WARNINGS_BEGIN("return-type")
 #define IGNORE_RETURN_TYPE_WARNINGS_END IGNORE_WARNINGS_END
 
@@ -601,11 +606,7 @@
 
 /* UNREACHABLE */
 
-#if COMPILER(MSVC)
-#define WTF_UNREACHABLE(...) __assume(0)
-#else
 #define WTF_UNREACHABLE(...) __builtin_unreachable();
-#endif
 
 /* WTF_ALLOW_UNSAFE_BUFFER_USAGE */
 

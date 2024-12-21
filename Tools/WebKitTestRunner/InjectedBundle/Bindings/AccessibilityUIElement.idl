@@ -29,9 +29,10 @@ interface AccessibilityUIElement {
 
     // Element access.
     AccessibilityUIElement elementAtPoint(long x, long y);
-    AccessibilityUIElement elementAtPointWithRemoteElementForTesting(long x, long y);
-    undefined elementAtPointResolvingRemoteFrameForTesting(long x, long y, object callbackFunction);
+    AccessibilityUIElement elementAtPointWithRemoteElement(long x, long y);
+    undefined elementAtPointResolvingRemoteFrame(long x, long y, object callbackFunction);
     AccessibilityUIElement childAtIndex(unsigned long index);
+    AccessibilityUIElement childAtIndexWithRemoteElement(unsigned long index);
     unsigned long indexOfChild(AccessibilityUIElement child);
     AccessibilityUIElement linkedUIElementAtIndex(unsigned long index);
     readonly attribute AccessibilityUIElement activeElement;
@@ -243,6 +244,7 @@ interface AccessibilityUIElement {
     AccessibilityTextMarker previousLineStartTextMarkerForTextMarker(AccessibilityTextMarker textMarker);
     AccessibilityTextMarker nextLineEndTextMarkerForTextMarker(AccessibilityTextMarker textMarker);
     long lineIndexForTextMarker(AccessibilityTextMarker textMarker);
+    AccessibilityTextMarkerRange styleTextMarkerRangeForTextMarker(AccessibilityTextMarker textMarker);
     AccessibilityTextMarkerRange textMarkerRangeForSearchPredicate(AccessibilityTextMarkerRange startRange, boolean forward, object searchKey, DOMString searchText, boolean visibleOnly, boolean immediateDescendantsOnly);
     AccessibilityTextMarkerRange misspellingTextMarkerRange(AccessibilityTextMarkerRange start, boolean forward);
     AccessibilityTextMarkerRange textMarkerRangeForElement(AccessibilityUIElement element);

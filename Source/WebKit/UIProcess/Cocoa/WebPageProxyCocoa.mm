@@ -66,6 +66,7 @@
 #import "WebScreenOrientationManagerProxy.h"
 #import "WebsiteDataStore.h"
 #import <Foundation/NSURLRequest.h>
+#import <WebCore/AppHighlight.h>
 #import <WebCore/ApplePayAMSUIRequest.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/GeometryUtilities.h>
@@ -76,7 +77,7 @@
 #import <WebCore/NowPlayingInfo.h>
 #import <WebCore/NullPlaybackSessionInterface.h>
 #import <WebCore/PlatformPlaybackSessionInterface.h>
-#import <WebCore/PlaybackSessionInterfaceAVKit.h>
+#import <WebCore/PlaybackSessionInterfaceAVKitLegacy.h>
 #import <WebCore/PlaybackSessionInterfaceMac.h>
 #import <WebCore/PlaybackSessionInterfaceTVOS.h>
 #import <WebCore/RunLoopObserver.h>
@@ -163,12 +164,15 @@ void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& 
     pageExtendedBackgroundColorDidChange(layerTreeTransaction.pageExtendedBackgroundColor());
     sampledPageTopColorChanged(layerTreeTransaction.sampledPageTopColor());
 
-    if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
-        if (layerTreeTransaction.transactionID() >= internals().firstLayerTreeTransactionIdAfterDidCommitLoad) {
-            m_hasUpdatedRenderingAfterDidCommitLoad = true;
-            stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
-            internals().lastVisibleContentRectUpdate = { };
-        }
+    if (!m_hasUpdatedRenderingAfterDidCommitLoad
+        && (layerTreeTransaction.transactionID() >= internals().firstLayerTreeTransactionIdAfterDidCommitLoad)) {
+        m_hasUpdatedRenderingAfterDidCommitLoad = true;
+#if ENABLE(SCREEN_TIME)
+        if (RefPtr pageClient = this->pageClient())
+            pageClient->didChangeScreenTimeWebpageControllerURL();
+#endif
+        stopMakingViewBlankDueToLackOfRenderingUpdateIfNecessary();
+        internals().lastVisibleContentRectUpdate = { };
     }
 
     if (RefPtr pageClient = this->pageClient())

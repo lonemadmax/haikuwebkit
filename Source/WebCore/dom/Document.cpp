@@ -233,6 +233,7 @@
 #include "ResizeObserverEntry.h"
 #include "ResolvedStyle.h"
 #include "ResourceLoadObserver.h"
+#include "ResourceMonitor.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementFactory.h"
 #include "SVGElementTypeHelpers.h"
@@ -403,8 +404,6 @@
 #if ENABLE(PICTURE_IN_PICTURE_API)
 #include "HTMLVideoElement.h"
 #endif
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 #define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, pageID() ? pageID()->toUInt64() : 0, frameID() ? frameID()->object().toUInt64() : 0, this == &topDocument(), ##__VA_ARGS__)
 #define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, pageID() ? pageID()->toUInt64() : 0, frameID() ? frameID()->object().toUInt64() : 0, this == &topDocument(), ##__VA_ARGS__)
@@ -650,6 +649,7 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     , m_isSynthesized(constructionFlags.contains(ConstructionFlag::Synthesized))
     , m_isNonRenderedPlaceholder(constructionFlags.contains(ConstructionFlag::NonRenderedPlaceholder))
     , m_frameIdentifier(frame ? std::optional(frame->frameID()) : std::nullopt)
+    , m_syncData(DocumentSyncData::create())
 {
     setEventTargetFlag(EventTargetFlag::IsConnected);
     addToDocumentsMap();
@@ -1375,20 +1375,23 @@ void Document::childrenChanged(const ChildChange& change)
 static ALWAYS_INLINE CustomElementNameValidationStatus validateCustomElementNameWithoutCheckingStandardElementNames(const AtomString&);
 static ALWAYS_INLINE bool isStandardElementName(const AtomString& localName);
 
-static ALWAYS_INLINE Ref<HTMLElement> createUpgradeCandidateElement(Document& document, const QualifiedName& name)
+static ALWAYS_INLINE Ref<HTMLElement> createUpgradeCandidateElement(TreeScope& treeScope, const QualifiedName& name)
 {
     ASSERT(!isStandardElementName(name.localName())); // HTMLTagNames.in lists builtin SVG/MathML elements with "-" in their names explicitly as HTMLUnknownElement.
     if (validateCustomElementNameWithoutCheckingStandardElementNames(name.localName()) != CustomElementNameValidationStatus::Valid)
-        return HTMLUnknownElement::create(name, document);
+        return HTMLUnknownElement::create(name, treeScope.documentScope());
 
-    Ref element = HTMLMaybeFormAssociatedCustomElement::create(name, document);
+    Ref element = HTMLMaybeFormAssociatedCustomElement::create(name, treeScope.documentScope());
+    RefPtr registry = treeScope.customElementRegistry();
+    if (registry && UNLIKELY(registry->isScoped()))
+        CustomElementRegistry::addToScopedCustomElementRegistryMap(element, *registry);
     element->setIsCustomElementUpgradeCandidate();
     return element;
 }
 
-static ALWAYS_INLINE Ref<HTMLElement> createUpgradeCandidateElement(Document& document, const AtomString& localName)
+static ALWAYS_INLINE Ref<HTMLElement> createUpgradeCandidateElement(TreeScope& treeScope, const AtomString& localName)
 {
-    return createUpgradeCandidateElement(document, QualifiedName { nullAtom(), localName, xhtmlNamespaceURI });
+    return createUpgradeCandidateElement(treeScope, QualifiedName { nullAtom(), localName, xhtmlNamespaceURI });
 }
 
 static inline bool isValidHTMLElementName(const AtomString& localName)
@@ -1416,7 +1419,7 @@ static ExceptionOr<Ref<Element>> createHTMLElementWithNameValidation(TreeScope& 
     if (UNLIKELY(!isValidHTMLElementName(name)))
         return Exception { ExceptionCode::InvalidCharacterError };
 
-    return Ref<Element> { createUpgradeCandidateElement(document, name) };
+    return Ref<Element> { createUpgradeCandidateElement(treeScope, name) };
 }
 
 ExceptionOr<Ref<Element>> TreeScope::createElementForBindings(const AtomString& name)
@@ -1482,33 +1485,6 @@ Ref<CSSStyleDeclaration> Document::createCSSStyleDeclaration()
     return propertySet->ensureCSSStyleDeclaration();
 }
 
-ExceptionOr<Ref<Node>> Document::importNode(Node& nodeToImport, bool deep)
-{
-    switch (nodeToImport.nodeType()) {
-    case DOCUMENT_FRAGMENT_NODE:
-        if (nodeToImport.isShadowRoot())
-            break;
-        FALLTHROUGH;
-    case ELEMENT_NODE:
-    case TEXT_NODE:
-    case CDATA_SECTION_NODE:
-    case PROCESSING_INSTRUCTION_NODE:
-    case COMMENT_NODE:
-        return nodeToImport.cloneNodeInternal(document(), deep ? CloningOperation::Everything : CloningOperation::OnlySelf);
-
-    case ATTRIBUTE_NODE: {
-        auto& attribute = uncheckedDowncast<Attr>(nodeToImport);
-        return Ref<Node> { Attr::create(*this, attribute.qualifiedName(), attribute.value()) };
-    }
-    case DOCUMENT_NODE: // Can't import a document into another document.
-    case DOCUMENT_TYPE_NODE: // FIXME: Support cloning a DocumentType node per DOM4.
-        break;
-    }
-
-    return Exception { ExceptionCode::NotSupportedError };
-}
-
-
 ExceptionOr<Ref<Node>> Document::adoptNode(Node& source)
 {
     EventQueueScope scope;
@@ -1568,21 +1544,20 @@ bool Document::hasValidNamespaceForAttributes(const QualifiedName& qName)
     return hasValidNamespaceForElements(qName);
 }
 
-static Ref<HTMLElement> createFallbackHTMLElement(Document& document, const QualifiedName& name)
+static Ref<HTMLElement> createFallbackHTMLElement(TreeScope& treeScope, const QualifiedName& name)
 {
-    if (RefPtr window = document.domWindow()) {
-        RefPtr registry = window->customElementRegistry();
-        if (UNLIKELY(registry)) {
-            if (RefPtr elementInterface = registry->findInterface(name)) {
-                Ref element = elementInterface->createElement(document);
-                element->setIsCustomElementUpgradeCandidate();
-                element->enqueueToUpgrade(*elementInterface);
-                return element;
-            }
+    if (RefPtr registry = treeScope.customElementRegistry()) {
+        if (RefPtr elementInterface = registry->findInterface(name)) {
+            Ref element = elementInterface->createElement(treeScope.documentScope());
+            if (UNLIKELY(registry->isScoped()))
+                CustomElementRegistry::addToScopedCustomElementRegistryMap(element, *registry);
+            element->setIsCustomElementUpgradeCandidate();
+            element->enqueueToUpgrade(*elementInterface);
+            return element;
         }
     }
     // FIXME: Should we also check the equality of prefix between the custom element and name?
-    return createUpgradeCandidateElement(document, name);
+    return createUpgradeCandidateElement(treeScope, name);
 }
 
 // FIXME: This should really be in a possible ElementFactory class.
@@ -1595,7 +1570,7 @@ Ref<Element> TreeScope::createElement(const QualifiedName& name, bool createdByP
     if (name.namespaceURI() == xhtmlNamespaceURI) {
         element = HTMLElementFactory::createKnownElement(name, document, nullptr, createdByParser);
         if (UNLIKELY(!element))
-            element = createFallbackHTMLElement(document, name);
+            element = createFallbackHTMLElement(*this, name);
     } else if (name.namespaceURI() == SVGNames::svgNamespaceURI)
         element = SVGElementFactory::createElement(name, document, createdByParser);
 #if ENABLE(MATHML)
@@ -1680,7 +1655,7 @@ enum class CustomElementNameCharacterKind : uint8_t {
 static ALWAYS_INLINE CustomElementNameCharacterKind customElementNameCharacterKind(LChar character)
 {
     using Kind = CustomElementNameCharacterKind;
-    static const Kind table[] = {
+    static constexpr std::array<Kind, 256> table {
         Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid,
         Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid,
         Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid, Kind::Invalid,
@@ -1714,7 +1689,6 @@ static ALWAYS_INLINE CustomElementNameCharacterKind customElementNameCharacterKi
         Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Invalid, // xF0-xF6
         Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   Kind::Valid,   // xF8-xFF
     };
-    ASSERT(std::size(table) == 256);
     return table[character];
 }
 
@@ -1786,9 +1760,9 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
     return CustomElementNameValidationStatus::Valid;
 }
 
-void Document::setActiveCustomElementRegistry(CustomElementRegistry& registry)
+void Document::setActiveCustomElementRegistry(CustomElementRegistry* registry)
 {
-    m_activeCustomElementRegistry = &registry;
+    m_activeCustomElementRegistry = registry;
 }
 
 ExceptionOr<Ref<Element>> TreeScope::createElementNS(const AtomString& namespaceURI, const AtomString& qualifiedName)
@@ -2654,7 +2628,7 @@ void Document::resolveStyle(ResolveStyleType type)
             frameView->styleAndRenderTreeDidChange();
         }
 
-        updatedCompositingLayers = frameView->updateCompositingLayersAfterStyleChange();
+        updatedCompositingLayers = frameView->layoutContext().updateCompositingLayersAfterStyleChange();
 
         if (m_renderView->needsLayout())
             frameView->layoutContext().scheduleLayout();
@@ -2823,7 +2797,7 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
                 result = UpdateLayoutResult::ChangesDone;
             }
 
-            if (layoutOptions.contains(LayoutOptions::UpdateCompositingLayers) && frameView->updateCompositingLayersAfterLayoutIfNeeded())
+            if (layoutOptions.contains(LayoutOptions::UpdateCompositingLayers) && frameView->layoutContext().updateCompositingLayersAfterLayoutIfNeeded())
                 result = UpdateLayoutResult::ChangesDone;
         }
     }
@@ -3905,7 +3879,7 @@ void Document::implicitClose()
         // Always do a layout after loading if needed.
         if (view() && renderView() && (!renderView()->firstChild() || renderView()->needsLayout())) {
             protectedView()->layoutContext().layout();
-            protectedView()->updateCompositingLayersAfterLayoutIfNeeded();
+            protectedView()->layoutContext().updateCompositingLayersAfterLayoutIfNeeded();
         }
     }
 
@@ -4585,7 +4559,7 @@ bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targ
         return false;
 
     // Only prevent navigations by subframes that the user has not interacted with.
-    if (m_frame->hasHadUserInteraction())
+    if (hasHadUserInteraction())
         return false;
 
     // Only prevent navigations by unsandboxed iframes. Such navigations by sandboxed iframes would have already been blocked unless
@@ -5128,7 +5102,7 @@ bool Document::canAcceptChild(const Node& newChild, const Node* refChild, Accept
     return true;
 }
 
-Ref<Node> Document::cloneNodeInternal(Document&, CloningOperation type)
+Ref<Node> Document::cloneNodeInternal(TreeScope&, CloningOperation type)
 {
     Ref clone = cloneDocumentWithoutChildren();
     clone->cloneDataFromDocument(*this);
@@ -5137,7 +5111,7 @@ Ref<Node> Document::cloneNodeInternal(Document&, CloningOperation type)
     case CloningOperation::SelfWithTemplateContent:
         break;
     case CloningOperation::Everything:
-        cloneChildNodes(clone);
+        cloneChildNodes(clone, clone);
         break;
     }
     return clone;
@@ -5370,7 +5344,8 @@ void Document::noteUserInteractionWithMediaElement()
     if (m_userHasInteractedWithMediaElement)
         return;
 
-    if (!protectedTopDocument()->userDidInteractWithPage())
+    RefPtr page = protectedPage();
+    if (!page || !page->userDidInteractWithPage())
         return;
 
     m_userHasInteractedWithMediaElement = true;
@@ -5663,7 +5638,12 @@ void Document::adjustFocusedNodeOnNodeRemoval(Node& node, NodeRemoval nodeRemova
 void Document::appendAutofocusCandidate(Element& candidate)
 {
     ASSERT(isTopDocument());
-    ASSERT(!m_isAutofocusProcessed);
+
+    RefPtr page = protectedPage();
+    if (!page)
+        return;
+    ASSERT(!page->autofocusProcessed());
+
     auto it = m_autofocusCandidates.findIf([&candidate](auto& c) {
         return c == &candidate;
     });
@@ -5681,7 +5661,8 @@ void Document::clearAutofocusCandidates()
 void Document::flushAutofocusCandidates()
 {
     ASSERT(isTopDocument());
-    if (m_isAutofocusProcessed)
+    RefPtr page = protectedPage();
+    if (!page || page->autofocusProcessed())
         return;
 
     if (m_autofocusCandidates.isEmpty())
@@ -5689,7 +5670,7 @@ void Document::flushAutofocusCandidates()
 
     if (cssTarget()) {
         m_autofocusCandidates.clear();
-        setAutofocusProcessed();
+        page->setAutofocusProcessed();
         return;
     }
 
@@ -5718,7 +5699,7 @@ void Document::flushAutofocusCandidates()
         // FIXME: Use the result of getting the focusable area for element if element is not focusable.
         if (element->isFocusable()) {
             clearAutofocusCandidates();
-            setAutofocusProcessed();
+            page->setAutofocusProcessed();
             element->runFocusingStepsForAutofocus();
             return;
         }
@@ -5853,7 +5834,7 @@ bool Document::setFocusedElement(Element* newFocusedElement, const FocusOptions&
     if (backForwardCacheState() != NotInBackForwardCache)
         return false;
 
-    RefPtr oldFocusedElement = WTFMove(m_focusedElement);
+    RefPtr oldFocusedElement = std::exchange(m_focusedElement, nullptr);
 
     // Remove focus from the existing focus node (if any)
     if (oldFocusedElement) {
@@ -9350,6 +9331,15 @@ std::optional<Vector<uint8_t>> Document::wrapCryptoKey(const Vector<uint8_t>& ke
     return page->cryptoClient().wrapCryptoKey(key);
 }
 
+std::optional<Vector<uint8_t>> Document::serializeAndWrapCryptoKey(CryptoKeyData&& keyData)
+{
+    RefPtr page = this->page();
+    if (!page)
+        return std::nullopt;
+
+    return page->cryptoClient().serializeAndWrapCryptoKey(WTFMove(keyData));
+}
+
 std::optional<Vector<uint8_t>>Document::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey)
 {
     RefPtr page = this->page();
@@ -11039,6 +11029,8 @@ void Document::clearRenderingIsSuppressedForViewTransition()
     if (std::exchange(m_renderingIsSuppressedForViewTransition, false)) {
         if (CheckedPtr view = renderView())
             view->compositor().setRenderingIsSuppressed(false);
+
+        scheduleRenderingUpdate({ });
     }
 }
 
@@ -11051,6 +11043,7 @@ void Document::flushDeferredRenderingIsSuppressedForViewTransitionChanges()
 // https://drafts.csswg.org/css-view-transitions/#ViewTransition-prepare
 RefPtr<ViewTransition> Document::startViewTransition(StartViewTransitionCallbackOptions&& callbackOptions)
 {
+    LOG_WITH_STREAM(ViewTransitions, stream << "Document " << this << " startViewTransition");
     if (!globalObject())
         return nullptr;
 
@@ -11154,9 +11147,38 @@ void Document::securityOriginDidChange()
     m_permissionsPolicy = nullptr;
 }
 
+#if ENABLE(CONTENT_EXTENSIONS)
+
+ResourceMonitor* Document::resourceMonitorIfExists()
+{
+    return m_resourceMonitor.get();
+}
+
+ResourceMonitor& Document::resourceMonitor()
+{
+    ASSERT(!frame()->isMainFrame());
+
+    if (!m_resourceMonitor)
+        m_resourceMonitor = ResourceMonitor::create(*frame());
+    return *m_resourceMonitor.get();
+}
+
+Ref<ResourceMonitor> Document::protectedResourceMonitor()
+{
+    return resourceMonitor();
+}
+
+ResourceMonitor* Document::parentResourceMonitorIfExists()
+{
+    if (RefPtr parent = parentDocument())
+        return parent->resourceMonitorIfExists();
+
+    return nullptr;
+}
+
+#endif
+
 } // namespace WebCore
 
 #undef DOCUMENT_RELEASE_LOG
 #undef DOCUMENT_RELEASE_LOG_ERROR
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

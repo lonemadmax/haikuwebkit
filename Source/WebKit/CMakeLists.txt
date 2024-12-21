@@ -423,6 +423,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     GPUProcess/media/InitializationSegmentInfo.serialization.in
     GPUProcess/media/MediaDescriptionInfo.serialization.in
     GPUProcess/media/RemoteMediaPlayerProxyConfiguration.serialization.in
+    GPUProcess/media/RemoteTrackInfo.serialization.in
     GPUProcess/media/TextTrackPrivateRemoteConfiguration.serialization.in
     GPUProcess/media/TrackPrivateRemoteConfiguration.serialization.in
     GPUProcess/media/VideoTrackPrivateRemoteConfiguration.serialization.in
@@ -979,6 +980,16 @@ add_custom_command(
 list(APPEND WebKit_HEADERS
     ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxyScriptSource.h
 )
+
+# Log messages
+add_custom_command(
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/WebKitLogDefinitions.h
+    MAIN_DEPENDENCY ${WEBKIT_DIR}/Platform/LogMessages.in
+    DEPENDS ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore/generate-log-declarations.py
+    WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
+    COMMAND ${PYTHON_EXECUTABLE} ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore/generate-log-declarations.py ${WEBKIT_DIR}/Platform/LogMessages.in ${WebKit_DERIVED_SOURCES_DIR}/WebKitLogDefinitions.h
+    VERBATIM)
+list(APPEND WebKit_HEADERS ${WebKit_DERIVED_SOURCES_DIR}/WebKitLogDefinitions.h)
 
 set(WebKit_WEB_PREFERENCES_TEMPLATES
     ${WEBKIT_DIR}/Scripts/PreferencesTemplates/SharedPreferencesForWebProcess.h.erb

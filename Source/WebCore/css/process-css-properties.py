@@ -457,6 +457,7 @@ class StylePropertyCodeGenProperties:
         Schema.Entry("conditional-converter", allowed_types=[str]),
         Schema.Entry("converter", allowed_types=[str]),
         Schema.Entry("custom", allowed_types=[str]),
+        Schema.Entry("disables-native-appearance", allowed_types=[bool], default_value=False),
         Schema.Entry("enable-if", allowed_types=[str]),
         Schema.Entry("fast-path-inherited", allowed_types=[bool], default_value=False),
         Schema.Entry("fill-layer-property", allowed_types=[bool], default_value=False),
@@ -2859,6 +2860,12 @@ class GenerateCSSPropertyNames:
 
             self.generation_context.generate_property_id_switch_function_bool(
                 to=writer,
+                signature="bool CSSProperty::disablesNativeAppearance(CSSPropertyID id)",
+                iterable=(p for p in self.properties_and_descriptors.style_properties.all if p.codegen_properties.disables_native_appearance)
+            )
+
+            self.generation_context.generate_property_id_switch_function_bool(
+                to=writer,
                 signature="bool CSSProperty::isDirectionAwareProperty(CSSPropertyID id)",
                 iterable=self.properties_and_descriptors.style_properties.all_direction_aware_properties
             )
@@ -3943,6 +3950,7 @@ class GenerateCSSPropertyParsing:
                     "CSSPropertyParserConsumer+Content.h",
                     "CSSPropertyParserConsumer+CounterStyles.h",
                     "CSSPropertyParserConsumer+Display.h",
+                    "CSSPropertyParserConsumer+Easing.h",
                     "CSSPropertyParserConsumer+Filter.h",
                     "CSSPropertyParserConsumer+Font.h",
                     "CSSPropertyParserConsumer+Grid.h",
@@ -3963,6 +3971,7 @@ class GenerateCSSPropertyParsing:
                     "CSSPropertyParserConsumer+Percentage.h",
                     "CSSPropertyParserConsumer+PointerEvents.h",
                     "CSSPropertyParserConsumer+Position.h",
+                    "CSSPropertyParserConsumer+PositionTry.h",
                     "CSSPropertyParserConsumer+Primitives.h",
                     "CSSPropertyParserConsumer+Resolution.h",
                     "CSSPropertyParserConsumer+Ruby.h",
@@ -3978,7 +3987,6 @@ class GenerateCSSPropertyParsing:
                     "CSSPropertyParserConsumer+TextDecoration.h",
                     "CSSPropertyParserConsumer+Time.h",
                     "CSSPropertyParserConsumer+Timeline.h",
-                    "CSSPropertyParserConsumer+TimingFunction.h",
                     "CSSPropertyParserConsumer+Transform.h",
                     "CSSPropertyParserConsumer+Transitions.h",
                     "CSSPropertyParserConsumer+UI.h",

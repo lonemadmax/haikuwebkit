@@ -111,6 +111,7 @@ enum class PaginationMode : uint8_t;
 
 enum class ApplePayButtonStyle : uint8_t;
 enum class ApplePayButtonType : uint8_t;
+enum class AppleVisualEffect : uint8_t;
 enum class AspectRatioType : uint8_t;
 enum class AutoRepeatType : uint8_t;
 enum class BackfaceVisibility : uint8_t;
@@ -263,6 +264,7 @@ struct MasonryAutoFlow;
 struct NamedGridAreaMap;
 struct NamedGridLinesMap;
 struct OrderedNamedGridLinesMap;
+struct PositionTryFallback;
 struct SingleTimelineRange;
 
 struct ScrollSnapAlign;
@@ -574,6 +576,9 @@ public:
     WEBCORE_EXPORT const FontCascade& fontCascade() const;
     WEBCORE_EXPORT const FontMetrics& metricsOfPrimaryFont() const;
     WEBCORE_EXPORT const FontCascadeDescription& fontDescription() const;
+
+    inline bool fontCascadeEqual(const RenderStyle&) const;
+
     float specifiedFontSize() const;
     float computedFontSize() const;
     std::pair<FontOrientation, NonCJKGlyphOrientation> fontAndGlyphOrientation();
@@ -581,7 +586,7 @@ public:
     inline FontOpticalSizing fontOpticalSizing() const;
     inline FontVariationSettings fontVariationSettings() const;
     inline FontSelectionValue fontWeight() const;
-    inline FontSelectionValue fontStretch() const;
+    inline FontSelectionValue fontWidth() const;
     inline std::optional<FontSelectionValue> fontItalic() const;
     inline const FontPalette& fontPalette() const;
     inline FontSizeAdjust fontSizeAdjust() const;
@@ -1096,6 +1101,7 @@ public:
 #endif
 
     inline bool useSmoothScrolling() const;
+    inline bool nativeAppearanceDisabled() const;
 
 #if ENABLE(TEXT_AUTOSIZING)
     inline TextSizeAdjustment textSizeAdjust() const;
@@ -1144,6 +1150,10 @@ public:
 #if ENABLE(APPLE_PAY)
     inline ApplePayButtonStyle applePayButtonStyle() const;
     inline ApplePayButtonType applePayButtonType() const;
+#endif
+
+#if HAVE(CORE_MATERIAL)
+    inline AppleVisualEffect appleVisualEffect() const;
 #endif
 
     inline MathStyle mathStyle() const;
@@ -1279,7 +1289,7 @@ public:
     void setFontOpticalSizing(FontOpticalSizing);
     void setFontVariationSettings(FontVariationSettings);
     void setFontWeight(FontSelectionValue);
-    void setFontStretch(FontSelectionValue);
+    void setFontWidth(FontSelectionValue);
     void setFontItalic(std::optional<FontSelectionValue>);
     void setFontPalette(const FontPalette&);
 
@@ -1642,6 +1652,7 @@ public:
 #endif
 
     inline void setUseSmoothScrolling(bool);
+    inline void setNativeAppearanceDisabled(bool);
 
 #if ENABLE(TEXT_AUTOSIZING)
     inline void setTextSizeAdjust(TextSizeAdjustment);
@@ -1654,6 +1665,10 @@ public:
 #if ENABLE(APPLE_PAY)
     inline void setApplePayButtonStyle(ApplePayButtonStyle);
     inline void setApplePayButtonType(ApplePayButtonType);
+#endif
+
+#if HAVE(CORE_MATERIAL)
+    inline void setAppleVisualEffect(AppleVisualEffect);
 #endif
 
     void addCustomPaintWatchProperty(const AtomString&);
@@ -2103,6 +2118,10 @@ public:
     static constexpr ApplePayButtonType initialApplePayButtonType();
 #endif
 
+#if HAVE(CORE_MATERIAL)
+    static constexpr AppleVisualEffect initialAppleVisualEffect();
+#endif
+
     static inline Vector<GridTrackSize> initialGridColumnTrackSizes();
     static inline Vector<GridTrackSize> initialGridRowTrackSizes();
 
@@ -2160,6 +2179,8 @@ public:
 #endif
 
     static bool initialUseSmoothScrolling() { return false; }
+
+    static bool initialNativeAppearanceDisabled() { return false; }
 
     static inline FilterOperations initialFilter();
     static inline FilterOperations initialAppleColorFilter();
@@ -2285,6 +2306,10 @@ public:
     static constexpr Style::PositionTryOrder initialPositionTryOrder();
     inline Style::PositionTryOrder positionTryOrder() const;
     inline void setPositionTryOrder(Style::PositionTryOrder);
+
+    static Vector<PositionTryFallback> initialPositionTryFallbacks();
+    const Vector<PositionTryFallback>& positionTryFallbacks() const;
+    void setPositionTryFallbacks(const Vector<PositionTryFallback>&);
 
 private:
     struct NonInheritedFlags {

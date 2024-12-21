@@ -383,6 +383,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/filesystemaccess/FileSystemSyncAccessHandleIdentifier.h
     Modules/filesystemaccess/FileSystemWritableFileStream.h
     Modules/filesystemaccess/FileSystemWritableFileStreamSink.h
+    Modules/filesystemaccess/FileSystemWriteCloseReason.h
     Modules/filesystemaccess/FileSystemWriteCommandType.h
     Modules/filesystemaccess/StorageManagerFileSystemAccess.h
     Modules/filesystemaccess/WorkerFileSystemStorageConnection.h
@@ -649,6 +650,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webcodecs/WebCodecsAlphaOption.h
     Modules/webcodecs/WebCodecsAudioData.h
     Modules/webcodecs/WebCodecsAudioInternalData.h
+    Modules/webcodecs/WebCodecsBase.h
     Modules/webcodecs/WebCodecsEncodedAudioChunk.h
     Modules/webcodecs/WebCodecsEncodedAudioChunkData.h
     Modules/webcodecs/WebCodecsEncodedAudioChunkType.h
@@ -680,6 +682,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webtransport/WebTransportSendStreamStats.h
     Modules/webtransport/WebTransportSession.h
     Modules/webtransport/WebTransportSessionClient.h
+
+    Scripts/generate-log-declarations.py
 
     accessibility/AXCoreObject.h
     accessibility/AXGeometryManager.h
@@ -851,8 +855,22 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     contentextensions/Term.h
     contentextensions/URLFilterParser.h
 
+    crypto/CryptoAlgorithmIdentifier.h
+    crypto/CryptoKey.h
+    crypto/CryptoKeyData.h
+    crypto/CryptoKeyType.h
+    crypto/CryptoKeyUsage.h
+    crypto/JsonWebKey.h
+    crypto/RsaOtherPrimesInfo.h
     crypto/SerializedCryptoKeyWrap.h
     crypto/WrappedCryptoKey.h
+
+    crypto/keys/CryptoAesKeyAlgorithm.h
+    crypto/keys/CryptoEcKeyAlgorithm.h
+    crypto/keys/CryptoHmacKeyAlgorithm.h
+    crypto/keys/CryptoKeyAlgorithm.h
+    crypto/keys/CryptoRsaHashedKeyAlgorithm.h
+    crypto/keys/CryptoRsaKeyAlgorithm.h
 
     css/CSSAttrValue.h
     css/CSSColorValue.h
@@ -947,6 +965,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/typedom/numeric/CSSNumericBaseType.h
     css/typedom/numeric/CSSNumericType.h
 
+    css/values/CSSNoConversionDataRequiredToken.h
     css/values/CSSValueAggregates.h
     css/values/CSSValueTypes.h
 
@@ -1896,6 +1915,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SystemSoundDelegate.h
     platform/TextRecognitionOptions.h
     platform/ThemeTypes.h
+    platform/ThermalMitigationNotifier.h
     platform/ThreadCheck.h
     platform/ThreadGlobalData.h
     platform/ThreadSafeDataBuffer.h
@@ -2549,6 +2569,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/NinePieceImage.h
     rendering/style/OffsetRotation.h
     rendering/style/OutlineValue.h
+    rendering/style/PositionTryFallback.h
     rendering/style/RenderStyle.h
     rendering/style/RenderStyleConstants.h
     rendering/style/RenderStyleInlines.h
@@ -2566,6 +2587,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/StyleDeprecatedFlexibleBoxData.h
     rendering/style/StyleFilterData.h
     rendering/style/StyleFlexibleBoxData.h
+    rendering/style/StyleFontData.h
     rendering/style/StyleGridData.h
     rendering/style/StyleGridItemData.h
     rendering/style/StyleImage.h
@@ -2773,6 +2795,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/CSSSelectorInlines.h
     ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.h
     ${WebCore_DERIVED_SOURCES_DIR}/CommandLineAPIModuleSourceBuiltins.h
+    ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h
     ${WebCore_DERIVED_SOURCES_DIR}/EventInterfaces.h
     ${WebCore_DERIVED_SOURCES_DIR}/EventNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/EventTargetInterfaces.h

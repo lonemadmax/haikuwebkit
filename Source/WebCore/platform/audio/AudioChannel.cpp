@@ -35,6 +35,7 @@
 #include "VectorMath.h"
 #include <algorithm>
 #include <math.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -60,7 +61,7 @@ void AudioChannel::copyFrom(const AudioChannel* sourceChannel)
         zero();
         return;
     }
-    memcpy(mutableData(), sourceChannel->data(), sizeof(float) * length());
+    memcpySpan(mutableSpan(), sourceChannel->span().first(length()));
 }
 
 void AudioChannel::copyFromRange(const AudioChannel* sourceChannel, unsigned startFrame, unsigned endFrame)
@@ -81,16 +82,16 @@ void AudioChannel::copyFromRange(const AudioChannel* sourceChannel, unsigned sta
     if (!isRangeLengthSafe)
         return;
 
-    const float* source = sourceChannel->data();
-    float* destination = mutableData();
+    auto source = sourceChannel->span();
+    auto destination = mutableSpan();
 
     if (sourceChannel->isSilent()) {
         if (rangeLength == length())
             zero();
         else
-            memset(destination, 0, sizeof(float) * rangeLength);
+            zeroSpan(destination.first(rangeLength));
     } else
-        memcpy(destination, source + startFrame, sizeof(float) * rangeLength);
+        memcpySpan(destination, source.subspan(startFrame, rangeLength));
 }
 
 void AudioChannel::sumFrom(const AudioChannel* sourceChannel)

@@ -351,6 +351,11 @@ TEST(WebKit, FindTextInImageOverlay)
 
 #if HAVE(UIFINDINTERACTION)
 
+static BOOL swizzledIsEmbeddedScreen(id, SEL, UIScreen *)
+{
+    return NO;
+}
+
 // FIXME: (rdar://95125552) Remove conformance to _UITextSearching.
 @interface WKWebView () <UITextSearching>
 - (void)didBeginTextSearchOperation;
@@ -359,6 +364,8 @@ TEST(WebKit, FindTextInImageOverlay)
 
 @interface TestScrollViewDelegate : NSObject<UIScrollViewDelegate>  {
     @public bool _finishedScrolling;
+
+    std::unique_ptr<InstanceMethodSwizzler> _isEmbeddedScreenSwizzler;
 }
 @end
 
@@ -370,6 +377,16 @@ TEST(WebKit, FindTextInImageOverlay)
         return nil;
 
     _finishedScrolling = false;
+
+    // Force UIKit to use a `CADisplayLink` rather than its own update cycle for `UIAnimation`s.
+    // UIKit's own update cycle does not work in TestWebKitAPIApp, as it is started in
+    // UIApplicationMain(), and TestWebKitAPIApp is not a real UIApplication. Without this,
+    // scroll view animations would not be completed.
+    _isEmbeddedScreenSwizzler = WTF::makeUnique<InstanceMethodSwizzler>(
+        UIScreen.class,
+        @selector(_isEmbeddedScreen),
+        reinterpret_cast<IMP>(swizzledIsEmbeddedScreen)
+    );
 
     return self;
 }

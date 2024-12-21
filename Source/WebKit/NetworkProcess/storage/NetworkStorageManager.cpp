@@ -830,6 +830,58 @@ void NetworkStorageManager::cloneSessionStorageNamespace(StorageNamespaceIdentif
     }
 }
 
+void NetworkStorageManager::fetchSessionStorageForWebPage(WebPageProxyIdentifier pageIdentifier, CompletionHandler<void(HashMap<WebCore::ClientOrigin, HashMap<String, String>>&&)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    ASSERT(!m_closed);
+
+    protectedWorkQueue()->dispatch([this, protectedThis = Ref { *this }, pageIdentifier, completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
+
+        HashMap<WebCore::ClientOrigin, HashMap<String, String>> sessionStorageMap;
+        StorageNamespaceIdentifier storageNameSpaceIdentifier { pageIdentifier.toUInt64() };
+
+        for (auto& [origin, originStorageManager] : m_originStorageManagers) {
+            auto* sessionStorageManager = originStorageManager->existingSessionStorageManager();
+            if (!sessionStorageManager)
+                continue;
+
+            auto storageMap = sessionStorageManager->fetchStorageMap(storageNameSpaceIdentifier);
+            if (!storageMap.isEmpty())
+                sessionStorageMap.add(origin, WTFMove(storageMap));
+        }
+
+        RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(completionHandler), sessionStorageMap = crossThreadCopy(WTFMove(sessionStorageMap))] mutable {
+            completionHandler(WTFMove(sessionStorageMap));
+        });
+    });
+}
+
+void NetworkStorageManager::restoreSessionStorageForWebPage(WebPageProxyIdentifier pageIdentifier, HashMap<WebCore::ClientOrigin, HashMap<String, String>>&& sessionStorageMap, CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    ASSERT(!m_closed);
+
+    protectedWorkQueue()->dispatch([this, protectedThis = Ref { *this }, pageIdentifier, sessionStorageMap = crossThreadCopy(WTFMove(sessionStorageMap)), completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
+
+        bool succeeded = true;
+        StorageNamespaceIdentifier storageNameSpaceIdentifier { pageIdentifier.toUInt64() };
+
+        for (auto& [clientOrigin, storageMap] : sessionStorageMap) {
+            auto& sessionStorageManager = originStorageManager(clientOrigin, ShouldWriteOriginFile::Yes).sessionStorageManager(*m_storageAreaRegistry);
+            auto result = sessionStorageManager.setStorageMap(storageNameSpaceIdentifier, clientOrigin, WTFMove(storageMap));
+
+            if (!result)
+                succeeded = false;
+        }
+
+        RunLoop::protectedMain()->dispatch([protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), succeeded] mutable {
+            completionHandler(succeeded);
+        });
+    });
+}
+
 void NetworkStorageManager::didIncreaseQuota(WebCore::ClientOrigin&& origin, QuotaIncreaseRequestIdentifier identifier, std::optional<uint64_t> newQuota)
 {
     ASSERT(RunLoop::isMain());
@@ -981,7 +1033,7 @@ void NetworkStorageManager::createWritable(WebCore::FileSystemHandleIdentifier i
     completionHandler(handle->createWritable(keepExistingData));
 }
 
-void NetworkStorageManager::closeWritable(WebCore::FileSystemHandleIdentifier identifier, bool aborted, CompletionHandler<void(std::optional<FileSystemStorageError>)>&& completionHandler)
+void NetworkStorageManager::closeWritable(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemWriteCloseReason reason, CompletionHandler<void(std::optional<FileSystemStorageError>)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -989,7 +1041,7 @@ void NetworkStorageManager::closeWritable(WebCore::FileSystemHandleIdentifier id
     if (!handle)
         return completionHandler(FileSystemStorageError::Unknown);
 
-    completionHandler(handle->closeWritable(aborted));
+    completionHandler(handle->closeWritable(reason));
 }
 
 void NetworkStorageManager::executeCommandForWritable(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemWriteCommandType type, std::optional<uint64_t> position, std::optional<uint64_t> size, std::span<const uint8_t> dataBytes, bool hasDataError, CompletionHandler<void(std::optional<FileSystemStorageError>)>&& completionHandler)
@@ -1332,11 +1384,35 @@ void NetworkStorageManager::fetchLocalStorage(CompletionHandler<void(HashMap<Web
             auto storageMap = localStorageManager.fetchStorageMap();
 
             if (!storageMap.isEmpty())
-                localStorageMap.add(origin, storageMap);
+                localStorageMap.add(origin, WTFMove(storageMap));
         }
 
-        RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(completionHandler), localStorageMap = crossThreadCopy(WTFMove(localStorageMap))] mutable {
+        RunLoop::protectedMain()->dispatch([protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), localStorageMap = crossThreadCopy(WTFMove(localStorageMap))] mutable {
             completionHandler(WTFMove(localStorageMap));
+        });
+    });
+}
+
+void NetworkStorageManager::restoreLocalStorage(HashMap<WebCore::ClientOrigin, HashMap<String, String>>&& localStorageMap, CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    ASSERT(!m_closed);
+
+    protectedWorkQueue()->dispatch([this, protectedThis = Ref { *this }, localStorageMap = crossThreadCopy(WTFMove(localStorageMap)), completionHandler = WTFMove(completionHandler)]() mutable {
+        assertIsCurrent(workQueue());
+
+        bool succeeded = true;
+
+        for (auto& [clientOrigin, storageMap] : localStorageMap) {
+            auto& localStorageManager = originStorageManager(clientOrigin, ShouldWriteOriginFile::Yes).localStorageManager(*m_storageAreaRegistry);
+            auto result = localStorageManager.setStorageMap(clientOrigin, WTFMove(storageMap), protectedWorkQueue());
+
+            if (!result)
+                succeeded = false;
+        }
+
+        RunLoop::protectedMain()->dispatch([protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), succeeded] mutable {
+            completionHandler(succeeded);
         });
     });
 }

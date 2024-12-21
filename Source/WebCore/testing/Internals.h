@@ -365,6 +365,7 @@ public:
     void invalidateFontCache();
 
     ExceptionOr<void> setLowPowerModeEnabled(bool);
+    ExceptionOr<void> setAggressiveThermalMitigationEnabled(bool);
     ExceptionOr<void> setOutsideViewportThrottlingEnabled(bool);
 
     ExceptionOr<void> setScrollViewPosition(int x, int y);
@@ -1012,6 +1013,7 @@ public:
     void simulateMediaStreamTrackCaptureSourceFailure(MediaStreamTrack&);
     void setMediaStreamTrackIdentifier(MediaStreamTrack&, String&& id);
     void setMediaStreamSourceInterrupted(MediaStreamTrack&, bool);
+    const String& mediaStreamTrackPersistentId(const MediaStreamTrack&);
     bool isMediaStreamSourceInterrupted(MediaStreamTrack&) const;
     bool isMediaStreamSourceEnded(MediaStreamTrack&) const;
     bool isMockRealtimeMediaSourceCenterEnabled();
@@ -1193,6 +1195,7 @@ public:
         bool isVideoAndRequiresUserGestureForVideoRateChange;
         bool isAudioAndRequiresUserGestureForAudioRateChange;
         bool isVideoAndRequiresUserGestureForVideoDueToLowPowerMode;
+        bool isVideoAndRequiresUserGestureForVideoDueToAggressiveThermalMitigation;
         bool noUserGestureRequired;
         bool requiresPlaybackAndIsNotPlaying;
         bool hasEverNotifiedAboutPlaying;

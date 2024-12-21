@@ -157,10 +157,10 @@ public:
     RefPtr<Node> protectedNextSibling() const { return m_next.get(); }
     static constexpr ptrdiff_t nextSiblingMemoryOffset() { return OBJECT_OFFSETOF(Node, m_next); }
     WEBCORE_EXPORT RefPtr<NodeList> childNodes();
-    Node* firstChild() const;
-    RefPtr<Node> protectedFirstChild() const { return firstChild(); }
-    Node* lastChild() const;
-    RefPtr<Node> protectedLastChild() const { return lastChild(); }
+    inline Node* firstChild() const; // Defined in ContainerNode.h
+    inline RefPtr<Node> protectedFirstChild() const; // Defined in ContainerNode.h
+    inline Node* lastChild() const; // Defined in ContainerNode.h
+    inline RefPtr<Node> protectedLastChild() const; // Defined in ContainerNode.h
     inline bool hasAttributes() const;
     inline NamedNodeMap* attributes() const;
     Node* pseudoAwareNextSibling() const;
@@ -178,15 +178,15 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> removeChild(Node& child);
     WEBCORE_EXPORT ExceptionOr<void> appendChild(Node& newChild);
 
-    bool hasChildNodes() const { return firstChild(); }
+    inline bool hasChildNodes() const;
 
     enum class CloningOperation {
         OnlySelf,
         SelfWithTemplateContent,
         Everything,
     };
-    virtual Ref<Node> cloneNodeInternal(Document&, CloningOperation) = 0;
-    Ref<Node> cloneNode(bool deep) { return cloneNodeInternal(document(), deep ? CloningOperation::Everything : CloningOperation::OnlySelf); }
+    virtual Ref<Node> cloneNodeInternal(TreeScope&, CloningOperation) = 0;
+    Ref<Node> cloneNode(bool deep) { return cloneNodeInternal(treeScope(), deep ? CloningOperation::Everything : CloningOperation::OnlySelf); }
     WEBCORE_EXPORT ExceptionOr<Ref<Node>> cloneNodeForBindings(bool deep);
 
     virtual const AtomString& localName() const;
@@ -290,6 +290,10 @@ public:
     bool isInCustomElementReactionQueue() const { return hasElementStateFlag(ElementStateFlag::IsInCustomElementReactionQueue); }
     void setIsInCustomElementReactionQueue() { setElementStateFlag(ElementStateFlag::IsInCustomElementReactionQueue); }
     void clearIsInCustomElementReactionQueue() { clearElementStateFlag(ElementStateFlag::IsInCustomElementReactionQueue); }
+
+    bool usesScopedCustomElementRegistryMap() const { return hasElementStateFlag(ElementStateFlag::UsesScopedCustomElementRegistryMap); }
+    void setUsesScopedCustomElementRegistryMap() { setElementStateFlag(ElementStateFlag::UsesScopedCustomElementRegistryMap); }
+    void clearUsesScopedCustomElementRegistryMap() { clearElementStateFlag(ElementStateFlag::UsesScopedCustomElementRegistryMap); }
 
     // Returns null, a child of ShadowRoot, or a legacy shadow root.
     Node* nonBoundaryShadowTreeRootNode();
@@ -465,7 +469,7 @@ public:
     RenderBoxModelObject* renderBoxModelObject() const;
 
     // Wrapper for nodes that don't have a renderer, but still cache the style (like HTMLOptionElement).
-    const RenderStyle* renderStyle() const;
+    inline const RenderStyle* renderStyle() const;
 
     WEBCORE_EXPORT const RenderStyle* computedStyle();
     virtual const RenderStyle* computedStyle(const std::optional<Style::PseudoElementIdentifier>&);
@@ -643,7 +647,8 @@ protected:
 #if ENABLE(FULLSCREEN_API)
         IsFullscreen = 1 << 6,
 #endif
-        // 9-bits free.
+        UsesScopedCustomElementRegistryMap = 1 << 7,
+        // 8-bits free.
     };
 
     enum class TabIndexState : uint8_t {

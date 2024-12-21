@@ -63,18 +63,32 @@ using PDFTileRenderIdentifier = ObjectIdentifier<PDFTileRenderType>;
 
 struct TileRenderInfo {
     WebCore::FloatRect tileRect;
-    std::optional<WebCore::FloatRect> clipRect; // If set, represents the portion of the tile that needs repaint (in the same coordinate system as tileRect).
+    WebCore::FloatRect renderRect; // Represents the portion of the tile that needs rendering (in the same coordinate system as tileRect).
+    RefPtr<WebCore::NativeImage> background; // Optional existing content around renderRect, will be rendered to tileRect.
     PDFPageCoverageAndScales pageCoverage;
+    bool showDebugIndicators { false };
 
+    bool operator==(const TileRenderInfo&) const = default;
     bool equivalentForPainting(const TileRenderInfo& other) const
     {
         return tileRect == other.tileRect && pageCoverage == other.pageCoverage;
     }
 };
 
+WTF::TextStream& operator<<(WTF::TextStream&, const TileRenderInfo&);
+
 struct TileRenderData {
     PDFTileRenderIdentifier renderIdentifier;
     TileRenderInfo renderInfo;
+};
+
+WTF::TextStream& operator<<(WTF::TextStream&, const TileRenderData&);
+
+struct PagePreviewRequest {
+    PDFDocumentLayout::PageIndex pageIndex;
+    WebCore::FloatRect normalizedPageBounds;
+    float scale { 1.0f };
+    bool showDebugIndicators { false };
 };
 
 } // namespace WebKit
@@ -140,7 +154,6 @@ public:
     void pdfContentChangedInRect(const WebCore::GraphicsLayer*, const WebCore::FloatRect& paintingRect, std::optional<PDFLayoutRow>);
 
     void generatePreviewImageForPage(PDFDocumentLayout::PageIndex, float scale);
-    RefPtr<WebCore::ImageBuffer> previewImageForPage(PDFDocumentLayout::PageIndex) const;
     void removePreviewForPage(PDFDocumentLayout::PageIndex);
 
     void setShowDebugBorders(bool);
@@ -148,9 +161,10 @@ public:
 private:
     AsyncPDFRenderer(PDFPresentationController&);
 
-    WebCore::GraphicsLayer* layerForTileGrid(WebCore::TileGridIdentifier) const;
+    RefPtr<WebCore::GraphicsLayer> layerForTileGrid(WebCore::TileGridIdentifier) const;
 
-    TileRenderInfo renderInfoForTile(const WebCore::TiledBacking&, const TileForGrid& tileInfo, const WebCore::FloatRect& tileRect, const std::optional<WebCore::FloatRect>& clipRect = { }) const;
+    TileRenderInfo renderInfoForFullTile(const WebCore::TiledBacking&, const TileForGrid& tileInfo, const WebCore::FloatRect& tileRect) const;
+    TileRenderInfo renderInfoForTile(const WebCore::TiledBacking&, const TileForGrid& tileInfo, const WebCore::FloatRect& tileRect, const WebCore::FloatRect& renderRect, RefPtr<WebCore::NativeImage>&& background) const;
 
     bool renderInfoIsValidForTile(WebCore::TiledBacking&, const TileForGrid&, const TileRenderInfo&) const;
 
@@ -170,17 +184,12 @@ private:
     void didAddGrid(WebCore::TiledBacking&, WebCore::TileGridIdentifier) final;
     void willRemoveGrid(WebCore::TiledBacking&, WebCore::TileGridIdentifier) final;
 
-    std::optional<PDFTileRenderIdentifier> enqueueTilePaintForTileGridRepaint(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileIndex, const WebCore::FloatRect& tileRect, const WebCore::FloatRect& tileDirtyRect);
-    std::optional<PDFTileRenderIdentifier> enqueueTilePaintIfNecessary(const WebCore::TiledBacking&, const TileForGrid&, const WebCore::FloatRect& tileRect, const std::optional<WebCore::FloatRect>& clipRect = { });
-    std::optional<PDFTileRenderIdentifier> enqueuePaintWithClip(const TileForGrid&, const TileRenderInfo&);
+    std::optional<PDFTileRenderIdentifier> enqueueTileRenderForTileGridRepaint(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileIndex, const WebCore::FloatRect& tileRect, const WebCore::FloatRect& tileDirtyRect);
+    std::optional<PDFTileRenderIdentifier> enqueueTileRenderIfNecessary(const TileForGrid&, TileRenderInfo&&);
 
     void serviceRequestQueue();
 
-    void paintTileOnWorkQueue(RetainPtr<PDFDocument>&&, const TileForGrid&, const TileRenderInfo&, PDFTileRenderIdentifier);
-    void paintPDFIntoBuffer(RetainPtr<PDFDocument>&&, Ref<WebCore::ImageBuffer>, const TileForGrid&, const TileRenderInfo&);
-    void transferBufferToMainThread(RefPtr<WebCore::ImageBuffer>&&, const TileForGrid&, const TileRenderInfo&, PDFTileRenderIdentifier);
-
-    void didCompleteTileRender(RefPtr<WebCore::ImageBuffer>&&, const TileForGrid&, const TileRenderInfo&, PDFTileRenderIdentifier, const WebCore::GraphicsLayer* tileGridLayer);
+    void didCompleteTileRender(RefPtr<WebCore::NativeImage>&&, const TileForGrid&, const TileRenderData&);
 
     struct RevalidationStateForGrid {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;
@@ -195,17 +204,8 @@ private:
 
     void clearRequestsAndCachedTiles();
 
-    struct PagePreviewRequest {
-        PDFDocumentLayout::PageIndex pageIndex;
-        WebCore::FloatRect normalizedPageBounds;
-        float scale;
-    };
-
-    void paintPagePreviewOnWorkQueue(RetainPtr<PDFDocument>&&, const PagePreviewRequest&);
-    void didCompletePagePreviewRender(RefPtr<WebCore::ImageBuffer>&&, const PagePreviewRequest&);
+    void didCompletePagePreviewRender(RefPtr<WebCore::NativeImage>&&, const PagePreviewRequest&);
     void removePagePreviewsOutsideCoverageRect(const WebCore::FloatRect&, const std::optional<PDFLayoutRow>& = { });
-
-    void paintPDFPageIntoBuffer(RetainPtr<PDFDocument>&&, Ref<WebCore::ImageBuffer>, PDFDocumentLayout::PageIndex, const WebCore::FloatRect& pageBounds);
 
     Ref<ConcurrentWorkQueue> protectedPaintingWorkQueue() { return m_paintingWorkQueue; }
 
@@ -227,24 +227,26 @@ private:
     ListHashSet<TileForGrid> m_requestWorkQueue;
 
     struct RenderedTile {
-        RefPtr<WebCore::ImageBuffer> buffer;
+        RefPtr<WebCore::NativeImage> image;
         TileRenderInfo tileInfo;
-
-        RefPtr<WebCore::ImageBuffer> protectedBuffer() { return buffer; }
     };
     HashMap<TileForGrid, RenderedTile> m_rendereredTiles;
     HashMap<TileForGrid, RenderedTile> m_rendereredTilesForOldState;
 
     HashMap<WebCore::TileGridIdentifier, std::unique_ptr<RevalidationStateForGrid>> m_gridRevalidationState;
 
+    struct RenderedPagePreview {
+        RefPtr<WebCore::NativeImage> image;
+        float scale { 1.0f };
+    };
     using PDFPageIndexSet = HashSet<PDFDocumentLayout::PageIndex, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
     using PDFPageIndexToPreviewHash = HashMap<PDFDocumentLayout::PageIndex, PagePreviewRequest, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
-    using PDFPageIndexToBufferHash = HashMap<PDFDocumentLayout::PageIndex, RefPtr<WebCore::ImageBuffer>, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
+    using PDFPageIndexToBufferHash = HashMap<PDFDocumentLayout::PageIndex, RenderedPagePreview, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
 
     PDFPageIndexToPreviewHash m_enqueuedPagePreviews;
     PDFPageIndexToBufferHash m_pagePreviews;
 
-    std::atomic<bool> m_showDebugBorders { false };
+    bool m_showDebugBorders { false };
 };
 
 

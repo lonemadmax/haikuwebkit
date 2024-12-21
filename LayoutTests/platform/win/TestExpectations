@@ -486,12 +486,16 @@ webkit.org/b/278895 http/tests/canvas/canvas-slow-font-loading.html [ Skip ]
 # image diffs off by 0.0x%
 #//////////////////////////////////////////////////////////////////////////////////////////
 
+compositing/repaint/needs-no-display-volatile-repaint.html [ ImageOnlyFailure ]
+compositing/repaint/needs-no-display-volatile.html [ ImageOnlyFailure ]
 css3/unicode-bidi-isolate-aharon.html [ ImageOnlyFailure ]
 editing/caret/caret-in-empty-cell.html [ ImageOnlyFailure ]
 fast/css-generated-content/013.html [ ImageOnlyFailure ]
 fast/css-generated-content/016.html [ ImageOnlyFailure ]
 fast/css-generated-content/close-quote-negative-depth.html [ ImageOnlyFailure Pass ]
 fast/css-generated-content/content-property-change.html [ ImageOnlyFailure Pass ]
+fast/css-generated-content/initial-letter-pagination-raised.html [ ImageOnlyFailure ]
+fast/css-generated-content/initial-letter-pagination-sunken.html [ ImageOnlyFailure ]
 fast/css-generated-content/nested-quote-more-than-pairs.html [ ImageOnlyFailure Pass ]
 fast/css-generated-content/quote-first-letter.html [ ImageOnlyFailure Pass ]
 fast/css-generated-content/quotes-lang-case-insensitive.html [ ImageOnlyFailure Pass ]
@@ -511,9 +515,14 @@ fast/text/complex-text-selection.html [ ImageOnlyFailure ]
 fast/text/incorrect-baseline-with-nested-inline-box.html [ ImageOnlyFailure ]
 fast/text/soft-hyphen-min-preferred-width.html [ ImageOnlyFailure ]
 fast/text/text-underline-position-under.html [ ImageOnlyFailure ]
+ietestcenter/css3/multicolumn/column-width-applies-to-001.htm [ ImageOnlyFailure ]
+ietestcenter/css3/multicolumn/column-width-applies-to-002.htm [ ImageOnlyFailure ]
+ietestcenter/css3/multicolumn/column-width-applies-to-003.htm [ ImageOnlyFailure ]
+ietestcenter/css3/multicolumn/column-width-applies-to-004.htm [ ImageOnlyFailure ]
+ietestcenter/css3/multicolumn/column-width-applies-to-013.htm [ ImageOnlyFailure ]
+ietestcenter/css3/multicolumn/column-width-applies-to-014.htm [ ImageOnlyFailure ]
 imported/blink/fast/css/case-sensitive-003.xhtml [ ImageOnlyFailure ]
 imported/blink/fast/css/text-overflow-ellipsis-button.html [ ImageOnlyFailure Pass ]
-
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # Following tests are labeled "Skip" because not working well and causes crash or timeout
@@ -975,6 +984,7 @@ http/wpt/service-workers/fetch-service-worker-preload-changing-request.https.htm
 
 webkit.org/b/212532 http/wpt/service-workers/service-worker-crashing-while-fetching.https.html [ Pass Failure ]
 
+http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html [ Failure ]
 http/wpt/push-api [ Skip ]
 
 webkit.org/b/282475 http/wpt/navigation-api/transition-promises.html [ Failure Pass ]
@@ -1247,6 +1257,8 @@ fast/dom/Window/window-focus-self.html [ Failure ]
 fast/dom/Window/window-resize-and-move-arguments.html [ Failure ]
 fast/dom/Window/window-resize.html [ Failure ]
 
+fast/dom/no-scroll-when-command-click-fragment-URL.html [ Failure ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # Editing
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -1423,7 +1435,6 @@ fast/forms/formmove.html [ Skip ] # Failure
 fast/forms/formmove2.html [ Skip ] # Failure
 fast/forms/formmove3.html [ Skip ] # Failure
 fast/forms/hidden-listbox.html [ Skip ] # Failure
-fast/forms/hidpi-textfield-background-bleeding.html [ Skip ] # ImageOnlyFailure
 fast/forms/image-border.html [ Skip ] # Failure
 fast/forms/indeterminate.html [ Skip ] # Failure
 fast/forms/input-align-image.html [ Skip ] # Failure
@@ -2263,6 +2274,7 @@ editing/selection/move-by-word-visually-across-object-element-1.html [ Failure ]
 editing/selection/move-by-word-visually-across-object-element-2.html [ Failure ]
 editing/selection/move-by-word-visually-across-object-element-3.html [ Failure ]
 editing/selection/select-out-of-floated-non-editable-13.html [ Failure ]
+fast/animation/request-animation-frame-throttling-aggressiveThermalMitigation.html [ Skip ] # Timeout
 fast/animation/request-animation-frame-throttling-lowPowerMode.html [ Skip ] # Timeout
 fast/box-shadow/box-shadow-huge-area-crash.html [ ImageOnlyFailure ]
 fast/box-shadow/inset-box-shadow-fractional-radius.html [ ImageOnlyFailure ]
@@ -4225,8 +4237,6 @@ fast/canvas/canvas-composite-text-alpha.html [ Failure Pass ]
 
 animations/stacking-context-not-fill-forwards.html [ ImageOnlyFailure ]
 fast/box-shadow/inset-box-shadow.html [ ImageOnlyFailure ]
-fast/css-generated-content/initial-letter-pagination-sunken-rl.html [ ImageOnlyFailure ]
-fast/css-generated-content/initial-letter-pagination-raised-rl.html [ ImageOnlyFailure ]
 fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
 fast/text/international/bdo-bidi-width.html [ ImageOnlyFailure ]
 

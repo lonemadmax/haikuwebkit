@@ -76,7 +76,7 @@ String createTemporaryZipArchive(const String& path)
     RetainPtr coordinator = adoptNS([[NSFileCoordinator alloc] initWithFilePresenter:nil]);
     [coordinator coordinateReadingItemAtURL:[NSURL fileURLWithPath:path] options:NSFileCoordinatorReadingWithoutChanges error:nullptr byAccessor:[&](NSURL *newURL) mutable {
         CString archivePath([NSTemporaryDirectory() stringByAppendingPathComponent:@"WebKitGeneratedFileXXXXXX"].fileSystemRepresentation);
-        int fd = mkostemp(archivePath.mutableData(), O_CLOEXEC);
+        int fd = mkostemp(archivePath.mutableSpanIncludingNullTerminator().data(), O_CLOEXEC);
         if (fd == -1)
             return;
         close(fd);
@@ -116,6 +116,14 @@ String extractTemporaryZipArchive(const String& path)
             temporaryDirectory = nullString();
         BOMCopierFree(copier);
     }];
+
+    auto *contentsOfTemporaryDirectory = [NSFileManager.defaultManager contentsOfDirectoryAtPath:temporaryDirectory error:nil];
+    if (contentsOfTemporaryDirectory.count == 1) {
+        auto *subdirectoryPath = [temporaryDirectory stringByAppendingPathComponent:contentsOfTemporaryDirectory.firstObject];
+        BOOL isDirectory;
+        if ([NSFileManager.defaultManager fileExistsAtPath:subdirectoryPath isDirectory:&isDirectory] && isDirectory)
+            temporaryDirectory = subdirectoryPath;
+    }
 
     return temporaryDirectory;
 }

@@ -31,6 +31,7 @@
 #include "ContainerNode.h"
 #include "ContextDestructionObserverInlines.h"
 #include "DocumentEventTiming.h"
+#include "DocumentSyncData.h"
 #include "FontSelectorClient.h"
 #include "FragmentDirective.h"
 #include "FrameDestructionObserver.h"
@@ -216,6 +217,7 @@ class RenderView;
 class ReportingScope;
 class RequestAnimationFrameCallback;
 class ResizeObserver;
+class ResourceMonitor;
 class SVGDocumentExtensions;
 class SVGElement;
 class SVGSVGElement;
@@ -303,7 +305,9 @@ enum CSSPropertyID : uint16_t;
 
 enum class CompositeOperator : uint8_t;
 enum class ContentRelevancy : uint8_t;
+#if ENABLE(DOM_AUDIO_SESSION)
 enum class DOMAudioSessionType : uint8_t;
+#endif
 enum class DisabledAdaptations : uint8_t;
 enum class FireEvents : bool;
 enum class FocusDirection : uint8_t;
@@ -356,7 +360,7 @@ enum class NodeListInvalidationType : uint8_t {
     InvalidateOnHRefAttrChange,
     InvalidateOnAnyAttrChange,
 };
-const auto numNodeListInvalidationTypes = enumToUnderlyingType(NodeListInvalidationType::InvalidateOnAnyAttrChange) + 1;
+constexpr auto numNodeListInvalidationTypes = enumToUnderlyingType(NodeListInvalidationType::InvalidateOnAnyAttrChange) + 1;
 
 enum class EventHandlerRemoval : bool { One, All };
 using EventTargetSet = WeakHashCountedSet<Node, WeakPtrImplWithEventTargetData>;
@@ -521,10 +525,9 @@ public:
     WEBCORE_EXPORT ExceptionOr<Ref<ProcessingInstruction>> createProcessingInstruction(String&& target, String&& data);
     WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttribute(const AtomString& name);
     WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttributeNS(const AtomString& namespaceURI, const AtomString& qualifiedName, bool shouldIgnoreNamespaceChecks = false);
-    WEBCORE_EXPORT ExceptionOr<Ref<Node>> importNode(Node& nodeToImport, bool deep);
 
     static CustomElementNameValidationStatus validateCustomElementName(const AtomString&);
-    void setActiveCustomElementRegistry(CustomElementRegistry&);
+    void setActiveCustomElementRegistry(CustomElementRegistry*);
     CustomElementRegistry* activeCustomElementRegistry() { return m_activeCustomElementRegistry.get(); }
 
     WEBCORE_EXPORT RefPtr<Range> caretRangeFromPoint(int x, int y, HitTestSource = HitTestSource::Script);
@@ -948,9 +951,6 @@ public:
     enum class NodeRemoval : bool { Node, ChildrenOfNode };
     void adjustFocusedNodeOnNodeRemoval(Node&, NodeRemoval = NodeRemoval::Node);
     void adjustFocusNavigationNodeOnNodeRemoval(Node&, NodeRemoval = NodeRemoval::Node);
-
-    bool isAutofocusProcessed() const { return m_isAutofocusProcessed; }
-    void setAutofocusProcessed() { m_isAutofocusProcessed = true; }
 
     void appendAutofocusCandidate(Element&);
     void clearAutofocusCandidates();
@@ -1476,9 +1476,6 @@ public:
     bool hasRecentUserInteractionForNavigationFromJS() const;
     void userActivatedMediaFinishedPlaying() { m_userActivatedMediaFinishedPlayingTimestamp = MonotonicTime::now(); }
 
-    void setUserDidInteractWithPage(bool userDidInteractWithPage) { ASSERT(isTopDocumentLegacy()); m_userDidInteractWithPage = userDidInteractWithPage; }
-    bool userDidInteractWithPage() const { ASSERT(isTopDocumentLegacy()); return m_userDidInteractWithPage; }
-
     // Used for testing. Count handlers in the main document, and one per frame which contains handlers.
     WEBCORE_EXPORT unsigned wheelEventHandlerCount() const;
     WEBCORE_EXPORT unsigned touchEventHandlerCount() const;
@@ -1625,6 +1622,7 @@ public:
     void setVisualUpdatesAllowedByClient(bool);
 
     std::optional<Vector<uint8_t>> wrapCryptoKey(const Vector<uint8_t>&) final;
+    std::optional<Vector<uint8_t>> serializeAndWrapCryptoKey(CryptoKeyData&&) final;
     std::optional<Vector<uint8_t>> unwrapCryptoKey(const Vector<uint8_t>&) final;
 
     void setHasStyleWithViewportUnits() { m_hasStyleWithViewportUnits = true; }
@@ -1962,11 +1960,6 @@ public:
     void sendReportToEndpoints(const URL& baseURL, const Vector<String>& endpointURIs, const Vector<String>& endpointTokens, Ref<FormData>&& report, ViolationReportType) final;
     String httpUserAgent() const final;
 
-#if ENABLE(DOM_AUDIO_SESSION)
-    void setAudioSessionType(DOMAudioSessionType type) { m_audioSessionType = type; }
-    DOMAudioSessionType audioSessionType() const { return m_audioSessionType; }
-#endif
-
     virtual void didChangeViewSize() { }
     bool isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targetFrame, const URL& destinationURL);
 
@@ -1984,6 +1977,13 @@ public:
 
     unsigned unloadCounter() const { return m_unloadCounter; }
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    ResourceMonitor* resourceMonitorIfExists();
+    ResourceMonitor& resourceMonitor();
+    Ref<ResourceMonitor> protectedResourceMonitor();
+    ResourceMonitor* parentResourceMonitorIfExists();
+#endif
+
 protected:
     enum class ConstructionFlag : uint8_t {
         Synthesized = 1 << 0,
@@ -1997,10 +1997,11 @@ protected:
 
 private:
     friend class DocumentParserYieldToken;
+    friend class IgnoreDestructiveWriteCountIncrementer;
     friend class Node;
+    friend class Page;
     friend class ThrowOnDynamicMarkupInsertionCountIncrementer;
     friend class UnloadCountIncrementer;
-    friend class IgnoreDestructiveWriteCountIncrementer;
 
     void updateTitleElement(Element& changingTitleElement);
     RefPtr<Element> protectedTitleElement() const;
@@ -2047,7 +2048,7 @@ private:
 
     String nodeName() const final;
     bool childTypeAllowed(NodeType) const final;
-    Ref<Node> cloneNodeInternal(Document&, CloningOperation) final;
+    Ref<Node> cloneNodeInternal(TreeScope&, CloningOperation) final;
     void cloneDataFromDocument(const Document&);
 
     Seconds minimumDOMTimerInterval() const final;
@@ -2147,6 +2148,8 @@ private:
 #endif
     bool isTopDocumentLegacy() const { return &topDocument() == this; }
     void securityOriginDidChange() final;
+
+    Ref<DocumentSyncData> syncData() { return m_syncData.get(); }
 
     const Ref<const Settings> m_settings;
 
@@ -2266,7 +2269,7 @@ private:
 
     HashSet<LiveNodeList*> m_listsInvalidatedAtDocument;
     HashSet<HTMLCollection*> m_collectionsInvalidatedAtDocument;
-    unsigned m_nodeListAndCollectionCounts[numNodeListInvalidationTypes] { 0 };
+    std::array<unsigned, numNodeListInvalidationTypes> m_nodeListAndCollectionCounts = { };
 
     RefPtr<XPathEvaluator> m_xpathEvaluator;
 
@@ -2604,8 +2607,6 @@ private:
     bool m_isSynthesized { false };
     bool m_isNonRenderedPlaceholder { false };
 
-    bool m_isAutofocusProcessed { false };
-
     bool m_sawElementsInKnownNamespaces { false };
     bool m_isSrcdocDocument { false };
 
@@ -2625,7 +2626,6 @@ private:
     bool m_scheduledTasksAreSuspended { false };
 
     bool m_areDeviceMotionAndOrientationUpdatesSuspended { false };
-    bool m_userDidInteractWithPage { false };
 
     bool m_didEnqueueFirstContentfulPaint { false };
 
@@ -2689,7 +2689,13 @@ private:
 
     mutable std::unique_ptr<CSSParserContext> m_cachedCSSParserContext;
     mutable std::unique_ptr<PermissionsPolicy> m_permissionsPolicy;
-};
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    RefPtr<ResourceMonitor> m_resourceMonitor;
+#endif
+
+    Ref<DocumentSyncData> m_syncData;
+}; // class Document
 
 Element* eventTargetElementForDocument(Document*);
 

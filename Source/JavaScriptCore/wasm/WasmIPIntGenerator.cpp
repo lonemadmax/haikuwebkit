@@ -125,6 +125,7 @@ struct IPIntControlType {
 
     static bool isIf(const IPIntControlType& control) { return control.blockType() == BlockType::If; }
     static bool isTry(const IPIntControlType& control) { return control.blockType() == BlockType::Try; }
+    static bool isTryTable(const IPIntControlType& control) { return control.blockType() == BlockType::TryTable; }
     static bool isAnyCatch(const IPIntControlType& control) { return control.blockType() == BlockType::Catch; }
     static bool isTopLevel(const IPIntControlType& control) { return control.blockType() == BlockType::TopLevel; }
     static bool isLoop(const IPIntControlType& control) { return control.blockType() == BlockType::Loop; }
@@ -177,6 +178,14 @@ private:
     uint32_t m_tryDepth { 0 };
 
     Vector<IPIntLocation> m_catchesAwaitingFixup;
+
+    struct TryTableTarget {
+        CatchKind type;
+        uint32_t tag;
+        const TypeDefinition* exceptionSignature;
+        ControlRef target;
+    };
+    Vector<TryTableTarget> m_tryTableTargets;
 };
 
 class IPIntGenerator {
@@ -489,6 +498,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addBranchCast(ControlType&, ExpressionType, Stack&, bool, int32_t, bool);
     PartialResult WARN_UNUSED_RETURN addSwitch(ExpressionType, const Vector<ControlType*>&, ControlType&, const Stack&);
     PartialResult WARN_UNUSED_RETURN endBlock(ControlEntry&, Stack&);
+    void endTryTable(ControlType& data);
     PartialResult WARN_UNUSED_RETURN addEndToUnreachable(ControlEntry&, Stack&);
 
     PartialResult WARN_UNUSED_RETURN endTopLevel(BlockSignature, const Stack&);
@@ -512,7 +522,7 @@ public:
     {
         return m_parser->offset() - m_parser->currentOpcodeStartingOffset();
     }
-    void addCallCommonData(const FunctionSignature&);
+    void addCallCommonData(const FunctionSignature&, const CallInformation&);
     void addTailCallCommonData(const FunctionSignature&);
     void didFinishParsingLocals()
     {
@@ -523,6 +533,11 @@ public:
     void willParseExtendedOpcode() { }
     void didParseOpcode()
     {
+        // IPInt doesn't support SIMD yet, but we end up with validation errors if we parse a SIMD
+        // function, since we're not updating the stack height in the generator. We're never going
+        // to run the code, so we don't care.
+        if (m_usesSIMD)
+            return;
         if (!m_parser->unreachableBlocks())
             ASSERT(m_parser->getStackHeightInValues() == m_stackSize.value());
     }
@@ -2178,16 +2193,61 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addTry(BlockSignature signature
     // It's not clear that code would want to have many nested try blocks
     // though.
     m_metadata->addLength(getCurrentInstructionLength());
+
+    coalesceControlFlow();
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addTryTable(BlockSignature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack)
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addTryTable(BlockSignature signature, Stack& enclosingStack, const Vector<CatchHandler>& targets, ControlType& result, Stack& newStack)
 {
-    UNUSED_PARAM(enclosingStack);
-    UNUSED_PARAM(targets);
-    UNUSED_PARAM(result);
-    UNUSED_PARAM(newStack);
-    ASSERT_NOT_IMPLEMENTED_YET();
+    splitStack(signature, enclosingStack, newStack);
+    result = ControlType(signature, m_stackSize.value() - newStack.size(), BlockType::TryTable);
+    result.m_tryTableTargets.reserveInitialCapacity(targets.size());
+    result.m_index = controlStructuresAwaitingCoalescing.size();
+    result.m_pc = curPC();
+    result.m_mc = curMC();
+    result.m_pendingOffset = curMC();
+
+    coalesceQueue.append(QueuedCoalesceRequest { controlStructuresAwaitingCoalescing.size(), true });
+    controlStructuresAwaitingCoalescing.append(ControlStructureAwaitingCoalescing {
+        .startPC = result.m_pc,
+        .isLoop = false
+    });
+    ++coalesceDebt;
+
+    tryToResolveEntryTarget(result.m_index, { curPC(), curMC() }, m_metadata->m_metadata.data());
+
+    result.m_tryTableTargets.appendUsingFunctor(targets.size(),
+        [&](unsigned i) -> ControlType::TryTableTarget {
+            auto& target = targets[i];
+            return {
+                target.type,
+                target.tag,
+                target.exceptionSignature,
+                target.target
+            };
+        }
+    );
+
+    m_metadata->addBlankSpace<IPInt::BlockMetadata>();
+
+    // append all the branch data first
+    for (auto& target : targets) {
+        auto entry = m_parser->resolveControlRef(target.target).controlData;
+        // stack size at destination is (locals) + (everything below target) + (things we push)
+        m_metadata->appendMetadata<IPInt::CatchMetadata>({
+            static_cast<uint32_t>(entry.stackSize() + entry.branchTargetArity() + roundUpToMultipleOf<2>(m_metadata->m_numLocals))
+        });
+
+        IPIntLocation here = { curPC(), curMC() };
+        m_metadata->appendMetadata<IPInt::BlockMetadata>({
+            .deltaPC = 0xbeef, .deltaMC = 0xbeef
+        });
+
+        tryToResolveBranchTarget(entry, here, m_metadata->m_metadata.data());
+    }
+
+    coalesceControlFlow();
     return { };
 }
 
@@ -2198,6 +2258,9 @@ void IPIntGenerator::convertTryToCatch(ControlType& tryBlock, CatchKind catchKin
     catchBlock.m_pc = tryBlock.m_pc;
     catchBlock.m_pcEnd = m_parser->currentOpcodeStartingOffset() - m_metadata->m_bytecodeOffset;
     catchBlock.m_tryDepth = tryBlock.m_tryDepth;
+
+    catchBlock.m_index = tryBlock.m_index;
+    catchBlock.m_mc = tryBlock.m_mc;
 
     tryBlock = WTFMove(catchBlock);
 }
@@ -2274,8 +2337,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCatchAllToUnreachable(Contro
         0
     });
 
-    // IPInt stack entries are 16 bytes to keep the stack aligned. With the exception of locals, which are only 8 bytes.
-    uint32_t stackSizeInV128 = m_stackSize.value() + roundUpToMultipleOf<2>(m_metadata->m_numLocals) / 2;
+    uint32_t stackSizeInV128 = m_stackSize.value() + roundUpToMultipleOf<2>(m_metadata->m_numLocals);
     IPInt::CatchMetadata mdCatch {
         .stackSizeInV128 = stackSizeInV128
     };
@@ -2293,6 +2355,9 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDelegateToUnreachable(Contro
 {
     UNUSED_PARAM(target);
     UNUSED_PARAM(data);
+
+    data.m_pcEnd = curPC();
+
     // FIXME: If this is actually unreachable we shouldn't need metadata.
     data.m_catchesAwaitingFixup.append({ curPC(), curMC() });
     m_metadata->addBlankSpace<IPInt::BlockMetadata>();
@@ -2304,8 +2369,8 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDelegateToUnreachable(Contro
         HandlerType::Delegate,
         static_cast<uint32_t>(data.m_pc),
         static_cast<uint32_t>(data.m_pcEnd),
-        static_cast<uint32_t>(m_parser->offset() - m_metadata->m_bytecodeOffset),
-        static_cast<uint32_t>(m_metadata->m_metadata.size()),
+        static_cast<uint32_t>(curPC()),
+        static_cast<uint32_t>(curMC()),
         m_tryDepth,
         targetDepth
     });
@@ -2339,7 +2404,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addRethrow(unsigned, ControlTyp
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addThrowRef(ExpressionType, Stack&)
 {
-    ASSERT_NOT_IMPLEMENTED_YET();
+    changeStackSize(-1);
     return { };
 }
 
@@ -2453,6 +2518,45 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::endBlock(ControlEntry& entry, S
     return addEndToUnreachable(entry, stack);
 }
 
+void IPIntGenerator::endTryTable(ControlType& data)
+{
+    auto targets = data.m_tryTableTargets;
+
+    unsigned i = 0;
+    for (auto& target : targets) {
+        HandlerType targetType;
+        switch (target.type) {
+        case CatchKind::Catch:
+            targetType = HandlerType::TryTableCatch;
+            break;
+        case CatchKind::CatchRef:
+            targetType = HandlerType::TryTableCatchRef;
+            break;
+        case CatchKind::CatchAll:
+            targetType = HandlerType::TryTableCatchAll;
+            break;
+        case CatchKind::CatchAllRef:
+            targetType = HandlerType::TryTableCatchAllRef;
+            break;
+        }
+        auto entry = m_parser->resolveControlRef(target.target).controlData;
+        m_metadata->m_exceptionHandlers.append({
+            targetType,
+            data.m_pc,
+            curPC(),
+
+            // index into the array of try_table targets
+            data.m_pc, // PC will be fixed up relative to the try_table's PC
+            static_cast<unsigned>(data.m_mc
+                + sizeof(IPInt::BlockMetadata)
+                + i * (sizeof(IPInt::CatchMetadata) + sizeof(IPInt::BlockMetadata))),
+            m_tryDepth,
+            target.tag
+        });
+        ++i;
+    }
+}
+
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntry& entry, Stack&)
 {
     auto blockSignature = entry.controlData.signature();
@@ -2467,6 +2571,9 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntr
         --m_tryDepth;
         exitHandlersAwaitingCoalescing.appendVector(block.m_catchesAwaitingFixup);
     }
+
+    if (ControlType::isTryTable(block))
+        endTryTable(block);
 
     if (ControlType::isTopLevel(block)) {
         // Hit the end
@@ -2493,6 +2600,12 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntr
             --coalesceDebt;
         }
     } else if (ControlType::isLoop(block)) {
+        coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
+        --coalesceDebt;
+    } else if (ControlType::isTryTable(block)) {
+        coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
+        --coalesceDebt;
+    } else if (ControlType::isTry(block) || ControlType::isAnyCatch(block)) {
         coalesceQueue.append({ static_cast<unsigned>(block.m_index), false });
         --coalesceDebt;
     }
@@ -2525,9 +2638,8 @@ static constexpr unsigned fprToIndex(FPRReg r)
     return 0;
 }
 
-void IPIntGenerator::addCallCommonData(const FunctionSignature& signature)
+void IPIntGenerator::addCallCommonData(const FunctionSignature& signature, const CallInformation& callConvention)
 {
-    CallInformation callConvention = wasmCallingConvention().callInformationFor(signature, CallRole::Caller);
     uint16_t stackArgs = 0;
 
     constexpr static int NUM_MINT_CALL_GPRS = 8;
@@ -2568,8 +2680,7 @@ void IPIntGenerator::addCallCommonData(const FunctionSignature& signature)
     }
 
     IPInt::CallReturnMetadata commonReturn {
-        .stackSlots = safeCast<uint16_t>(stackArgs), // stackArgs is already padded
-        .argumentCount = safeCast<uint16_t>(signature.argumentCount()),
+        .stackFrameSize = static_cast<uint32_t>(callConvention.headerAndArgumentStackSizeInBytes),
         .resultBytecode = { }
     };
     m_metadata->appendMetadata(commonReturn);
@@ -2583,6 +2694,7 @@ void IPIntGenerator::addCallCommonData(const FunctionSignature& signature)
     ASSERT_UNUSED(NUM_MINT_RET_GPRS, wasmCallingConvention().jsrArgs.size() <= NUM_MINT_RET_GPRS);
     ASSERT_UNUSED(NUM_MINT_RET_FPRS, wasmCallingConvention().fprArgs.size() <= NUM_MINT_RET_FPRS);
 
+    bool hasSeenStackArgument = false;
     for (size_t i = 0; i < signature.returnCount(); ++i) {
         auto loc = returnConvention.results[i].location;
         if (loc.isGPR()) {
@@ -2591,8 +2703,15 @@ void IPIntGenerator::addCallCommonData(const FunctionSignature& signature)
         } else if (loc.isFPR()) {
             ASSERT_UNUSED(NUM_MINT_RET_FPRS, fprToIndex(loc.fpr()) < NUM_MINT_RET_FPRS);
             mINTBytecode.append(static_cast<uint8_t>(IPInt::CallResultBytecode::ResultFPR) + fprToIndex(loc.fpr()));
-        } else if (loc.isStackArgument())
+        } else if (loc.isStackArgument()) {
+            if (!hasSeenStackArgument) {
+                hasSeenStackArgument = true;
+                // If our first stack argument is in an "odd" slot, we need to skip one slot.
+                if (loc.offsetFromSP() % 16)
+                    mINTBytecode.append(static_cast<uint8_t>(IPInt::CallResultBytecode::StackGap));
+            }
             mINTBytecode.append(static_cast<uint8_t>(IPInt::CallResultBytecode::ResultStack));
+        }
         else
             RELEASE_ASSERT_NOT_REACHED();
     }
@@ -2671,6 +2790,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCall(FunctionSpaceIndex inde
         m_metadata->appendMetadata(functionIndexMetadata);
         addTailCallCommonData(signature);
     } else {
+        CallInformation callConvention = wasmCallingConvention().callInformationFor(signature, CallRole::Caller);
         for (unsigned i = 0; i < signature.returnCount(); i ++)
             results.append(Value { });
         changeStackSize(signature.returnCount() - signature.argumentCount());
@@ -2680,10 +2800,15 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCall(FunctionSpaceIndex inde
         IPInt::CallMetadata functionIndexMetadata {
             .length = safeCast<uint8_t>(getCurrentInstructionLength()),
             .functionIndex = index,
+            .signature = {
+                static_cast<uint32_t>(callConvention.headerAndArgumentStackSizeInBytes),
+                static_cast<uint16_t>(signature.returnCount() > signature.argumentCount() ? signature.returnCount() - signature.argumentCount() : 0),
+                static_cast<uint16_t>(signature.argumentCount())
+            },
             .argumentBytecode = { }
         };
         m_metadata->appendMetadata(functionIndexMetadata);
-        addCallCommonData(signature);
+        addCallCommonData(signature, callConvention);
     }
     return { };
 }
@@ -2714,6 +2839,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCallIndirect(unsigned tableI
         m_metadata->appendMetadata(functionIndexMetadata);
         addTailCallCommonData(signature);
     } else {
+        CallInformation callConvention = wasmCallingConvention().callInformationFor(signature, CallRole::Caller);
         for (unsigned i = 0; i < signature.returnCount(); i ++)
             results.append(Value { });
         const unsigned callIndex = 1;
@@ -2723,11 +2849,16 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCallIndirect(unsigned tableI
             .length = safeCast<uint8_t>(getCurrentInstructionLength()),
             .tableIndex = tableIndex,
             .typeIndex = m_metadata->addSignature(type),
+            .signature = {
+                static_cast<uint32_t>(callConvention.headerAndArgumentStackSizeInBytes),
+                static_cast<uint16_t>(signature.returnCount() > signature.argumentCount() ? signature.returnCount() - signature.argumentCount() : 0),
+                static_cast<uint16_t>(signature.argumentCount())
+            },
             .argumentBytecode = { }
         };
         m_metadata->appendMetadata(functionIndexMetadata);
 
-        addCallCommonData(signature);
+        addCallCommonData(signature, callConvention);
     }
     return { };
 }
@@ -2757,6 +2888,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCallRef(const TypeDefinition
         m_metadata->appendMetadata(callMetadata);
         addTailCallCommonData(signature);
     } else {
+        CallInformation callConvention = wasmCallingConvention().callInformationFor(signature, CallRole::Caller);
         for (unsigned i = 0; i < signature.returnCount(); i ++)
             results.append(Value { });
         const unsigned callRef = 1;
@@ -2765,11 +2897,16 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCallRef(const TypeDefinition
         IPInt::CallRefMetadata callMetadata {
             .length = safeCast<uint8_t>(getCurrentInstructionLength()),
             .typeIndex = m_metadata->addSignature(type),
+            .signature = {
+                static_cast<uint32_t>(callConvention.headerAndArgumentStackSizeInBytes),
+                static_cast<uint16_t>(signature.returnCount() > signature.argumentCount() ? signature.returnCount() - signature.argumentCount() : 0),
+                static_cast<uint16_t>(signature.argumentCount())
+            },
             .argumentBytecode = { }
         };
         m_metadata->appendMetadata(callMetadata);
 
-        addCallCommonData(signature);
+        addCallCommonData(signature, callConvention);
     }
     return { };
 }

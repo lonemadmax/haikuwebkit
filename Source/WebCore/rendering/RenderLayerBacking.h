@@ -207,6 +207,10 @@ public:
     void clearInteractionRegions();
 #endif
 
+#if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
+    void updateSeparatedProperties();
+#endif
+
     void updateAfterWidgetResize();
     void positionOverflowControlsLayers();
     
@@ -239,6 +243,7 @@ public:
     void didChangePlatformLayerForLayer(const GraphicsLayer*) override;
     bool getCurrentTransform(const GraphicsLayer*, TransformationMatrix&) const override;
 
+    bool isFlushingLayers() const override;
     bool isTrackingRepaints() const override;
     bool shouldSkipLayerInDump(const GraphicsLayer*, OptionSet<LayerTreeAsTextOptions>) const override;
     bool shouldDumpPropertyForLayer(const GraphicsLayer*, ASCIILiteral propertyName, OptionSet<LayerTreeAsTextOptions>) const override;

@@ -413,7 +413,7 @@ float PDFScrollingPresentationController::deviceScaleFactor() const
 std::optional<float> PDFScrollingPresentationController::customContentsScale(const GraphicsLayer* layer) const
 {
     if (pageIndexForPageBackgroundLayer(layer))
-        return m_plugin->scaleForPagePreviews();
+        return scaleForPagePreviews();
 
     return { };
 }
@@ -458,6 +458,14 @@ void PDFScrollingPresentationController::paintPDFSelection(const GraphicsLayer* 
     m_plugin->paintPDFSelection(layer, context, clipRect, row);
 }
 #endif
+
+std::optional<PlatformLayerIdentifier> PDFScrollingPresentationController::contentsLayerIdentifier() const
+{
+    if (!m_contentsLayer)
+        return std::nullopt;
+
+    return m_contentsLayer->primaryLayerID();
+}
 
 } // namespace WebKit
 

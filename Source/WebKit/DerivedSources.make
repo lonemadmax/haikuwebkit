@@ -129,6 +129,7 @@ endif
 to-pattern = $(join $(basename $1), $(subst .,%,$(suffix $1)))
 
 MESSAGE_RECEIVERS = \
+	LogStream \
 	NetworkProcess/Authentication/AuthenticationManager \
 	NetworkProcess/NetworkBroadcastChannelRegistry \
 	NetworkProcess/NetworkConnectionToWebProcess \
@@ -159,7 +160,6 @@ MESSAGE_RECEIVERS = \
 	Shared/IPCStreamTesterProxy \
 	Shared/IPCTester \
 	Shared/IPCTesterReceiver \
-	Shared/LogStream \
 	UIProcess/WebFullScreenManagerProxy \
 	UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy \
 	UIProcess/GPU/GPUProcessProxy \
@@ -328,6 +328,7 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/media/RemoteMediaEngineConfigurationFactoryProxy \
 	GPUProcess/media/RemoteMediaPlayerManagerProxy \
 	GPUProcess/media/RemoteMediaPlayerProxy \
+	GPUProcess/media/RemoteMediaRecorderPrivateWriterManager \
 	GPUProcess/media/RemoteMediaResourceManager \
 	GPUProcess/media/RemoteVideoFrameObjectHeap \
 	GPUProcess/media/RemoteMediaSourceProxy \
@@ -387,9 +388,39 @@ SANDBOX_IMPORT_DIR=$(SDKROOT)/usr/local/share/sandbox/profiles/embedded/imports
 
 .PHONY : all
 
+# Log messages
+
+all : WebCoreLogDefinitions.h WebKitLogDefinitions.h
+
+WEBCORE_LOG_DECLARATIONS_FILES = \
+    WebCoreLogDefinitions.h \
+    WebCoreVirtualLogFunctions.h \
+
+$(WEBCORE_LOG_DECLARATIONS_FILES) : $(WebCorePrivateHeaders)/LogMessages.in
+	@echo Creating WebCore log definitions $@
+	$(PYTHON) $(WebCorePrivateHeaders)/generate-log-declarations.py $< $(WEBCORE_LOG_DECLARATIONS_FILES)
+
+WEBKIT_LOG_DECLARATIONS_FILES = \
+    WebKitLogDefinitions.h \
+    WebKitVirtualLogFunctions.h \
+
+$(WEBKIT_LOG_DECLARATIONS_FILES) : Platform/LogMessages.in
+	@echo Creating WebKit log definitions $@
+	$(PYTHON) $(WebCorePrivateHeaders)/generate-log-declarations.py $< $(WEBKIT_LOG_DECLARATIONS_FILES)
+
+LOG_OUTPUT_FILES = \
+    LogStream.messages.in \
+    LogMessagesDeclarations.h \
+    LogMessagesImplementations.h \
+    WebKitLogClientDeclarations.h \
+    WebCoreLogClientDeclarations.h \
+
+$(LOG_OUTPUT_FILES) : $(WebKit2)/Scripts/generate-derived-log-sources.py Platform/LogMessages.in $(WebCorePrivateHeaders)/LogMessages.in
+	PYTHONPATH=$(WebCorePrivateHeaders) $(PYTHON) $^ $(LOG_OUTPUT_FILES)
+
 all : $(GENERATED_MESSAGES_FILES)
 
-$(GENERATED_MESSAGES_FILES_AS_PATTERNS) : $(MESSAGES_IN_FILES) $(GENERATE_MESSAGE_RECEIVER_SCRIPTS)
+$(GENERATED_MESSAGES_FILES_AS_PATTERNS) : $(LOG_OUTPUT_FILES) $(MESSAGES_IN_FILES) $(GENERATE_MESSAGE_RECEIVER_SCRIPTS)
 	$(PYTHON) $(GENERATE_MESSAGE_RECEIVER_SCRIPT) $(WebKit2) $(MESSAGE_RECEIVERS)
 
 TEXT_PREPROCESSOR_FLAGS=-E -P -w
@@ -516,6 +547,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	GPUProcess/media/InitializationSegmentInfo.serialization.in \
 	GPUProcess/media/MediaDescriptionInfo.serialization.in \
 	GPUProcess/media/RemoteMediaPlayerProxyConfiguration.serialization.in \
+	GPUProcess/media/RemoteTrackInfo.serialization.in \
 	GPUProcess/media/TextTrackPrivateRemoteConfiguration.serialization.in \
 	GPUProcess/media/TrackPrivateRemoteConfiguration.serialization.in \
 	GPUProcess/media/VideoTrackPrivateRemoteConfiguration.serialization.in \
@@ -642,6 +674,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/ImageOptions.serialization.in \
 	Shared/InspectorExtensionTypes.serialization.in \
 	Shared/PlatformFontInfo.serialization.in \
+	Shared/ios/CursorContext.serialization.in \
 	Shared/ios/DynamicViewportSizeUpdate.serialization.in \
 	Shared/ios/GestureTypes.serialization.in \
 	Shared/ios/HardwareKeyboardState.serialization.in \
@@ -941,6 +974,7 @@ all : module.private.modulemap
 
 ifeq ($(USE_INTERNAL_SDK),YES)
 WEBKIT_ADDITIONS_SWIFT_FILES = \
+	WKSeparatedImageView.swift \
 #
 
 $(WEBKIT_ADDITIONS_SWIFT_FILES): %.swift : %.swift.in
