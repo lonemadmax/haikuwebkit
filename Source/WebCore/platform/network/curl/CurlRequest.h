@@ -42,6 +42,7 @@ namespace WebCore {
 class CurlRequestClient;
 class NetworkLoadMetrics;
 class ResourceError;
+class SynchronousLoaderMessageQueue;
 
 class CurlRequest final : public ThreadSafeRefCounted<CurlRequest>, public CurlRequestSchedulerClient, public CurlMultipartHandleClient, public CanMakeThreadSafeCheckedPtr<CurlRequest> {
     WTF_MAKE_TZONE_ALLOCATED(CurlRequest);
@@ -53,9 +54,9 @@ public:
         Extended
     };
 
-    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic)
+    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue = nullptr)
     {
-        return adoptRef(*new CurlRequest(request, &client, captureMetrics));
+        return adoptRef(*new CurlRequest(request, &client, captureMetrics, WTFMove(messageQueue)));
     }
 
     virtual ~CurlRequest();
@@ -89,7 +90,7 @@ public:
     void setDownloadedFilePath(const String& path) { m_downloadFilePath = path; }
 
 private:
-    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, CaptureNetworkLoadMetrics);
+    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);
 
     // CheckedPtr interface
     uint32_t checkedPtrCount() const final { return CanMakeThreadSafeCheckedPtr::checkedPtrCount(); }
@@ -159,6 +160,7 @@ private:
     Lock m_statusMutex;
     bool m_cancelled { false };
     bool m_completed { false };
+    RefPtr<SynchronousLoaderMessageQueue> m_messageQueue;
 
     ResourceRequest m_request;
     String m_user;

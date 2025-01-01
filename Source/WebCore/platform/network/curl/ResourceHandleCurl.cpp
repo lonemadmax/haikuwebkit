@@ -150,7 +150,7 @@ Ref<CurlRequest> ResourceHandle::createCurlRequest(ResourceRequest&& request, Re
             request.addHTTPHeaderField(HTTPHeaderName::Cookie, cookieHeaderField);
     }
 
-    auto curlRequest = CurlRequest::create(request, *delegate(), CurlRequest::CaptureNetworkLoadMetrics::Basic);
+    auto curlRequest = CurlRequest::create(request, *delegate(), CurlRequest::CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>(d->m_messageQueue));
 
     return curlRequest;
 }

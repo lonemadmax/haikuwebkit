@@ -48,8 +48,9 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CurlRequest);
 
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, CaptureNetworkLoadMetrics captureExtraMetrics)
+CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, CaptureNetworkLoadMetrics captureExtraMetrics, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue)
     : m_client(client)
+    , m_messageQueue(WTFMove(messageQueue))
     , m_request(request.isolatedCopy())
     , m_startState(StartState::WaitingForStart)
     , m_formDataStream(m_request.httpBody())
@@ -65,6 +66,7 @@ void CurlRequest::invalidateClient()
     ASSERT(isMainThread());
 
     m_client = nullptr;
+    m_messageQueue = nullptr;
 }
 
 void CurlRequest::setAuthenticationScheme(ProtectionSpace::AuthenticationScheme scheme)
@@ -219,7 +221,13 @@ void CurlRequest::callClient(Function<void(CurlRequest&, CurlRequestClient&)>&& 
 
 void CurlRequest::runOnMainThread(Function<void()>&& task)
 {
-    ensureOnMainThread(WTFMove(task));
+    // for platformLoadResourceSycnhronously: we need a way to execute code in the main thread
+    // while it is also locked waiting for the resource. This is done with a dedicated message
+    // queue.
+    if (m_messageQueue)
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(task)));
+    else
+        ensureOnMainThread(WTFMove(task));
 }
 
 void CurlRequest::runOnWorkerThreadIfRequired(Function<void()>&& task)
