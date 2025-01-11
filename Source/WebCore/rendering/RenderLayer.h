@@ -515,8 +515,7 @@ public:
     bool canRender3DTransforms() const;
 
     void updateLayerPositionsAfterStyleChange(bool environmentChanged = false);
-    enum class CanUseSimplifiedRepaintPass : uint8_t { No, Yes };
-    void updateLayerPositionsAfterLayout(RenderElement::LayoutIdentifier, bool didFullRepaint, bool environmentChanged, CanUseSimplifiedRepaintPass);
+    void updateLayerPositionsAfterLayout(bool didFullRepaint, bool environmentChanged);
     void updateLayerPositionsAfterOverflowScroll();
     void updateLayerPositionsAfterDocumentScroll();
 
@@ -755,7 +754,6 @@ public:
     void setRepaintStatus(RepaintStatus status) { m_repaintStatus = status; }
     RepaintStatus repaintStatus() const { return m_repaintStatus; }
     bool needsFullRepaint() const { return m_repaintStatus == RepaintStatus::NeedsFullRepaint || m_repaintStatus == RepaintStatus::NeedsFullRepaintForPositionedMovementLayout; }
-    void setIsSimplifiedLayoutRoot() { m_isSimplifiedLayoutRoot = true; }
 
     LayoutUnit staticInlinePosition() const { return m_offsetForPosition.width(); }
     LayoutUnit staticBlockPosition() const { return m_offsetForPosition.height(); }
@@ -805,6 +803,11 @@ public:
     }
     bool canBeBackdropRoot() const { return m_canBeBackdropRoot; }
     bool isBackdropRoot() const { return hasBackdropFilterDescendantsWithoutRoot() && canBeBackdropRoot(); }
+
+#if HAVE(CORE_MATERIAL)
+    inline bool hasAppleVisualEffect() const;
+    inline bool hasAppleVisualEffectRequiringBackdropFilter() const;
+#endif
 
     inline bool hasBlendMode() const;
     BlendMode blendMode() const { return static_cast<BlendMode>(m_blendMode); }
@@ -1056,7 +1059,7 @@ private:
     bool updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* = nullptr, UpdateLayerPositionsMode = Write);
 
     template<UpdateLayerPositionsMode = Write>
-    void recursiveUpdateLayerPositions(RenderElement::LayoutIdentifier, OptionSet<UpdateLayerPositionsFlag>, CanUseSimplifiedRepaintPass = CanUseSimplifiedRepaintPass::No);
+    void recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFlag>);
     bool ancestorLayerPositionStateChanged(OptionSet<UpdateLayerPositionsFlag>);
 
     enum UpdateLayerPositionsAfterScrollFlag {
@@ -1087,15 +1090,6 @@ private:
         return { };
     }
 
-    LayoutRect rendererBorderBoxRectInFragment(RenderFragmentContainer* fragment, RenderBox::RenderBoxFragmentInfoFlags flags = RenderBox::RenderBoxFragmentInfoFlags::CacheRenderBoxFragmentInfo) const
-    {
-        if (auto* box = dynamicDowncast<RenderBox>(renderer()))
-            return box->borderBoxRectInFragment(fragment, flags);
-        if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
-            return svgModelObject->borderBoxRectInFragmentEquivalent(fragment, flags);
-        return { };
-    }
-
     LayoutRect rendererVisualOverflowRect() const
     {
         if (auto* box = dynamicDowncast<RenderBox>(renderer()))
@@ -1105,21 +1099,21 @@ private:
         return { };
     }
 
-    LayoutRect rendererOverflowClipRect(const LayoutPoint& location, RenderFragmentContainer* fragment, OverlayScrollbarSizeRelevancy relevancy) const
+    LayoutRect rendererOverflowClipRect(const LayoutPoint& location, OverlayScrollbarSizeRelevancy relevancy) const
     {
         if (auto* box = dynamicDowncast<RenderBox>(renderer()))
-            return box->overflowClipRect(location, fragment, relevancy);
+            return box->overflowClipRect(location, relevancy);
         if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
-            return svgModelObject->overflowClipRect(location, fragment, relevancy);
+            return svgModelObject->overflowClipRect(location, relevancy);
         return { };
     }
 
-    LayoutRect rendererOverflowClipRectForChildLayers(const LayoutPoint& location, RenderFragmentContainer* fragment, OverlayScrollbarSizeRelevancy relevancy) const
+    LayoutRect rendererOverflowClipRectForChildLayers(const LayoutPoint& location, OverlayScrollbarSizeRelevancy relevancy) const
     {
         if (auto* box = dynamicDowncast<RenderBox>(renderer()))
-            return box->overflowClipRectForChildLayers(location, fragment, relevancy);
+            return box->overflowClipRectForChildLayers(location, relevancy);
         if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(renderer()))
-            return svgModelObject->overflowClipRectForChildLayers(location, fragment, relevancy);
+            return svgModelObject->overflowClipRectForChildLayers(location, relevancy);
         return { };
     }
 
@@ -1353,8 +1347,6 @@ private:
     bool m_hasAlwaysIncludedInZOrderListsDescendantsStatusDirty : 1 { true };
 
     bool m_wasOmittedFromZOrderTree : 1 { false };
-
-    bool m_isSimplifiedLayoutRoot : 1 { false };
 
     RenderLayerModelObject& m_renderer;
 

@@ -36,19 +36,19 @@ namespace WebCore {
 
 void AXIsolatedObject::initializePlatformProperties(const Ref<const AccessibilityObject>& object)
 {
-    setProperty(AXPropertyName::HasApplePDFAnnotationAttribute, object->hasApplePDFAnnotationAttribute());
-    setProperty(AXPropertyName::SpeechHint, object->speechHintAttributeValue().isolatedCopy());
+    setProperty(AXProperty::HasApplePDFAnnotationAttribute, object->hasApplePDFAnnotationAttribute());
+    setProperty(AXProperty::SpeechHint, object->speechHintAttributeValue().isolatedCopy());
 #if ENABLE(AX_THREAD_TEXT_APIS)
     if (object->isStaticText()) {
         auto style = object->stylesForAttributedString();
-        setProperty(AXPropertyName::BackgroundColor, WTFMove(style.backgroundColor));
-        setProperty(AXPropertyName::Font, style.font);
-        setProperty(AXPropertyName::HasLinethrough, style.hasLinethrough());
-        setProperty(AXPropertyName::HasTextShadow, style.hasTextShadow);
-        setProperty(AXPropertyName::HasUnderline, style.hasUnderline());
-        setProperty(AXPropertyName::IsSubscript, style.isSubscript);
-        setProperty(AXPropertyName::IsSuperscript, style.isSuperscript);
-        setProperty(AXPropertyName::LinethroughColor, style.linethroughColor());
+        setProperty(AXProperty::BackgroundColor, WTFMove(style.backgroundColor));
+        setProperty(AXProperty::Font, style.font);
+        setProperty(AXProperty::HasLinethrough, style.hasLinethrough());
+        setProperty(AXProperty::HasTextShadow, style.hasTextShadow);
+        setProperty(AXProperty::HasUnderline, style.hasUnderline());
+        setProperty(AXProperty::IsSubscript, style.isSubscript);
+        setProperty(AXProperty::IsSuperscript, style.isSuperscript);
+        setProperty(AXProperty::LinethroughColor, style.linethroughColor());
         // FIXME: We're going to end up caching a lot of the same TextColor properties over and over.
         //  1. Should we implement some kind of Color interning?
         //  2. Or maybe have a "main" text color mechanism, where when we create the isolated tree, we try to compute the
@@ -59,10 +59,16 @@ void AXIsolatedObject::initializePlatformProperties(const Ref<const Accessibilit
         //         objects and uncache properties for those with the new "main" color? Not sure if this is worth it...
         //       - Only trigger the walk if font-color changes?
         // Resolve this FIXME before shipping AX_THREAD_TEXT_APIS.
-        setProperty(AXPropertyName::TextColor, WTFMove(style.textColor));
-        setProperty(AXPropertyName::UnderlineColor, style.underlineColor());
+        setProperty(AXProperty::TextColor, WTFMove(style.textColor));
+        setProperty(AXProperty::UnderlineColor, style.underlineColor());
     }
+    // FIXME: Can we compute this off the main-thread with our cached text runs?
+    setProperty(AXProperty::StringValue, object->stringValue().isolatedCopy());
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
+
+#if !ENABLE(AX_THREAD_TEXT_APIS)
+    // Do not cache AXProperty::AttributedText or AXProperty::TextContent when ENABLE(AX_THREAD_TEXT_APIS).
+    // We should instead be synthesizing these on-the-fly using AXProperty::TextRuns.
 
     RetainPtr<NSAttributedString> attributedText;
     // FIXME: Don't eagerly cache textarea/contenteditable values longer than 12500 characters as rangeForCharacterRange is very expensive.
@@ -77,27 +83,28 @@ void AXIsolatedObject::initializePlatformProperties(const Ref<const Accessibilit
                 range = object->simpleRange();
             if (range) {
                 if ((attributedText = object->attributedStringForRange(*range, SpellCheck::Yes)))
-                    setProperty(AXPropertyName::AttributedText, attributedText);
+                    setProperty(AXProperty::AttributedText, attributedText);
             }
         }
 
         // Cache the TextContent only if it is not empty and differs from the AttributedText.
         if (auto text = object->textContent()) {
             if (!attributedText || (text->length() && *text != String([attributedText string])))
-                setProperty(AXPropertyName::TextContent, text->isolatedCopy());
+                setProperty(AXProperty::TextContent, text->isolatedCopy());
         }
     }
-
-    setProperty(AXPropertyName::RemoteFramePlatformElement, object->remoteFramePlatformElement());
 
     // Cache the StringValue only if it differs from the AttributedText.
     auto value = object->stringValue();
     if (!attributedText || value != String([attributedText string]))
-        setProperty(AXPropertyName::StringValue, value.isolatedCopy());
+        setProperty(AXProperty::StringValue, value.isolatedCopy());
+#endif // !ENABLE(AX_THREAD_TEXT_APIS)
+
+    setProperty(AXProperty::RemoteFramePlatformElement, object->remoteFramePlatformElement());
 
     if (object->isWebArea()) {
-        setProperty(AXPropertyName::PreventKeyboardDOMEventDispatch, object->preventKeyboardDOMEventDispatch());
-        setProperty(AXPropertyName::CaretBrowsingEnabled, object->caretBrowsingEnabled());
+        setProperty(AXProperty::PreventKeyboardDOMEventDispatch, object->preventKeyboardDOMEventDispatch());
+        setProperty(AXProperty::CaretBrowsingEnabled, object->caretBrowsingEnabled());
     }
 
     if (object->isScrollView()) {
@@ -109,17 +116,17 @@ void AXIsolatedObject::initializePlatformProperties(const Ref<const Accessibilit
 AttributedStringStyle AXIsolatedObject::stylesForAttributedString() const
 {
     return {
-        propertyValue<RetainPtr<CTFontRef>>(AXPropertyName::Font),
-        colorAttributeValue(AXPropertyName::TextColor),
-        colorAttributeValue(AXPropertyName::BackgroundColor),
-        boolAttributeValue(AXPropertyName::IsSubscript),
-        boolAttributeValue(AXPropertyName::IsSuperscript),
-        boolAttributeValue(AXPropertyName::HasTextShadow),
+        font(),
+        colorAttributeValue(AXProperty::TextColor),
+        colorAttributeValue(AXProperty::BackgroundColor),
+        boolAttributeValue(AXProperty::IsSubscript),
+        boolAttributeValue(AXProperty::IsSuperscript),
+        boolAttributeValue(AXProperty::HasTextShadow),
         LineDecorationStyle(
-            boolAttributeValue(AXPropertyName::HasUnderline),
-            colorAttributeValue(AXPropertyName::UnderlineColor),
-            boolAttributeValue(AXPropertyName::HasLinethrough),
-            colorAttributeValue(AXPropertyName::LinethroughColor)
+            boolAttributeValue(AXProperty::HasUnderline),
+            colorAttributeValue(AXProperty::UnderlineColor),
+            boolAttributeValue(AXProperty::HasLinethrough),
+            colorAttributeValue(AXProperty::LinethroughColor)
         )
     };
 }
@@ -166,11 +173,16 @@ void AXIsolatedObject::detachPlatformWrapper(AccessibilityDetachmentType detachm
 
 std::optional<String> AXIsolatedObject::textContent() const
 {
-    if (m_propertyMap.contains(AXPropertyName::TextContent))
-        return stringAttributeValue(AXPropertyName::TextContent);
-    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXPropertyName::AttributedText))
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis())
+        return textMarkerRange().toString();
+#else
+    if (m_propertyMap.contains(AXProperty::TextContent))
+        return stringAttributeValue(AXProperty::TextContent);
+    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXProperty::AttributedText))
         return String { [attributedText string] };
-    return std::nullopt;
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
+    return { };
 }
 
 AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
@@ -180,8 +192,10 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRange() const
         return { };
     }
 
+#if !ENABLE(AX_THREAD_TEXT_APIS)
     if (auto text = textContent())
         return { tree()->treeID(), objectID(), 0, text->length() };
+#endif // !ENABLE(AX_THREAD_TEXT_APIS)
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
     if (AXObjectCache::useAXThreadTextApis()) {
@@ -235,29 +249,44 @@ AXTextMarkerRange AXIsolatedObject::textMarkerRangeForNSRange(const NSRange& ran
 
 std::optional<String> AXIsolatedObject::platformStringValue() const
 {
-    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXPropertyName::AttributedText))
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis())
+        return textMarkerRange().toString();
+#else
+    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXProperty::AttributedText))
         return [attributedText string];
-    return std::nullopt;
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
+    return { };
 }
 
 unsigned AXIsolatedObject::textLength() const
 {
     ASSERT(isTextControl());
 
-    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXPropertyName::AttributedText))
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis())
+        return textMarkerRange().toString().length();
+#else
+    if (auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXProperty::AttributedText))
         return [attributedText length];
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
     return 0;
 }
 
 RetainPtr<id> AXIsolatedObject::remoteFramePlatformElement() const
 {
-    return propertyValue<RetainPtr<id>>(AXPropertyName::RemoteFramePlatformElement);
+    return propertyValue<RetainPtr<id>>(AXProperty::RemoteFramePlatformElement);
 }
 
 RetainPtr<NSAttributedString> AXIsolatedObject::attributedStringForTextMarkerRange(AXTextMarkerRange&& markerRange, SpellCheck spellCheck) const
 {
     if (!markerRange)
         return nil;
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis())
+        return markerRange.toAttributedString(spellCheck).autorelease();
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
 
     // At the moment we are only handling ranges that are confined to a single object, and for which we cached the AttributeString.
     // FIXME: Extend to cases where the range expands multiple objects.
@@ -270,7 +299,10 @@ RetainPtr<NSAttributedString> AXIsolatedObject::attributedStringForTextMarkerRan
             return object->attributedStringForTextMarkerRange(WTFMove(markerRange), spellCheck);
     }
 
-    auto attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXPropertyName::AttributedText);
+    RetainPtr<NSAttributedString> attributedText = nil;
+#if !ENABLE(AX_THREAD_TEXT_APIS)
+    attributedText = propertyValue<RetainPtr<NSAttributedString>>(AXProperty::AttributedText);
+#endif // !ENABLE(AX_THREAD_TEXT_APIS)
     if (!isConfined || !attributedText) {
         return Accessibility::retrieveValueFromMainThread<RetainPtr<NSAttributedString>>([markerRange = WTFMove(markerRange), &spellCheck, this] () mutable -> RetainPtr<NSAttributedString> {
             if (RefPtr axObject = associatedAXObject())
@@ -314,7 +346,7 @@ void AXIsolatedObject::setPreventKeyboardDOMEventDispatch(bool value)
     ASSERT(!isMainThread());
     ASSERT(isWebArea());
 
-    setProperty(AXPropertyName::PreventKeyboardDOMEventDispatch, value);
+    setProperty(AXProperty::PreventKeyboardDOMEventDispatch, value);
     performFunctionOnMainThread([value] (auto* object) {
         object->setPreventKeyboardDOMEventDispatch(value);
     });
@@ -325,7 +357,7 @@ void AXIsolatedObject::setCaretBrowsingEnabled(bool value)
     ASSERT(!isMainThread());
     ASSERT(isWebArea());
 
-    setProperty(AXPropertyName::CaretBrowsingEnabled, value);
+    setProperty(AXProperty::CaretBrowsingEnabled, value);
     performFunctionOnMainThread([value] (auto* object) {
         object->setCaretBrowsingEnabled(value);
     });

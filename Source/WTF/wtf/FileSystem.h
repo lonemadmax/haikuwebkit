@@ -134,6 +134,7 @@ WTF_EXPORT_PRIVATE bool makeAllDirectories(const String& path);
 WTF_EXPORT_PRIVATE String pathFileName(const String&);
 WTF_EXPORT_PRIVATE String parentPath(const String&);
 WTF_EXPORT_PRIVATE String lexicallyNormal(const String&);
+WTF_EXPORT_PRIVATE bool isAncestor(const String& first, const String& second);
 WTF_EXPORT_PRIVATE std::optional<uint64_t> volumeFreeSpace(const String&);
 WTF_EXPORT_PRIVATE std::optional<uint64_t> volumeCapacity(const String&);
 WTF_EXPORT_PRIVATE std::optional<uint32_t> volumeFileBlockSize(const String&);
@@ -271,8 +272,8 @@ public:
     std::span<uint8_t> leakHandle() { return m_fileData.leakSpan(); }
     explicit operator bool() const { return !!m_fileData; }
     size_t size() const { return m_fileData.span().size(); }
-    std::span<const uint8_t> span() const { return m_fileData.span(); }
-    std::span<uint8_t> mutableSpan() { return m_fileData.mutableSpan(); }
+    std::span<const uint8_t> span() const LIFETIME_BOUND { return m_fileData.span(); }
+    std::span<uint8_t> mutableSpan() LIFETIME_BOUND { return m_fileData.mutableSpan(); }
 #elif OS(WINDOWS)
     const Win32Handle& fileMapping() const { return m_fileMapping; }
     explicit operator bool() const { return !!m_fileData.data(); }

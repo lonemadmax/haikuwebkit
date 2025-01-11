@@ -29,7 +29,6 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "APIPageConfiguration.h"
-#import "AccessibilityIOS.h"
 #import "Connection.h"
 #import "FrameProcess.h"
 #import "FullscreenClient.h"
@@ -61,6 +60,7 @@
 #import "_WKFrameHandleInternal.h"
 #import "_WKWebViewPrintFormatterInternal.h"
 #import <CoreGraphics/CoreGraphics.h>
+#import <WebCore/AccessibilityObject.h>
 #import <WebCore/FloatQuad.h>
 #import <WebCore/InspectorOverlay.h>
 #import <WebCore/LocalFrameView.h>
@@ -78,6 +78,7 @@
 #import <wtf/UUID.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 #import <wtf/threads/BinarySemaphore.h>
@@ -868,15 +869,16 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 - (void)_accessibilityRegisterUIProcessTokens
 {
     auto uuid = [NSUUID UUID];
-    NSData *remoteElementToken = WebKit::newAccessibilityRemoteToken(uuid);
+    if (RetainPtr remoteElementToken = WebCore::Accessibility::newAccessibilityRemoteToken(uuid.UUIDString)) {
+        // Store information about the WebProcess that can later be retrieved by the iOS Accessibility runtime.
+        if (_page->legacyMainFrameProcess().state() == WebKit::WebProcessProxy::State::Running) {
+            [self _updateRemoteAccessibilityRegistration:YES];
+            storeAccessibilityRemoteConnectionInformation(self, _page->legacyMainFrameProcess().processID(), uuid);
 
-    // Store information about the WebProcess that can later be retrieved by the iOS Accessibility runtime.
-    if (_page->legacyMainFrameProcess().state() == WebKit::WebProcessProxy::State::Running) {
-        [self _updateRemoteAccessibilityRegistration:YES];
-        storeAccessibilityRemoteConnectionInformation(self, _page->legacyMainFrameProcess().processID(), uuid);
+            auto elementToken = makeVector(remoteElementToken.get());
+            _page->registerUIProcessAccessibilityTokens(elementToken, elementToken);
+        }
 
-        auto elementToken = span(remoteElementToken);
-        _page->registerUIProcessAccessibilityTokens(elementToken, elementToken);
     }
 }
 

@@ -96,7 +96,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderObject);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RenderObject, RenderObjectRareData);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderObject::RenderObjectRareData);
 
 #if ASSERT_ENABLED
 
@@ -575,12 +575,8 @@ void RenderObject::clearNeedsLayout(HadSkippedLayout hadSkippedLayout)
     setEverHadLayout();
     setHadSkippedLayout(hadSkippedLayout == HadSkippedLayout::Yes);
 
-    if (auto* renderElement = dynamicDowncast<RenderElement>(*this)) {
-        renderElement->setLayoutIdentifier(renderElement->view().frameView().layoutContext().layoutIdentifier());
-
-        if (hasLayer())
-            downcast<RenderLayerModelObject>(*this).layer()->setSelfAndChildrenNeedPositionUpdate();
-    }
+    if (hasLayer())
+        downcast<RenderLayerModelObject>(*this).layer()->setSelfAndChildrenNeedPositionUpdate();
     m_stateBitfields.clearFlag(StateFlag::NeedsLayout);
     setPosChildNeedsLayoutBit(false);
     setNeedsSimplifiedNormalFlowLayoutBit(false);
@@ -599,20 +595,6 @@ void RenderObject::scheduleLayout(RenderElement* layoutRoot)
 
     if (layoutRoot && layoutRoot->isRooted())
         layoutRoot->view().protectedFrameView()->checkedLayoutContext()->scheduleSubtreeLayout(*layoutRoot);
-}
-
-static inline void setIsSimplifiedLayoutRootForLayerIfApplicable(RenderElement& renderElement)
-{
-    ASSERT(renderElement.isOutOfFlowPositioned());
-
-    if (!renderElement.normalChildNeedsLayout())
-        return;
-
-    if (auto* renderer = dynamicDowncast<RenderLayerModelObject>(renderElement)) {
-        if (auto* layer = renderer->layer())
-            return layer->setIsSimplifiedLayoutRoot();
-    }
-    ASSERT_NOT_REACHED();
 }
 
 RenderElement* RenderObject::markContainingBlocksForLayout(RenderElement* layoutRoot)
@@ -668,8 +650,6 @@ RenderElement* RenderObject::markContainingBlocksForLayout(RenderElement* layout
             return ancestor.get();
 
         hasOutOfFlowPosition = ancestor->isOutOfFlowPositioned();
-        if (hasOutOfFlowPosition)
-            setIsSimplifiedLayoutRootForLayerIfApplicable(*ancestor);
         ancestor = WTFMove(container);
     }
     return { };
@@ -739,7 +719,7 @@ RenderBlock* RenderObject::containingBlockForPositionType(PositionType positionT
     if (positionType == PositionType::Static || positionType == PositionType::Relative || positionType == PositionType::Sticky) {
         auto containingBlockForObjectInFlow = [&] {
             auto* ancestor = renderer.parent();
-            while (ancestor && ((ancestor->isInline() && !ancestor->isReplacedOrInlineBlock()) || !ancestor->isRenderBlock()))
+            while (ancestor && ((ancestor->isInline() && !ancestor->isReplacedOrAtomicInline()) || !ancestor->isRenderBlock()))
                 ancestor = ancestor->parent();
             return downcast<RenderBlock>(ancestor);
         };
@@ -1220,7 +1200,7 @@ std::optional<FloatRect> RenderObject::computeFloatVisibleRectInContainer(const 
 static void outputRenderTreeLegend(TextStream& stream)
 {
     stream.nextLine();
-    stream << "(B)lock/(I)nline/I(N)line-block, (A)bsolute/Fi(X)ed/(R)elative/Stic(K)y, (F)loating, (O)verflow clip, Anon(Y)mous, (G)enerated, has(L)ayer, hasLayer(S)crollableArea, (C)omposited, Content-visibility:(H)idden/(A)uto, (S)kipped content, (+)Dirty style, (+)Dirty layout";
+    stream << "(B)lock/(I)nline Box/(A)tomic inline, (A)bsolute/Fi(X)ed/(R)elative/Stic(K)y, (F)loating, (O)verflow clip, Anon(Y)mous, (G)enerated, has(L)ayer, hasLayer(S)crollableArea, (C)omposited, Content-visibility:(H)idden/(A)uto, (S)kipped content, (+)Dirty style, (+)Dirty layout";
     stream.nextLine();
 }
 
@@ -1308,8 +1288,8 @@ void RenderObject::outputRegionsInformation(TextStream& stream) const
 
 void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) const
 {
-    if (isInlineBlockOrInlineTable())
-        stream << "N";
+    if (isNonReplacedAtomicInline())
+        stream << "A";
     else if (isInline())
         stream << "I";
     else
@@ -1490,11 +1470,6 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
         if (outOfFlowChildNeedsStaticPositionLayout())
             stream << "[out of flow child needs parent layout]";
     }
-    stream << " layout id->";
-    if (auto* renderElement = dynamicDowncast<RenderElement>(*this))
-        stream << "[" << renderElement->layoutIdentifier() << "]";
-    else
-        stream << "[n/a]";
     stream.nextLine();
 }
 
@@ -1991,7 +1966,7 @@ int RenderObject::caretMinOffset() const
 
 int RenderObject::caretMaxOffset() const
 {
-    if (isReplacedOrInlineBlock())
+    if (isReplacedOrAtomicInline())
         return node() ? std::max(1U, node()->countChildNodes()) : 1;
     if (isHR())
         return 1;

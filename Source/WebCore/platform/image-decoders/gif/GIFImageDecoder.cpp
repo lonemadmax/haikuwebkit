@@ -28,6 +28,7 @@
 
 #include "GIFImageReader.h"
 #include <limits>
+#include <wtf/text/ParsingUtilities.h>
 
 namespace WebCore {
 
@@ -152,8 +153,6 @@ bool GIFImageDecoder::setFailed()
 
 void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
 {
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
     // In some cases, like if the decoder was destroyed while animating, we
     // can be asked to clear more frames than we currently have.
     if (m_frameBufferCache.isEmpty())
@@ -200,8 +199,6 @@ void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
         if (!j->isInvalid())
             j->clear();
     }
-
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 bool GIFImageDecoder::haveDecodedRow(unsigned frameIndex, const Vector<unsigned char>& rowBuffer, size_t width, size_t rowNumber, unsigned repeatCount, bool writeTransparentPixels)
@@ -234,15 +231,13 @@ bool GIFImageDecoder::haveDecodedRow(unsigned frameIndex, const Vector<unsigned 
     if ((buffer.isInvalid() && !initFrameBuffer(frameIndex)) || !buffer.hasBackingStore())
         return false;
 
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    auto* currentAddress = buffer.backingStore()->pixelAt(xBegin, yBegin);
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    auto currentAddress = buffer.backingStore()->pixelsStartingAt(xBegin, yBegin);
     // Write one row's worth of data into the frame.  
     for (int x = xBegin; x < xEnd; ++x) {
         const unsigned char sourceValue = rowBuffer[x - frameContext->xOffset];
         const size_t colorIndex = static_cast<size_t>(sourceValue) * 3;
         if ((!frameContext->isTransparent || (sourceValue != frameContext->tpixel)) && (colorIndex + 2 < colorMap.size())) {
-            buffer.backingStore()->setPixel(currentAddress, colorMap[colorIndex], colorMap[colorIndex + 1], colorMap[colorIndex + 2], 255);
+            buffer.backingStore()->setPixel(currentAddress[0], colorMap[colorIndex], colorMap[colorIndex + 1], colorMap[colorIndex + 2], 255);
         } else {
             m_currentBufferSawAlpha = true;
             // We may or may not need to write transparent pixels to the buffer.
@@ -253,9 +248,9 @@ bool GIFImageDecoder::haveDecodedRow(unsigned frameIndex, const Vector<unsigned 
             // beyond the first, or the initial passes will "show through" the
             // later ones.
             if (writeTransparentPixels)
-                buffer.backingStore()->setPixel(currentAddress, 0, 0, 0, 0);
+                buffer.backingStore()->setPixel(currentAddress[0], 0, 0, 0, 0);
         }
-        ++currentAddress;
+        skip(currentAddress, 1);
     }
 
     // Tell the frame to copy the row data if need be.

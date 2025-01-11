@@ -465,7 +465,6 @@ public:
     void cancelImmediateActionAnimation();
     void completeImmediateActionAnimation();
     void didChangeContentSize(CGSize);
-    void didHandleAcceptedCandidate();
     void videoControlsManagerDidChange();
 
     void setIgnoresNonWheelEvents(bool);
@@ -701,9 +700,6 @@ public:
 
     bool beginBackSwipeForTesting();
     bool completeBackSwipeForTesting();
-    
-    void setUseSystemAppearance(bool);
-    bool useSystemAppearance();
 
     bool useFormSemanticContext() const;
     void semanticContextDidChange();

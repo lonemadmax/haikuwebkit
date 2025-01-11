@@ -143,6 +143,7 @@ class WebAutomationSessionProxy;
 class WebBadgeClient;
 class WebBroadcastChannelRegistry;
 class WebCacheStorageProvider;
+class WebCompiledContentRuleListData;
 class WebCookieJar;
 class WebFileSystemStorageConnection;
 class WebFrame;
@@ -154,6 +155,7 @@ class WebProcessSupplement;
 class WebTransportSession;
 
 struct AccessibilityPreferences;
+struct AdditionalFonts;
 struct RemoteWorkerInitializationData;
 struct UserMessage;
 struct WebProcessCreationParameters;
@@ -265,7 +267,7 @@ public:
     WebLoaderStrategy& webLoaderStrategy();
     WebFileSystemStorageConnection& fileSystemStorageConnection();
 
-    WebTransportSession* webTransportSession(WebTransportSessionIdentifier);
+    RefPtr<WebTransportSession> webTransportSession(WebTransportSessionIdentifier);
     void addWebTransportSession(WebTransportSessionIdentifier, WebTransportSession&);
     void removeWebTransportSession(WebTransportSessionIdentifier);
 
@@ -401,6 +403,10 @@ public:
     void postObserverNotification(const String& message);
 #endif
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    void setResourceMonitorContentRuleList(WebCompiledContentRuleListData&&);
+#endif
+
     bool areAllPagesThrottleable() const;
 
     void messagesAvailableForPort(const WebCore::MessagePortIdentifier&);
@@ -477,6 +483,12 @@ public:
     void enableMediaPlayback();
 #if ENABLE(ROUTING_ARBITRATION)
     AudioSessionRoutingArbitrator* audioSessionRoutingArbitrator() const { return m_routingArbitrator.get(); }
+#endif
+
+    bool mediaPlaybackEnabled() const { return m_mediaPlaybackEnabled; }
+
+#if PLATFORM(COCOA)
+    void registerAdditionalFonts(AdditionalFonts&&);
 #endif
 
 private:
@@ -883,9 +895,10 @@ private:
     String m_mediaKeysStorageDirectory;
     FileSystem::Salt m_mediaKeysStorageSalt;
 
-    HashMap<WebTransportSessionIdentifier, WeakPtr<WebTransportSession>> m_webTransportSessions;
+    HashMap<WebTransportSessionIdentifier, ThreadSafeWeakPtr<WebTransportSession>> m_webTransportSessions;
     HashSet<WebCore::RegistrableDomain> m_domainsWithStorageAccessQuirks;
     std::unique_ptr<ScriptTelemetryFilter> m_scriptTelemetryFilter;
+    bool m_mediaPlaybackEnabled { false };
 };
 
 } // namespace WebKit

@@ -70,6 +70,8 @@ class PDFPresentationController;
 class WebFrame;
 class WebMouseEvent;
 struct EditorState;
+struct DocumentEditingContextRequest;
+struct DocumentEditingContext;
 struct PDFContextMenu;
 struct PDFContextMenuItem;
 
@@ -402,6 +404,7 @@ private:
 
     String fullDocumentString() const override;
     String selectionString() const override;
+    std::pair<String, String> stringsBeforeAndAfterSelection(int characterCount) const override;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const override;
     WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const override;
 
@@ -447,12 +450,8 @@ private:
     void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
     float pageScaleFactor() const override;
 
-    enum class PaintingBehavior : bool { All, PageContentsOnly };
-    void paintPDFContent(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, const std::optional<PDFLayoutRow>& = { }, PaintingBehavior = PaintingBehavior::All, AsyncPDFRenderer* = nullptr);
-#if ENABLE(UNIFIED_PDF_SELECTION_LAYER)
+    void paintPDFContent(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, const std::optional<PDFLayoutRow>& = { }, AsyncPDFRenderer* = nullptr);
     void paintPDFSelection(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, std::optional<PDFLayoutRow> = { });
-#endif
-    bool canPaintSelectionIntoOwnedLayer() const;
 
     void willChangeVisibleRow();
     void didChangeVisibleRow();
@@ -461,7 +460,6 @@ private:
     void updateLayerHierarchy();
 
     void incrementalLoadingRepaintTimerFired();
-    void repaintForIncrementalLoad();
 
     void didChangeScrollOffset() override;
     void didChangeIsInWindow() override;
@@ -536,8 +534,8 @@ private:
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(GraphicsLayerClient&, WebCore::GraphicsLayer::Type);
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, WebCore::GraphicsLayer::Type);
 
+    void setNeedsRepaintForIncrementalLoad();
     void setNeedsRepaintForAnnotation(PDFAnnotation *, RepaintRequirements);
-    void setNeedsRepaintInDocumentRect(RepaintRequirements, const WebCore::FloatRect&, std::optional<PDFLayoutRow>);
 
     // "Up" is inside-out.
     template <typename T>
@@ -591,6 +589,7 @@ private:
     SelectionEndpoint extendInitialSelection(WebCore::FloatPoint pointInRootView, WebCore::TextGranularity) final;
     bool platformPopulateEditorStateIfNeeded(EditorState&) const final;
     CursorContext cursorContext(WebCore::FloatPoint pointInRootView) const final;
+    DocumentEditingContext documentEditingContext(DocumentEditingContextRequest&&) const final;
 
 #if HAVE(PDFDOCUMENT_SELECTION_WITH_GRANULARITY)
     PDFSelection *selectionAtPoint(WebCore::FloatPoint pointInPage, PDFPage *, WebCore::TextGranularity) const;

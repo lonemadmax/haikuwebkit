@@ -1495,11 +1495,8 @@ WebCore::ThirdPartyCookieBlockingMode WebsiteDataStore::thirdPartyCookieBlocking
 }
 #endif
 
-void WebsiteDataStore::setResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(bool enabled, bool onlyOnSitesWithoutUserInteraction, CompletionHandler<void()>&& completionHandler)
+void WebsiteDataStore::setResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(bool enabled, WebCore::ThirdPartyCookieBlockingMode blockingMode, CompletionHandler<void()>&& completionHandler)
 {
-    WebCore::ThirdPartyCookieBlockingMode blockingMode = WebCore::ThirdPartyCookieBlockingMode::OnlyAccordingToPerDomainPolicy;
-    if (enabled)
-        blockingMode = onlyOnSitesWithoutUserInteraction ? WebCore::ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction : WebCore::ThirdPartyCookieBlockingMode::All;
     setThirdPartyCookieBlockingMode(blockingMode, WTFMove(completionHandler));
 }
 
@@ -1914,7 +1911,7 @@ bool WebsiteDataStore::isOptInCookiePartitioningEnabled() const
 }
 #endif
 
-void WebsiteDataStore::propagateSettingUpdatesToNetworkProcess()
+void WebsiteDataStore::propagateSettingUpdates()
 {
     RefPtr networkProcess = networkProcessIfExists();
     if (!networkProcess)
@@ -1929,9 +1926,17 @@ void WebsiteDataStore::propagateSettingUpdatesToNetworkProcess()
 
 #if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
     enabled = isOptInCookiePartitioningEnabled();
-    if (m_isOptInCookiePartitioningEnabled != enabled) {
+    if (m_isOptInCookiePartitioningEnabled != enabled && trackingPreventionEnabled()) {
         m_isOptInCookiePartitioningEnabled = enabled;
         networkProcess->send(Messages::NetworkProcess::SetOptInCookiePartitioningEnabled(sessionID(), enabled), 0);
+
+        if (m_isOptInCookiePartitioningEnabled && m_thirdPartyCookieBlockingMode == WebCore::ThirdPartyCookieBlockingMode::All) {
+            RELEASE_LOG(Storage, "WebsiteDataStore::propagateSettingUpdates (%p) sessionID=%" PRIu64 ", OptInCookiePartitioning enabled, setting ThirdPartyCookieBlockingMode::AllExceptPartitioned" PRIu64, this, m_sessionID.toUInt64());
+            setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode::AllExceptPartitioned, []() { });
+        } else if (!m_isOptInCookiePartitioningEnabled && m_thirdPartyCookieBlockingMode == WebCore::ThirdPartyCookieBlockingMode::AllExceptPartitioned) {
+            RELEASE_LOG(Storage, "WebsiteDataStore::propagateSettingUpdates (%p) sessionID=%" PRIu64 ", OptInCookiePartitioning disabled, setting ThirdPartyCookieBlockingMode::All", this, m_sessionID.toUInt64());
+            setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode::All, []() { });
+        }
     }
 #endif
 }
@@ -2728,5 +2733,19 @@ void WebsiteDataStore::restoreLocalStorage(HashMap<WebCore::ClientOrigin, HashMa
 {
     protectedNetworkProcess()->restoreLocalStorage(m_sessionID, WTFMove(localStorage), WTFMove(completionHandler));
 }
+
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+bool WebsiteDataStore::builtInNotificationsEnabled() const
+{
+    if (!m_pages.computeSize())
+        return defaultBuiltInNotificationsEnabled();
+
+    for (Ref page : m_pages) {
+        if (page->preferences().builtInNotificationsEnabled())
+            return true;
+    }
+    return false;
+}
+#endif
 
 } // namespace WebKit

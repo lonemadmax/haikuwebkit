@@ -666,11 +666,11 @@ void WebChromeClient::invalidateRootView(const IntRect&)
 void WebChromeClient::invalidateContentsAndRootView(const IntRect& rect)
 {
     auto page = protectedPage();
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(page->corePage()->mainFrame());
-    if (!localMainFrame)
+    RefPtr corePage = page->protectedCorePage();
+    if (!corePage)
         return;
 
-    if (RefPtr document = localMainFrame->document()) {
+    if (RefPtr document = corePage->localTopDocument()) {
         if (document->printing())
             return;
     }
@@ -681,11 +681,11 @@ void WebChromeClient::invalidateContentsAndRootView(const IntRect& rect)
 void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& rect)
 {
     auto page = protectedPage();
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(page->corePage()->mainFrame());
-    if (!localMainFrame)
+    RefPtr corePage = page->protectedCorePage();
+    if (!corePage)
         return;
 
-    if (RefPtr document = localMainFrame->document()) {
+    if (RefPtr document = corePage->localTopDocument()) {
         if (document->printing())
             return;
     }
@@ -1992,6 +1992,11 @@ void WebChromeClient::callAfterPendingSyntheticClick(CompletionHandler<void(Synt
 void WebChromeClient::didDispatchClickEvent(const PlatformMouseEvent& event, Node& node)
 {
     protectedPage()->didDispatchClickEvent(event, node);
+}
+
+void WebChromeClient::didProgrammaticallyClearTextFormControl(const HTMLTextFormControlElement& element)
+{
+    protectedPage()->didProgrammaticallyClearTextFormControl(element);
 }
 
 } // namespace WebKit

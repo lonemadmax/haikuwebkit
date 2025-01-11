@@ -25,10 +25,6 @@
 
 #pragma once
 
-#include <wtf/Compiler.h>
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 #include "AXGeometryManager.h"
 #include "AXIsolatedTree.h"
 #include "AXTextMarker.h"
@@ -40,14 +36,13 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "Timer.h"
 #include "VisibleUnits.h"
 #include <limits.h>
+#include <wtf/Compiler.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/MakeString.h>
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 OBJC_CLASS NSMutableArray;
 
@@ -172,8 +167,10 @@ protected:
     macro(ContentEditableAttributeChanged) \
     macro(ControlledObjectsChanged) \
     macro(CurrentStateChanged) \
+    macro(DatetimeChanged) \
     macro(DescribedByChanged) \
     macro(DisabledStateChanged) \
+    macro(DraggableStateChanged) \
     macro(DropEffectChanged) \
     macro(ExtendedDescriptionChanged) \
     macro(FlowToChanged) \
@@ -212,6 +209,7 @@ protected:
     macro(URLChanged) \
     macro(ValueChanged) \
     macro(VisibilityChanged) \
+    macro(VisitedStateChanged) \
     macro(ScrolledToAnchor) \
     macro(LiveRegionCreated) \
     macro(LiveRegionChanged) \
@@ -236,6 +234,7 @@ protected:
     macro(ReadOnlyStatusChanged) \
     macro(RequiredStatusChanged) \
     macro(SortDirectionChanged) \
+    macro(SpeakAsChanged) \
     macro(TextChanged) \
     macro(TextCompositionChanged) \
     macro(TextUnderElementChanged) \
@@ -356,6 +355,7 @@ public:
     void childrenChanged(Node*, Element* newChild = nullptr);
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
+    void onDragElementChanged(Element* oldElement, Element* newElement);
     void onEventListenerAdded(Node&, const AtomString& eventType);
     void onEventListenerRemoved(Node&, const AtomString& eventType);
     void onExpandedChanged(HTMLDetailsElement&);
@@ -624,8 +624,8 @@ private:
     void updateIsolatedTree(AccessibilityObject&, AXNotification);
     void updateIsolatedTree(AccessibilityObject*, AXNotification);
     void updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityObject>, AXNotification>>&);
-    void updateIsolatedTree(AccessibilityObject*, AXPropertyName) const;
-    void updateIsolatedTree(AccessibilityObject&, AXPropertyName) const;
+    void updateIsolatedTree(AccessibilityObject*, AXProperty) const;
+    void updateIsolatedTree(AccessibilityObject&, AXProperty) const;
     void startUpdateTreeSnapshotTimer();
 #endif
 

@@ -47,6 +47,8 @@ set(WTF_PUBLIC_HEADERS
     CompactRefPtr.h
     CompactRefPtrTuple.h
     CompactUniquePtrTuple.h
+    CompactVariant.h
+    CompactVariantOperations.h
     CompilationThread.h
     Compiler.h
     CompletionHandler.h
@@ -322,6 +324,7 @@ set(WTF_PUBLIC_HEADERS
     ThreadMessage.h
     ThreadSafetyAnalysis.h
     ThreadSafeRefCounted.h
+    ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h
     ThreadSafeWeakHashSet.h
     ThreadSafeWeakPtr.h
     ThreadSanitizerSupport.h
@@ -351,6 +354,7 @@ set(WTF_PUBLIC_HEADERS
     UniqueRefVector.h
     VMTags.h
     ValueCheck.h
+    VariantExtras.h
     VariantList.h
     VariantListOperations.h
     Vector.h
@@ -445,6 +449,7 @@ set(WTF_PUBLIC_HEADERS
     text/MakeString.h
     text/NullTextBreakIterator.h
     text/OrdinalNumber.h
+    text/ParsingUtilities.h
     text/StringBuffer.h
     text/StringBuilder.h
     text/StringBuilderInternals.h

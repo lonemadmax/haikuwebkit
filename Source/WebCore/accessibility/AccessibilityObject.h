@@ -160,9 +160,7 @@ public:
     int axRowIndex() const override { return -1; }
 
     // Table column support.
-    bool isTableColumn() const override { return false; }
     unsigned columnIndex() const override { return 0; }
-    AccessibilityObject* columnHeader() override { return nullptr; }
 
     // Table row support.
     bool isTableRow() const override { return false; }
@@ -210,13 +208,13 @@ public:
     bool isVisible() const override { return !isHidden(); }
     virtual bool isCollapsed() const { return false; }
     void setIsExpanded(bool) override { }
-    FloatRect unobscuredContentRect() const final;
+    FloatRect unobscuredContentRect() const;
     FloatRect relativeFrame() const final;
 #if PLATFORM(MAC)
     FloatRect primaryScreenRect() const final;
 #endif
     FloatRect convertFrameToSpace(const FloatRect&, AccessibilityConversionSpace) const final;
-    UncheckedKeyHashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const final;
+    UncheckedKeyHashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const;
 
     // In a multi-select list, many items can be selected but only one is active at a time.
     bool isSelectedOptionActive() const override { return false; }
@@ -226,9 +224,9 @@ public:
     Vector<AXTextMarkerRange> misspellingRanges() const final;
     std::optional<SimpleRange> misspellingRange(const SimpleRange& start, AccessibilitySearchDirection) const final;
     bool hasPlainText() const override { return false; }
-    bool hasSameFont(const AXCoreObject&) const override { return false; }
-    bool hasSameFontColor(const AXCoreObject&) const override { return false; }
-    bool hasSameStyle(const AXCoreObject&) const override { return false; }
+    bool hasSameFont(AXCoreObject&) override { return false; }
+    bool hasSameFontColor(AXCoreObject&) override { return false; }
+    bool hasSameStyle(AXCoreObject&) override { return false; }
     bool hasUnderline() const override { return false; }
     bool hasHighlighting() const final;
     AXTextMarkerRange textInputMarkedTextMarkerRange() const final;
@@ -281,7 +279,6 @@ public:
 
     bool supportsARIARoleDescription() const;
     bool supportsARIAOwns() const override { return false; }
-    bool isActiveDescendantOfFocusedContainer() const;
 
     String popupValue() const final;
     bool hasDatalist() const;
@@ -409,7 +406,7 @@ public:
     // The following functions are PLATFORM(COCOA) because these are currently only used to power a
     // Cocoa API (attributed strings).
     AttributedStringStyle stylesForAttributedString() const final;
-    RetainPtr<CTFontRef> font() const;
+    RetainPtr<CTFontRef> font() const final;
     Color textColor() const;
     Color backgroundColor() const;
     bool isSubscript() const;
@@ -436,7 +433,6 @@ public:
     // Only if isColorWell()
     SRGBA<uint8_t> colorValue() const override;
 
-    AccessibilityRole roleValue() const final { return m_role; }
     virtual AccessibilityRole determineAccessibilityRole() = 0;
     String rolePlatformString() const final;
     String roleDescription() const override;
@@ -494,7 +490,7 @@ public:
     RefPtr<Document> protectedDocument() const;
     LocalFrameView* documentFrameView() const override;
     LocalFrame* frame() const;
-    LocalFrame* mainFrame() const;
+    RefPtr<LocalFrame> localMainFrame() const;
     Document* topDocument() const;
     RenderView* topRenderer() const;
     ScrollView* scrollView() const override { return nullptr; }
@@ -560,8 +556,6 @@ public:
 #endif
     bool isDetachedFromParent() override { return false; }
 
-    bool canHaveSelectedChildren() const;
-    std::optional<AccessibilityChildrenVector> selectedChildren() override;
     void setSelectedChildren(const AccessibilityChildrenVector&) override { }
     AccessibilityChildrenVector visibleChildren() override { return { }; }
     bool shouldFocusActiveDescendant() const;
@@ -601,7 +595,7 @@ public:
     AXTextMarkerRange textMarkerRangeForNSRange(const NSRange&) const final;
 #endif
 #if PLATFORM(MAC)
-    AXTextMarkerRange selectedTextMarkerRange() final;
+    AXTextMarkerRange selectedTextMarkerRange() const final;
 #endif
     static String stringForVisiblePositionRange(const VisiblePositionRange&);
     String stringForRange(const SimpleRange&) const final;
@@ -638,9 +632,6 @@ public:
     virtual String secureFieldValue() const { return String(); }
     bool isValueAutofillAvailable() const final;
     AutoFillButtonType valueAutofillButtonType() const final;
-
-    // Used by an ARIA tree to get all its rows.
-    AccessibilityChildrenVector ariaTreeRows() final;
 
     // ARIA live-region features.
     AccessibilityObject* liveRegionAncestor(bool excludeIfOff = true) const final { return Accessibility::liveRegionAncestor(*this, excludeIfOff); }
@@ -934,10 +925,6 @@ private:
     // Note that "withoutCache" refers to the lack of referencing AXComputedObjectAttributeCache in the function, not the AXObjectCache parameter we pass in here.
     bool isIgnoredWithoutCache(AXObjectCache*) const;
     void setLastKnownIsIgnoredValue(bool);
-    void ariaTreeRows(AccessibilityChildrenVector& rows, AccessibilityChildrenVector& ancestors);
-    AccessibilityChildrenVector ariaListboxSelectedChildren();
-    AccessibilityChildrenVector ariaSelectedRows();
-    AccessibilityChildrenVector selectedListItems();
 
     // Special handling of click point for links.
     IntPoint linkClickPoint();
@@ -945,7 +932,6 @@ private:
 protected: // FIXME: Make the data members private.
     AccessibilityChildrenVector m_children;
     mutable bool m_childrenInitialized { false };
-    AccessibilityRole m_role { AccessibilityRole::Unknown };
 private:
     OptionSet<AXAncestorFlag> m_ancestorFlags;
     AccessibilityObjectInclusion m_lastKnownIsIgnoredValue { AccessibilityObjectInclusion::DefaultBehavior };
@@ -1012,6 +998,9 @@ using PlatformRoleMap = UncheckedKeyHashMap<AccessibilityRole, String, DefaultHa
 PlatformRoleMap createPlatformRoleMap();
 String roleToPlatformString(AccessibilityRole);
 
+#if PLATFORM(IOS_FAMILY)
+WEBCORE_EXPORT RetainPtr<NSData> newAccessibilityRemoteToken(NSString *);
+#endif
 } // namespace Accessibility
 
 class AXChildIterator {

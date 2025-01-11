@@ -557,11 +557,17 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/push-api/PushCrypto.h
     Modules/push-api/PushDatabase.h
+    Modules/push-api/PushEncryptionKeyName.h
+    Modules/push-api/PushManager.h
     Modules/push-api/PushMessageCrypto.h
     Modules/push-api/PushPermissionState.h
     Modules/push-api/PushStrategy.h
+    Modules/push-api/PushSubscription.h
     Modules/push-api/PushSubscriptionData.h
     Modules/push-api/PushSubscriptionIdentifier.h
+    Modules/push-api/PushSubscriptionJSON.h
+    Modules/push-api/PushSubscriptionOptionsInit.h
+    Modules/push-api/PushSubscriptionOwner.h
 
     Modules/reporting/DeprecationReportBody.h
     Modules/reporting/Report.h
@@ -734,6 +740,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/WebAnimationTime.h
     animation/WebAnimationTypes.h
 
+    automation/AutomationInstrumentation.h
+
     bindings/IDLTypes.h
 
     bindings/js/BufferSource.h
@@ -816,7 +824,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/WindowProxy.h
     bindings/js/WorkerScriptFetcher.h
 
-    bridge/Bridge.h
     bridge/IdentifierRep.h
     bridge/runtime_method.h
     bridge/runtime_object.h
@@ -906,7 +913,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSToLengthConversionData.h
     css/CSSTransformListValue.h
     css/CSSUnits.h
-    css/CSSUnknownRule.h
     css/CSSValue.h
     css/CSSValueList.h
     css/CSSVariableData.h
@@ -967,6 +973,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/values/CSSNoConversionDataRequiredToken.h
     css/values/CSSValueAggregates.h
+    css/values/CSSValueConcepts.h
     css/values/CSSValueTypes.h
 
     css/values/backgrounds/CSSBorderRadius.h
@@ -986,9 +993,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/values/primitives/CSSNone.h
     css/values/primitives/CSSPosition.h
+    css/values/primitives/CSSPrimitiveNumericConcepts.h
     css/values/primitives/CSSPrimitiveNumericRange.h
+    css/values/primitives/CSSPrimitiveNumericRaw.h
     css/values/primitives/CSSPrimitiveNumericTypes+EvaluateCalc.h
+    css/values/primitives/CSSPrimitiveNumericTypes+SymbolReplacement.h
     css/values/primitives/CSSPrimitiveNumericTypes.h
+    css/values/primitives/CSSPrimitiveNumericUnits.h
     css/values/primitives/CSSSymbol.h
     css/values/primitives/CSSUnevaluatedCalc.h
 
@@ -1044,6 +1055,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/DeviceOrientationData.h
     dom/DeviceOrientationOrMotionPermissionState.h
     dom/Document.h
+    dom/DocumentClasses.h
     dom/DocumentEventTiming.h
     dom/DocumentFontLoader.h
     dom/DocumentFragment.h
@@ -1253,6 +1265,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     history/BackForwardCache.h
     history/BackForwardClient.h
     history/BackForwardController.h
+    history/BackForwardFrameItemIdentifier.h
     history/BackForwardItemIdentifier.h
     history/CachedFrame.h
     history/CachedFramePlatformData.h
@@ -1400,7 +1413,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/parser/HTMLDocumentParserFastPath.h
     html/parser/HTMLParserIdioms.h
     html/parser/HTMLParserScriptingFlagPolicy.h
-    html/parser/ParsingUtilities.h
 
     html/track/AudioTrack.h
     html/track/AudioTrackClient.h
@@ -1546,6 +1558,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/ResourceLoaderIdentifier.h
     loader/ResourceLoaderOptions.h
     loader/ResourceLoaderTypes.h
+    loader/ResourceMonitor.h
+    loader/ResourceMonitorChecker.h
+    loader/ResourceMonitorThrottler.h
     loader/ResourceTimingInformation.h
     loader/ShouldTreatAsContinuingLoad.h
     loader/SubframeLoader.h
@@ -2183,6 +2198,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ShareableBitmap.h
     platform/graphics/ShareableBitmapHandle.h
     platform/graphics/ShouldLocalizeAxisNames.h
+    platform/graphics/SnapshotIdentifier.h
     platform/graphics/SourceBrush.h
     platform/graphics/SourceBrushLogicalGradient.h
     platform/graphics/SourceBufferPrivate.h
@@ -2414,6 +2430,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/HTTPParsers.h
     platform/network/HTTPSByDefaultMode.h
     platform/network/HTTPStatusCodes.h
+    platform/network/ShouldPartitionCookie.h
     platform/network/NetworkLoadInformation.h
     platform/network/NetworkLoadMetrics.h
     platform/network/NetworkStateNotifier.h
@@ -2651,7 +2668,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/primitives/StyleNone.h
     style/values/primitives/StylePosition.h
+    style/values/primitives/StylePrimitiveNumericConcepts.h
     style/values/primitives/StylePrimitiveNumericTypes.h
+    style/values/primitives/StyleUnevaluatedCalculation.h
 
     style/values/shapes/StyleBasicShape.h
     style/values/shapes/StyleCircleFunction.h

@@ -39,8 +39,6 @@
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 static void replaceNaNValues(std::span<float> values, float defaultValue)
@@ -337,7 +335,7 @@ void AudioParam::calculateFinalValues(std::span<float> values, bool sampleAccura
     replaceNaNValues(values, m_defaultValue);
 
     // Clamp values based on range allowed by AudioParam's min and max values.
-    VectorMath::clamp(values.data(), minValue(), maxValue(), values.data(), values.size());
+    VectorMath::clamp(values, minValue(), maxValue(), values);
 }
 
 void AudioParam::calculateTimelineValues(std::span<float> values)
@@ -396,7 +394,5 @@ WTFLogChannel& AudioParam::logChannel() const
     
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEB_AUDIO)

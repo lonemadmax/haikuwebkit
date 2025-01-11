@@ -220,7 +220,11 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         contentSecurityPolicy->setInsecureNavigationRequestsToUpgrade(ownerContentSecurityPolicy->takeNavigationRequestsToUpgrade());
     } else if (url.protocolIsAbout() || url.protocolIsData()) {
         // https://html.spec.whatwg.org/multipage/origin.html#determining-navigation-params-policy-container
-        RefPtr currentHistoryItem = frame->history().currentItem();
+        RefPtr currentHistoryItem = frame->loader().history().currentItem();
+
+        auto isLoadingBrowserControlledHTML = [document] {
+            return document->loader() && document->loader()->substituteData().isValid();
+        };
 
         if (currentHistoryItem && currentHistoryItem->policyContainer()) {
             const auto& policyContainerFromHistory = currentHistoryItem->policyContainer();
@@ -232,7 +236,7 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
                 document->inheritPolicyContainerFrom(parentFrame->document()->policyContainer());
                 document->checkedContentSecurityPolicy()->updateSourceSelf(parentFrame->document()->securityOrigin());
             }
-        } else if (triggeringAction && triggeringAction->requester()) {
+        } else if (triggeringAction && triggeringAction->requester() && !isLoadingBrowserControlledHTML()) {
             document->inheritPolicyContainerFrom(triggeringAction->requester()->policyContainer);
             document->checkedContentSecurityPolicy()->updateSourceSelf(triggeringAction->requester()->securityOrigin);
         }

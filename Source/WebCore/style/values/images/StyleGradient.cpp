@@ -128,19 +128,19 @@ static std::optional<float> resolveColorStopPosition(const GradientLinearColorSt
     if (!position)
         return std::nullopt;
 
-    return position->value.switchOn(
-        [&](Length<> length) -> std::optional<float> {
+    return WTF::switchOn(*position,
+        [&](const Length<>& length) -> std::optional<float> {
             if (gradientLength <= 0)
                 return 0;
             return length.value / gradientLength;
         },
-        [&](Percentage<> percentage) -> std::optional<float> {
+        [&](const Percentage<>& percentage) -> std::optional<float> {
             return percentage.value / 100.0;
         },
-        [&](const CalculationValue& calc) -> std::optional<float> {
+        [&](const typename LengthPercentage<>::Calc& calc) -> std::optional<float> {
             if (gradientLength <= 0)
                 return 0;
-            return calc.evaluate(gradientLength) / gradientLength;
+            return calc.protectedCalculation()->evaluate(gradientLength) / gradientLength;
         }
     );
 }
@@ -150,15 +150,15 @@ static std::optional<float> resolveColorStopPosition(const GradientAngularColorS
     if (!position)
         return std::nullopt;
 
-    return position->value.switchOn(
-        [](Angle<> angle) -> std::optional<float> {
+    return WTF::switchOn(*position,
+        [](const Angle<>& angle) -> std::optional<float> {
             return angle.value / 360.0;
         },
-        [](Percentage<> percentage) -> std::optional<float> {
+        [](const Percentage<>& percentage) -> std::optional<float> {
             return percentage.value / 100.0;
         },
-        [](const CalculationValue& calc) -> std::optional<float> {
-            return calc.evaluate(100) / 100.0;
+        [&](const typename AnglePercentage<>::Calc& calc) -> std::optional<float> {
+            return calc.protectedCalculation()->evaluate(100) / 100.0;
         }
     );
 }
@@ -1168,7 +1168,7 @@ template<CSSValueID Name> static Ref<WebCore::Gradient> createPlatformGradient(c
     };
 
     auto centerPoint = computeCenterPoint(conic.parameters.gradientBox.position);
-    float angleRadians = conic.parameters.gradientBox.angle ? CSSPrimitiveValue::computeRadians(conic.parameters.gradientBox.angle->unit, conic.parameters.gradientBox.angle->value) : 0;
+    float angleRadians = conic.parameters.gradientBox.angle ? CSS::convertToValueInUnitsOf<CSS::AngleUnit::Rad>(*conic.parameters.gradientBox.angle) : 0;
 
     WebCore::Gradient::ConicData data { centerPoint, angleRadians };
     ConicGradientAdapter adapter;

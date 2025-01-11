@@ -114,8 +114,8 @@
 #include <WebCore/MockContentFilterSettings.h>
 #endif
 
-#define CONNECTION_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
-#define CONNECTION_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
+#define CONNECTION_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, this->webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
+#define CONNECTION_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, this->webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, this->connection())
 #define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, this->connection(), completion)
@@ -164,6 +164,11 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
 
     establishSWServerConnection();
     establishSharedWorkerServerConnection();
+
+#if !PLATFORM(WATCHOS)
+    if (!m_sharedPreferencesForWebProcess.webSocketEnabled)
+        CONNECTION_RELEASE_LOG(IPC, "NetworkConnectionToWebProcess: webSocketEnabled is false (version=%llu)", m_sharedPreferencesForWebProcess.version);
+#endif
 }
 
 NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
@@ -190,8 +195,8 @@ NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
         networkStorageSession->removeCookiesEnabledStateObserver(*this);
 
 #if USE(LIBWEBRTC)
-    if (m_rtcProvider)
-        m_rtcProvider->close();
+    if (RefPtr rtcProvider = m_rtcProvider)
+        rtcProvider->close();
 #endif
 #if ENABLE(WEB_RTC)
     unregisterToRTCDataChannelProxy();
@@ -250,7 +255,7 @@ bool NetworkConnectionToWebProcess::dispatchMessage(IPC::Connection& connection,
 
     if (decoder.messageReceiverName() == Messages::NetworkBroadcastChannelRegistry::messageReceiverName()) {
         if (auto* networkSession = this->networkSession())
-            networkSession->broadcastChannelRegistry().didReceiveMessage(connection, decoder);
+            networkSession->protectedBroadcastChannelRegistry()->didReceiveMessage(connection, decoder);
         return true;
     }
 
@@ -262,6 +267,13 @@ bool NetworkConnectionToWebProcess::dispatchMessage(IPC::Connection& connection,
     }
 
     if (decoder.messageReceiverName() == Messages::NetworkSocketChannel::messageReceiverName()) {
+        // FIXME: Replace this with message endpoint enablement check after root cause of rdar://problem/142320806 is fixed.
+        if (!m_sharedPreferencesForWebProcess.webSocketEnabled) {
+            CONNECTION_RELEASE_LOG_ERROR(IPC, "dispatchMessage: ignoring message '%s' as webSocketEnabled is false (version=%llu)", IPC::description(decoder.messageName()).characters(), m_sharedPreferencesForWebProcess.version);
+            ASSERT_NOT_REACHED();
+            return true;
+        }
+
         MESSAGE_CHECK_WITH_RETURN_VALUE(AtomicObjectIdentifier<WebSocketIdentifierType>::isValidIdentifier(decoder.destinationID()), false);
         if (RefPtr channel = m_networkSocketChannels.get(AtomicObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID())))
             channel->didReceiveMessage(connection, decoder);
@@ -270,7 +282,7 @@ bool NetworkConnectionToWebProcess::dispatchMessage(IPC::Connection& connection,
 
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
     if (decoder.messageReceiverName() == Messages::NotificationManagerMessageHandler::messageReceiverName()) {
-        MESSAGE_CHECK_WITH_RETURN_VALUE(m_networkProcess->builtInNotificationsEnabled(), false);
+        MESSAGE_CHECK_WITH_RETURN_VALUE(builtInNotificationsEnabled(), false);
         if (auto* networkSession = this->networkSession())
             networkSession->protectedNotificationManager()->didReceiveMessage(connection, decoder);
         return true;
@@ -278,13 +290,13 @@ bool NetworkConnectionToWebProcess::dispatchMessage(IPC::Connection& connection,
 #endif
 #if USE(LIBWEBRTC)
     if (decoder.messageReceiverName() == Messages::NetworkRTCMonitor::messageReceiverName()) {
-        rtcProvider().didReceiveNetworkRTCMonitorMessage(connection, decoder);
+        protectedRTCProvider()->didReceiveNetworkRTCMonitorMessage(connection, decoder);
         return true;
     }
 #endif
 #if ENABLE(WEB_RTC)
     if (decoder.messageReceiverName() == Messages::NetworkMDNSRegister::messageReceiverName()) {
-        mdnsRegister().didReceiveMessage(connection, decoder);
+        protectedMDNSRegister()->didReceiveMessage(connection, decoder);
         return true;
     }
 #endif
@@ -297,19 +309,19 @@ bool NetworkConnectionToWebProcess::dispatchMessage(IPC::Connection& connection,
     }
     
     if (decoder.messageReceiverName() == Messages::WebSWServerConnection::messageReceiverName()) {
-        if (m_swConnection)
-            m_swConnection->didReceiveMessage(connection, decoder);
+        if (RefPtr swConnection = m_swConnection.get())
+            swConnection->didReceiveMessage(connection, decoder);
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebSWServerToContextConnection::messageReceiverName()) {
-        if (m_swContextConnection)
-            m_swContextConnection->didReceiveMessage(connection, decoder);
+        if (RefPtr swContextConnection = m_swContextConnection)
+            swContextConnection->didReceiveMessage(connection, decoder);
         return true;
     }
 
     if (decoder.messageReceiverName() == Messages::ServiceWorkerFetchTask::messageReceiverName()) {
-        if (m_swContextConnection)
-            m_swContextConnection->didReceiveFetchTaskMessage(connection, decoder);
+        if (RefPtr swContextConnection = m_swContextConnection)
+            swContextConnection->didReceiveFetchTaskMessage(connection, decoder);
         return true;
     }
 
@@ -399,7 +411,7 @@ bool NetworkConnectionToWebProcess::dispatchSyncMessage(IPC::Connection& connect
 
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
     if (decoder.messageReceiverName() == Messages::NotificationManagerMessageHandler::messageReceiverName()) {
-        MESSAGE_CHECK_WITH_RETURN_VALUE(m_networkProcess->builtInNotificationsEnabled(), false);
+        MESSAGE_CHECK_WITH_RETURN_VALUE(builtInNotificationsEnabled(), false);
         if (auto* networkSession = this->networkSession())
             return networkSession->protectedNotificationManager()->didReceiveSyncMessage(connection, decoder, reply);
         return false;
@@ -438,7 +450,7 @@ void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
         Ref { m_networkResourceLoaders.begin()->value }->abort();
 
     if (auto* networkSession = this->networkSession()) {
-        networkSession->broadcastChannelRegistry().removeConnection(connection);
+        networkSession->protectedBroadcastChannelRegistry()->removeConnection(connection);
         for (auto& [url, topOrigin] : m_blobURLs)
             networkSession->blobRegistry().unregisterBlobURL(url, topOrigin);
         for (auto& [urlAndOrigin, count] : m_blobURLHandles) {
@@ -458,8 +470,8 @@ void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
     networkProcess->removeNetworkConnectionToWebProcess(*this);
 
 #if USE(LIBWEBRTC)
-    if (m_rtcProvider) {
-        m_rtcProvider->close();
+    if (RefPtr rtcProvider = m_rtcProvider) {
+        rtcProvider->close();
         m_rtcProvider = nullptr;
     }
 #endif
@@ -688,7 +700,7 @@ void NetworkConnectionToWebProcess::preconnectTo(std::optional<WebCore::Resource
     };
 
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
-    if (protectedNetworkProcess()->supplement<LegacyCustomProtocolManager>()->supportsScheme(loadParameters.request.url().protocol().toString())) {
+    if (RefPtr { protectedNetworkProcess()->supplement<LegacyCustomProtocolManager>() }->supportsScheme(loadParameters.request.url().protocol().toString())) {
         completionHandler(internalError(loadParameters.request.url()));
         return;
     }
@@ -834,13 +846,19 @@ void NetworkConnectionToWebProcess::getRawCookies(const URL& firstParty, const S
     completionHandler(WTFMove(result));
 }
 
-void NetworkConnectionToWebProcess::setRawCookie(const WebCore::Cookie& cookie)
+void NetworkConnectionToWebProcess::setRawCookie(const URL& firstParty, const WebCore::Cookie& cookie, ShouldPartitionCookie shouldPartitionCookie)
 {
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
         return;
 
+#if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
+    networkStorageSession->setCookie(firstParty, cookie, shouldPartitionCookie);
+#else
+    UNUSED_PARAM(firstParty);
+    UNUSED_PARAM(shouldPartitionCookie);
     networkStorageSession->setCookie(cookie);
+#endif
 }
 
 void NetworkConnectionToWebProcess::deleteCookie(const URL& url, const String& cookieName, CompletionHandler<void()>&& completionHandler)
@@ -1124,7 +1142,7 @@ void NetworkConnectionToWebProcess::setCaptureExtraNetworkLoadMetricsEnabled(boo
 void NetworkConnectionToWebProcess::clearPageSpecificData(PageIdentifier pageID)
 {
     if (auto* session = networkSession())
-        session->networkLoadScheduler().clearPageData(pageID);
+        session->protectedNetworkLoadScheduler()->clearPageData(pageID);
 
     if (auto* storageSession = protectedNetworkProcess()->storageSession(m_sessionID))
         storageSession->clearPageSpecificDataForResourceLoadStatistics(pageID);
@@ -1548,7 +1566,7 @@ void NetworkConnectionToWebProcess::setResourceLoadSchedulingMode(WebCore::PageI
     if (!session)
         return;
 
-    session->networkLoadScheduler().setResourceLoadSchedulingMode(pageIdentifier, mode);
+    session->protectedNetworkLoadScheduler()->setResourceLoadSchedulingMode(pageIdentifier, mode);
 }
 
 void NetworkConnectionToWebProcess::prioritizeResourceLoads(const Vector<WebCore::ResourceLoaderIdentifier>& loadIdentifiers)
@@ -1565,7 +1583,7 @@ void NetworkConnectionToWebProcess::prioritizeResourceLoads(const Vector<WebCore
         loads.append(loader->networkLoad());
     }
 
-    session->networkLoadScheduler().prioritizeLoads(loads);
+    session->protectedNetworkLoadScheduler()->prioritizeLoads(loads);
 }
 
 RefPtr<NetworkResourceLoader> NetworkConnectionToWebProcess::takeNetworkResourceLoader(WebCore::ResourceLoaderIdentifier resourceLoadIdentifier)
@@ -1680,7 +1698,7 @@ void NetworkConnectionToWebProcess::updateSharedPreferencesForWebProcess(SharedP
 {
     m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess);
     if (CheckedPtr session = networkSession())
-        session->protectedStorageManager()->updateSharedPreferencesForConnection(connection(), m_sharedPreferencesForWebProcess);
+        session->protectedStorageManager()->updateSharedPreferencesForConnection(protectedConnection(), m_sharedPreferencesForWebProcess);
 }
 
 } // namespace WebKit

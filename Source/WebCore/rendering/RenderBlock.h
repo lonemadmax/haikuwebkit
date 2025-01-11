@@ -121,38 +121,11 @@ public:
     // FIXME-BLOCKFLOW: Remove virtualizaion when all of the line layout code has been moved out of RenderBlock
     virtual bool containsFloats() const { return false; }
 
-    // Versions that can compute line offsets with the fragment and page offset passed in. Used for speed to avoid having to
-    // compute the fragment all over again when you already know it.
-    LayoutUnit availableLogicalWidthForLineInFragment(LayoutUnit position, RenderFragmentContainer* fragment, LayoutUnit logicalHeight = 0_lu) const
-    {
-        return std::max<LayoutUnit>(0, logicalRightOffsetForLineInFragment(position, fragment, logicalHeight)
-            - logicalLeftOffsetForLineInFragment(position, fragment, logicalHeight));
-    }
-    LayoutUnit logicalRightOffsetForLineInFragment(LayoutUnit position, RenderFragmentContainer* fragment, LayoutUnit logicalHeight = 0_lu) const
-    {
-        return adjustLogicalRightOffsetForLine(logicalRightFloatOffsetForLine(position, logicalRightOffsetForContent(fragment), logicalHeight));
-    }
-    LayoutUnit logicalLeftOffsetForLineInFragment(LayoutUnit position, RenderFragmentContainer* fragment, LayoutUnit logicalHeight = 0_lu) const
-    {
-        return adjustLogicalLeftOffsetForLine(logicalLeftFloatOffsetForLine(position, logicalLeftOffsetForContent(fragment), logicalHeight));
-    }
-    inline LayoutUnit startOffsetForLineInFragment(LayoutUnit position, RenderFragmentContainer*, LayoutUnit logicalHeight = 0_lu) const;
-    inline LayoutUnit endOffsetForLineInFragment(LayoutUnit position, RenderFragmentContainer*, LayoutUnit logicalHeight = 0_lu) const;
-
-    LayoutUnit availableLogicalWidthForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const
-    {
-        return availableLogicalWidthForLineInFragment(position, fragmentAtBlockOffset(position), logicalHeight);
-    }
-    LayoutUnit logicalRightOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const
-    {
-        return adjustLogicalRightOffsetForLine(logicalRightFloatOffsetForLine(position, logicalRightOffsetForContent(position), logicalHeight));
-    }
-    LayoutUnit logicalLeftOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const
-    {
-        return adjustLogicalLeftOffsetForLine(logicalLeftFloatOffsetForLine(position, logicalLeftOffsetForContent(position), logicalHeight));
-    }
-    inline LayoutUnit startOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const;
-    inline LayoutUnit endOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const;
+    inline LayoutUnit availableLogicalWidthForLine(LayoutUnit position, LayoutUnit logicalHeight) const;
+    LayoutUnit logicalRightOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const;
+    LayoutUnit logicalLeftOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight = 0_lu) const;
+    inline LayoutUnit startOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight) const;
+    inline LayoutUnit endOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight) const;
 
     LayoutUnit textIndentOffset() const;
 
@@ -243,32 +216,14 @@ public:
 
     virtual void scrollbarsChanged(bool /*horizontalScrollbarChanged*/, bool /*verticalScrollbarChanged*/) { }
 
-    LayoutUnit logicalLeftOffsetForContent(RenderFragmentContainer*) const;
-    LayoutUnit logicalRightOffsetForContent(RenderFragmentContainer*) const;
-    LayoutUnit availableLogicalWidthForContent(RenderFragmentContainer* fragment) const
+    LayoutUnit availableLogicalWidthForContent() const
     { 
-        return std::max<LayoutUnit>(0, logicalRightOffsetForContent(fragment) - logicalLeftOffsetForContent(fragment));
+        return std::max(0_lu, logicalRightOffsetForContent() - logicalLeftOffsetForContent());
     }
-    inline LayoutUnit startOffsetForContent(RenderFragmentContainer*) const;
-    inline LayoutUnit endOffsetForContent(RenderFragmentContainer*) const;
-    LayoutUnit logicalLeftOffsetForContent(LayoutUnit blockOffset) const
-    {
-        return logicalLeftOffsetForContent(fragmentAtBlockOffset(blockOffset));
-    }
-    LayoutUnit logicalRightOffsetForContent(LayoutUnit blockOffset) const
-    {
-        return logicalRightOffsetForContent(fragmentAtBlockOffset(blockOffset));
-    }
-    LayoutUnit availableLogicalWidthForContent(LayoutUnit blockOffset) const
-    {
-        return availableLogicalWidthForContent(fragmentAtBlockOffset(blockOffset));
-    }
-    inline LayoutUnit startOffsetForContent(LayoutUnit blockOffset) const;
-    inline LayoutUnit endOffsetForContent(LayoutUnit blockOffset) const;
-    inline LayoutUnit logicalLeftOffsetForContent() const;
-    inline LayoutUnit logicalRightOffsetForContent() const;
-    inline LayoutUnit startOffsetForContent() const;
-    inline LayoutUnit endOffsetForContent() const;
+    LayoutUnit logicalLeftOffsetForContent() const;
+    LayoutUnit logicalRightOffsetForContent() const;
+    LayoutUnit startOffsetForContent() const;
+    LayoutUnit endOffsetForContent() const;
 
     LayoutUnit logicalLeftSelectionOffset(RenderBlock& rootBlock, LayoutUnit position, const LogicalSelectionOffsetCaches&);
     LayoutUnit logicalRightSelectionOffset(RenderBlock& rootBlock, LayoutUnit position, const LogicalSelectionOffsetCaches&);
@@ -362,7 +317,7 @@ public:
     
     void adjustBorderBoxRectForPainting(LayoutRect&) override;
     LayoutRect paintRectToClipOutFromBorder(const LayoutRect&) override;
-    bool isInlineBlockOrInlineTable() const final { return isInline() && isReplacedOrInlineBlock(); }
+    bool isNonReplacedAtomicInline() const final { return isInline() && isReplacedOrAtomicInline(); }
     
     void boundingRects(Vector<LayoutRect>&, const LayoutPoint& accumulatedOffset) const override;
     void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const override;
@@ -389,9 +344,9 @@ protected:
 
     void preparePaginationBeforeBlockLayout(bool&);
 
-    void computeChildPreferredLogicalWidths(RenderObject&, LayoutUnit& minPreferredLogicalWidth, LayoutUnit& maxPreferredLogicalWidth) const;
+    void computeChildPreferredLogicalWidths(RenderBox&, LayoutUnit& minPreferredLogicalWidth, LayoutUnit& maxPreferredLogicalWidth) const;
 
-    virtual void computeChildIntrinsicLogicalWidths(RenderObject&, LayoutUnit& minPreferredLogicalWidth, LayoutUnit& maxPreferredLogicalWidth) const;
+    virtual void computeChildIntrinsicLogicalWidths(RenderBox&, LayoutUnit& minPreferredLogicalWidth, LayoutUnit& maxPreferredLogicalWidth) const;
 
 private:
     static RenderPtr<RenderBlock> createAnonymousBlockWithStyleAndDisplay(Document&, const RenderStyle&, DisplayType);
@@ -452,8 +407,7 @@ private:
 
     void paintContinuationOutlines(PaintInfo&, const LayoutPoint&);
 
-    // FIXME-BLOCKFLOW: Remove virtualizaion when all callers have moved to RenderBlockFlow
-    virtual VisiblePosition positionForPointWithInlineChildren(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*);
+    virtual VisiblePosition positionForPointWithInlineChildren(const LayoutPoint&, HitTestSource);
 
     RenderPtr<RenderBlock> clone() const;
 

@@ -936,6 +936,12 @@ void WebPageProxy::updateInputContextAfterBlurringAndRefocusingElement()
         pageClient->updateInputContextAfterBlurringAndRefocusingElement();
 }
 
+void WebPageProxy::didProgrammaticallyClearFocusedElement(WebCore::ElementContext&& context)
+{
+    if (RefPtr client = pageClient())
+        client->didProgrammaticallyClearFocusedElement(WTFMove(context));
+}
+
 void WebPageProxy::elementDidFocus(const FocusedElementInformation& information, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, const UserData& userData)
 {
     m_pendingInputModeChange = std::nullopt;
@@ -1747,6 +1753,13 @@ void WebPageProxy::isPotentialTapInProgress(CompletionHandler<void(bool)>&& comp
 }
 
 #endif // PLATFORM(IOS_FAMILY)
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(MODEL_PROCESS)
+RefPtr<ModelPresentationManagerProxy> WebPageProxy::modelPresentationManagerProxy() const
+{
+    return internals().modelPresentationManagerProxy;
+}
+#endif
 
 } // namespace WebKit
 

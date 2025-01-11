@@ -40,6 +40,10 @@
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 
+#if ENABLE(MODEL_PROCESS)
+#import <WebCore/ModelContext.h>
+#endif
+
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeTransaction);
@@ -241,6 +245,11 @@ static void dumpChangedLayers(TextStream& ts, const LayerPropertiesMap& changedL
 
         if (layerProperties.changedProperties & LayerChange::VideoGravityChanged)
             ts.dumpProperty("videoGravity", layerProperties.videoGravity);
+
+#if HAVE(CORE_MATERIAL)
+        if (layerProperties.changedProperties & LayerChange::AppleVisualEffectChanged)
+            ts.dumpProperty("appleVisualEffect", layerProperties.appleVisualEffect);
+#endif
     }
 }
 
@@ -396,6 +405,11 @@ std::optional<WebCore::LayerHostingContextIdentifier> RemoteLayerTreeTransaction
 
 uint32_t RemoteLayerTreeTransaction::LayerCreationProperties::hostingContextID() const
 {
+#if ENABLE(MODEL_PROCESS)
+    if (auto* modelContext = std::get_if<Ref<WebCore::ModelContext>>(&additionalData))
+        return (*modelContext)->modelContentsLayerHostingContextIdentifier().toRawValue();
+#endif
+
     if (auto* customData = std::get_if<CustomData>(&additionalData))
         return customData->hostingContextID;
     return 0;
@@ -414,6 +428,16 @@ float RemoteLayerTreeTransaction::LayerCreationProperties::hostingDeviceScaleFac
         return customData->hostingDeviceScaleFactor;
     return 1;
 }
+
+#if ENABLE(MODEL_PROCESS)
+RefPtr<WebCore::ModelContext> RemoteLayerTreeTransaction::LayerCreationProperties::modelContext() const
+{
+    auto* modelContext = std::get_if<Ref<WebCore::ModelContext>>(&additionalData);
+    if (!modelContext)
+        return nullptr;
+    return modelContext->ptr();
+}
+#endif
 
 } // namespace WebKit
 

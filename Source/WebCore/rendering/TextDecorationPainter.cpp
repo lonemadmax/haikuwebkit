@@ -33,6 +33,7 @@
 #include "RenderStyleInlines.h"
 #include "RenderText.h"
 #include "ShadowData.h"
+#include "TextBoxPainter.h"
 #include "TextRun.h"
 
 namespace WebCore {
@@ -192,14 +193,23 @@ bool TextDecorationPainter::Styles::operator==(const Styles& other) const
         && underline.decorationStyle == other.underline.decorationStyle && overline.decorationStyle == other.overline.decorationStyle && linethrough.decorationStyle == other.linethrough.decorationStyle;
 }
 
-TextDecorationPainter::TextDecorationPainter(GraphicsContext& context, const FontCascade& font, const ShadowData* shadow, const FilterOperations* colorFilter, bool isPrinting, bool isHorizontal)
+TextDecorationPainter::TextDecorationPainter(GraphicsContext& context, const FontCascade& font, const ShadowData* shadow, const FilterOperations* colorFilter, bool isPrinting, WritingMode writingMode)
     : m_context(context)
     , m_isPrinting(isPrinting)
-    , m_isHorizontal(isHorizontal)
+    , m_writingMode(writingMode)
     , m_shadow(shadow)
     , m_shadowColorFilter(colorFilter)
     , m_font(font)
 {
+}
+
+static inline FloatSize convertShadowOffset(const LengthPoint& offset, WritingMode writingMode)
+{
+    if (writingMode.isHorizontal())
+        return { offset.x.value(), offset.y.value() };
+    if (writingMode.isLineOverLeft()) // sideways-lr
+        return { -offset.y.value(), offset.x.value() };
+    return { offset.y.value(), -offset.x.value() };
 }
 
 // Paint text-shadow, underline, overline
@@ -213,7 +223,9 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
         if (underlineStyle == TextDecorationStyle::Wavy)
             strokeWavyTextDecoration(m_context, rect, decorationGeometry.wavyStrokeParameters);
         else if (decoration == TextDecorationLine::Underline || decoration == TextDecorationLine::Overline) {
-            if ((style.textDecorationSkipInk() == TextDecorationSkipInk::Auto || style.textDecorationSkipInk() == TextDecorationSkipInk::All) && m_isHorizontal) {
+            if ((style.textDecorationSkipInk() == TextDecorationSkipInk::Auto
+                || style.textDecorationSkipInk() == TextDecorationSkipInk::All)
+                && !m_writingMode.isVerticalTypographic()) {
                 if (!m_context.paintingDisabled()) {
                     auto underlineBoundingBox = m_context.computeUnderlineBoundsForText(rect, m_isPrinting);
                     auto intersections = m_font.dashesForIntersectionsWithRect(textRun, decorationGeometry.textOrigin, underlineBoundingBox);
@@ -247,11 +259,10 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
             auto shadowExtent = shadow->paintingExtent();
             auto shadowRect = clipRect;
             shadowRect.inflate(shadowExtent);
-            auto shadowX = m_isHorizontal ? shadow->x().value : shadow->y().value;
-            auto shadowY = m_isHorizontal ? shadow->y().value : -shadow->x().value;
-            shadowRect.move(shadowX, shadowY);
+            auto shadowOffset = TextBoxPainter::rotateShadowOffset(shadow->location(), m_writingMode);
+            shadowRect.move(shadowOffset);
             clipRect.unite(shadowRect);
-            extraOffset = std::max(extraOffset, std::max(0.f, shadowY) + shadowExtent);
+            extraOffset = std::max(extraOffset, std::max(0.f, shadowOffset.height()) + shadowExtent);
         }
         m_context.save();
         m_context.clip(clipRect);
@@ -281,9 +292,9 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
             if (m_shadowColorFilter)
                 m_shadowColorFilter->transformColor(shadowColor);
 
-            auto shadowX = m_isHorizontal ? shadow->x().value : shadow->y().value;
-            auto shadowY = m_isHorizontal ? shadow->y().value : -shadow->x().value;
-            m_context.setDropShadow({ { shadowX, shadowY - extraOffset }, shadow->radius().value, shadowColor, ShadowRadiusMode::Default });
+            auto shadowOffset = TextBoxPainter::rotateShadowOffset(shadow->location(), m_writingMode);
+            shadowOffset.expand(0, -extraOffset);
+            m_context.setDropShadow({ shadowOffset, shadow->radius().value, shadowColor, ShadowRadiusMode::Default });
             shadow = shadow->next();
         };
         applyShadowIfNeeded();

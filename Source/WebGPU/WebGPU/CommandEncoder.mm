@@ -67,7 +67,7 @@ void CommandEncoder::generateInvalidEncoderStateError()
 {
     GENERATE_INVALID_ENCODER_STATE_ERROR();
 }
-
+#if !ENABLE(WEBGPU_SWIFT)
 static MTLLoadAction loadAction(WGPULoadOp loadOp)
 {
     switch (loadOp) {
@@ -97,12 +97,15 @@ static MTLStoreAction storeAction(WGPUStoreOp storeOp, bool hasResolveTarget = f
         return MTLStoreActionDontCare;
     }
 }
+#endif
 
 #if ENABLE(WEBGPU_SWIFT)
 
 DEFINE_SWIFTCXX_THUNK(WebGPU::CommandEncoder, copyBufferToTexture, void, const WGPUImageCopyBuffer&, const WGPUImageCopyTexture&, const WGPUExtent3D&);
 DEFINE_SWIFTCXX_THUNK(WebGPU::CommandEncoder, copyTextureToBuffer, void, const WGPUImageCopyTexture&, const WGPUImageCopyBuffer&, const WGPUExtent3D&);
 DEFINE_SWIFTCXX_THUNK(WebGPU::CommandEncoder, copyTextureToTexture, void, const WGPUImageCopyTexture&, const WGPUImageCopyTexture&, const WGPUExtent3D&);
+DEFINE_SWIFTCXX_THUNK(WebGPU::CommandEncoder, beginRenderPass, Ref<RenderPassEncoder>, const WGPURenderPassDescriptor&);
+DEFINE_SWIFTCXX_THUNK(WebGPU::CommandEncoder, beginComputePass, Ref<WebGPU::ComputePassEncoder>, const WGPUComputePassDescriptor&);
 #endif
 
 
@@ -216,7 +219,7 @@ NSString* CommandEncoder::errorValidatingComputePassDescriptor(const WGPUCompute
 {
     return errorValidatingTimestampWrites(descriptor.timestampWrites, *this);
 }
-
+#if !ENABLE(WEBGPU_SWIFT)
 Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDescriptor& descriptor)
 {
     if (descriptor.nextInChain)
@@ -259,6 +262,7 @@ Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDe
 
     return ComputePassEncoder::create(computeCommandEncoder, descriptor, *this, m_device);
 }
+#endif
 
 void CommandEncoder::setExistingEncoder(id<MTLCommandEncoder> encoder)
 {
@@ -447,7 +451,7 @@ void CommandEncoder::runClearEncoder(NSMutableDictionary<NSNumber*, TextureAndCl
     m_device->protectedQueue()->endEncoding(clearRenderCommandEncoder, m_commandBuffer);
     setExistingEncoder(nil);
 }
-
+#if !ENABLE(WEBGPU_SWIFT)
 static bool isMultisampleTexture(id<MTLTexture> texture)
 {
     return texture.textureType == MTLTextureType2DMultisample || texture.textureType == MTLTextureType2DMultisampleArray;
@@ -740,6 +744,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     setExistingEncoder(mtlRenderCommandEncoder);
     return RenderPassEncoder::create(mtlRenderCommandEncoder, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, *this, visibilityResultBuffer, maxDrawCount, m_device, mtlDescriptor);
 }
+#endif
 
 id<MTLCommandBuffer> CommandEncoder::commandBuffer() const
 {
@@ -1408,6 +1413,11 @@ void CommandEncoder::addTexture(const Texture& baseTexture)
         m_sharedEvent = event;
         m_sharedEventSignalValue = baseTexture.sharedEventSignalValue();
     }
+}
+
+void CommandEncoder::addSampler(const Sampler& sampler)
+{
+    m_retainedSamplers.add(RefPtr { &sampler });
 }
 
 void CommandEncoder::makeSubmitInvalid(NSString* errorString)

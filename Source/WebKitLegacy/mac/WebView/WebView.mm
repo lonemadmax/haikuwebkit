@@ -103,7 +103,7 @@
 #import "WebPluginInfoProvider.h"
 #import "WebPolicyDelegate.h"
 #import "WebPreferenceKeysPrivate.h"
-#import "WebPreferencesPrivate.h"
+#import "WebPreferencesInternal.h"
 #import "WebProgressTrackerClient.h"
 #import "WebResourceLoadDelegate.h"
 #import "WebResourceLoadDelegatePrivate.h"
@@ -1876,7 +1876,7 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
 {
     auto* frame = [self _mainCoreFrame];
     if (frame)
-        frame->history().replaceCurrentItem(core(item));
+        frame->loader().history().replaceCurrentItem(core(item));
 }
 
 + (void)willEnterBackgroundWithCompletionHandler:(void(^)(void))handler
@@ -2785,12 +2785,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             // since that might have changed since loading and it is normally not saved
             // until we leave that page.
             if (auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(otherView->_private->page->mainFrame()))
-                localMainFrame->history().saveDocumentAndScrollState();
+                localMainFrame->loader().history().saveDocumentAndScrollState();
         }
         Ref newItem = otherBackForward->itemAtIndex(i)->copy();
         if (i == 0)
             newItemToGoTo = newItem.ptr();
-        backForward->client().addItem(_private->page->mainFrame().frameID(), WTFMove(newItem));
+        backForward->client().addItem(WTFMove(newItem));
     }
 
     ASSERT(newItemToGoTo);
@@ -4826,16 +4826,16 @@ IGNORE_WARNINGS_END
 
 - (void)_setUseSystemAppearance:(BOOL)useSystemAppearance
 {
-    if (_private && _private->page)
-        _private->page->setUseSystemAppearance(useSystemAppearance);
+    if (_private)
+        [_private->preferences _setUseSystemAppearance:useSystemAppearance];
 }
 
 - (BOOL)_useSystemAppearance
 {
-    if (!_private->page)
+    if (!_private)
         return NO;
 
-    return _private->page->useSystemAppearance();
+    return [_private->preferences _useSystemAppearance];
 }
 
 #if PLATFORM(MAC)

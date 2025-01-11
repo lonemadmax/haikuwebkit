@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2023 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2024 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -169,6 +169,7 @@ def types_that_must_be_moved():
         'WebKit::MediaDeviceSandboxExtensions',
         'WebKit::WebIDBResult',
         'WebKit::LoadParameters',
+        'WebKit::AdditionalFonts',
         'WebCore::ShareableBitmapHandle',
         'WebCore::ShareableResourceHandle',
         'WebCore::SharedMemory::Handle',
@@ -325,6 +326,7 @@ def serialized_identifiers():
         'WebCore::AttributedStringTextListID',
         'WebCore::AttributedStringTextTableBlockID',
         'WebCore::AttributedStringTextTableID',
+        'WebCore::BackForwardFrameItemIdentifierID',
         'WebCore::BackForwardItemIdentifierID',
         'WebCore::BackgroundFetchRecordIdentifier',
         'WebCore::BroadcastChannelIdentifier',
@@ -367,6 +369,7 @@ def serialized_identifiers():
         'WebCore::SharedWorkerIdentifier',
         'WebCore::SharedWorkerObjectIdentifierID',
         'WebCore::SleepDisablerIdentifier',
+        'WebCore::SnapshotIdentifier',
         'WebCore::SpeechRecognitionConnectionClientIdentifier',
         'WebCore::TextCheckingRequestIdentifier',
         'WebCore::TextManipulationItemIdentifier',
@@ -376,6 +379,7 @@ def serialized_identifiers():
         'WebCore::UserMediaRequestIdentifier',
         'WebCore::WebLockIdentifierID',
         'WebCore::WebSocketIdentifier',
+        'WebCore::WebTransportStreamIdentifier',
         'WebCore::WindowIdentifier',
         'WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier',
         'WebKit::AuthenticationChallengeIdentifier',
@@ -442,7 +446,6 @@ def serialized_identifiers():
         'WebKit::WebGPUIdentifier',
         'WebKit::WebPageProxyIdentifier',
         'WebKit::WebTransportSessionIdentifier',
-        'WebKit::WebTransportStreamIdentifier',
         'WebKit::WebURLSchemeHandlerIdentifier',
     ]
 
@@ -465,6 +468,7 @@ def types_that_cannot_be_forward_declared():
         'PlatformXR::SessionMode',
         'PlatformXR::VisibilityState',
         'String',
+        'WebCore::BackForwardFrameItemIdentifier',
         'WebCore::BackForwardItemIdentifier',
         'WebCore::ControlStyle',
         'WebCore::DOMCacheIdentifier',
@@ -857,6 +861,7 @@ def headers_for_type(type):
         'IPC::StreamServerConnectionHandle': ['"StreamServerConnection.h"'],
         'JSC::MessageLevel': ['<JavaScriptCore/ConsoleTypes.h>'],
         'JSC::MessageSource': ['<JavaScriptCore/ConsoleTypes.h>'],
+        'JSC::MessageType': ['<JavaScriptCore/ConsoleTypes.h>'],
         'MachSendRight': ['<wtf/MachSendRight.h>'],
         'MediaTime': ['<wtf/MediaTime.h>'],
         'MonotonicTime': ['<wtf/MonotonicTime.h>'],
@@ -887,6 +892,8 @@ def headers_for_type(type):
         'WebCore::AudioSessionSoundStageSize': ['<WebCore/AudioSession.h>'],
         'WebCore::AutocorrectionResponse': ['<WebCore/AlternativeTextClient.h>'],
         'WebCore::AutoplayEventFlags': ['<WebCore/AutoplayEvent.h>'],
+        'WebCore::BackForwardFrameItemIdentifierID': ['"GeneratedSerializers.h"'],
+        'WebCore::BackForwardFrameItemIdentifier': ['<WebCore/ProcessQualified.h>', '<WebCore/BackForwardFrameItemIdentifier.h>', '<wtf/ObjectIdentifier.h>'],
         'WebCore::BackForwardItemIdentifierID': ['"GeneratedSerializers.h"'],
         'WebCore::BackForwardItemIdentifier': ['<WebCore/ProcessQualified.h>', '<WebCore/BackForwardItemIdentifier.h>', '<wtf/ObjectIdentifier.h>'],
         'WebCore::BlendMode': ['<WebCore/GraphicsTypes.h>'],
@@ -1151,6 +1158,7 @@ def headers_for_type(type):
         'WebCore::WillContinueLoading': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::WillInternallyHandleFailure': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::WindowProxyProperty': ['<WebCore/FrameLoaderTypes.h>'],
+        'WebCore::WebTransportStreamIdentifier': ['"WebTransportSession.h"'],
         'WebKit::ActivityStateChangeID': ['"DrawingAreaInfo.h"'],
         'WebKit::AllowOverwrite': ['"DownloadID.h"'],
         'WebKit::AppPrivacyReportTestingData': ['"AppPrivacyReport.h"'],
@@ -1273,7 +1281,6 @@ def headers_for_type(type):
         'WebKit::WebPushD::WebPushDaemonConnectionConfiguration': ['"WebPushDaemonConnectionConfiguration.h"'],
         'WebKit::WebScriptMessageHandlerData': ['"WebUserContentControllerDataTypes.h"'],
         'WebKit::WebTransportSessionIdentifier': ['"WebTransportSession.h"'],
-        'WebKit::WebTransportStreamIdentifier': ['"WebTransportSession.h"'],
         'WebKit::WebUserScriptData': ['"WebUserContentControllerDataTypes.h"'],
         'WebKit::WebUserStyleSheetData': ['"WebUserContentControllerDataTypes.h"'],
         'WTF::UnixFileDescriptor': ['<wtf/unix/UnixFileDescriptor.h>'],

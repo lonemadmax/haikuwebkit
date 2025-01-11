@@ -309,10 +309,10 @@ public:
     bool isEmpty() const { return !m_length; }
 
     bool is8Bit() const { return m_hashAndFlags & s_hashFlag8BitBuffer; }
-    ALWAYS_INLINE std::span<const LChar> span8() const { ASSERT(is8Bit()); return { m_data8, length() }; }
-    ALWAYS_INLINE std::span<const UChar> span16() const { ASSERT(!is8Bit() || isEmpty()); return { m_data16, length() }; }
+    ALWAYS_INLINE std::span<const LChar> span8() const LIFETIME_BOUND { ASSERT(is8Bit()); return { m_data8, length() }; }
+    ALWAYS_INLINE std::span<const UChar> span16() const LIFETIME_BOUND { ASSERT(!is8Bit() || isEmpty()); return { m_data16, length() }; }
 
-    template<typename CharacterType> std::span<const CharacterType> span() const;
+    template<typename CharacterType> std::span<const CharacterType> span() const LIFETIME_BOUND;
 
     size_t cost() const;
     size_t costDuringGC();
@@ -405,7 +405,7 @@ public:
     };
 
     WTF_EXPORT_PRIVATE static StaticStringImpl s_emptyAtomString;
-    ALWAYS_INLINE static StringImpl* empty() { return reinterpret_cast<StringImpl*>(&s_emptyAtomString); }
+    ALWAYS_INLINE static StringImpl* empty() { SUPPRESS_MEMORY_UNSAFE_CAST return reinterpret_cast<StringImpl*>(&s_emptyAtomString); }
 
     // FIXME: Do these functions really belong in StringImpl?
     template<typename CharacterType>
@@ -1027,10 +1027,10 @@ ALWAYS_INLINE Ref<StringImpl> StringImpl::createSubstringSharingImpl(StringImpl&
             return create(rep.span16().subspan(offset, length));
     }
 
-    auto* ownerRep = ((rep.bufferOwnership() == BufferSubstring) ? rep.substringBuffer() : &rep);
+    SUPPRESS_UNCOUNTED_LOCAL auto* ownerRep = ((rep.bufferOwnership() == BufferSubstring) ? rep.substringBuffer() : &rep);
 
     // We allocate a buffer that contains both the StringImpl struct as well as the pointer to the owner string.
-    auto* stringImpl = static_cast<StringImpl*>(StringImplMalloc::malloc(substringSize));
+    SUPPRESS_UNCOUNTED_LOCAL auto* stringImpl = static_cast<StringImpl*>(StringImplMalloc::malloc(substringSize));
     if (rep.is8Bit())
         return adoptRef(*new (NotNull, stringImpl) StringImpl(rep.span8().subspan(offset, length), *ownerRep));
     return adoptRef(*new (NotNull, stringImpl) StringImpl(rep.span16().subspan(offset, length), *ownerRep));
@@ -1047,9 +1047,7 @@ template<typename CharacterType> ALWAYS_INLINE RefPtr<StringImpl> StringImpl::tr
         output = { };
         return nullptr;
     }
-    StringImpl* result;
-
-    result = (StringImpl*)StringImplMalloc::tryMalloc(allocationSize<CharacterType>(length));
+    SUPPRESS_UNCOUNTED_LOCAL StringImpl* result = (StringImpl*)StringImplMalloc::tryMalloc(allocationSize<CharacterType>(length));
     if (!result) {
         output = { };
         return nullptr;
@@ -1262,7 +1260,7 @@ template<unsigned characterCount> constexpr StringImpl::StaticStringImpl::Static
 
 inline StringImpl::StaticStringImpl::operator StringImpl&()
 {
-    return *reinterpret_cast<StringImpl*>(this);
+    SUPPRESS_MEMORY_UNSAFE_CAST return *reinterpret_cast<StringImpl*>(this);
 }
 
 inline bool equalIgnoringASCIICase(const StringImpl& a, const StringImpl& b)
@@ -1413,7 +1411,7 @@ inline Expected<std::invoke_result_t<Func, std::span<const char8_t>>, UTF8Conver
         size_t prefixLength = firstNonASCII - characters.data();
         size_t remainingLength = characters.size() - prefixLength;
         Vector<char8_t, 1024> buffer(prefixLength + remainingLength * 2);
-        memcpy(buffer.data(), characters.data(), prefixLength);
+        memcpySpan(buffer.mutableSpan(), characters.first(prefixLength));
         auto result = Unicode::convert(characters.subspan(prefixLength), buffer.mutableSpan().subspan(prefixLength));
         ASSERT(result.code == Unicode::ConversionResultCode::Success); // 2x is sufficient for any conversion from Latin1
         return function(buffer.span().first(prefixLength + result.buffer.size()));

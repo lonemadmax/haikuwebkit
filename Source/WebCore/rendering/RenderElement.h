@@ -212,6 +212,11 @@ public:
     inline bool hasBlendMode() const;
     inline bool hasShapeOutside() const;
 
+#if HAVE(CORE_MATERIAL)
+    inline bool hasAppleVisualEffect() const;
+    inline bool hasAppleVisualEffectRequiringBackdropFilter() const;
+#endif
+
     void registerForVisibleInViewportCallback();
     void unregisterForVisibleInViewportCallback();
 
@@ -297,11 +302,6 @@ public:
     void setHasCachedSVGResource(bool b) { m_hasCachedSVGResource = b; }
     bool renderBoxHasShapeOutsideInfo() const { return m_renderBoxHasShapeOutsideInfo; }
     bool hasCachedSVGResource() const { return m_hasCachedSVGResource; }
-
-    using LayoutIdentifier = unsigned;
-    void setLayoutIdentifier(LayoutIdentifier layoutIdentifier) { m_layoutIdentifier = layoutIdentifier; }
-    LayoutIdentifier layoutIdentifier() const { return m_layoutIdentifier; }
-    bool didVisitSinceLayout(LayoutIdentifier) const;
 
 protected:
     RenderElement(Type, Element&, RenderStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
@@ -420,7 +420,6 @@ private:
     unsigned m_isRegisteredForVisibleInViewportCallback : 1;
     unsigned m_visibleInViewportState : 2;
     unsigned m_didContributeToVisuallyNonEmptyPixelCount : 1;
-    LayoutIdentifier m_layoutIdentifier : 12 { 0 };
 
     RenderStyle m_style;
 };

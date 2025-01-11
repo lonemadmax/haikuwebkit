@@ -46,6 +46,7 @@
 #include <wtf/Assertions.h>
 #include <wtf/HexNumber.h>
 #include <wtf/dtoa.h>
+#include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/StringBuilder.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -261,12 +262,11 @@ template <typename CharType>
 static double jsBinaryIntegerLiteral(std::span<const CharType>& data)
 {
     // Binary number.
-    data = data.subspan(2);
+    skip(data, 2);
     auto firstDigitPosition = data;
     double number = 0;
     while (true) {
-        number = number * 2 + (data.front() - '0');
-        data = data.subspan(1);
+        number = number * 2 + (consume(data) - '0');
         if (data.empty())
             break;
         if (!isASCIIBinaryDigit(data.front()))
@@ -283,12 +283,11 @@ template <typename CharType>
 static double jsOctalIntegerLiteral(std::span<const CharType>& data)
 {
     // Octal number.
-    data = data.subspan(2);
+    skip(data, 2);
     auto firstDigitPosition = data;
     double number = 0;
     while (true) {
-        number = number * 8 + (data.front() - '0');
-        data = data.subspan(1);
+        number = number * 8 + (consume(data) - '0');
         if (data.empty())
             break;
         if (!isASCIIOctalDigit(data.front()))
@@ -305,12 +304,11 @@ template <typename CharType>
 static double jsHexIntegerLiteral(std::span<const CharType>& data)
 {
     // Hex number.
-    data = data.subspan(2);
+    skip(data, 2);
     auto firstDigitPosition = data;
     double number = 0;
     while (true) {
-        number = number * 16 + toASCIIHexValue(data.front());
-        data = data.subspan(1);
+        number = number * 16 + toASCIIHexValue(consume(data));
         if (data.empty())
             break;
         if (!isASCIIHexDigit(data.front()))
@@ -331,7 +329,7 @@ static double jsStrDecimalLiteral(std::span<const CharType>& data)
     size_t parsedLength;
     double number = parseDouble(data, parsedLength);
     if (parsedLength) {
-        data = data.subspan(parsedLength);
+        skip(data, parsedLength);
         return number;
     }
 
@@ -339,21 +337,21 @@ static double jsStrDecimalLiteral(std::span<const CharType>& data)
     switch (data.front()) {
     case 'I':
         if (isInfinity(data)) {
-            data = data.subspan(SizeOfInfinity);
+            skip(data, SizeOfInfinity);
             return std::numeric_limits<double>::infinity();
         }
         break;
 
     case '+':
         if (isInfinity(data.subspan(1))) {
-            data = data.subspan(SizeOfInfinity + 1);
+            skip(data, SizeOfInfinity + 1);
             return std::numeric_limits<double>::infinity();
         }
         break;
 
     case '-':
         if (isInfinity(data.subspan(1))) {
-            data = data.subspan(SizeOfInfinity + 1);
+            skip(data, SizeOfInfinity + 1);
             return -std::numeric_limits<double>::infinity();
         }
         break;
@@ -367,10 +365,7 @@ template <typename CharacterType>
 static double toDouble(std::span<const CharacterType> characters)
 {
     // Skip leading white space.
-    for (; !characters.empty(); characters = characters.subspan(1)) {
-        if (!isStrWhiteSpace(characters.front()))
-            break;
-    }
+    skipWhile<isStrWhiteSpace>(characters);
 
     // Empty string.
     if (characters.empty())
@@ -390,10 +385,8 @@ static double toDouble(std::span<const CharacterType> characters)
         number = jsStrDecimalLiteral(characters);
 
     // Allow trailing white space.
-    for (; !characters.empty(); characters = characters.subspan(1)) {
-        if (!isStrWhiteSpace(characters.front()))
-            break;
-    }
+    skipWhile<isStrWhiteSpace>(characters);
+
     if (!characters.empty())
         return PNaN;
 
@@ -445,10 +438,7 @@ static double parseFloat(StringView s)
         auto data = s.span8();
 
         // Skip leading white space.
-        for (; !data.empty(); data = data.subspan(1)) {
-            if (!isStrWhiteSpace(data.front()))
-                break;
-        }
+        skipWhile<isStrWhiteSpace>(data);
 
         // Empty string.
         if (data.empty())
@@ -460,10 +450,7 @@ static double parseFloat(StringView s)
     auto data = s.span16();
 
     // Skip leading white space.
-    for (; !data.empty(); data = data.subspan(1)) {
-        if (!isStrWhiteSpace(data.front()))
-            break;
-    }
+    skipWhile<isStrWhiteSpace>(data);
 
     // Empty string.
     if (data.empty())
@@ -519,10 +506,10 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncEval, (JSGlobalObject* globalObject, CallFram
 
     JSValue parsedObject;
     if (programSource.is8Bit()) {
-        LiteralParser preparser(globalObject, programSource.span8(), SloppyJSON, nullptr);
+        LiteralParser<LChar, JSONReviverMode::Disabled> preparser(globalObject, programSource.span8(), SloppyJSON, nullptr);
         parsedObject = preparser.tryLiteralParse();
     } else {
-        LiteralParser preparser(globalObject, programSource.span16(), SloppyJSON, nullptr);
+        LiteralParser<UChar, JSONReviverMode::Disabled> preparser(globalObject, programSource.span16(), SloppyJSON, nullptr);
         parsedObject = preparser.tryLiteralParse();
     }
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -846,15 +833,6 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncBuiltinLog, (JSGlobalObject* globalObject, Ca
 JSC_DEFINE_HOST_FUNCTION(globalFuncBuiltinDescribe, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     return JSValue::encode(jsString(globalObject->vm(), toString(callFrame->argument(0))));
-}
-
-JSC_DEFINE_HOST_FUNCTION(globalFuncImportMapStatus, (JSGlobalObject* globalObject, CallFrame*))
-{
-    // https://wicg.github.io/import-maps/#integration-wait-for-import-maps
-    globalObject->importMap().setAcquiringImportMaps();
-    if (auto* promise = globalObject->importMapStatusPromise())
-        return JSValue::encode(promise);
-    return JSValue::encode(jsUndefined());
 }
 
 JSC_DEFINE_HOST_FUNCTION(globalFuncImportModule, (JSGlobalObject* globalObject, CallFrame* callFrame))

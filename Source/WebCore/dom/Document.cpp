@@ -5,7 +5,7 @@
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
- * Copyright (C) 2008-2014 Google Inc. All rights reserved.
+ * Copyright (C) 2008-2015 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) Research In Motion Limited 2010-2011. All rights reserved.
  *
@@ -210,6 +210,7 @@
 #include "PolicyChecker.h"
 #include "PopStateEvent.h"
 #include "Position.h"
+#include "ProcessSyncData.h"
 #include "ProcessingInstruction.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "PublicSuffixStore.h"
@@ -428,7 +429,7 @@ public:
     Vector<GCReachableRef<ContainerNode>> targets;
 };
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(Document, PendingScrollEventTargetList);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Document::PendingScrollEventTargetList);
 
 static const Seconds intersectionObserversInitialUpdateDelay { 2000_ms };
 
@@ -643,9 +644,6 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     , m_fragmentDirectiveForBindings(FragmentDirective::create())
     , m_documentClasses(documentClasses)
     , m_latestFocusTrigger { FocusTrigger::Other }
-#if ENABLE(DOM_AUDIO_SESSION)
-    , m_audioSessionType { DOMAudioSession::Type::Auto }
-#endif
     , m_isSynthesized(constructionFlags.contains(ConstructionFlag::Synthesized))
     , m_isNonRenderedPlaceholder(constructionFlags.contains(ConstructionFlag::NonRenderedPlaceholder))
     , m_frameIdentifier(frame ? std::optional(frame->frameID()) : std::nullopt)
@@ -685,6 +683,31 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     ASSERT(!hasEmptySecurityOriginPolicyAndContentSecurityPolicy() || !hasInitializedSecurityOriginPolicyOrContentSecurityPolicy());
     m_constructionDidFinish = true;
 
+    // We walk all of the relevant enums to popular one at a time in a switch statement to make sure
+    // that an engineer writes the relevant manual code whenever a new generated type is added.
+    for (const ProcessSyncDataType dataType : allDocumentSyncDataTypes)
+        populateDocumentSyncDataForNewlyConstructedDocument(dataType);
+}
+
+void Document::populateDocumentSyncDataForNewlyConstructedDocument(ProcessSyncDataType dataType)
+{
+    switch (dataType) {
+    case ProcessSyncDataType::DocumentClasses:
+        m_syncData->documentClasses = m_documentClasses;
+        break;
+#if ENABLE(DOM_AUDIO_SESSION)
+    case ProcessSyncDataType::AudioSessionType:
+        m_syncData->audioSessionType = DOMAudioSession::Type::Auto;
+        break;
+#endif
+    // The following either have default values that match a newly constructed document
+    // or are populated other ways even on newly constructed documents.
+    case ProcessSyncDataType::IsAutofocusProcessed:
+    case ProcessSyncDataType::UserDidInteractWithPage:
+    case ProcessSyncDataType::DocumentURL:
+    case ProcessSyncDataType::DocumentSecurityOrigin:
+        break;
+    }
 }
 
 void Document::createNewIdentifier()
@@ -1000,13 +1023,9 @@ SecurityOrigin& Document::topOrigin() const
     if (!settings().siteIsolationEnabled())
         return topDocument().securityOrigin();
 
-    RefPtr frame = this->frame();
-    if (RefPtr localMainFrame = frame ? dynamicDowncast<LocalFrame>(frame->mainFrame()) : nullptr) {
-        if (RefPtr mainFrameDocument = localMainFrame->document())
-            return mainFrameDocument->securityOrigin();
-    }
-    if (RefPtr page = this->page())
-        return page->mainFrameOrigin();
+    if (isTopDocument())
+        return securityOrigin();
+
     return SecurityOrigin::opaqueOrigin();
 }
 
@@ -2636,10 +2655,9 @@ void Document::resolveStyle(ResolveStyleType type)
         // As a result of the style recalculation, the currently hovered element might have been
         // detached (for example, by setting display:none in the :hover style), schedule another mouseMove event
         // to check if any other elements ended up under the mouse pointer due to re-layout.
-        if (m_hoveredElement && !m_hoveredElement->renderer()) {
-            if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(frameView->frame().mainFrame()))
-                localMainFrame->eventHandler().dispatchFakeMouseMoveEventSoon();
-        }
+        RefPtr localMainFrame = this->localMainFrame();
+        if (m_hoveredElement && !m_hoveredElement->renderer() && localMainFrame)
+            localMainFrame->eventHandler().dispatchFakeMouseMoveEventSoon();
 
         ++m_styleRecalcCount;
         // FIXME: Assert ASSERT(!needsStyleRecalc()) here. fast/events/media-element-focus-tab.html hits this assertion.
@@ -2792,7 +2810,7 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
                     context = nullptr;
             }
             if (frameView->layoutContext().needsLayout(layoutOptions)) {
-                ContentVisibilityForceLayoutScope scope(*renderView(), context);
+                auto contentVisibilityScope = ContentVisibilityForceLayoutScope { frameView->layoutContext(), context };
                 frameView->layoutContext().layout(layoutOptions.contains(LayoutOptions::CanDeferUpdateLayerPositions));
                 result = UpdateLayoutResult::ChangesDone;
             }
@@ -4152,9 +4170,10 @@ void Document::setURL(const URL& url)
         newURL.removeHostAndPort();
     // SecurityContext::securityOrigin may not be initialized at this time if setURL() is called in the constructor, therefore calling topOrigin() is not always safe.
     auto topOrigin = isTopDocument() && !SecurityContext::securityOrigin() ? SecurityOrigin::create(url)->data() : this->topOrigin().data();
+    m_syncData->documentURL = newURL;
     m_url = { WTFMove(newURL), topOrigin };
     if (m_frame)
-        m_frame->documentURLDidChange(m_url);
+        m_frame->documentURLOrOriginDidChange();
 
     m_documentURI = m_url.url();
     m_adjustedURL = adjustedURL();
@@ -7352,13 +7371,10 @@ Document& Document::topDocument() const
     // FIXME: This special-casing avoids incorrectly determined top documents during the process
     // of AXObjectCache teardown or notification posting for cached or being-destroyed documents.
     if (backForwardCacheState() == NotInBackForwardCache && !m_renderTreeBeingDestroyed) {
-        if (!m_frame)
-            return const_cast<Document&>(*this);
-        // This should always be non-null.
-        Document* mainFrameDocument = nullptr;
-        if (auto* localFrame = dynamicDowncast<LocalFrame>(m_frame->mainFrame()))
-            mainFrameDocument = localFrame->document();
-        return mainFrameDocument ? *mainFrameDocument : const_cast<Document&>(*this);
+        Document* localMainDocument = nullptr;
+        if (RefPtr localMainFrame = this->localMainFrame())
+            localMainDocument = localMainFrame->document();
+        return localMainDocument ? *localMainDocument : const_cast<Document&>(*this);
     }
 
     Document* document = const_cast<Document*>(this);
@@ -7372,12 +7388,17 @@ bool Document::isTopDocument() const
     if (!settings().siteIsolationEnabled())
         return isTopDocumentLegacy();
 
-    if (WeakPtr currentFrame = frame()) {
-        if (auto localMainFrame = dynamicDowncast<LocalFrame>(currentFrame->mainFrame()))
-            return localMainFrame->document() == this;
-    }
+    if (RefPtr localMainFrame = this->localMainFrame())
+        return localMainFrame->document() == this;
 
     return false;
+}
+
+RefPtr<LocalFrame> Document::localMainFrame() const
+{
+    if (RefPtr page = protectedPage())
+        return page->localMainFrame();
+    return nullptr;
 }
 
 ScriptRunner& Document::ensureScriptRunner()
@@ -9089,7 +9110,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
             elementsToSetActive.append(element);
         if (element == commonAncestor)
             sawCommonAncestor = true;
-        if (!sawCommonAncestor)
+        if (!sawCommonAncestor || element == m_hoveredElement)
             elementsToSetHover.append(element);
     }
 
@@ -9189,13 +9210,6 @@ float Document::deviceScaleFactor() const
     return deviceScaleFactor;
 }
 
-bool Document::useSystemAppearance() const
-{
-    if (RefPtr documentPage = page())
-        return documentPage->useSystemAppearance();
-    return false;
-}
-
 bool Document::useDarkAppearance(const RenderStyle* style) const
 {
 #if ENABLE(DARK_MODE_CSS)
@@ -9212,7 +9226,7 @@ bool Document::useDarkAppearance(const RenderStyle* style) const
     if (RefPtr documentPage = page())
         pageUsesDarkAppearance = documentPage->useDarkAppearance();
 
-    if (useSystemAppearance())
+    if (settings().useSystemAppearance())
         return pageUsesDarkAppearance;
 
 #if ENABLE(DARK_MODE_CSS)
@@ -9233,7 +9247,7 @@ bool Document::useElevatedUserInterfaceLevel() const
 OptionSet<StyleColorOptions> Document::styleColorOptions(const RenderStyle* style) const
 {
     OptionSet<StyleColorOptions> options;
-    if (useSystemAppearance())
+    if (settings().useSystemAppearance())
         options.add(StyleColorOptions::UseSystemAppearance);
     if (useDarkAppearance(style))
         options.add(StyleColorOptions::UseDarkAppearance);
@@ -11144,7 +11158,10 @@ PermissionsPolicy Document::permissionsPolicy() const
 
 void Document::securityOriginDidChange()
 {
+    m_syncData->documentSecurityOrigin = SecurityContext::securityOrigin();
     m_permissionsPolicy = nullptr;
+    if (m_frame)
+        m_frame->documentURLOrOriginDidChange();
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)

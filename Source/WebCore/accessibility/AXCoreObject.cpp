@@ -436,6 +436,208 @@ AXCoreObject* AXCoreObject::selectedTabItem()
     return nullptr;
 }
 
+bool AXCoreObject::canHaveSelectedChildren() const
+{
+    switch (roleValue()) {
+    // These roles are containers whose children support aria-selected:
+    case AccessibilityRole::Grid:
+    case AccessibilityRole::ListBox:
+    case AccessibilityRole::TabList:
+    case AccessibilityRole::Tree:
+    case AccessibilityRole::TreeGrid:
+    case AccessibilityRole::List:
+    // These roles are containers whose children are treated as selected by assistive
+    // technologies. We can get the "selected" item via aria-activedescendant or the
+    // focused element.
+    case AccessibilityRole::Menu:
+    case AccessibilityRole::MenuBar:
+    case AccessibilityRole::ComboBox:
+#if USE(ATSPI)
+    case AccessibilityRole::MenuListPopup:
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
+AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedChildren()
+{
+    if (!canHaveSelectedChildren())
+        return { };
+
+    switch (roleValue()) {
+    case AccessibilityRole::ComboBox:
+        if (auto* descendant = activeDescendant())
+            return { { *descendant } };
+        break;
+    case AccessibilityRole::ListBox:
+        return listboxSelectedChildren();
+    case AccessibilityRole::Grid:
+    case AccessibilityRole::Tree:
+    case AccessibilityRole::TreeGrid:
+        return selectedRows();
+    case AccessibilityRole::TabList:
+        if (auto* selectedTab = selectedTabItem())
+            return { { *selectedTab } };
+        break;
+    case AccessibilityRole::List:
+        return selectedListItems();
+    case AccessibilityRole::Menu:
+    case AccessibilityRole::MenuBar:
+        if (auto* descendant = activeDescendant())
+            return { { *descendant } };
+        if (auto* focusedElement = focusedUIElement())
+            return { { *focusedElement } };
+        break;
+    case AccessibilityRole::MenuListPopup: {
+        AccessibilityChildrenVector selectedItems;
+        for (const auto& child : unignoredChildren()) {
+            if (child->isSelected())
+                selectedItems.append(child);
+        }
+        return selectedItems;
+    }
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    return { };
+}
+
+AXCoreObject::AccessibilityChildrenVector AXCoreObject::listboxSelectedChildren()
+{
+    ASSERT(roleValue() == AccessibilityRole::ListBox);
+
+    AccessibilityChildrenVector result;
+    bool isMulti = isMultiSelectable();
+    for (const auto& child : unignoredChildren()) {
+        if (!child->isListBoxOption() || !child->isSelected())
+            continue;
+
+        result.append(child);
+        if (!isMulti)
+            return result;
+    }
+    return result;
+}
+
+AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedRows()
+{
+    ASSERT(roleValue() == AccessibilityRole::Grid || roleValue() == AccessibilityRole::Tree || roleValue() == AccessibilityRole::TreeGrid);
+
+    bool isMulti = isMultiSelectable();
+
+    AccessibilityChildrenVector result;
+    // Prefer active descendant over aria-selected.
+    auto* activeDescendant = this->activeDescendant();
+    if (activeDescendant && (activeDescendant->isTreeItem() || activeDescendant->isTableRow())) {
+        result.append(*activeDescendant);
+        if (!isMulti)
+            return result;
+    }
+
+    auto rowsIteration = [&](const auto& rows) {
+        for (auto& row : rows) {
+            if (row->isSelected() || row->isActiveDescendantOfFocusedContainer()) {
+                result.append(row);
+                if (!isMulti)
+                    break;
+            }
+        }
+    };
+
+    if (isTree())
+        rowsIteration(ariaTreeRows());
+    else if (isTable() && isExposable() && supportsSelectedRows())
+        rowsIteration(rows());
+    return result;
+}
+
+AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedListItems()
+{
+    ASSERT(roleValue() == AccessibilityRole::List);
+
+    AccessibilityChildrenVector selectedListItems;
+    for (const auto& child : unignoredChildren()) {
+        if (child->isListItem() && child->isSelected())
+            selectedListItems.append(child);
+    }
+    return selectedListItems;
+}
+
+void AXCoreObject::ariaTreeRows(AccessibilityChildrenVector& rows, AccessibilityChildrenVector& ancestors)
+{
+    auto ownedObjects = this->ownedObjects();
+    ancestors.append(*this);
+
+    // The ordering of rows is first DOM children *not* in aria-owns, followed by all specified
+    // in aria-owns.
+    for (const auto& child : unignoredChildren()) {
+        // Add tree items as the rows.
+        if (child->roleValue() == AccessibilityRole::TreeItem) {
+            // Child appears both as a direct child and aria-owns, we should use the ordering as
+            // described in aria-owns for this child.
+            if (ownedObjects.contains(child))
+                continue;
+
+            // The result set may already contain the child through aria-owns. For example,
+            // a treeitem sitting under the tree root, which is owned elsewhere in the tree.
+            if (rows.contains(child))
+                continue;
+
+            rows.append(child);
+        }
+
+        // Now see if this item also has rows hiding inside of it.
+        child->ariaTreeRows(rows, ancestors);
+    }
+
+    // Now go through the aria-owns elements.
+    for (const auto& child : ownedObjects) {
+        // Avoid a circular reference via aria-owns by checking if our parent
+        // path includes this child. Currently, looking up the aria-owns parent
+        // path itself could be expensive, so we track it separately.
+        if (ancestors.contains(child))
+            continue;
+
+        // Add tree items as the rows.
+        if (child->roleValue() == AccessibilityRole::TreeItem) {
+            // Hopefully a flow that does not occur often in practice, but if someone were to include
+            // the owned child ealier in the top level of the tree, then reference via aria-owns later,
+            // move it to the right place.
+            if (rows.contains(child))
+                rows.removeFirst(child);
+
+            rows.append(child);
+        }
+
+        // Now see if this item also has rows hiding inside of it.
+        child->ariaTreeRows(rows, ancestors);
+    }
+
+    ancestors.removeLast();
+}
+
+AXCoreObject::AccessibilityChildrenVector AXCoreObject::ariaTreeRows()
+{
+    AccessibilityChildrenVector rows;
+    AccessibilityChildrenVector ancestors;
+    ariaTreeRows(rows, ancestors);
+    return rows;
+}
+
+bool AXCoreObject::isActiveDescendantOfFocusedContainer() const
+{
+    auto containers = activeDescendantOfObjects();
+    for (auto& container : containers) {
+        if (container->isFocused())
+            return true;
+    }
+
+    return false;
+}
+
 bool AXCoreObject::supportsRequiredAttribute() const
 {
     switch (roleValue()) {
@@ -505,6 +707,22 @@ unsigned AXCoreObject::tableLevel() const
         current = current->exposedTableAncestor(false);
     }
     return level;
+}
+
+AXCoreObject* AXCoreObject::columnHeader()
+{
+    if (!isTableColumn())
+        return nullptr;
+
+    RefPtr parent = parentObject();
+    if (!parent || !parent->isTable() || !parent->isExposable())
+        return nullptr;
+
+    for (const auto& cell : unignoredChildren()) {
+        if (cell->roleValue() == AccessibilityRole::ColumnHeader)
+            return cell.ptr();
+    }
+    return nullptr;
 }
 
 AXCoreObject::AccessibilityChildrenVector AXCoreObject::columnHeaders()
@@ -675,6 +893,13 @@ AXCoreObject* AXCoreObject::activeDescendant() const
     if (!activeDescendants.isEmpty())
         return activeDescendants[0].ptr();
     return nullptr;
+}
+
+AXCoreObject* AXCoreObject::selfOrFirstTextDescendant()
+{
+    return Accessibility::findUnignoredDescendant(*this, /* includeSelf */ true, [] (auto& descendant) {
+        return descendant.isStaticText();
+    });
 }
 
 AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedCells()

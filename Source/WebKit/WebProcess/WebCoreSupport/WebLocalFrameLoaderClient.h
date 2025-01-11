@@ -32,6 +32,11 @@
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <pal/SessionID.h>
 
+namespace WebCore {
+struct BackForwardItemIdentifierType;
+using BackForwardItemIdentifier = ProcessQualified<ObjectIdentifier<BackForwardItemIdentifierType>>;
+}
+
 namespace WebKit {
 
 class PluginView;
@@ -284,6 +289,10 @@ private:
 
     bool siteIsolationEnabled() const;
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    void didExceedNetworkUsageThreshold();
+#endif
+
 #if ENABLE(PDF_PLUGIN)
     RefPtr<PluginView> m_pluginView;
     bool m_hasSentResponseToPluginView { false };
@@ -314,6 +323,8 @@ private:
     void dispatchLoadEventToOwnerElementInAnotherProcess() final;
 
     void frameNameChanged(const String&) final;
+
+    RefPtr<WebCore::HistoryItem> createHistoryItemTree(bool clipAtTarget, WebCore::BackForwardItemIdentifier) const final;
 };
 
 // As long as EmptyFrameLoaderClient exists in WebCore, this can return nullptr.

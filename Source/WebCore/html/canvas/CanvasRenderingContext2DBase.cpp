@@ -37,8 +37,10 @@
 #include "CSSFontSelector.h"
 #include "CSSMarkup.h"
 #include "CSSParser.h"
+#include "CSSPrimitiveNumericTypes+Serialization.h"
 #include "CSSPropertyNames.h"
-#include "CSSPropertyParserConsumer+Length.h"
+#include "CSSPropertyParserConsumer+LengthDefinitions.h"
+#include "CSSPropertyParserConsumer+MetaConsumer.h"
 #include "CSSStyleImageValue.h"
 #include "CSSTokenizer.h"
 #include "CachedImage.h"
@@ -72,6 +74,7 @@
 #include "ScriptDisallowedScope.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include "StyleLengthResolution.h"
 #include "StyleProperties.h"
 #include "StyleResolver.h"
 #include "TextMetrics.h"
@@ -2189,6 +2192,9 @@ ExceptionOr<RefPtr<CanvasPattern>> CanvasRenderingContext2DBase::createPattern(H
     if (!cachedImage || !imageElement.complete())
         return nullptr;
 
+    if (cachedImage->errorOccurred())
+        return Exception { ExceptionCode::InvalidStateError };
+
     if (cachedImage->status() == CachedResource::LoadError)
         return Exception { ExceptionCode::InvalidStateError };
 
@@ -2214,7 +2220,7 @@ ExceptionOr<RefPtr<CanvasPattern>> CanvasRenderingContext2DBase::createPattern(S
     if (cachedImage->errorOccurred())
         return Exception { ExceptionCode::InvalidStateError };
 
-    // The image loading hasn startedbut it is not complete.
+    // The image loading has started but it is not complete.
     if (!cachedImage->image())
         return nullptr;
 
@@ -2945,13 +2951,13 @@ Ref<TextMetrics> CanvasRenderingContext2DBase::measureTextInternal(const TextRun
     metrics->setWidth(fontWidth);
 
     FloatPoint offset = textOffset(fontWidth, textRun.direction());
-    int ascent = fontMetrics.intAscent();
-    int descent = fontMetrics.intDescent();
+    auto ascent = fontMetrics.ascent();
+    auto descent = fontMetrics.descent();
 
     metrics->setActualBoundingBoxAscent(glyphOverflow.top - offset.y());
     metrics->setActualBoundingBoxDescent(glyphOverflow.bottom + offset.y());
-    metrics->setFontBoundingBoxAscent(ascent - offset.y());
-    metrics->setFontBoundingBoxDescent(descent + offset.y());
+    metrics->setFontBoundingBoxAscent(fontMetrics.intAscent() - offset.y());
+    metrics->setFontBoundingBoxDescent(fontMetrics.intDescent() + offset.y());
     metrics->setEmHeightAscent(ascent - offset.y());
     metrics->setEmHeightDescent(descent + offset.y());
     metrics->setHangingBaseline(ascent - offset.y());
@@ -3053,12 +3059,20 @@ void CanvasRenderingContext2DBase::setLetterSpacing(const String& letterSpacing)
     CSSTokenizer tokenizer(letterSpacing);
     auto tokenRange = tokenizer.tokenRange();
     tokenRange.consumeWhitespace();
-    RefPtr parsedValue = CSSPropertyParserHelpers::consumeLength(tokenRange, HTMLStandardMode);
+
+    auto parsedValue = CSSPropertyParserHelpers::MetaConsumer<CSS::Length<>>::consume(tokenRange, HTMLStandardMode, { }, { .unitlessZero = UnitlessZeroQuirk::Allow });
     if (!parsedValue)
         return;
-    modifiableState().letterSpacing = parsedValue->cssText();
+    auto rawLength = parsedValue->raw();
+    if (!rawLength)
+        return;
+
+    // FIXME: Ensure rawLength->unit is supported by `Style::computeUnzoomedNonCalcLengthDouble`.
+
     auto& fontCascade = fontProxy()->fontCascade();
-    double pixels = CSSPrimitiveValue::computeUnzoomedNonCalcLengthDouble(parsedValue->primitiveType(), parsedValue->valueNoConversionDataRequired(), CSSPropertyLetterSpacing, &fontCascade);
+    double pixels = Style::computeUnzoomedNonCalcLengthDouble(rawLength->value, rawLength->unit, CSSPropertyLetterSpacing, &fontCascade);
+
+    modifiableState().letterSpacing = CSS::serializationForCSS(*rawLength);
     modifiableState().font.setLetterSpacing(Length(pixels, LengthType::Fixed));
 }
 
@@ -3070,12 +3084,20 @@ void CanvasRenderingContext2DBase::setWordSpacing(const String& wordSpacing)
     CSSTokenizer tokenizer(wordSpacing);
     auto tokenRange = tokenizer.tokenRange();
     tokenRange.consumeWhitespace();
-    RefPtr parsedValue = CSSPropertyParserHelpers::consumeLength(tokenRange, HTMLStandardMode);
+
+    auto parsedValue = CSSPropertyParserHelpers::MetaConsumer<CSS::Length<>>::consume(tokenRange, HTMLStandardMode, { }, { .unitlessZero = UnitlessZeroQuirk::Allow });
     if (!parsedValue)
         return;
-    modifiableState().wordSpacing = parsedValue->cssText();
+    auto rawLength = parsedValue->raw();
+    if (!rawLength)
+        return;
+
+    // FIXME: Ensure rawLength->unit is supported by `Style::computeUnzoomedNonCalcLengthDouble`.
+
     auto& fontCascade = fontProxy()->fontCascade();
-    double pixels = CSSPrimitiveValue::computeUnzoomedNonCalcLengthDouble(parsedValue->primitiveType(), parsedValue->valueNoConversionDataRequired(), CSSPropertyWordSpacing, &fontCascade);
+    double pixels = Style::computeUnzoomedNonCalcLengthDouble(rawLength->value, rawLength->unit, CSSPropertyWordSpacing, &fontCascade);
+
+    modifiableState().wordSpacing = CSS::serializationForCSS(*rawLength);
     modifiableState().font.setWordSpacing(Length(pixels, LengthType::Fixed));
 }
 

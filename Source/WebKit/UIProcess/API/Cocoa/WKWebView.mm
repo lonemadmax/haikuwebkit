@@ -361,6 +361,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     if (!_screenTimeWebpageController) {
         _screenTimeWebpageController = adoptNS([PAL::allocSTWebpageControllerInstance() init]);
         [_screenTimeWebpageController addObserver:self forKeyPath:@"URLIsBlocked" options:(NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew) context:&screenTimeWebpageControllerBlockedKVOContext];
+        _isBlockedByScreenTime = NO;
 
         RetainPtr screenTimeView = [_screenTimeWebpageController view];
         [screenTimeView setTranslatesAutoresizingMaskIntoConstraints:NO];
@@ -395,8 +396,13 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
         BOOL urlWasBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeOldKey]).boolValue;
         BOOL urlIsBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeNewKey]).boolValue;
 
-        if (urlWasBlocked != urlIsBlocked)
+        if (urlWasBlocked != urlIsBlocked) {
             [self setAllMediaPlaybackSuspended:urlIsBlocked completionHandler:nil];
+            [self willChangeValueForKey:@"_isBlockedByScreenTime"];
+            _isBlockedByScreenTime = urlIsBlocked;
+            [self didChangeValueForKey:@"_isBlockedByScreenTime"];
+        }
+
         return;
     }
 #endif
@@ -1954,9 +1960,10 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     if (pdfConfiguration && !CGRectIsNull(pdfConfiguration.rect))
         floatRect = WebCore::FloatRect(pdfConfiguration.rect);
 
+    auto drawToPDFFunction = _page->preferences().siteIsolationEnabled() ? &WebKit::WebPageProxy::drawCompositedToPDF : &WebKit::WebPageProxy::drawToPDF;
     bool allowTransparentBackground = pdfConfiguration && pdfConfiguration.allowTransparentBackground;
 
-    _page->drawToPDF(*frameID, floatRect, allowTransparentBackground, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
+    (*_page.*drawToPDFFunction)(*frameID, floatRect, allowTransparentBackground, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
         if (!pdfData || pdfData->isEmpty()) {
             handler(nil, createNSError(WKErrorUnknown).get());
             return;
@@ -2763,6 +2770,15 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 - (BOOL)_isBeingInspected
 {
     return _page && _page->hasInspectorFrontend();
+}
+
+- (BOOL)_isBlockedByScreenTime
+{
+#if ENABLE(SCREEN_TIME)
+    return _isBlockedByScreenTime;
+#else
+    return NO;
+#endif
 }
 
 - (_WKInspector *)_inspector
@@ -5368,6 +5384,16 @@ struct WKWebViewData {
 - (void)setPresentingApplicationAuditToken:(audit_token_t)presentingApplicationAuditToken
 {
     self._protectedPage->setPresentingApplicationAuditToken(presentingApplicationAuditToken);
+}
+
+- (BOOL)_useSystemAppearance
+{
+    return [[_configuration preferences] _useSystemAppearance];
+}
+
+- (void)_setUseSystemAppearance:(BOOL)useSystemAppearance
+{
+    [[_configuration preferences] _setUseSystemAppearance:useSystemAppearance];
 }
 
 @end

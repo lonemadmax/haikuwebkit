@@ -138,7 +138,10 @@ const FontCascade& MockRealtimeVideoSource::DrawingState::statsFont()
 MockRealtimeVideoSource::MockRealtimeVideoSource(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : RealtimeVideoCaptureSource(CaptureDevice { WTFMove(deviceID), CaptureDevice::DeviceType::Camera, WTFMove(name) }, WTFMove(hashSalts), pageIdentifier)
     , m_runLoop(RunLoop::create("WebKit::MockRealtimeVideoSource generateFrame runloop"_s))
-    , m_emitFrameTimer(m_runLoop.get(), this, &MockRealtimeVideoSource::generateFrame)
+    , m_emitFrameTimer(m_runLoop.get(), [weakThis = ThreadSafeWeakPtr { *this }]() {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->generateFrame();
+      })
     , m_deviceOrientation { VideoFrameRotation::None }
 {
     allMockRealtimeVideoSource().add(*this);
@@ -203,6 +206,9 @@ const RealtimeMediaSourceCapabilities& MockRealtimeVideoSource::capabilities()
 
     auto supportedConstraints = settings().supportedConstraints();
     RealtimeMediaSourceCapabilities capabilities(supportedConstraints);
+
+    capabilities.setDeviceId(hashedId());
+
     if (mockCamera()) {
         auto facingMode = std::get<MockCameraProperties>(m_device.properties).facingMode;
         if (facingMode != VideoFacingMode::Unknown)

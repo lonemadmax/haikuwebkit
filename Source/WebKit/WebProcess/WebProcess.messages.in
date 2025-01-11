@@ -229,4 +229,12 @@ messages -> WebProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
     PostNotification(String message, std::optional<uint64_t> state)
     PostObserverNotification(String message)
 #endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    [DeferSendingIfSuspended] SetResourceMonitorContentRuleList(WebKit::WebCompiledContentRuleListData ruleListData)
+#endif
+
+#if PLATFORM(COCOA)
+    RegisterAdditionalFonts(struct WebKit::AdditionalFonts fonts)
+#endif
 }

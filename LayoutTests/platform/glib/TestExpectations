@@ -130,6 +130,8 @@ http/tests/storageAccess/ [ Pass ]
 http/tests/storageAccess/deny-with-prompt-does-not-preserve-gesture.html [ Skip ]
 webkit.org/b/208400 http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.https.html [ Crash ]
 http/tests/storageAccess/grant-with-prompt-under-general-third-party-cookie-blocking-with-partitioned-cookies.https.html [ Skip ]
+http/tests/resourceLoadStatistics/only-partitioned-third-party-cookies.https.html [ Skip ]
+http/tests/resourceLoadStatistics/only-partitioned-cookies-after-redirect.https.html [ Skip ]
 
 # Failures from upgrading mixed-content
 imported/w3c/web-platform-tests/mixed-content/gen/top.meta/unset/video-tag.https.html [ Failure ]
@@ -593,8 +595,17 @@ accessibility/announcement-notification.html [ Skip ]
 # AccessibilityUIElement::isInTable is not implemented.
 accessibility/table-ancestry.html [ Skip ]
 
+# AccessibilityUIElement::speakAs is not implemented.
+accessibility/dynamic-speak-as.html [ Skip ]
+
+# Failing since introduced, Atspi::State::Visited may not be set / updated properly?
+accessibility/link-becomes-visited.html [ Skip ]
+
 accessibility/search-misspellings.html [ Skip ]
 accessibility/shadow-dom-hit-test.html [ Skip ]
+
+# Missing AccessibilityUIElement::dateTimeValue() implementation.
+accessibility/dynamic-datetime-attribute.html [ Skip ]
 
 # AccessibilityUIElement::isAttributeSupported needs to be updated to handle AXSelectedRows.
 accessibility/aria-table-selection-support.html [ Skip ]
@@ -1017,8 +1028,6 @@ imported/w3c/web-platform-tests/css/css-transforms/preserve3d-and-filter-no-pers
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-scale-004.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-sorting-003.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-translate3d-001.html [ Pass ]
-
-webkit.org/b/246766 imported/w3c/web-platform-tests/reporting/generateTestReport-honors-endpoint.http.sub.html [ Failure ]
 
 webkit.org/b/251527 imported/w3c/web-platform-tests/css/css-scroll-snap/selection-target.html [ Failure ]
 
@@ -3899,7 +3908,6 @@ imported/w3c/web-platform-tests/preload/preload-type-match.html [ DumpJSConsoleL
 
 # WPT import failures
 imported/w3c/web-platform-tests/html/canvas/offscreen/layers [ Skip ]
-imported/w3c/web-platform-tests/html/canvas/element/fill-and-stroke-styles/2d.pattern.image.broken.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.fillStyle.get.halftransparent.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.fillStyle.get.halftransparent.worker.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.dropShadow.tentative.html [ ImageOnlyFailure ]
@@ -4361,6 +4369,22 @@ webkit.org/b/282966 imported/w3c/web-platform-tests/scroll-to-text-fragment/ifra
 webkit.org/b/153771 animations/resume-after-page-cache.html [ Failure Pass ]
 
 fast/canvas/webgl/context-lost-restored-p3.html [ Failure ]
+
+webkit.org/b/208984 fast/events/touch/touch-slider-no-js-touch-listener.html [ Crash Failure Pass ]
+
+webkit.org/b/210373 media/track/track-user-stylesheet.html [ Timeout Pass ]
+
+webkit.org/b/210374 http/tests/media/user-gesture-preserved-across-xmlhttprequest.html [ Timeout Crash Failure ]
+
+webkit.org/b/211768 compositing/video/video-border-radius.html [ Crash Pass ]
+
+webkit.org/b/213331 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/mediaElementAudioSourceToScriptProcessorTest.html [ Failure ]
+
+webkit.org/b/213508 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/fetch-audio-tainting.https.html [ Crash Pass ]
+
+webkit.org/b/213783 webanimations/accelerated-animation-with-easing.html [ Failure Pass ]
+
+webkit.org/b/216763 webrtc/captureCanvas-webrtc-software-h264-high.html [ Skip ] # Timeout
 
 # End: Common failures between GTK and WPE.
 

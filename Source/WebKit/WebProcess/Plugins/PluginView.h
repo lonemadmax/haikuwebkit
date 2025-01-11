@@ -61,6 +61,8 @@ class WebFrame;
 class WebPage;
 enum class SelectionEndpoint : bool;
 enum class SelectionWasFlipped : bool;
+struct DocumentEditingContextRequest;
+struct DocumentEditingContext;
 struct EditorState;
 struct FrameInfoData;
 struct WebHitTestResultData;
@@ -106,6 +108,7 @@ public:
     SelectionWasFlipped moveSelectionEndpoint(WebCore::FloatPoint pointInRootView, SelectionEndpoint);
     SelectionEndpoint extendInitialSelection(WebCore::FloatPoint pointInRootView, WebCore::TextGranularity);
     CursorContext cursorContext(WebCore::FloatPoint pointInRootView) const;
+    DocumentEditingContext documentEditingContext(DocumentEditingContextRequest&&) const;
 #endif
 
     bool populateEditorStateIfNeeded(EditorState&) const;
@@ -130,6 +133,7 @@ public:
 
     String fullDocumentString() const;
     String selectionString() const;
+    std::pair<String, String> stringsBeforeAndAfterSelection(int characterCount) const;
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
 
@@ -154,6 +158,8 @@ public:
 
     void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)>&&);
 
+    void focusPluginElement();
+
 private:
     PluginView(WebCore::HTMLPlugInElement&, const URL&, const String& contentType, bool shouldUseManualLoader, WebPage&);
     virtual ~PluginView();
@@ -166,7 +172,6 @@ private:
     void viewVisibilityDidChange();
 
     WebCore::IntRect clipRectInWindowCoordinates() const;
-    void focusPluginElement();
     
     void pendingResourceRequestTimerFired();
 

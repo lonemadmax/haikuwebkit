@@ -63,6 +63,7 @@ interface AccessibilityUIElement {
     readonly attribute DOMString orientation;
     readonly attribute unsigned long numberOfCharacters;
     readonly attribute long insertionPointLineNumber;
+    readonly attribute DOMString selectedText;
     readonly attribute DOMString selectedTextRange;
     readonly attribute DOMString intersectionWithSelectionRange;
     readonly attribute DOMString textInputMarkedRange;
@@ -84,6 +85,7 @@ interface AccessibilityUIElement {
 
     readonly attribute DOMString stringValue;
     readonly attribute DOMString dateValue;
+    readonly attribute DOMString dateTimeValue;
     readonly attribute long intValue;
     readonly attribute long minValue;
     readonly attribute long maxValue;
@@ -114,7 +116,7 @@ interface AccessibilityUIElement {
     readonly attribute boolean isOffScreen;
     readonly attribute boolean isValid;
     readonly attribute long hierarchicalLevel;
-    readonly attribute boolean ariaIsGrabbed;
+    readonly attribute boolean isGrabbed;
     readonly attribute DOMString ariaDropEffects;
     readonly attribute DOMString classList;
     readonly attribute DOMString embeddedImageDescription;

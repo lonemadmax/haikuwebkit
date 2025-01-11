@@ -95,10 +95,10 @@ public:
     bool isInRenderTreeLayout() const { return layoutPhase() == LayoutPhase::InRenderTreeLayout; }
     bool inPaintableState() const { return layoutPhase() != LayoutPhase::InRenderTreeLayout && layoutPhase() != LayoutPhase::InViewSizeAdjust && (layoutPhase() != LayoutPhase::InPostLayout || inAsynchronousTasks()); }
 
-    void setNeedsSkippedContentLayout(bool needsSkippedContentLayout) { m_needsSkippedContentLayout = needsSkippedContentLayout; }
-
     bool isSkippedContentForLayout(const RenderElement&) const;
     bool isSkippedContentRootForLayout(const RenderElement&) const;
+
+    bool isPercentHeightResolveDisabledFor(const RenderBox& flexItem);
 
     RenderElement* subtreeLayoutRoot() const;
     void clearSubtreeLayoutRoot() { m_subtreeLayoutRoot.clear(); }
@@ -112,7 +112,7 @@ public:
     bool needsFullRepaint() const { return m_needsFullRepaint; }
 
     void flushPostLayoutTasks();
-    void didLayout(bool didRunSimplifiedLayout, bool canDeferUpdateLayerPositions);
+    void didLayout(bool canDeferUpdateLayerPositions);
 
     void flushUpdateLayerPositions();
 
@@ -137,14 +137,10 @@ public:
 #endif
     using LayoutStateStack = Vector<std::unique_ptr<RenderLayoutState>>;
 
-    const Layout::LayoutState* layoutFormattingState() const { return m_layoutState.get(); }
-
     UpdateScrollInfoAfterLayoutTransaction& updateScrollInfoAfterLayoutTransaction();
     UpdateScrollInfoAfterLayoutTransaction* updateScrollInfoAfterLayoutTransactionIfExists() { return m_updateScrollInfoAfterLayoutTransaction.get(); }
     void setBoxNeedsTransformUpdateAfterContainerLayout(RenderBox&, RenderBlock& container);
     Vector<SingleThreadWeakPtr<RenderBox>> takeBoxesNeedingTransformUpdateAfterContainerLayout(RenderBlock&);
-
-    RenderElement::LayoutIdentifier layoutIdentifier() const { return m_layoutIdentifier; }
 
     void startTrackingLayoutUpdates() { m_layoutUpdateCount = 0; }
     unsigned layoutUpdateCount() const { return m_layoutUpdateCount; }
@@ -157,6 +153,8 @@ private:
     friend class LayoutStateMaintainer;
     friend class LayoutStateDisabler;
     friend class SubtreeLayoutStateMaintainer;
+    friend class FlexPercentResolveDisabler;
+    friend class ContentVisibilityForceLayoutScope;
 
     bool needsLayoutInternal() const;
 
@@ -193,6 +191,10 @@ private:
     void enablePaintOffsetCache() { ASSERT(m_paintOffsetCacheDisableCount > 0); m_paintOffsetCacheDisableCount--; }
 
     bool needsSkippedContentLayout() const { return m_needsSkippedContentLayout; }
+    void setNeedsSkippedContentLayout(bool needsSkippedContentLayout) { m_needsSkippedContentLayout = needsSkippedContentLayout; }
+
+    void disablePercentHeightResolveFor(const RenderBox& flexItem);
+    void enablePercentHeightResolveFor(const RenderBox& flexItem);
 
     LocalFrame& frame() const;
     Ref<LocalFrame> protectedFrame();
@@ -205,8 +207,6 @@ private:
     Timer m_layoutTimer;
     Timer m_postLayoutTaskTimer;
     SingleThreadWeakPtr<RenderElement> m_subtreeLayoutRoot;
-    // Note that arithmetic overflow is perfectly acceptable as long as we use this only for repaint optimization.
-    RenderElement::LayoutIdentifier m_layoutIdentifier : 12 { 0 };
 
     bool m_layoutSchedulingIsEnabled { true };
     bool m_firstLayout { true };
@@ -223,22 +223,17 @@ private:
     unsigned m_layoutUpdateCount { 0 };
     unsigned m_renderLayerPositionUpdateCount { 0 };
     LayoutStateStack m_layoutStateStack;
-    std::unique_ptr<Layout::LayoutTree> m_layoutTree;
-    std::unique_ptr<Layout::LayoutState> m_layoutState;
     std::unique_ptr<UpdateScrollInfoAfterLayoutTransaction> m_updateScrollInfoAfterLayoutTransaction;
     SingleThreadWeakHashMap<RenderBlock, Vector<SingleThreadWeakPtr<RenderBox>>> m_containersWithDescendantsNeedingTransformUpdate;
+    SingleThreadWeakHashSet<RenderBox> m_percentHeightIgnoreList;
 
     struct UpdateLayerPositions {
         void merge(const UpdateLayerPositions& other)
         {
             needsFullRepaint |= other.needsFullRepaint;
-            if (!other.didRunSimplifiedLayout)
-                didRunSimplifiedLayout = false;
         }
 
-        RenderElement::LayoutIdentifier layoutIdentifier : 12 { 0 };
         bool needsFullRepaint { false };
-        bool didRunSimplifiedLayout { true };
     };
     std::optional<UpdateLayerPositions> m_pendingUpdateLayerPositions;
 

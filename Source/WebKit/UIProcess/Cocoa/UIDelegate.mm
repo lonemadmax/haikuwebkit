@@ -86,9 +86,9 @@
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(UIDelegate);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(UIDelegate, UIClient);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(UIDelegate::UIClient);
 #if ENABLE(CONTEXT_MENUS)
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(UIDelegate, ContextMenuClient);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(UIDelegate::ContextMenuClient);
 #endif
 
 UIDelegate::UIDelegate(WKWebView *webView)
@@ -1193,7 +1193,7 @@ Ref<API::InspectorConfiguration> UIDelegate::UIClient::configurationForLocalInsp
     if (!delegate)
         return API::InspectorConfiguration::create();
 
-    return static_cast<API::InspectorConfiguration&>([[(id <WKUIDelegatePrivate>)delegate _webView:uiDelegate->m_webView.get().get() configurationForLocalInspector:wrapper(inspector)] _apiObject]);
+    return downcast<API::InspectorConfiguration>([[(id <WKUIDelegatePrivate>)delegate _webView:uiDelegate->m_webView.get().get() configurationForLocalInspector:wrapper(inspector)] _apiObject]);
 }
 
 void UIDelegate::UIClient::didAttachLocalInspector(WebPageProxy&, WebInspectorUIProxy& inspector)

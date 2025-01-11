@@ -568,7 +568,7 @@ void Internals::resetToConsistentState(Page& page)
     page.setDefersLoading(false);
     page.setResourceCachingDisabledByWebInspector(false);
 
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame());
+    RefPtr localMainFrame = page.localMainFrame();
     if (!localMainFrame)
         return;
 
@@ -1657,7 +1657,7 @@ void Internals::selectColorInColorChooser(HTMLInputElement& element, const Strin
 
 ExceptionOr<Vector<AtomString>> Internals::formControlStateOfPreviousHistoryItem()
 {
-    HistoryItem* mainItem = frame()->history().previousItem();
+    HistoryItem* mainItem = frame()->loader().history().previousItem();
     if (!mainItem)
         return Exception { ExceptionCode::InvalidAccessError };
     auto frameID = frame()->frameID();
@@ -1668,7 +1668,7 @@ ExceptionOr<Vector<AtomString>> Internals::formControlStateOfPreviousHistoryItem
 
 ExceptionOr<void> Internals::setFormControlStateOfPreviousHistoryItem(const Vector<AtomString>& state)
 {
-    HistoryItem* mainItem = frame()->history().previousItem();
+    HistoryItem* mainItem = frame()->loader().history().previousItem();
     if (!mainItem)
         return Exception { ExceptionCode::InvalidAccessError };
     auto frameID = frame()->frameID();
@@ -4022,8 +4022,8 @@ Ref<MemoryInfo> Internals::memoryInfo() const
 
 Vector<String> Internals::getReferencedFilePaths() const
 {
-    frame()->history().saveDocumentAndScrollState();
-    return FormController::referencedFilePaths(frame()->history().currentItem()->documentState());
+    frame()->loader().history().saveDocumentAndScrollState();
+    return FormController::referencedFilePaths(frame()->loader().history().currentItem()->documentState());
 }
 
 ExceptionOr<void> Internals::startTrackingRepaints()
@@ -6720,13 +6720,6 @@ void Internals::disableContentExtensionsChecks()
     RefPtr loader = frame ? frame->loader().documentLoader() : nullptr;
     if (loader)
         loader->setContentExtensionEnablement({ ContentExtensionDefaultEnablement::Disabled, { } });
-}
-
-void Internals::setUseSystemAppearance(bool value)
-{
-    if (!contextDocument() || !contextDocument()->page())
-        return;
-    contextDocument()->page()->setUseSystemAppearance(value);
 }
 
 size_t Internals::pluginCount()

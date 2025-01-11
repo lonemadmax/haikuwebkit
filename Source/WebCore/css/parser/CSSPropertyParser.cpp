@@ -83,7 +83,6 @@
 #include "CSSVariableReferenceValue.h"
 #include "ComputedStyleDependencies.h"
 #include "FontFace.h"
-#include "ParsingUtilities.h"
 #include "Rect.h"
 #include "StyleBuilder.h"
 #include "StyleBuilderConverter.h"
@@ -93,9 +92,8 @@
 #include "TransformOperationsBuilder.h"
 #include <memory>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/StringBuilder.h>
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebCore {
 
@@ -104,32 +102,25 @@ bool isCustomPropertyName(StringView propertyName)
     return propertyName.length() > 2 && propertyName.characterAt(0) == '-' && propertyName.characterAt(1) == '-';
 }
 
-static bool hasPrefix(std::span<const char> string, std::span<const LChar> prefix)
-{
-    if (string.size() < prefix.size())
-        return false;
-    return equalSpans(string.first(prefix.size()), prefix);
-}
-
 template<typename CharacterType> static CSSPropertyID cssPropertyID(std::span<const CharacterType> characters)
 {
-    char buffer[maxCSSPropertyNameLength];
+    std::array<char, maxCSSPropertyNameLength> buffer;
     for (size_t i = 0; i != characters.size(); ++i) {
         auto character = characters[i];
         if (!character || !isASCII(character))
             return CSSPropertyInvalid;
         buffer[i] = toASCIILower(character);
     }
-    return findCSSProperty(buffer, characters.size());
+    return findCSSProperty(buffer.data(), characters.size());
 }
 
 // FIXME: Remove this mechanism entirely once we can do it without breaking the web.
 static bool isAppleLegacyCSSValueKeyword(std::span<const char> characters)
 {
-    return hasPrefix(characters.subspan(1), "apple-"_span)
-        && !hasPrefix(characters.subspan(7), "system"_span)
-        && !hasPrefix(characters.subspan(7), "pay"_span)
-        && !hasPrefix(characters.subspan(7), "wireless"_span);
+    return spanHasPrefix(characters.subspan(1), "apple-"_span)
+        && !spanHasPrefix(characters.subspan(7), "system"_span)
+        && !spanHasPrefix(characters.subspan(7), "pay"_span)
+        && !spanHasPrefix(characters.subspan(7), "wireless"_span);
 }
 
 template<typename CharacterType> static CSSValueID cssValueKeywordID(std::span<const CharacterType> characters)
@@ -731,7 +722,7 @@ bool CSSPropertyParser::consumeFont(bool important)
 
     auto range = m_range;
 
-    RefPtr<CSSValue> values[7];
+    std::array<RefPtr<CSSValue>, 7> values;
     auto& fontStyle = values[0];
     auto& fontVariantCaps = values[1];
     auto& fontWeight = values[2];
@@ -778,8 +769,11 @@ bool CSSPropertyParser::consumeFont(bool important)
 
     m_range = range;
     auto shorthand = fontShorthand();
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     for (unsigned i = 0; i < shorthand.length(); ++i)
         addProperty(shorthand.properties()[i], CSSPropertyFont, i < std::size(values) ? WTFMove(values[i]) : nullptr, important, true);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
     return true;
 }
 
@@ -1530,13 +1524,14 @@ CSSValueID initialValueIDForLonghand(CSSPropertyID longhand)
 bool CSSPropertyParser::consumeShorthandGreedily(const StylePropertyShorthand& shorthand, bool important)
 {
     ASSERT(shorthand.length() <= 6); // Existing shorthands have at most 6 longhands.
-    RefPtr<CSSValue> longhands[6];
-    const CSSPropertyID* shorthandProperties = shorthand.properties();
+    std::array<RefPtr<CSSValue>, 6> longhands;
+    auto shorthandProperties = shorthand.propertiesSpan();
     do {
         bool foundLonghand = false;
         for (size_t i = 0; !foundLonghand && i < shorthand.length(); ++i) {
             if (longhands[i])
                 continue;
+
             longhands[i] = parseSingleValue(shorthandProperties[i], shorthand.id());
             if (longhands[i])
                 foundLonghand = true;
@@ -1672,7 +1667,7 @@ bool CSSPropertyParser::consumeBorderShorthand(CSSPropertyID widthProperty, CSSP
 bool CSSPropertyParser::consume2ValueShorthand(const StylePropertyShorthand& shorthand, bool important)
 {
     ASSERT(shorthand.length() == 2);
-    const CSSPropertyID* longhands = shorthand.properties();
+    auto longhands = shorthand.propertiesSpan();
     RefPtr start = parseSingleValue(longhands[0], shorthand.id());
     if (!start)
         return false;
@@ -1690,7 +1685,7 @@ bool CSSPropertyParser::consume2ValueShorthand(const StylePropertyShorthand& sho
 bool CSSPropertyParser::consume4ValueShorthand(const StylePropertyShorthand& shorthand, bool important)
 {
     ASSERT(shorthand.length() == 4);
-    const CSSPropertyID* longhands = shorthand.properties();
+    auto longhands = shorthand.propertiesSpan();
     RefPtr top = parseSingleValue(longhands[0], shorthand.id());
     if (!top)
         return false;
@@ -1902,19 +1897,20 @@ static RefPtr<CSSValue> consumeAnimationValueForShorthand(CSSPropertyID property
 
 bool CSSPropertyParser::consumeAnimationShorthand(const StylePropertyShorthand& shorthand, bool important)
 {
+    auto shorthandProperties = shorthand.propertiesSpan();
     const unsigned longhandCount = shorthand.length();
-    CSSValueListBuilder longhands[8];
+    std::array<CSSValueListBuilder, 8> longhands;
     ASSERT(longhandCount <= 8);
 
     do {
-        bool parsedLonghand[8] = { false };
+        std::array<bool, 8> parsedLonghand = { };
         do {
             bool foundProperty = false;
             for (size_t i = 0; i < longhandCount; ++i) {
                 if (parsedLonghand[i])
                     continue;
 
-                if (auto value = consumeAnimationValueForShorthand(shorthand.properties()[i], m_range, m_context)) {
+                if (auto value = consumeAnimationValueForShorthand(shorthandProperties[i], m_range, m_context)) {
                     parsedLonghand[i] = true;
                     foundProperty = true;
                     longhands[i].append(*value);
@@ -1933,12 +1929,12 @@ bool CSSPropertyParser::consumeAnimationShorthand(const StylePropertyShorthand& 
     } while (consumeCommaIncludingWhitespace(m_range));
 
     for (size_t i = 0; i < longhandCount; ++i) {
-        if (!isValidAnimationPropertyList(shorthand.properties()[i], longhands[i]))
+        if (!isValidAnimationPropertyList(shorthandProperties[i], longhands[i]))
             return false;
     }
 
     for (size_t i = 0; i < longhandCount; ++i)
-        addProperty(shorthand.properties()[i], shorthand.id(), CSSValueList::createCommaSeparated(WTFMove(longhands[i])), important);
+        addProperty(shorthandProperties[i], shorthand.id(), CSSValueList::createCommaSeparated(WTFMove(longhands[i])), important);
 
     return m_range.atEnd();
 }
@@ -2034,17 +2030,18 @@ static RefPtr<CSSValue> consumeBackgroundComponent(CSSPropertyID property, CSSPa
 // the x properties in the shorthand array.
 bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand& shorthand, bool important)
 {
+    auto shorthandProperties = shorthand.propertiesSpan();
     unsigned longhandCount = shorthand.length();
 
     // mask resets mask-border properties outside of this method.
     if (shorthand.id() == CSSPropertyMask)
         longhandCount -= maskBorderShorthand().length();
 
-    CSSValueListBuilder longhands[10];
+    std::array<CSSValueListBuilder, 10> longhands;
     ASSERT(longhandCount <= 10);
 
     do {
-        bool parsedLonghand[10] = { false };
+        std::array<bool, 10> parsedLonghand = { };
         bool lastParsedWasPosition = false;
         bool clipIsBorderArea = false;
         RefPtr<CSSValue> originValue;
@@ -2056,7 +2053,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
 
                 RefPtr<CSSValue> value;
                 RefPtr<CSSValue> valueY;
-                CSSPropertyID property = shorthand.properties()[i];
+                CSSPropertyID property = shorthandProperties[i];
                 if (property == CSSPropertyBackgroundPositionX || property == CSSPropertyWebkitMaskPositionX) {
                     CSSParserTokenRange rangeCopy = m_range;
                     auto position = consumePositionCoordinates(rangeCopy, m_context, UnitlessQuirk::Forbid, PositionSyntax::BackgroundPosition);
@@ -2106,7 +2103,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
         } while (!m_range.atEnd() && m_range.peek().type() != CommaToken);
 
         for (size_t i = 0; i < longhandCount; ++i) {
-            CSSPropertyID property = shorthand.properties()[i];
+            CSSPropertyID property = shorthandProperties[i];
             if (property == CSSPropertyBackgroundColor && !m_range.atEnd()) {
                 if (parsedLonghand[i])
                     return false; // Colors are only allowed in the last layer.
@@ -2128,7 +2125,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
         return false;
 
     for (size_t i = 0; i < longhandCount; ++i) {
-        CSSPropertyID property = shorthand.properties()[i];
+        CSSPropertyID property = shorthandProperties[i];
         if (longhands[i].size() == 1)
             addProperty(property, shorthand.id(), WTFMove(longhands[i][0]), important);
         else
@@ -2190,8 +2187,9 @@ bool CSSPropertyParser::consumeGridItemPositionShorthand(CSSPropertyID shorthand
     }
     if (!m_range.atEnd())
         return false;
-    addProperty(shorthand.properties()[0], shorthandId, startValue.releaseNonNull(), important);
-    addProperty(shorthand.properties()[1], shorthandId, endValue.releaseNonNull(), important);
+    auto longhands = shorthand.propertiesSpan();
+    addProperty(longhands[0], shorthandId, startValue.releaseNonNull(), important);
+    addProperty(longhands[1], shorthandId, endValue.releaseNonNull(), important);
     return true;
 }
 
@@ -2434,7 +2432,7 @@ bool CSSPropertyParser::consumeAlignShorthand(const StylePropertyShorthand& shor
     //   <'gap'>           https://drafts.csswg.org/css-align/#propdef-gap
 
     ASSERT(shorthand.length() == 2);
-    const auto* longhands = shorthand.properties();
+    auto longhands = shorthand.propertiesSpan();
 
     auto rangeCopy = m_range;
 
@@ -3228,5 +3226,3 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

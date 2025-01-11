@@ -1287,6 +1287,23 @@ static bool isClickEvent(const AtomString& eventType)
 }
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
+void AXObjectCache::onDragElementChanged(Element* oldElement, Element* newElement)
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (oldElement == newElement)
+        return;
+
+    if (oldElement)
+        postNotification(get(*oldElement), AXNotification::GrabbedStateChanged);
+
+    if (newElement)
+        postNotification(get(*newElement), AXNotification::GrabbedStateChanged);
+#else
+    UNUSED_PARAM(oldElement);
+    UNUSED_PARAM(newElement);
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+}
+
 void AXObjectCache::onEventListenerAdded(Node& node, const AtomString& eventType)
 {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -1294,7 +1311,7 @@ void AXObjectCache::onEventListenerAdded(Node& node, const AtomString& eventType
         return;
 
     if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
-        tree->updateNodeProperties(get(node), { AXPropertyName::HasClickHandler });
+        tree->updateNodeProperties(get(node), { AXProperty::HasClickHandler });
 #else
     UNUSED_PARAM(node);
     UNUSED_PARAM(eventType);
@@ -1308,7 +1325,7 @@ void AXObjectCache::onEventListenerRemoved(Node& node, const AtomString& eventTy
         return;
 
     if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
-        tree->updateNodeProperties(get(node), { AXPropertyName::HasClickHandler });
+        tree->updateNodeProperties(get(node), { AXProperty::HasClickHandler });
 #else
     UNUSED_PARAM(node);
     UNUSED_PARAM(eventType);
@@ -1472,7 +1489,7 @@ void AXObjectCache::handleRecomputeCellSlots(AccessibilityTable& axTable)
 void AXObjectCache::onRemoteFrameInitialized(AXRemoteFrame& remoteFrame)
 {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    updateIsolatedTree(remoteFrame, AXPropertyName::RemoteFramePlatformElement);
+    updateIsolatedTree(remoteFrame, AXProperty::RemoteFramePlatformElement);
 #else
     UNUSED_PARAM(remoteFrame);
 #endif
@@ -1755,7 +1772,6 @@ void AXObjectCache::handleMenuItemSelected(Element* element)
     postNotification(getOrCreate(*element), protectedDocument().ptr(), AXNotification::MenuListItemSelected);
 }
 
-// FIXME: Consider also handling updating SelectedChildren of TabLists (this should happen for the oldElement, newElement, and/or the parent of a tab)
 void AXObjectCache::handleTabPanelSelected(Element* oldElement, Element* newElement)
 {
     auto updateTab = [this] (AccessibilityObject* controlPanel, Element& element) {
@@ -1869,7 +1885,7 @@ void AXObjectCache::onInertOrVisibilityChange(RenderElement& renderer)
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
-        tree->updatePropertiesForSelfAndDescendants(*axObject, { AXPropertyName::IsIgnored });
+        tree->updatePropertiesForSelfAndDescendants(*axObject, { AXProperty::IsIgnored });
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 #else // !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
@@ -1968,20 +1984,46 @@ void AXObjectCache::onSelectedChanged(Element& element)
 
 void AXObjectCache::onStyleChange(Element& element, Style::Change change, const RenderStyle* oldStyle, const RenderStyle* newStyle)
 {
-    if (change == Style::Change::None)
+    if (change == Style::Change::None || !oldStyle || !newStyle)
         return;
 
-    if (!element.renderer() && oldStyle && newStyle && oldStyle->usedVisibility() != newStyle->usedVisibility()) {
+    RefPtr object = get(element);
+    if (!object)
+        return;
+
+    if (!element.renderer() && oldStyle->usedVisibility() != newStyle->usedVisibility()) {
         // We only need to do this when the given element doesn't have a renderer, as if it did, we would get a normal
         // children-changed event through the render tree.
-        childrenChanged(&element);
+        childrenChanged(object.get());
     }
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (oldStyle->insideLink() != newStyle->insideLink())
+        postNotification(*object, AXNotification::VisitedStateChanged);
+
+    if (oldStyle->speakAs() != newStyle->speakAs())
+        postNotification(*object, AXNotification::SpeakAsChanged);
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 }
 
 void AXObjectCache::onStyleChange(RenderText& renderText, StyleDifference difference, const RenderStyle* oldStyle, const RenderStyle& newStyle)
 {
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE) && ENABLE(AX_THREAD_TEXT_APIS)
-    if (difference == StyleDifference::Equal || !oldStyle)
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (!oldStyle)
+        return;
+
+    bool speakAsChanged = UNLIKELY(oldStyle->speakAs() != newStyle.speakAs());
+#if !ENABLE(AX_THREAD_TEXT_APIS)
+    // In !ENABLE(AX_THREAD_TEXT_APIS), we don't have anything to do if speak-as hasn't changed.
+    if (!speakAsChanged)
+        return;
+#endif // !ENABLE(AX_THREAD_TEXT_APIS)
+
+    bool diffIsEqual = difference == StyleDifference::Equal;
+    // When speak-as changes, style difference will be StyleDifference::Equal (so "equal"
+    // is not exactly accurate). So if the styles are "equal" and speak-as hasn't changed,
+    // we have nothing to do.
+    if (diffIsEqual && !speakAsChanged)
         return;
 
     RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID);
@@ -1992,31 +2034,42 @@ void AXObjectCache::onStyleChange(RenderText& renderText, StyleDifference differ
     if (!object)
         return;
 
+    if (speakAsChanged)
+        postNotification(*object, AXNotification::SpeakAsChanged);
+
+    // The following style changes will not have a StyleDifference::Equal, so we can
+    // exit early if the diff is equal.
+    if (diffIsEqual)
+        return;
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
     if (!oldStyle->fontCascadeEqual(newStyle))
-        tree->queueNodeUpdate(object->objectID(), { AXPropertyName::Font });
+        tree->queueNodeUpdate(object->objectID(), { AXProperty::Font });
 
     if (oldStyle->visitedDependentColor(CSSPropertyColor) != newStyle.visitedDependentColor(CSSPropertyColor))
-        tree->queueNodeUpdate(object->objectID(), { AXPropertyName::TextColor });
+        tree->queueNodeUpdate(object->objectID(), { AXProperty::TextColor });
 
     if (oldStyle->visitedDependentColor(CSSPropertyBackgroundColor) != newStyle.visitedDependentColor(CSSPropertyBackgroundColor))
-        tree->queueNodeUpdate(object->objectID(), { AXPropertyName::BackgroundColor });
+        tree->queueNodeUpdate(object->objectID(), { AXProperty::BackgroundColor });
 
     if (oldStyle->verticalAlign() != newStyle.verticalAlign())
-        tree->queueNodeUpdate(object->objectID(), { { AXPropertyName::IsSuperscript, AXPropertyName::IsSubscript } });
+        tree->queueNodeUpdate(object->objectID(), { { AXProperty::IsSuperscript, AXProperty::IsSubscript } });
 
     if (!!oldStyle->textShadow() != !!newStyle.textShadow())
-        tree->queueNodeUpdate(object->objectID(), { AXPropertyName::HasTextShadow });
+        tree->queueNodeUpdate(object->objectID(), { AXProperty::HasTextShadow });
 
     auto oldDecor = oldStyle->textDecorationsInEffect();
     auto newDecor = newStyle.textDecorationsInEffect();
     if ((oldDecor & TextDecorationLine::Underline) != (newDecor & TextDecorationLine::Underline))
-        tree->queueNodeUpdate(object->objectID(), { AXPropertyName::HasUnderline });
+        tree->queueNodeUpdate(object->objectID(), { AXProperty::HasUnderline });
 
     if ((oldDecor & TextDecorationLine::LineThrough) != (newDecor & TextDecorationLine::LineThrough))
-        tree->queueNodeUpdate(object->objectID(), { AXPropertyName::HasLinethrough });
+        tree->queueNodeUpdate(object->objectID(), { AXProperty::HasLinethrough });
 
     if (oldStyle->textDecorationColor() != newStyle.textDecorationColor())
-        tree->queueNodeUpdate(object->objectID(), { { AXPropertyName::LinethroughColor, AXPropertyName::UnderlineColor } });
+        tree->queueNodeUpdate(object->objectID(), { { AXProperty::LinethroughColor, AXProperty::UnderlineColor } });
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
+
 #else
     UNUSED_PARAM(renderText);
     UNUSED_PARAM(difference);
@@ -2740,6 +2793,8 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         }
     }
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    else if (attrName == draggableAttr)
+        postNotification(get(*element), AXNotification::DraggableStateChanged);
     else if (attrName == langAttr)
         updateIsolatedTree(get(*element), AXNotification::LanguageChanged);
     else if (attrName == nameAttr)
@@ -2768,6 +2823,8 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         postNotification(element, AXNotification::PopoverTargetChanged);
     else if (attrName == scopeAttr)
         postNotification(element, AXNotification::CellScopeChanged);
+    else if (attrName == datetimeAttr)
+        postNotification(element, AXNotification::DatetimeChanged);
 
     if (!attrName.localName().string().startsWith("aria-"_s))
         return;
@@ -2900,7 +2957,7 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     else if (attrName == aria_ownsAttr) {
         if (oldValue.isEmpty() || newValue.isEmpty())
-            updateIsolatedTree(get(*element), AXPropertyName::SupportsARIAOwns);
+            updateIsolatedTree(get(*element), AXProperty::SupportsARIAOwns);
     } else if (attrName == aria_braillelabelAttr)
         postNotification(element, AXNotification::BrailleLabelChanged);
     else if (attrName == aria_brailleroledescriptionAttr)
@@ -4461,7 +4518,7 @@ void AXObjectCache::performDeferredCacheUpdate(ForceLayout forceLayout)
                 // m_deferredRegenerateIsolatedTree is only set when we change the active modal, which effects the ignored
                 // status of every object on the page. With ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE), this means we only have
                 // to re-compute is-ignored for every object, rather than re-compute all objects entirely as when this flag is off.
-                tree->updatePropertiesForSelfAndDescendants(*webArea, { AXPropertyName::IsIgnored });
+                tree->updatePropertiesForSelfAndDescendants(*webArea, { AXProperty::IsIgnored });
 #else
                 tree->generateSubtree(*webArea);
 #endif // ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
@@ -4557,139 +4614,145 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityO
 
         switch (notification.second) {
         case AXNotification::AccessKeyChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::AccessKey });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::AccessKey });
             break;
         case AXNotification::AutofillTypeChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::ValueAutofillButtonType });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::ValueAutofillButtonType });
             break;
         case AXNotification::ARIAColumnIndexChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::AXColumnIndex });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::AXColumnIndex });
             break;
         case AXNotification::ARIARowIndexChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::AXRowIndex });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::AXRowIndex });
             break;
         case AXNotification::BrailleLabelChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::BrailleLabel });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::BrailleLabel });
             break;
         case AXNotification::BrailleRoleDescriptionChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::BrailleRoleDescription });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::BrailleRoleDescription });
             break;
         case AXNotification::CellSlotsChanged:
             ASSERT(notification.first->isTable());
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::CellSlots });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::CellSlots });
             break;
         case AXNotification::CheckedStateChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsChecked });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IsChecked });
             break;
         case AXNotification::CurrentStateChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::CurrentState });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::CurrentState });
             break;
         case AXNotification::ColumnCountChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::AXColumnCount });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::AXColumnCount });
             break;
         case AXNotification::ColumnIndexChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::ColumnIndexRange, AXPropertyName::ColumnIndex } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::ColumnIndexRange, AXProperty::ColumnIndex } });
             break;
         case AXNotification::ColumnSpanChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::ColumnIndexRange });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::ColumnIndexRange });
+            break;
+        case AXNotification::DatetimeChanged:
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::DatetimeAttributeValue });
             break;
         case AXNotification::DisabledStateChanged:
-            tree->updatePropertiesForSelfAndDescendants(notification.first.get(), { { AXPropertyName::CanSetFocusAttribute, AXPropertyName::IsEnabled } });
+            tree->updatePropertiesForSelfAndDescendants(notification.first.get(), { { AXProperty::CanSetFocusAttribute, AXProperty::CanSetSelectedAttribute, AXProperty::IsEnabled } });
+            break;
+        case AXNotification::DraggableStateChanged:
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::SupportsDragging });
             break;
         case AXNotification::ExpandedChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsExpanded });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IsExpanded });
             break;
         case AXNotification::ExtendedDescriptionChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::AccessibilityText, AXPropertyName::ExtendedDescription } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::AccessibilityText, AXProperty::ExtendedDescription } });
             break;
         case AXNotification::FocusableStateChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::CanSetFocusAttribute });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::CanSetFocusAttribute });
             break;
         case AXNotification::MaximumValueChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::MaxValueForRange, AXPropertyName::ValueForRange } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::MaxValueForRange, AXProperty::ValueForRange } });
             break;
         case AXNotification::MenuListItemSelected: {
-            RefPtr ancestor = Accessibility::findAncestor<AccessibilityObject>(notification.first.get(), false, [] (const auto& object) {
-                return object.isMenu() || object.isMenuBar();
-            });
-            if (ancestor) {
-                tree->queueNodeUpdate(ancestor->objectID(), { AXPropertyName::SelectedChildren });
-                tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsSelected });
-            }
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IsSelected });
             break;
         }
         case AXNotification::MinimumValueChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::MinValueForRange, AXPropertyName::ValueForRange } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::MinValueForRange, AXProperty::ValueForRange } });
             break;
         case AXNotification::NameChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::NameAttribute });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::NameAttribute });
             break;
         case AXNotification::OrientationChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::Orientation });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::Orientation });
             break;
         case AXNotification::PositionInSetChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::PosInSet, AXPropertyName::SupportsPosInSet } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::PosInSet, AXProperty::SupportsPosInSet } });
             break;
         case AXNotification::PopoverTargetChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::SupportsExpanded, AXPropertyName::IsExpanded } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::SupportsExpanded, AXProperty::IsExpanded } });
             break;
         case AXNotification::SelectedTextChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::SelectedTextRange });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::SelectedTextRange });
             break;
         case AXNotification::SortDirectionChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::SortDirection });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::SortDirection });
             break;
         case AXNotification::IdAttributeChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IdentifierAttribute });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IdentifierAttribute });
             break;
         case AXNotification::ReadOnlyStatusChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::CanSetValueAttribute });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::CanSetValueAttribute });
             break;
         case AXNotification::RequiredStatusChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsRequired });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IsRequired });
             break;
         case AXNotification::RoleDescriptionChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::RoleDescription });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::RoleDescription });
             break;
         case AXNotification::RowIndexChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::RowIndexRange, AXPropertyName::RowIndex } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::RowIndexRange, AXProperty::RowIndex } });
             break;
         case AXNotification::RowSpanChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::RowIndexRange });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::RowIndexRange });
             break;
         case AXNotification::CellScopeChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::CellScope, AXPropertyName::IsColumnHeader, AXPropertyName::IsRowHeader } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::CellScope, AXProperty::IsColumnHeader, AXProperty::IsRowHeader } });
             break;
         //  FIXME: Contrary to the name "AXSelectedCellsChanged", this notification can be posted on a cell
         //  who has changed selected state, not just on table or grid who has changed its selected cells.
         case AXNotification::SelectedCellsChanged:
         case AXNotification::SelectedStateChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsSelected });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IsSelected });
             break;
         case AXNotification::SetSizeChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::SetSize, AXPropertyName::SupportsSetSize } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::SetSize, AXProperty::SupportsSetSize } });
+            break;
+        case AXNotification::SpeakAsChanged:
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::SpeechHint });
             break;
         case AXNotification::TextCompositionChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::TextInputMarkedTextMarkerRange });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::TextInputMarkedTextMarkerRange });
             break;
         case AXNotification::TextUnderElementChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::AccessibilityText, AXPropertyName::Title } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::AccessibilityText, AXProperty::Title } });
             if (notification.first->isAccessibilityLabelInstance() || notification.first->roleValue() == AccessibilityRole::TextField)
-                tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::StringValue });
+                tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::StringValue });
             break;
 #if ENABLE(AX_THREAD_TEXT_APIS)
         case AXNotification::TextRunsChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::TextRuns });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::TextRuns });
             break;
 #endif
         case AXNotification::URLChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::URL, AXPropertyName::InternalLinkElement } });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXProperty::URL, AXProperty::InternalLinkElement } });
             break;
         case AXNotification::KeyShortcutsChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::KeyShortcuts });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::KeyShortcuts });
             break;
         case AXNotification::VisibilityChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsVisible });
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::IsVisible });
+            break;
+        case AXNotification::VisitedStateChanged:
+            tree->queueNodeUpdate(notification.first->objectID(), { AXProperty::InsideLink });
             break;
         case AXNotification::ActiveDescendantChanged:
         case AXNotification::RoleChanged:
@@ -4709,7 +4772,6 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityO
         case AXNotification::MenuListValueChanged:
         case AXNotification::MultiSelectableStateChanged:
         case AXNotification::PressedStateChanged:
-        case AXNotification::SelectedChildrenChanged:
         case AXNotification::TextChanged:
         case AXNotification::TextSecurityChanged:
         case AXNotification::ValueChanged:
@@ -4734,13 +4796,13 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityO
     }
 }
 
-void AXObjectCache::updateIsolatedTree(AccessibilityObject* axObject, AXPropertyName property) const
+void AXObjectCache::updateIsolatedTree(AccessibilityObject* axObject, AXProperty property) const
 {
     if (axObject)
         updateIsolatedTree(*axObject, property);
 }
 
-void AXObjectCache::updateIsolatedTree(AccessibilityObject& axObject, AXPropertyName property) const
+void AXObjectCache::updateIsolatedTree(AccessibilityObject& axObject, AXProperty property) const
 {
     if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
         tree->queueNodeUpdate(axObject.objectID(), { property });

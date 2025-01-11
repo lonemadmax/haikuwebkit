@@ -42,6 +42,11 @@
 #import "WKModelView.h"
 #endif
 
+#if ENABLE(MODEL_PROCESS)
+#import "ModelPresentationManagerProxy.h"
+#import "WKPageHostedModelView.h"
+#endif
+
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
 #import "WKSeparatedImageView.h"
 #endif
@@ -72,6 +77,11 @@ RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeT
     case PlatformCALayer::LayerType::LayerTypeBackdropLayer:
         return makeWithView(adoptNS([[WKBackdropView alloc] init]));
 
+#if HAVE(CORE_MATERIAL)
+    case PlatformCALayer::LayerType::LayerTypeMaterialLayer:
+        return makeWithView(adoptNS([[WKMaterialView alloc] init]));
+#endif
+
     case PlatformCALayer::LayerType::LayerTypeTransformLayer:
         return makeWithView(adoptNS([[WKTransformView alloc] init]));
 
@@ -91,6 +101,17 @@ RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeT
 
         if (!m_drawingArea->page())
             return nullptr;
+
+#if ENABLE(MODEL_PROCESS)
+        if (auto modelContext = properties.modelContext()) {
+            if (auto modelPresentationManager = m_drawingArea->page() ? m_drawingArea->page()->modelPresentationManagerProxy() : nullptr) {
+                if (auto view = modelPresentationManager->setUpModelView(*modelContext)) {
+                    m_modelLayers.add(modelContext->modelLayerIdentifier());
+                    return makeWithView(WTFMove(view));
+                }
+            }
+        }
+#endif
 
         auto view = adoptNS([[WKUIRemoteView alloc] initWithFrame:CGRectZero pid:m_drawingArea->page()->legacyMainFrameProcessID() contextID:properties.hostingContextID()]);
         return makeWithView(WTFMove(view));

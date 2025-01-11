@@ -44,7 +44,6 @@
 #include "EditorClient.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "FloatRect.h"
-#include "FocusOptions.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "HTMLAreaElement.h"
@@ -444,7 +443,7 @@ AccessibilityObject* AccessibilityRenderObject::nextSibling() const
 
 static RenderBoxModelObject* nextContinuation(RenderObject& renderer)
 {
-    if (!renderer.isReplacedOrInlineBlock()) {
+    if (!renderer.isReplacedOrAtomicInline()) {
         if (auto* renderInline = dynamicDowncast<RenderInline>(renderer))
             return renderInline->continuation();
     }
@@ -1555,8 +1554,6 @@ void AccessibilityRenderObject::setSelectedTextRange(CharacterRange&& range)
 
     if (isNativeTextControl()) {
         auto& textControl = uncheckedDowncast<RenderTextControl>(*m_renderer).textFormControlElement();
-        FocusOptions focusOptions { .preventScroll = true };
-        textControl.focus(focusOptions);
         textControl.setSelectionRange(range.location, range.location + range.length);
     } else if (m_renderer) {
         ASSERT(node());
@@ -1813,7 +1810,6 @@ void AccessibilityRenderObject::setSelectedVisiblePositionRange(const VisiblePos
         }
 
         setTextSelectionIntent(axObjectCache(), start == end ? AXTextStateChangeTypeSelectionMove : AXTextStateChangeTypeSelectionExtend);
-        textControl->focus();
         textControl->setSelectionRange(start, end);
     } else if (m_renderer) {
         // Make selection and tell the document to use it. If it's zero length, then move to that position.
@@ -2673,7 +2669,7 @@ bool AccessibilityRenderObject::hasPlainText() const
         && style.textDecorationsInEffect().isEmpty();
 }
 
-bool AccessibilityRenderObject::hasSameFont(const AXCoreObject& object) const
+bool AccessibilityRenderObject::hasSameFont(AXCoreObject& object)
 {
     auto* renderer = object.renderer();
     if (!m_renderer || !renderer)
@@ -2698,7 +2694,7 @@ ApplePayButtonType AccessibilityRenderObject::applePayButtonType() const
 }
 #endif
 
-bool AccessibilityRenderObject::hasSameFontColor(const AXCoreObject& object) const
+bool AccessibilityRenderObject::hasSameFontColor(AXCoreObject& object)
 {
     auto* renderer = object.renderer();
     if (!m_renderer || !renderer)
@@ -2707,7 +2703,7 @@ bool AccessibilityRenderObject::hasSameFontColor(const AXCoreObject& object) con
     return m_renderer->style().visitedDependentColor(CSSPropertyColor) == renderer->style().visitedDependentColor(CSSPropertyColor);
 }
 
-bool AccessibilityRenderObject::hasSameStyle(const AXCoreObject& object) const
+bool AccessibilityRenderObject::hasSameStyle(AXCoreObject& object)
 {
     auto* renderer = object.renderer();
     if (!m_renderer || !renderer)

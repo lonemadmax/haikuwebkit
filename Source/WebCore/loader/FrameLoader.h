@@ -72,6 +72,7 @@ class FormState;
 class FormSubmission;
 class FrameLoadRequest;
 class FrameNetworkingContext;
+class HistoryController;
 class HistoryItem;
 class LocalDOMWindow;
 class LocalFrameLoaderClient;
@@ -120,6 +121,9 @@ public:
     WEBCORE_EXPORT Ref<LocalFrame> protectedFrame() const;
 
     PolicyChecker& policyChecker() const { return *m_policyChecker; }
+
+    HistoryController& history() const { return m_history; }
+    WEBCORE_EXPORT CheckedRef<HistoryController> checkedHistory() const;
 
     ResourceLoadNotifier& notifier() const { return m_notifier; }
 
@@ -449,7 +453,7 @@ private:
     bool shouldTreatCurrentLoadAsContinuingLoad() const { return m_currentLoadContinuingState != LoadContinuingState::NotContinuing; }
 
     // SubframeLoader specific.
-    void loadURLIntoChildFrame(const URL&, const String& referer, LocalFrame*);
+    void loadURLIntoChildFrame(const URL&, const String& referer, LocalFrame&);
     void started();
 
     // PolicyChecker specific.
@@ -464,6 +468,7 @@ private:
     UniqueRef<LocalFrameLoaderClient> m_client;
 
     const std::unique_ptr<PolicyChecker> m_policyChecker;
+    const UniqueRef<HistoryController> m_history;
     mutable ResourceLoadNotifier m_notifier;
     const std::unique_ptr<SubframeLoader> m_subframeLoader;
     mutable FrameLoaderStateMachine m_stateMachine;
@@ -536,6 +541,7 @@ private:
     bool m_shouldRestoreScrollPositionAndViewState { false };
 
     bool m_errorOccurredInLoading { false };
+    bool m_doNotAbortNavigationAPI { false };
 };
 
 // This function is called by createWindow() in JSDOMWindowBase.cpp, for example, for

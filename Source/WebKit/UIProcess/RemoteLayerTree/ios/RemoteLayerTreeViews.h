@@ -27,7 +27,6 @@
 
 #import "UIKitSPI.h"
 #import "WKBaseScrollView.h"
-#import "WKRemoteLayerTreeViewProtocols.h"
 #import <wtf/OptionSet.h>
 
 OBJC_CLASS UIScrollView;
@@ -45,6 +44,12 @@ class RemoteLayerTreeHost;
 class WebPageProxy;
 }
 
+@protocol WKNativelyInteractible <NSObject>
+@end
+
+@protocol WKContentControlled <NSObject>
+@end
+
 @interface WKCompositingView : UIView <WKContentControlled>
 @end
 
@@ -56,6 +61,11 @@ class WebPageProxy;
 
 @interface WKShapeView : WKCompositingView
 @end
+
+#if HAVE(CORE_MATERIAL)
+@interface WKMaterialView : WKCompositingView
+@end
+#endif
 
 @interface WKUIRemoteView : _UIRemoteView <WKContentControlled>
 @end

@@ -110,6 +110,10 @@
 #include <wtf/WeakListHashSet.h>
 #endif
 
+#if ENABLE(MODEL_PROCESS)
+#include "ModelContext.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderLayerBacking);
@@ -567,6 +571,9 @@ void RenderLayerBacking::createPrimaryGraphicsLayer()
     updateTransform(style);
     updateFilters(style);
     updateBackdropFilters(style);
+#if HAVE(CORE_MATERIAL)
+    updateAppleVisualEffect(style);
+#endif
     updateBackdropRoot();
     updateBlendMode(style);
 #if ENABLE(VIDEO)
@@ -633,14 +640,14 @@ static LayoutRect clippingLayerBox(const RenderLayerModelObject& renderer)
     LayoutRect result = LayoutRect::infiniteRect();
     if (renderer.hasNonVisibleOverflow()) {
         if (CheckedPtr box = dynamicDowncast<RenderBox>(renderer))
-            result = box->overflowClipRect({ }, 0); // FIXME: Incorrect for CSS regions.
+            result = box->overflowClipRect({ });
         else if (CheckedPtr modelObject = dynamicDowncast<RenderSVGModelObject>(renderer))
-            result = modelObject->overflowClipRect({ }, 0); // FIXME: Incorrect for CSS regions.
+            result = modelObject->overflowClipRect({ });
     }
 
     if (renderer.hasClip()) {
         if (auto* box = dynamicDowncast<RenderBox>(renderer))
-            result.intersect(box->clipRect({ }, 0)); // FIXME: Incorrect for CSS regions.
+            result.intersect(box->clipRect({ }));
     }
 
     return result;
@@ -782,7 +789,11 @@ void RenderLayerBacking::updateBackdropFilters(const RenderStyle& style)
 
 void RenderLayerBacking::updateBackdropFiltersGeometry()
 {
-    if (!m_canCompositeBackdropFilters)
+    bool shouldUpdateBackdropFiltersGeometry = m_canCompositeBackdropFilters;
+#if HAVE(CORE_MATERIAL)
+    shouldUpdateBackdropFiltersGeometry |= renderer().hasAppleVisualEffectRequiringBackdropFilter();
+#endif
+    if (!shouldUpdateBackdropFiltersGeometry)
         return;
 
     CheckedPtr renderBox = dynamicDowncast<RenderBox>(this->renderer());
@@ -798,7 +809,7 @@ void RenderLayerBacking::updateBackdropFiltersGeometry()
     } else {
         auto boxRect = renderBox->borderBoxRect();
         if (renderBox->hasClip())
-            boxRect.intersect(renderBox->clipRect(LayoutPoint(), nullptr));
+            boxRect.intersect(renderBox->clipRect({ }));
         boxRect.move(contentOffsetInCompositingLayer());
         backdropFiltersRect = FloatRoundedRect(snapRectToDevicePixels(boxRect, deviceScaleFactor()));
     }
@@ -879,6 +890,13 @@ void RenderLayerBacking::updateContentsScalingFilters(const RenderStyle& style)
     m_graphicsLayer->setContentsMinificationFilter(minificationFilter);
     m_graphicsLayer->setContentsMagnificationFilter(magnificationFilter);
 }
+
+#if HAVE(CORE_MATERIAL)
+void RenderLayerBacking::updateAppleVisualEffect(const RenderStyle& style)
+{
+    m_graphicsLayer->setAppleVisualEffect(style.appleVisualEffect());
+}
+#endif
 
 static bool layerOrAncestorIsTransformedOrUsingCompositedScrolling(RenderLayer& layer)
 {
@@ -1049,6 +1067,9 @@ void RenderLayerBacking::updateConfigurationAfterStyleChange()
     updateFilters(style);
 
     updateBackdropFilters(style);
+#if HAVE(CORE_MATERIAL)
+    updateAppleVisualEffect(style);
+#endif
     updateBackdropRoot();
     updateBlendMode(style);
     updateContentsScalingFilters(style);
@@ -1216,8 +1237,8 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         if (element->usesPlatformLayer())
             m_graphicsLayer->setContentsToPlatformLayer(element->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Model);
 #if ENABLE(MODEL_PROCESS)
-        else if (auto contextID = element->layerHostingContextIdentifier(); contextID && element->document().settings().modelProcessEnabled()) {
-            m_graphicsLayer->setContentsToRemotePlatformContext(contextID.value(), GraphicsLayer::ContentsLayerPurpose::HostedModel);
+        else if (auto modelContext = element->modelContext(); modelContext && element->document().settings().modelProcessEnabled()) {
+            m_graphicsLayer->setContentsToModelContext(*modelContext, GraphicsLayer::ContentsLayerPurpose::HostedModel);
             element->applyBackgroundColor(rendererBackgroundColor());
         }
 #endif
@@ -1429,6 +1450,9 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
     updateOpacity(style);
     updateFilters(style);
     updateBackdropFilters(style);
+#if HAVE(CORE_MATERIAL)
+    updateAppleVisualEffect(style);
+#endif
     updateBackdropRoot();
     updateBlendMode(style);
     updateContentsScalingFilters(style);

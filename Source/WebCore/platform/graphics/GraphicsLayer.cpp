@@ -417,6 +417,15 @@ void GraphicsLayer::removeFromParentInternal()
     }
 }
 
+bool GraphicsLayer::needsBackdrop() const
+{
+#if HAVE(CORE_MATERIAL)
+    if (appleVisualEffectNeedsBackdrop(m_appleVisualEffect))
+        return true;
+#endif
+    return !m_backdropFilters.isEmpty();
+}
+
 void GraphicsLayer::setPreserves3D(bool b)
 {
     ASSERT_IMPLIES(m_type == Type::Structural, b);
@@ -1005,6 +1014,11 @@ void GraphicsLayer::dumpProperties(TextStream& ts, OptionSet<LayerTreeAsTextOpti
         ts << '[' << m_childrenTransform->m31() << ' ' << m_childrenTransform->m32() << ' ' << m_childrenTransform->m33() << ' ' << m_childrenTransform->m34() << "] "_s;
         ts << '[' << m_childrenTransform->m41() << ' ' << m_childrenTransform->m42() << ' ' << m_childrenTransform->m43() << ' ' << m_childrenTransform->m44() << "])\n"_s;
     }
+
+#if HAVE(CORE_MATERIAL)
+    if (m_appleVisualEffect != AppleVisualEffect::None)
+        ts << indent << "(appleVisualEffect "_s << m_appleVisualEffect << ")\n"_s;
+#endif
 
     if (m_maskLayer) {
         ts << indent << "(mask layer"_s;

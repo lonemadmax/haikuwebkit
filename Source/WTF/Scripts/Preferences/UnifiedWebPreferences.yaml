@@ -629,18 +629,6 @@ ApplePayEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
-AppleSystemVisualEffectsEnabled:
-  type: bool
-  status: embedder
-  condition: HAVE(CORE_MATERIAL)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 # FIXME: This is on by default in WebKit2 PLATFORM(COCOA). Perhaps we should consider turning it on for WebKitLegacy as well.
 AsyncClipboardAPIEnabled:
   type: bool
@@ -932,6 +920,7 @@ BlockFontServiceInWebContentSandbox:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
+      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
       default: false
 
 BlockIOKitInWebContentSandbox:
@@ -987,7 +976,8 @@ BlockMobileAssetInWebContentSandbox:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: true
+      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
+      default: false
 
 BlockMobileGestaltInWebContentSandbox:
   type: bool
@@ -1000,7 +990,8 @@ BlockMobileGestaltInWebContentSandbox:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: true
+      "ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)": true
+      default: false
 
 BlockOpenDirectoryInWebContentSandbox:
   type: bool
@@ -1070,7 +1061,7 @@ BuiltInNotificationsEnabled:
     WebCore:
       default: false
     WebKit:
-      default: false
+      default: defaultBuiltInNotificationsEnabled()
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
@@ -1567,17 +1558,17 @@ CSSScrollbarWidthEnabled:
 
 CSSShapeFunctionEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS shape() function"
   humanReadableDescription: "Enable the CSS shape() function"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSStartingStyleAtRuleEnabled:
   type: bool
@@ -2637,6 +2628,9 @@ DeviceOrientationEventEnabled:
       default: true
     WebCore:
       default: true
+  sharedPreferenceForWebProcess: true
+  richJavaScript: true
+
 
 DeviceOrientationPermissionAPIEnabled:
   type: bool
@@ -2852,6 +2846,7 @@ EncryptedMediaAPIEnabled:
     WebCore:
       default: false
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 EnterKeyHintEnabled:
   type: bool
@@ -3520,7 +3515,7 @@ ICECandidateFilteringEnabled:
 
 IFrameResourceMonitoringEnabled:
   type: bool
-  status: unstable
+  status: internal
   category: networking
   condition: ENABLE(CONTENT_EXTENSIONS)
   defaultsOverridable: true
@@ -4289,6 +4284,7 @@ LegacyEncryptedMediaAPIEnabled:
     WebCore:
       default: true
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 LegacyLineLayoutVisualCoverageEnabled:
   type: bool
@@ -4665,6 +4661,7 @@ ManagedMediaSourceEnabled:
     WebCore:
       default: true
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 ManagedMediaSourceHighThreshold:
   type: double
@@ -4860,6 +4857,7 @@ MediaControlsContextMenusEnabled:
     WebCore:
       default: false
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 MediaControlsScaleWithPageZoom:
   type: bool
@@ -4933,6 +4931,7 @@ MediaPlaybackEnabled:
     WebCore:
       default: true
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 MediaPreferredFullscreenWidth:
   type: double
@@ -4974,6 +4973,7 @@ MediaRecorderEnabled:
     WebCore:
       default: false
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 MediaRecorderEnabledWebM:
   type: bool
@@ -5022,6 +5022,7 @@ MediaSessionCoordinatorEnabled:
     WebCore:
       default: true
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 MediaSessionEnabled:
   type: bool
@@ -5088,6 +5089,7 @@ MediaSourceEnabled:
       "ENABLE(MEDIA_SOURCE)": true
       default: false
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 MediaSourceInWorkerEnabled:
   type: bool
@@ -5104,6 +5106,7 @@ MediaSourceInWorkerEnabled:
       default: true
     WebCore:
       default: true
+  mediaPlaybackRelated: true
 
 MediaSourcePrefersDecompressionSession:
   type: bool
@@ -5290,6 +5293,21 @@ ModelElementEnabled:
       default: false
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
+
+ModelNoPortalAttributeEnabled:
+  type: bool
+  status: unstable
+  condition: PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
+  humanReadableName: "Model noportal attribute"
+  humanReadableDescription: "Enable Model noportal attribute support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  disableInLockdownMode: true
 
 ModelProcessEnabled:
   type: bool
@@ -5554,18 +5572,18 @@ OpportunisticSweepingAndGarbageCollectionEnabled:
 
 OptInPartitionedCookiesEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: dom
   humanReadableName: "Opt-in partitioned cookies (CHIPS)"
   humanReadableDescription: "Enable opt-in partitioned cookies"
   condition: HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 OpusDecoderEnabled:
   type: bool
@@ -5768,6 +5786,7 @@ PeerConnectionEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
+  mediaPlaybackRelated: true
 
 PeerConnectionVideoScalingAdaptationDisabled:
   type: bool
@@ -7129,17 +7148,17 @@ ShrinksStandaloneImagesToFit:
 
 SidewaysWritingModesEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "Sideways writing modes"
   humanReadableDescription: "Enable support for sideways writing modes"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 SiteIsolationEnabled:
   type: bool
@@ -7580,6 +7599,7 @@ TextRecognitionInVideosEnabled:
     WebKit:
       default: defaultTextRecognitionInVideosEnabled()
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 ThreadedAnimationResolutionEnabled:
   type: bool
@@ -7747,6 +7767,7 @@ UnifiedPDFEnabled:
   type: bool
   status: Unifiedpdf_feature_status
   category: security
+  defaultsOverridable: true
   humanReadableName: "Unified PDF Viewer"
   humanReadableDescription: "Enable Unified PDF Viewer"
   condition: ENABLE(UNIFIED_PDF)
@@ -7823,7 +7844,9 @@ UseAVCaptureDeviceRotationCoordinatorAPI:
   condition: HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
   defaultValue:
     WebKit:
-      default: true
+      "PLATFORM(VISION)": true
+      "PLATFORM(APPLETV)": true
+      default: false
   sharedPreferenceForWebProcess: true
 
 UseAsyncUIKitInteractions:
@@ -7901,13 +7924,14 @@ UseGPUProcessForMediaEnabled:
   humanReadableName: "GPU Process: Media"
   humanReadableDescription: "Do all media loading and playback in the GPU Process"
   webcoreBinding: none
-  condition: ENABLE(GPU_PROCESS) && !USE(GSTREAMER)
+  condition: ENABLE(GPU_PROCESS)
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      "ENABLE(GPU_PROCESS_BY_DEFAULT)": true
+      "ENABLE(GPU_PROCESS_BY_DEFAULT) && !USE(GSTREAMER)": true
       default: false
   sharedPreferenceForWebProcess: true
+  mediaPlaybackRelated: true
 
 UseGPUProcessForWebGLEnabled:
   type: bool
@@ -8015,6 +8039,18 @@ UseSceneKitForModel:
   condition: HAVE(SCENEKIT)
   defaultValue:
     WebKit:
+      default: false
+
+UseSystemAppearance:
+  type: bool
+  status: embedder
+  webcoreOnChange: useSystemAppearanceChanged
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 UserActivationAPIEnabled:
@@ -8453,6 +8489,7 @@ WebAudioEnabled:
   sharedPreferenceForWebProcess: true
   disableInLockdownMode: true
   richJavaScript: true
+  mediaPlaybackRelated: true
 
 WebAuthenticationASEnabled:
   type: bool
@@ -8560,6 +8597,7 @@ WebCodecsVideoEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
+  mediaPlaybackRelated: true
 
 WebCryptoSafeCurvesEnabled:
   type: bool
@@ -9049,6 +9087,8 @@ WebSocketEnabled:
     WebCore:
       "PLATFORM(WATCHOS)": false
       default: true
+  sharedPreferenceForWebProcess: true
+
 
 WebTransportEnabled:
   type: bool

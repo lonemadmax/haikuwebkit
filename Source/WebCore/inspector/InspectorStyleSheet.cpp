@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010, Google Inc. All rights reserved.
- * Copyright (C) 2021-2023, Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025, Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,8 +70,8 @@
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/RegularExpression.h>
 #include <wtf/NotFound.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 using JSON::ArrayOf;
@@ -108,7 +108,6 @@ static RuleFlatteningStrategy flatteningStrategyForStyleRuleType(StyleRuleType s
     // FIXME (webkit.org/b/284176): support @position-try in Web Inspector.
     case StyleRuleType::PositionTry:
 
-    case StyleRuleType::Unknown:
     case StyleRuleType::Charset:
     case StyleRuleType::Import:
     case StyleRuleType::FontFace:
@@ -221,7 +220,7 @@ static std::optional<Inspector::Protocol::CSS::Grouping::Type> protocolGroupingT
 }
 
 class ParsedStyleSheet {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(ParsedStyleSheet);
+    WTF_MAKE_TZONE_ALLOCATED(ParsedStyleSheet);
 public:
     ParsedStyleSheet();
 
@@ -239,6 +238,8 @@ private:
     bool m_hasText;
     std::unique_ptr<RuleSourceDataList> m_sourceData;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ParsedStyleSheet);
 
 ParsedStyleSheet::ParsedStyleSheet()
     : m_hasText(false)

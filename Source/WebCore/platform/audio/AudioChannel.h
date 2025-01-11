@@ -36,8 +36,6 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 // An AudioChannel represents a buffer of non-interleaved floating-point audio samples.
@@ -120,7 +118,7 @@ public:
     // Scales all samples by the same amount.
     void scale(float scale);
 
-    // A simple memcpy() from the source channel
+    // A simple memcpySpan() from the source channel
     void copyFrom(const AudioChannel* sourceChannel);
 
     // Copies the given range from the source channel.
@@ -139,7 +137,5 @@ private:
 };
 
 } // WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // AudioChannel_h

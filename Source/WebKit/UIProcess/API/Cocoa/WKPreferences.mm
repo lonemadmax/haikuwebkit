@@ -217,6 +217,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _preferences->setTabsToLinks(tabFocusesLinks);
 }
 
+- (BOOL)_useSystemAppearance
+{
+    return _preferences->useSystemAppearance();
+}
+
+- (void)_setUseSystemAppearance:(BOOL)useSystemAppearance
+{
+    _preferences->setUseSystemAppearance(useSystemAppearance);
+}
+
 #pragma mark WKObject protocol implementation
 
 - (API::Object&)_apiObject
@@ -589,6 +599,11 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
 - (void)_disableRichJavaScriptFeatures
 {
     _preferences->disableRichJavaScriptFeatures();
+}
+
+- (void)_disableMediaPlaybackRelatedFeatures
+{
+    _preferences->disableMediaPlaybackRelatedFeatures();
 }
 
 - (BOOL)_applePayCapabilityDisclosureAllowed
@@ -1707,6 +1722,37 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return NO;
 #endif
 }
+
+- (void)_setModelElementEnabled:(BOOL)enabled
+{
+    _preferences->setModelElementEnabled(enabled);
+}
+
+- (BOOL)_modelProcessEnabled
+{
+    return _preferences->modelProcessEnabled();
+}
+
+- (void)_setModelProcessEnabled:(BOOL)enabled
+{
+    _preferences->setModelProcessEnabled(enabled);
+}
+
+- (BOOL)_modelElementEnabled
+{
+    return _preferences->modelElementEnabled();
+}
+
+- (void)_setModelNoPortalAttributeEnabled:(BOOL)enabled
+{
+    _preferences->setModelNoPortalAttributeEnabled(enabled);
+}
+
+- (BOOL)_modelNoPortalAttributeEnabled
+{
+    return _preferences->modelNoPortalAttributeEnabled();
+}
+
 @end
 
 @implementation WKPreferences (WKDeprecated)

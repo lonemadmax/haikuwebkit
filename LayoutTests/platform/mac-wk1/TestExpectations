@@ -897,7 +897,12 @@ accessibility/range-input-increment-decrement-fires-input-event.html [ WontFix ]
 # Default ARIA for custom elements are not yet enabled
 accessibility/custom-elements/ [ Skip ]
 
+accessibility/mac/dynamic-drag.html [ Skip ]
+
 accessibility/display-contents/role-row-headers.html [ Skip ]
+
+# Missing AccessibilityUIElement::dateTimeValue() implementation.
+accessibility/dynamic-datetime-attribute.html [ Skip ]
 
 # Missing necessary testing logic (AccessibilityController::{get,set}RetainedElement)
 accessibility/ax-object-destroyed-on-reload.html [ Skip ]
@@ -1936,7 +1941,6 @@ webkit.org/b/179775 imported/w3c/web-platform-tests/xhr/firing-events-http-no-co
 webkit.org/b/184742 accessibility/mac/async-increment-decrement-action.html [ Skip ]
 webkit.org/b/185897 accessibility/mac/set-value-editable-types.html [ Skip ]
 webkit.org/b/193414 accessibility/mac/relative-frame.html [ Skip ]
-webkit.org/b/215129 accessibility/mac/resolved-text-editing.html [ Skip ]
 
 webkit.org/b/182752 accessibility/mac/accessibility-make-first-responder.html [ Skip ]
 
@@ -2988,3 +2992,10 @@ webkit.org/b/284486 [ Ventura+ ] imported/w3c/web-platform-tests/css/css-grid/su
 webkit.org/b/284486 [ Ventura+ ] imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid-baseline-007.html [ Pass Failure ]
 
 webkit.org/b/284507 [ Ventura+ ] storage/indexeddb/objectstore-basics.html [ Pass Crash Timeout ]
+
+webkit.org/b/284898 [ Ventura+ ] fonts/font-weight-invalid-crash.html [ Pass Failure ]
+webkit.org/b/284898 [ Ventura+ ] fonts/ligature.html [ Pass Failure ImageOnlyFailure ]
+
+webkit.org/b/284954 [ Ventura+ ] imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-child-with-border.html [ Pass Failure ]
+
+webkit.org/b/285089 [ Ventura+ Debug ] imported/w3c/web-platform-tests/editing/crashtests/replace-document-root-and-refocus-window.html [ Skip ]

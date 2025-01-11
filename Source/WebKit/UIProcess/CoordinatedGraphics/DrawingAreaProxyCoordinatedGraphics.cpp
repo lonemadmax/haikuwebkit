@@ -277,6 +277,14 @@ void DrawingAreaProxyCoordinatedGraphics::updateAcceleratedCompositingMode(const
         page->updateAcceleratedCompositingMode(layerTreeContext);
 }
 
+void DrawingAreaProxyCoordinatedGraphics::dispatchPresentationCallbacksAfterFlushingLayers(IPC::Connection& connection, Vector<IPC::AsyncReplyID>&& callbackIDs)
+{
+    for (auto& callbackID : callbackIDs) {
+        if (auto callback = connection.takeAsyncReplyHandler(callbackID))
+            callback(nullptr);
+    }
+}
+
 void DrawingAreaProxyCoordinatedGraphics::sendUpdateGeometry()
 {
     ASSERT(!m_isWaitingForDidUpdateGeometry);
@@ -325,7 +333,7 @@ void DrawingAreaProxyCoordinatedGraphics::discardBackingStore()
 }
 #endif
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(DrawingAreaProxyCoordinatedGraphics, DrawingMonitor);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DrawingAreaProxyCoordinatedGraphics::DrawingMonitor);
 
 DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::DrawingMonitor(WebPageProxy& webPage)
     : m_timer(RunLoop::main(), this, &DrawingMonitor::stop)

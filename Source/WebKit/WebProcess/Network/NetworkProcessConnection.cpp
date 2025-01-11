@@ -124,7 +124,7 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebTransportSession::messageReceiverName() && WebProcess::singleton().isWebTransportEnabled()) {
-        if (auto* webTransportSession = WebProcess::singleton().webTransportSession(WebTransportSessionIdentifier(decoder.destinationID())))
+        if (RefPtr webTransportSession = WebProcess::singleton().webTransportSession(WebTransportSessionIdentifier(decoder.destinationID())))
             webTransportSession->didReceiveMessage(connection, decoder);
         return true;
     }
@@ -325,9 +325,8 @@ void NetworkProcessConnection::broadcastConsoleMessage(MessageSource source, Mes
     FAST_RETURN_IF_NO_FRONTENDS(void());
 
     Page::forEachPage([&] (auto& page) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame()))
-            if (RefPtr document = localMainFrame->document())
-                document->addConsoleMessage(source, level, message);
+        if (RefPtr localTopDocument = page.localTopDocument())
+            localTopDocument->addConsoleMessage(source, level, message);
     });
 }
 

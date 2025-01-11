@@ -877,9 +877,9 @@ public:
     virtual int axRowIndex() const = 0;
 
     // Table column support.
-    virtual bool isTableColumn() const = 0;
+    bool isTableColumn() const { return roleValue() == AccessibilityRole::Column; }
     virtual unsigned columnIndex() const = 0;
-    virtual AXCoreObject* columnHeader() = 0;
+    AXCoreObject* columnHeader();
 
     // Table row support.
     virtual bool isTableRow() const = 0;
@@ -923,8 +923,6 @@ public:
 
     bool isButton() const;
     bool isMeter() const { return roleValue() == AccessibilityRole::Meter; }
-
-    virtual UncheckedKeyHashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const = 0;
 
     bool isListItem() const { return roleValue() == AccessibilityRole::ListItem; }
     bool isCheckboxOrRadio() const { return isCheckbox() || isRadioButton(); }
@@ -975,9 +973,9 @@ public:
     virtual std::optional<SimpleRange> misspellingRange(const SimpleRange& start, AccessibilitySearchDirection) const = 0;
     virtual std::optional<SimpleRange> visibleCharacterRange() const = 0;
     virtual bool hasPlainText() const = 0;
-    virtual bool hasSameFont(const AXCoreObject&) const = 0;
-    virtual bool hasSameFontColor(const AXCoreObject&) const = 0;
-    virtual bool hasSameStyle(const AXCoreObject&) const = 0;
+    virtual bool hasSameFont(AXCoreObject&) = 0;
+    virtual bool hasSameFontColor(AXCoreObject&) = 0;
+    virtual bool hasSameStyle(AXCoreObject&) = 0;
     bool isStaticText() const { return roleValue() == AccessibilityRole::StaticText; }
     virtual bool hasUnderline() const = 0;
     virtual bool hasHighlighting() const = 0;
@@ -1020,6 +1018,7 @@ public:
     virtual String extendedDescription() const = 0;
 
     bool supportsActiveDescendant() const;
+    bool isActiveDescendantOfFocusedContainer() const;
     virtual bool supportsARIAOwns() const = 0;
 
     // Retrieval of related objects.
@@ -1093,6 +1092,7 @@ public:
 
     virtual AccessibilityChildrenVector findMatchingObjects(AccessibilitySearchCriteria&&) = 0;
     virtual bool isDescendantOfRole(AccessibilityRole) const = 0;
+    AXCoreObject* selfOrFirstTextDescendant();
 
     virtual bool hasDocumentRoleAncestor() const = 0;
     virtual bool hasWebApplicationAncestor() const = 0;
@@ -1137,6 +1137,7 @@ public:
     enum class SpellCheck : bool { No, Yes };
     virtual RetainPtr<NSAttributedString> attributedStringForTextMarkerRange(AXTextMarkerRange&&, SpellCheck) const = 0;
     virtual AttributedStringStyle stylesForAttributedString() const = 0;
+    virtual RetainPtr<CTFontRef> font() const = 0;
 #endif
 
 #if PLATFORM(MAC)
@@ -1152,7 +1153,7 @@ public:
     // Only if isColorWell()
     virtual SRGBA<uint8_t> colorValue() const = 0;
 
-    virtual AccessibilityRole roleValue() const = 0;
+    AccessibilityRole roleValue() const { return m_role; }
     // Non-localized string associated with the object role.
     virtual String rolePlatformString() const = 0;
     // Localized string that describes the object's role.
@@ -1188,7 +1189,6 @@ public:
 #if PLATFORM(MAC)
     virtual FloatRect primaryScreenRect() const = 0;
 #endif
-    virtual FloatRect unobscuredContentRect() const = 0;
     virtual IntSize size() const = 0;
     virtual IntPoint clickPoint() = 0;
     virtual Path elementPath() const = 0;
@@ -1278,7 +1278,11 @@ public:
     virtual void detachFromParent() = 0;
     virtual bool isDetachedFromParent() = 0;
 
-    virtual std::optional<AccessibilityChildrenVector> selectedChildren() = 0;
+    AccessibilityChildrenVector listboxSelectedChildren();
+    AccessibilityChildrenVector selectedRows();
+    AccessibilityChildrenVector selectedListItems();
+    bool canHaveSelectedChildren() const;
+    AccessibilityChildrenVector selectedChildren();
     virtual void setSelectedChildren(const AccessibilityChildrenVector&) = 0;
     virtual AccessibilityChildrenVector visibleChildren() = 0;
     AccessibilityChildrenVector tabChildren();
@@ -1303,7 +1307,7 @@ public:
     virtual AXTextMarkerRange textMarkerRangeForNSRange(const NSRange&) const = 0;
 #endif
 #if PLATFORM(MAC)
-    virtual AXTextMarkerRange selectedTextMarkerRange() = 0;
+    virtual AXTextMarkerRange selectedTextMarkerRange() const = 0;
 #endif
 
     virtual String stringForRange(const SimpleRange&) const = 0;
@@ -1338,7 +1342,7 @@ public:
 
     // Used by an ARIA tree to get all its rows.
     // FIXME: this should be folded into rows().
-    virtual AccessibilityChildrenVector ariaTreeRows() = 0;
+    AccessibilityChildrenVector ariaTreeRows();
     // Used by an ARIA tree item to get only its content, and not its child tree items and groups.
     AccessibilityChildrenVector ariaTreeItemContent();
 
@@ -1463,6 +1467,7 @@ protected:
     explicit AXCoreObject(AXID axID)
         : m_id(axID)
     { }
+    AccessibilityRole m_role { AccessibilityRole::Unknown };
 
 private:
     virtual String dbgInternal(bool, OptionSet<AXDebugStringOption>) const = 0;
@@ -1470,6 +1475,8 @@ private:
     // Detaches this object from the objects it references and it is referenced by.
     virtual void detachRemoteParts(AccessibilityDetachmentType) = 0;
     virtual void detachPlatformWrapper(AccessibilityDetachmentType) = 0;
+
+    void ariaTreeRows(AXCoreObject::AccessibilityChildrenVector& rows, AXCoreObject::AccessibilityChildrenVector& ancestors);
 
     AXID m_id;
 #if PLATFORM(COCOA)
@@ -1689,6 +1696,19 @@ T* exposedTableAncestor(const T& object, bool includeSelf = false)
     return findAncestor<T>(object, includeSelf, [] (const T& object) {
         return object.isTable() && object.isExposable();
     });
+}
+
+template<typename T, typename F>
+AXCoreObject* findUnignoredDescendant(T& object, bool includeSelf, const F& matches)
+{
+    if (includeSelf && matches(object) && !object.isIgnored())
+        return &object;
+
+    for (Ref child : object.childrenIncludingIgnored()) {
+        if (auto* descendant = findUnignoredDescendant(child.get(), /* includeSelf */ true, matches))
+            return descendant;
+    }
+    return nullptr;
 }
 
 template<typename T, typename F>

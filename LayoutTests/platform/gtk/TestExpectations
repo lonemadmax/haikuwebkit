@@ -1777,9 +1777,6 @@ imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/js
 
 webkit.org/b/245900 [ Debug ] fast/inline/inline-box-adjust-position-crash2.html [ Skip ]
 
-# http version of this test fails, but https passes. May be a PingLoad issue in GTK
-webkit.org/b/246766 imported/w3c/web-platform-tests/reporting/generateTestReport-honors-endpoint.http.sub.html [ Failure ]
-
 webkit.org/b/256768 fast/mediastream/captureStream/canvas3d.html [ Failure Pass ]
 
 webkit.org/b/249477 media/audioSession/audioSessionType.html [ Skip ]
@@ -1941,3 +1938,5 @@ http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Failure
 http/tests/cookies/same-site/popup-cross-site-post.html [ Failure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/element-is-grouping-during-animation.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/213782 webanimations/accelerated-animation-with-easing.html [ Failure Pass ]

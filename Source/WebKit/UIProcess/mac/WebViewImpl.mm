@@ -3345,6 +3345,13 @@ void WebViewImpl::handleAcceptedCandidate(NSTextCheckingResult *acceptedCandidat
     }
 
     m_page->handleAcceptedCandidate(textCheckingResultFromNSTextCheckingResult(acceptedCandidate));
+    m_page->callAfterNextPresentationUpdate([viewImpl = WeakPtr { *this }] {
+        if (!viewImpl)
+            return;
+
+        viewImpl->m_isHandlingAcceptedCandidate = false;
+        [viewImpl->m_view _didHandleAcceptedCandidate];
+    });
 }
 
 void WebViewImpl::preferencesDidChange()
@@ -3537,13 +3544,6 @@ void WebViewImpl::completeImmediateActionAnimation()
 void WebViewImpl::didChangeContentSize(CGSize newSize)
 {
     [m_view _web_didChangeContentSize:NSSizeFromCGSize(newSize)];
-}
-
-void WebViewImpl::didHandleAcceptedCandidate()
-{
-    m_isHandlingAcceptedCandidate = false;
-
-    [m_view _didHandleAcceptedCandidate];
 }
 
 void WebViewImpl::videoControlsManagerDidChange()
@@ -5901,16 +5901,6 @@ bool WebViewImpl::completeBackSwipeForTesting()
     if (!m_gestureController)
         return false;
     return m_gestureController->completeSimulatedSwipeInDirectionForTesting(ViewGestureController::SwipeDirection::Back);
-}
-
-void WebViewImpl::setUseSystemAppearance(bool useSystemAppearance)
-{
-    m_page->setUseSystemAppearance(useSystemAppearance);
-}
-
-bool WebViewImpl::useSystemAppearance()
-{
-    return m_page->useSystemAppearance();
 }
 
 void WebViewImpl::effectiveAppearanceDidChange()

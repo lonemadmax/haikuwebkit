@@ -25,45 +25,161 @@
 
 import Foundation
 import Observation
+internal import WebKit_Private
+
+@MainActor
+final class WebPageWebView: WKWebView {
+    weak var delegate: (any Delegate)? = nil
+
+#if os(iOS)
+    override func findInteraction(_ interaction: UIFindInteraction, didBegin session: UIFindSession) {
+        super.findInteraction(interaction, didBegin: session)
+        delegate?.findInteraction(interaction, didBegin: session)
+    }
+
+    override func findInteraction(_ interaction: UIFindInteraction, didEnd session: UIFindSession) {
+        super.findInteraction(interaction, didBegin: session)
+        delegate?.findInteraction(interaction, didEnd: session)
+    }
+
+    override func supportsTextReplacement() -> Bool {
+        guard let delegate else {
+            return super.supportsTextReplacement()
+        }
+
+        return super.supportsTextReplacement() && delegate.supportsTextReplacement()
+    }
+#endif
+}
+
+extension WebPageWebView {
+    @MainActor
+    protocol Delegate: AnyObject {
+#if os(iOS)
+        func findInteraction(_ interaction: UIFindInteraction, didBegin session: UIFindSession)
+
+        func findInteraction(_ interaction: UIFindInteraction, didEnd session: UIFindSession)
+
+        func supportsTextReplacement() -> Bool
+#endif
+    }
+}
 
 @_spi(Private)
 @MainActor
 @Observable
 public class WebPage_v0 {
+    public enum FullscreenState: Hashable, Sendable {
+        case enteringFullscreen
+        case exitingFullscreen
+        case inFullscreen
+        case notInFullscreen
+    }
+
     public static func handlesURLScheme(_ scheme: String) -> Bool {
         WKWebView.handlesURLScheme(scheme)
     }
 
-    private init(_configuration: Configuration, _navigationDecider navigationDecider: (any NavigationDeciding)?, _dialogPresenter dialogPresenter: (any DialogPresenting)?) {
+    // MARK: Initializers
+
+    private init(
+        _configuration: Configuration,
+        _navigationDecider navigationDecider: (any NavigationDeciding)?,
+        _dialogPresenter dialogPresenter: (any DialogPresenting)?,
+        _downloadCoordinator downloadCoordinator: (any DownloadCoordinator)?
+    ) {
         self.configuration = _configuration
 
         // FIXME: Consider whether we want to have a single value here or if the getter for `navigations` should return a fresh sequence every time.
-        let (stream, continuation) = AsyncStream.makeStream(of: NavigationEvent.self)
-        navigations = Navigations(source: stream)
+        let (navigationStream, navigationContinuation) = AsyncStream.makeStream(of: NavigationEvent.self)
+        navigations = Navigations(source: navigationStream)
 
-        backingUIDelegate = WKUIDelegateAdapter(dialogPresenter: dialogPresenter)
+        let (downloadStream, downloadContinuation) = AsyncStream.makeStream(of: DownloadEvent.self)
+        downloads = Downloads(source: downloadStream)
 
-        backingNavigationDelegate = WKNavigationDelegateAdapter(navigationProgressContinuation: continuation, navigationDecider: navigationDecider)
+        backingDownloadDelegate = WKDownloadDelegateAdapter(
+            downloadProgressContinuation: downloadContinuation,
+            downloadCoordinator: downloadCoordinator
+        )
+        backingUIDelegate = WKUIDelegateAdapter(
+            dialogPresenter: dialogPresenter
+        )
+        backingNavigationDelegate = WKNavigationDelegateAdapter(
+            navigationProgressContinuation: navigationContinuation,
+            downloadProgressContinuation: downloadContinuation,
+            navigationDecider: navigationDecider
+        )
+
+        backingUIDelegate.owner = self
         backingNavigationDelegate.owner = self
+        backingDownloadDelegate.owner = self
     }
 
-    public convenience init(configuration: Configuration = Configuration(), navigationDecider: some NavigationDeciding, dialogPresenter: some DialogPresenting) {
-        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: dialogPresenter)
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        navigationDecider: some NavigationDeciding,
+        dialogPresenter: some DialogPresenting,
+        downloadCoordinator: some DownloadCoordinator
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: dialogPresenter, _downloadCoordinator: downloadCoordinator)
     }
 
-    public convenience init(configuration: Configuration = Configuration(), dialogPresenter: some DialogPresenting) {
-        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: dialogPresenter)
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        navigationDecider: some NavigationDeciding,
+        dialogPresenter: some DialogPresenting
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: dialogPresenter, _downloadCoordinator: nil)
     }
 
-    public convenience init(configuration: Configuration = Configuration(), navigationDecider: some NavigationDeciding) {
-        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: nil)
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        navigationDecider: some NavigationDeciding,
+        downloadCoordinator: some DownloadCoordinator
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: nil, _downloadCoordinator: downloadCoordinator)
     }
 
-    public convenience init(configuration: Configuration = Configuration()) {
-        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: nil)
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        dialogPresenter: some DialogPresenting,
+        downloadCoordinator: some DownloadCoordinator
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: dialogPresenter, _downloadCoordinator: downloadCoordinator)
     }
+
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        dialogPresenter: some DialogPresenting
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: dialogPresenter, _downloadCoordinator: nil)
+    }
+
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        navigationDecider: some NavigationDeciding
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: navigationDecider, _dialogPresenter: nil, _downloadCoordinator: nil)
+    }
+
+    public convenience init(
+        configuration: Configuration = Configuration(),
+        downloadCoordinator: some DownloadCoordinator
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: nil, _downloadCoordinator: downloadCoordinator)
+    }
+
+    public convenience init(
+        configuration: Configuration = Configuration()
+    ) {
+        self.init(_configuration: configuration, _navigationDecider: nil, _dialogPresenter: nil, _downloadCoordinator: nil)
+    }
+
+    // MARK: Properties
 
     public let navigations: Navigations
+
+    public let downloads: Downloads
 
     public let configuration: Configuration
 
@@ -100,6 +216,20 @@ public class WebPage_v0 {
         backingProperty(\.isWritingToolsActive, backedBy: \.isWritingToolsActive)
     }
 
+    public var fullscreenState: WebPage_v0.FullscreenState {
+        backingProperty(\.fullscreenState, backedBy: \.fullscreenState) { backingValue in
+            WebPage_v0.FullscreenState(backingValue)
+        }
+    }
+
+    public var cameraCaptureState: WKMediaCaptureState {
+        backingProperty(\.cameraCaptureState, backedBy: \.cameraCaptureState)
+    }
+
+    public var microphoneCaptureState: WKMediaCaptureState {
+        backingProperty(\.microphoneCaptureState, backedBy: \.microphoneCaptureState)
+    }
+
     public var mediaType: String? {
         get { backingWebView.mediaType }
         set { backingWebView.mediaType = newValue }
@@ -116,7 +246,8 @@ public class WebPage_v0 {
     }
 
     private let backingNavigationDelegate: WKNavigationDelegateAdapter
-    private let backingUIDelegate: WKUIDelegateAdapter
+    let backingUIDelegate: WKUIDelegateAdapter
+    let backingDownloadDelegate: WKDownloadDelegateAdapter
 
     @ObservationIgnored
     private var observations = KeyValueObservations()
@@ -125,12 +256,17 @@ public class WebPage_v0 {
     var isBoundToWebView = false
 
     @ObservationIgnored
-    lazy var backingWebView: WKWebView = {
-        let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration(configuration))
+    lazy var backingWebView: WebPageWebView = {
+        let webView = WebPageWebView(frame: .zero, configuration: WKWebViewConfiguration(configuration))
+#if os(macOS)
+        webView._usePlatformFindUI = false
+#endif
         webView.navigationDelegate = backingNavigationDelegate
         webView.uiDelegate = backingUIDelegate
         return webView
     }()
+
+    // MARK: Loading functions
 
     @discardableResult
     public func load(_ request: URLRequest) -> NavigationID? {
@@ -200,6 +336,8 @@ public class WebPage_v0 {
         backingWebView.stopLoading()
     }
 
+    // MARK: Utility functions
+
     public func callAsyncJavaScript(_ functionBody: String, arguments: [String : Any] = [:], in frame: FrameInfo? = nil, contentWorld: WKContentWorld = .page) async throws -> Any? {
         try await backingWebView.callAsyncJavaScript(functionBody, arguments: arguments, in: frame?.wrapped, contentWorld: contentWorld)
     }
@@ -226,7 +364,50 @@ public class WebPage_v0 {
         }
     }
 
-    private func createObservation<Value, BackingValue>(for keyPath: KeyPath<WebPage_v0, Value>, backedBy backingKeyPath: KeyPath<WKWebView, BackingValue>) -> NSKeyValueObservation {
+    // MARK: Media functions
+
+    public func pauseAllMediaPlayback() async {
+        await backingWebView.pauseAllMediaPlayback()
+    }
+
+    public func mediaPlaybackState() async -> WKMediaPlaybackState {
+        await backingWebView.requestMediaPlaybackState()
+    }
+
+    public func setAllMediaPlaybackSuspended(_ suspended: Bool) async {
+        await backingWebView.setAllMediaPlaybackSuspended(suspended)
+    }
+
+    public func closeAllMediaPresentations() async {
+        await backingWebView.closeAllMediaPresentations()
+    }
+
+    public func setCameraCaptureState(_ state: WKMediaCaptureState) async {
+        await backingWebView.setCameraCaptureState(state)
+    }
+
+    public func setMicrophoneCaptureState(_ state: WKMediaCaptureState) async {
+        await backingWebView.setMicrophoneCaptureState(state)
+    }
+
+    // MARK: Downloads
+
+    // For these to work, a custom implementation of `DownloadCoordinator.destination(forDownload:response:suggestedFilename:) async -> URL?`
+    // must be provided so that the downloads are not immediately cancelled.
+
+    public func startDownload(using request: URLRequest) async -> WebPage_v0.DownloadID {
+        let cocoaDownload = await backingWebView.startDownload(using: request)
+        return WebPage_v0.DownloadID(cocoaDownload)
+    }
+
+    public func resumeDownload(fromResumeData resumeData: Data) async -> WebPage_v0.DownloadID {
+        let cocoaDownload = await backingWebView.resumeDownload(fromResumeData: resumeData)
+        return WebPage_v0.DownloadID(cocoaDownload)
+    }
+
+    // MARK: Private helper functions
+
+    private func createObservation<Value, BackingValue>(for keyPath: KeyPath<WebPage_v0, Value>, backedBy backingKeyPath: KeyPath<WebPageWebView, BackingValue>) -> NSKeyValueObservation {
         let boxed = UncheckedSendableKeyPathBox(keyPath: keyPath)
 
         return backingWebView.observe(backingKeyPath, options: [.prior, .old, .new]) { [_$observationRegistrar, unowned self] _, change in
@@ -238,7 +419,7 @@ public class WebPage_v0 {
         }
     }
 
-    func backingProperty<Value, BackingValue>(_ keyPath: KeyPath<WebPage_v0, Value>, backedBy backingKeyPath: KeyPath<WKWebView, BackingValue>, _ transform: (BackingValue) -> Value) -> Value {
+    func backingProperty<Value, BackingValue>(_ keyPath: KeyPath<WebPage_v0, Value>, backedBy backingKeyPath: KeyPath<WebPageWebView, BackingValue>, _ transform: (BackingValue) -> Value) -> Value {
         if observations.contents[keyPath] == nil {
             observations.contents[keyPath] = createObservation(for: keyPath, backedBy: backingKeyPath)
         }
@@ -249,8 +430,21 @@ public class WebPage_v0 {
         return transform(backingValue)
     }
 
-    func backingProperty<Value>(_ keyPath: KeyPath<WebPage_v0, Value>, backedBy backingKeyPath: KeyPath<WKWebView, Value>) -> Value {
+    func backingProperty<Value>(_ keyPath: KeyPath<WebPage_v0, Value>, backedBy backingKeyPath: KeyPath<WebPageWebView, Value>) -> Value {
         backingProperty(keyPath, backedBy: backingKeyPath) { $0 }
+    }
+}
+
+extension WebPage_v0.FullscreenState {
+    init(_ wrapped: WKWebView.FullscreenState) {
+        self = switch wrapped {
+        case .enteringFullscreen: .enteringFullscreen
+        case .exitingFullscreen: .exitingFullscreen
+        case .inFullscreen: .inFullscreen
+        case .notInFullscreen: .notInFullscreen
+        @unknown default:
+            fatalError()
+        }
     }
 }
 

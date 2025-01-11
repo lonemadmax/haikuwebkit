@@ -53,7 +53,6 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderFragmentedFlow);
-WTF_MAKE_TZONE_ALLOCATED_IMPL_TEMPLATE(FragmentIntervalTree);
 
 RenderFragmentedFlow::RenderFragmentedFlow(Type type, Document& document, RenderStyle&& style)
     : RenderBlockFlow(type, document, WTFMove(style), BlockFlowFlag::IsFragmentedFlow)
@@ -948,7 +947,7 @@ void RenderFragmentedFlow::addFragmentsVisualEffectOverflow(const RenderBox& box
     for (auto iter = m_fragmentList.find(*startFragment), end = m_fragmentList.end(); iter != end; ++iter) {
         RenderFragmentContainer& fragment = *iter;
 
-        LayoutRect borderBox = box.borderBoxRectInFragment(&fragment);
+        LayoutRect borderBox = box.borderBoxRect();
         borderBox = box.applyVisualEffectOverflow(borderBox);
         borderBox = fragment.rectFlowPortionForBox(box, borderBox);
 
@@ -968,7 +967,7 @@ void RenderFragmentedFlow::addFragmentsVisualOverflowFromTheme(const RenderBlock
     for (auto iter = m_fragmentList.find(*startFragment), end = m_fragmentList.end(); iter != end; ++iter) {
         RenderFragmentContainer& fragment = *iter;
 
-        LayoutRect borderBox = block.borderBoxRectInFragment(&fragment);
+        LayoutRect borderBox = block.borderBoxRect();
         borderBox = fragment.rectFlowPortionForBox(block, borderBox);
 
         FloatRect inflatedRect = borderBox;

@@ -94,6 +94,7 @@
 		465F34932CD824AF000963B1 /* ObjCRuntimeExtras.mm in Sources */ = {isa = PBXBuildFile; fileRef = 465F34922CD824AF000963B1 /* ObjCRuntimeExtras.mm */; };
 		466D69112BA4E433005D43F4 /* SpanCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 466D69102BA4E433005D43F4 /* SpanCocoa.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		467DCD532CD4689A0040C644 /* UnicodeExtras.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 467DCD522CD4689A0040C644 /* UnicodeExtras.cpp */; };
+		46B0FB5D2D24BFBA0012184C /* ParsingUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 46B0FB5C2D24BFBA0012184C /* ParsingUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46BEB6EB22FFE24900269867 /* RefCounted.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 46BEB6E922FFDDD500269867 /* RefCounted.cpp */; };
 		46BEB6EB22FFE24900269868 /* RefTrackerMixin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 46BEB6E922FFDDD500269868 /* RefTrackerMixin.cpp */; };
 		46CEA3FA2CC2D39B00FE325C /* SpanCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 46CEA3F92CC2D39B00FE325C /* SpanCocoa.mm */; };
@@ -220,6 +221,9 @@
 		ADF2CE671E39F106006889DB /* MemoryFootprintCocoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = ADF2CE651E39F106006889DB /* MemoryFootprintCocoa.cpp */; };
 		BC05ACA62CEA70E500750CB1 /* VariantListOperations.h in Headers */ = {isa = PBXBuildFile; fileRef = BC05ACA52CEA70E500750CB1 /* VariantListOperations.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC5267672C2726D600E422DD /* MakeString.h in Headers */ = {isa = PBXBuildFile; fileRef = BC5267662C2726D600E422DD /* MakeString.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BCE0DFA72D1865B9003F0349 /* CompactVariant.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE0DFA62D1865B9003F0349 /* CompactVariant.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BCE0DFA92D1865C4003F0349 /* CompactVariantOperations.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE0DFA82D1865C4003F0349 /* CompactVariantOperations.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BCE0DFAB2D18670B003F0349 /* VariantExtras.h in Headers */ = {isa = PBXBuildFile; fileRef = BCE0DFAA2D18670B003F0349 /* VariantExtras.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCEA08042CCFDB33000AC148 /* VariantList.h in Headers */ = {isa = PBXBuildFile; fileRef = BCEA08032CCFDB33000AC148 /* VariantList.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2BCFC401F61D13000C9222C /* Language.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BCFC3E1F61D13000C9222C /* Language.cpp */; };
 		C2BCFC421F61D61600C9222C /* LanguageCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BCFC411F61D61600C9222C /* LanguageCF.cpp */; };
@@ -848,6 +852,7 @@
 		E336674A2722551100259122 /* Int128.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E33667492722550900259122 /* Int128.cpp */; };
 		E336BD2F2BAB8A0400E8471C /* CharacterProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = E336BD2E2BAB8A0400E8471C /* CharacterProperties.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E33E83ED2C719900002FBCCD /* simdutf_impl.cpp.h in Headers */ = {isa = PBXBuildFile; fileRef = E33E83EC2C719900002FBCCD /* simdutf_impl.cpp.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E3427B2F2D1636A200919862 /* ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h in Headers */ = {isa = PBXBuildFile; fileRef = E3427B2E2D1636A200919862 /* ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E34745D32945E33700F670F2 /* simdutf_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = E34745D12945E33700F670F2 /* simdutf_impl.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E35702522C9D4CEC009292DE /* simd128.h in Headers */ = {isa = PBXBuildFile; fileRef = E35702502C9D4CEC009292DE /* simd128.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3618AB92AD8C4BA00DA7E43 /* ButterflyArray.h in Headers */ = {isa = PBXBuildFile; fileRef = E3618AB82AD8C4B900DA7E43 /* ButterflyArray.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1236,6 +1241,7 @@
 		465F34922CD824AF000963B1 /* ObjCRuntimeExtras.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ObjCRuntimeExtras.mm; sourceTree = "<group>"; };
 		466D69102BA4E433005D43F4 /* SpanCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SpanCocoa.h; sourceTree = "<group>"; };
 		467DCD522CD4689A0040C644 /* UnicodeExtras.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = UnicodeExtras.cpp; sourceTree = "<group>"; };
+		46B0FB5C2D24BFBA0012184C /* ParsingUtilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ParsingUtilities.h; sourceTree = "<group>"; };
 		46BA9EAB1F4CD61E009A2BBC /* CompletionHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CompletionHandler.h; sourceTree = "<group>"; };
 		46BEB6E922FFDDD500269867 /* RefCounted.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RefCounted.cpp; sourceTree = "<group>"; };
 		46BEB6E922FFDDD500269868 /* RefTrackerMixin.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RefTrackerMixin.cpp; sourceTree = "<group>"; };
@@ -1571,6 +1577,9 @@
 		ADF2CE651E39F106006889DB /* MemoryFootprintCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MemoryFootprintCocoa.cpp; sourceTree = "<group>"; };
 		BC05ACA52CEA70E500750CB1 /* VariantListOperations.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VariantListOperations.h; sourceTree = "<group>"; };
 		BC5267662C2726D600E422DD /* MakeString.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MakeString.h; sourceTree = "<group>"; };
+		BCE0DFA62D1865B9003F0349 /* CompactVariant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CompactVariant.h; sourceTree = "<group>"; };
+		BCE0DFA82D1865C4003F0349 /* CompactVariantOperations.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CompactVariantOperations.h; sourceTree = "<group>"; };
+		BCE0DFAA2D18670B003F0349 /* VariantExtras.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VariantExtras.h; sourceTree = "<group>"; };
 		BCEA08032CCFDB33000AC148 /* VariantList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VariantList.h; sourceTree = "<group>"; };
 		C2BCFC3E1F61D13000C9222C /* Language.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Language.cpp; sourceTree = "<group>"; };
 		C2BCFC3F1F61D13000C9222C /* Language.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Language.h; sourceTree = "<group>"; };
@@ -1837,6 +1846,7 @@
 		E339C163244B4E8700359DA9 /* DataRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataRef.h; sourceTree = "<group>"; };
 		E33D5F871FBED66700BF625E /* RecursableLambda.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RecursableLambda.h; sourceTree = "<group>"; };
 		E33E83EC2C719900002FBCCD /* simdutf_impl.cpp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = simdutf_impl.cpp.h; sourceTree = "<group>"; };
+		E3427B2E2D1636A200919862 /* ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h; sourceTree = "<group>"; };
 		E34745D12945E33700F670F2 /* simdutf_impl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = simdutf_impl.h; sourceTree = "<group>"; };
 		E34CD0D022810A020020D299 /* Packed.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Packed.h; sourceTree = "<group>"; };
 		E3538D4C276220880075DA50 /* EmbeddedFixedVector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EmbeddedFixedVector.h; sourceTree = "<group>"; };
@@ -2186,6 +2196,8 @@
 				FF895F10282AB96400E7BAE8 /* CompactRefPtr.h */,
 				E38020DB2401C0930037CA9E /* CompactRefPtrTuple.h */,
 				9B96E9B324FF77B8001756C3 /* CompactUniquePtrTuple.h */,
+				BCE0DFA62D1865B9003F0349 /* CompactVariant.h */,
+				BCE0DFA82D1865C4003F0349 /* CompactVariantOperations.h */,
 				0F8F2B8F172E00F0007DBDA5 /* CompilationThread.cpp */,
 				0F8F2B90172E00F0007DBDA5 /* CompilationThread.h */,
 				A8A47270151A825A004123FF /* Compiler.h */,
@@ -2544,6 +2556,7 @@
 				5311BD5B1EA822F900525281 /* ThreadMessage.cpp */,
 				5311BD591EA81A9600525281 /* ThreadMessage.h */,
 				A8A4733E151A825B004123FF /* ThreadSafeRefCounted.h */,
+				E3427B2E2D1636A200919862 /* ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h */,
 				7B2739DC2624DAAA0040F182 /* ThreadSafetyAnalysis.h */,
 				5C6552BF29423F85008CD0F3 /* ThreadSafeWeakHashSet.h */,
 				5CFF32562925A2EB001050F2 /* ThreadSafeWeakPtr.h */,
@@ -2582,6 +2595,7 @@
 				7AFEC6B01EB22B5900DADE36 /* UUID.cpp */,
 				7AFEC6AE1EB22AC600DADE36 /* UUID.h */,
 				A8A4736F151A825B004123FF /* ValueCheck.h */,
+				BCE0DFAA2D18670B003F0349 /* VariantExtras.h */,
 				BCEA08032CCFDB33000AC148 /* VariantList.h */,
 				BC05ACA52CEA70E500750CB1 /* VariantListOperations.h */,
 				0F95B63420CB53C100479635 /* Vector.cpp */,
@@ -2695,6 +2709,7 @@
 				BC5267662C2726D600E422DD /* MakeString.h */,
 				DD4901ED27B474D900D7E50D /* NullTextBreakIterator.h */,
 				14E785E71DFB330100209BD1 /* OrdinalNumber.h */,
+				46B0FB5C2D24BFBA0012184C /* ParsingUtilities.h */,
 				0F95B63620CB5EFD00479635 /* StringBuffer.cpp */,
 				A8A47323151A825B004123FF /* StringBuffer.h */,
 				A8A47324151A825B004123FF /* StringBuilder.cpp */,
@@ -3276,6 +3291,8 @@
 				FF895F11282AB96400E7BAE8 /* CompactRefPtr.h in Headers */,
 				DD3DC93927A4BF8E007E5B61 /* CompactRefPtrTuple.h in Headers */,
 				DD3DC93527A4BF8E007E5B61 /* CompactUniquePtrTuple.h in Headers */,
+				BCE0DFA72D1865B9003F0349 /* CompactVariant.h in Headers */,
+				BCE0DFA92D1865C4003F0349 /* CompactVariantOperations.h in Headers */,
 				DD3DC90727A4BF8E007E5B61 /* CompilationThread.h in Headers */,
 				DD3DC99927A4BF8E007E5B61 /* Compiler.h in Headers */,
 				DD3DC8A227A4BF8E007E5B61 /* CompletionHandler.h in Headers */,
@@ -3495,6 +3512,7 @@
 				DD3DC95C27A4BF8E007E5B61 /* ParallelVectorIterator.h in Headers */,
 				DD3DC99827A4BF8E007E5B61 /* ParkingLot.h in Headers */,
 				E361DB62289115D000B2A2B8 /* parse_number.h in Headers */,
+				46B0FB5D2D24BFBA0012184C /* ParsingUtilities.h in Headers */,
 				DDF3077A27C086CD006A526F /* PersistentCoders.h in Headers */,
 				DDF3074E27C086CD006A526F /* PersistentDecoder.h in Headers */,
 				DDF3078B27C086CD006A526F /* PersistentEncoder.h in Headers */,
@@ -3656,6 +3674,7 @@
 				DD3DC8E227A4BF8E007E5B61 /* ThreadingPrimitives.h in Headers */,
 				DD3DC92227A4BF8E007E5B61 /* ThreadMessage.h in Headers */,
 				DD3DC96927A4BF8E007E5B61 /* ThreadSafeRefCounted.h in Headers */,
+				E3427B2F2D1636A200919862 /* ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h in Headers */,
 				DD3DC97C27A4BF8E007E5B61 /* ThreadSafetyAnalysis.h in Headers */,
 				5C6552C029423F85008CD0F3 /* ThreadSafeWeakHashSet.h in Headers */,
 				5CFF32572925A2EC001050F2 /* ThreadSafeWeakPtr.h in Headers */,
@@ -3697,6 +3716,7 @@
 				DDF306F527C086CC006A526F /* utils.h in Headers */,
 				DD3DC8C227A4BF8E007E5B61 /* UUID.h in Headers */,
 				DD3DC86D27A4BF8E007E5B61 /* ValueCheck.h in Headers */,
+				BCE0DFAB2D18670B003F0349 /* VariantExtras.h in Headers */,
 				BCEA08042CCFDB33000AC148 /* VariantList.h in Headers */,
 				BC05ACA62CEA70E500750CB1 /* VariantListOperations.h in Headers */,
 				DD3DC90B27A4BF8E007E5B61 /* Vector.h in Headers */,

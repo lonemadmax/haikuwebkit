@@ -68,6 +68,10 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 
+#if ENABLE(MODEL_PROCESS)
+#include "ModelContext.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -298,6 +302,7 @@ void HTMLModelElement::createModelPlayer()
     m_modelPlayer->setAutoplay(autoplay());
     m_modelPlayer->setLoop(loop());
     m_modelPlayer->setPlaybackRate(m_playbackRate, [&](double) { });
+    m_modelPlayer->setHasPortal(hasPortal());
 #endif
 
     // FIXME: We need to tell the player if the size changes as well, so passing this
@@ -372,20 +377,34 @@ void HTMLModelElement::didFailLoading(ModelPlayer& modelPlayer, const ResourceEr
         m_readyPromise->reject(Exception { ExceptionCode::AbortError });
 }
 
-std::optional<PlatformLayerIdentifier> HTMLModelElement::platformLayerID()
+RefPtr<GraphicsLayer> HTMLModelElement::graphicsLayer() const
 {
     auto* page = document().page();
     if (!page)
-        return std::nullopt;
+        return nullptr;
 
     auto* renderLayerModelObject = dynamicDowncast<RenderLayerModelObject>(this->renderer());
     if (!renderLayerModelObject)
+        return nullptr;
+
+    if (!renderLayerModelObject->isComposited())
+        return nullptr;
+
+    return renderLayerModelObject->layer()->backing()->graphicsLayer();
+}
+
+std::optional<PlatformLayerIdentifier> HTMLModelElement::layerID() const
+{
+    auto graphicsLayer = this->graphicsLayer();
+    if (!graphicsLayer)
         return std::nullopt;
 
-    if (!renderLayerModelObject->isComposited() || !renderLayerModelObject->layer() || !renderLayerModelObject->layer()->backing())
-        return std::nullopt;
+    return graphicsLayer->primaryLayerID();
+}
 
-    RefPtr graphicsLayer = renderLayerModelObject->layer()->backing()->graphicsLayer();
+std::optional<PlatformLayerIdentifier> HTMLModelElement::modelContentsLayerID() const
+{
+    auto graphicsLayer = this->graphicsLayer();
     if (!graphicsLayer)
         return std::nullopt;
 
@@ -401,6 +420,19 @@ void HTMLModelElement::applyBackgroundColor(Color color)
 }
 
 #if ENABLE(MODEL_PROCESS)
+RefPtr<ModelContext> HTMLModelElement::modelContext() const
+{
+    auto modelLayerIdentifier = layerID();
+    if (!modelLayerIdentifier)
+        return nullptr;
+
+    auto modelContentsLayerHostingContextIdentifier = layerHostingContextIdentifier();
+    if (!modelContentsLayerHostingContextIdentifier)
+        return nullptr;
+
+    return ModelContext::create(*modelLayerIdentifier, *modelContentsLayerHostingContextIdentifier).ptr();
+}
+
 const DOMMatrixReadOnly& HTMLModelElement::entityTransform() const
 {
     return m_entityTransform.get();
@@ -448,7 +480,7 @@ void HTMLModelElement::didUpdateBoundingBox(ModelPlayer&, const FloatPoint3D& ce
 
 void HTMLModelElement::didFinishEnvironmentMapLoading(bool succeeded)
 {
-    if (!m_environmentMapReadyPromise->isFulfilled()) {
+    if (!m_environmentMapURL.isEmpty() && !m_environmentMapReadyPromise->isFulfilled()) {
         if (succeeded)
             m_environmentMapReadyPromise->resolve();
         else
@@ -500,6 +532,10 @@ void HTMLModelElement::attributeChanged(const QualifiedName& name, const AtomStr
         updateLoop();
     else if (name == environmentmapAttr)
         updateEnvironmentMap();
+#if PLATFORM(VISION)
+    else if (document().settings().modelNoPortalAttributeEnabled() && name == noportalAttr)
+        updateHasPortal();
+#endif
 #endif
     else
         HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
@@ -691,6 +727,21 @@ void HTMLModelElement::setCurrentTime(double currentTime)
 {
     if (m_modelPlayer)
         m_modelPlayer->setCurrentTime(Seconds(currentTime), [&]() { });
+}
+
+bool HTMLModelElement::hasPortal() const
+{
+#if PLATFORM(VISION)
+    return !(document().settings().modelNoPortalAttributeEnabled() && hasAttributeWithoutSynchronization(HTMLNames::noportalAttr));
+#else
+    return true;
+#endif
+}
+
+void HTMLModelElement::updateHasPortal()
+{
+    if (RefPtr modelPlayer = m_modelPlayer)
+        modelPlayer->setHasPortal(hasPortal());
 }
 
 const URL& HTMLModelElement::environmentMap() const

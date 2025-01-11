@@ -843,6 +843,11 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.hasBackdropFilters() != second.hasBackdropFilters())
         return true;
 
+#if HAVE(CORE_MATERIAL)
+    if (first.appleVisualEffect != second.appleVisualEffect)
+        return true;
+#endif
+
     if (first.inputSecurity != second.inputSecurity)
         return true;
 
@@ -1517,7 +1522,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         if (first.pointerEvents != second.pointerEvents)
             changingProperties.m_properties.set(CSSPropertyPointerEvents);
 
-        // Writing mode changes conversion of logical -> pysical properties.
+        // Writing mode changes conversion of logical -> physical properties.
         // Thus we need to list up all physical properties.
         if (first.writingMode != second.writingMode) {
             changingProperties.m_properties.merge(CSSProperty::physicalProperties);
@@ -1939,6 +1944,8 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyAnchorName);
         if (first.positionAnchor != second.positionAnchor)
             changingProperties.m_properties.set(CSSPropertyPositionAnchor);
+        if (first.positionTryFallbacks != second.positionTryFallbacks)
+            changingProperties.m_properties.set(CSSPropertyPositionTryFallbacks);
         if (first.positionTryOrder != second.positionTryOrder)
             changingProperties.m_properties.set(CSSPropertyPositionTryOrder);
         if (first.scrollSnapAlign != second.scrollSnapAlign)
@@ -2536,25 +2543,24 @@ void RenderStyle::setVerticalBorderSpacing(float v)
     SET_VAR(m_inheritedData, verticalBorderSpacing, v);
 }
 
-RoundedRect RenderStyle::getRoundedInnerBorderFor(const LayoutRect& borderRect, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const
+RoundedRect RenderStyle::getRoundedInnerBorderFor(const LayoutRect& borderRect, RectEdges<bool> closedEdges) const
 {
-    bool horizontal = writingMode().isHorizontal();
-    LayoutUnit leftWidth { (!horizontal || includeLogicalLeftEdge) ? borderLeftWidth() : 0 };
-    LayoutUnit rightWidth { (!horizontal || includeLogicalRightEdge) ? borderRightWidth() : 0 };
-    LayoutUnit topWidth { (horizontal || includeLogicalLeftEdge) ? borderTopWidth() : 0 };
-    LayoutUnit bottomWidth { (horizontal || includeLogicalRightEdge) ? borderBottomWidth() : 0 };
-    return getRoundedInnerBorderFor(borderRect, topWidth, bottomWidth, leftWidth, rightWidth, includeLogicalLeftEdge, includeLogicalRightEdge);
+    LayoutUnit leftWidth { closedEdges.left() ? borderLeftWidth() : 0 };
+    LayoutUnit rightWidth { closedEdges.right() ? borderRightWidth() : 0 };
+    LayoutUnit topWidth { closedEdges.top() ? borderTopWidth() : 0 };
+    LayoutUnit bottomWidth { closedEdges.bottom() ? borderBottomWidth() : 0 };
+    return getRoundedInnerBorderFor(borderRect, topWidth, bottomWidth, leftWidth, rightWidth, closedEdges);
 }
 
 RoundedRect RenderStyle::getRoundedInnerBorderFor(const LayoutRect& borderRect, LayoutUnit topWidth, LayoutUnit bottomWidth,
-    LayoutUnit leftWidth, LayoutUnit rightWidth, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const
+    LayoutUnit leftWidth, LayoutUnit rightWidth, RectEdges<bool> closedEdges) const
 {
     auto radii = hasBorderRadius() ? std::make_optional(m_nonInheritedData->surroundData->border.m_radii) : std::nullopt;
-    return getRoundedInnerBorderFor(borderRect, topWidth, bottomWidth, leftWidth, rightWidth, radii, writingMode().isHorizontal(), includeLogicalLeftEdge, includeLogicalRightEdge);
+    return getRoundedInnerBorderFor(borderRect, topWidth, bottomWidth, leftWidth, rightWidth, radii, closedEdges);
 }
 
 RoundedRect RenderStyle::getRoundedInnerBorderFor(const LayoutRect& borderRect, LayoutUnit topWidth, LayoutUnit bottomWidth,
-    LayoutUnit leftWidth, LayoutUnit rightWidth, std::optional<BorderData::Radii> radii, bool isHorizontalWritingMode, bool includeLogicalLeftEdge, bool includeLogicalRightEdge)
+    LayoutUnit leftWidth, LayoutUnit rightWidth, std::optional<BorderData::Radii> radii, RectEdges<bool> closedEdges)
 {
     auto width = std::max(0_lu, borderRect.width() - leftWidth - rightWidth);
     auto height = std::max(0_lu, borderRect.height() - topWidth - bottomWidth);
@@ -2568,7 +2574,7 @@ RoundedRect RenderStyle::getRoundedInnerBorderFor(const LayoutRect& borderRect, 
         auto adjustedRadii = calcRadiiFor(*radii, borderRect.size());
         adjustedRadii.scale(calcBorderRadiiConstraintScaleFor(borderRect, adjustedRadii));
         adjustedRadii.shrink(topWidth, bottomWidth, leftWidth, rightWidth);
-        roundedRect.includeLogicalEdges(adjustedRadii, isHorizontalWritingMode, includeLogicalLeftEdge, includeLogicalRightEdge);
+        roundedRect.setRadiiForEdges(adjustedRadii, closedEdges);
     }
     if (!roundedRect.isRenderable())
         roundedRect.adjustRadii();
@@ -2997,13 +3003,11 @@ void RenderStyle::getShadowVerticalExtent(const ShadowData* shadow, LayoutUnit& 
     }
 }
 
-Style::Color RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty, bool visitedLink) const
+const Style::Color& RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty, bool visitedLink) const
 {
     switch (colorProperty) {
     case CSSPropertyAccentColor:
         return accentColor();
-    case CSSPropertyColor:
-        return visitedLink ? visitedLinkColor() : color();
     case CSSPropertyBackgroundColor:
         return visitedLink ? visitedLinkBackgroundColor() : backgroundColor();
     case CSSPropertyBorderBottomColor:
@@ -3050,13 +3054,16 @@ Style::Color RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty
         break;
     }
 
-    return { };
+    static NeverDestroyed<Style::Color> defaultColor { };
+    return defaultColor;
 }
 
 Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool visitedLink) const
 {
-    auto result = unresolvedColorForProperty(colorProperty, visitedLink);
+    if (colorProperty == CSSPropertyColor)
+        return visitedLink ? visitedLinkColor() : color();
 
+    auto& result = unresolvedColorForProperty(colorProperty, visitedLink);
     if (result.isCurrentColor()) {
         if (colorProperty == CSSPropertyTextDecorationColor) {
             if (hasPositiveStrokeWidth()) {
@@ -3565,21 +3572,6 @@ bool RenderStyle::customPropertiesEqual(const RenderStyle& other) const
         && m_rareInheritedData->customProperties == other.m_rareInheritedData->customProperties;
 }
 
-FieldSizing RenderStyle::fieldSizing() const
-{
-    return m_nonInheritedData->rareData->fieldSizing;
-}
-
-FieldSizing RenderStyle::initialFieldSizing()
-{
-    return FieldSizing::Fixed;
-}
-
-void RenderStyle::setFieldSizing(const FieldSizing sizing)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, fieldSizing, sizing);
-}
-
 const LengthBox& RenderStyle::scrollMargin() const
 {
     return m_nonInheritedData->rareData->scrollMargin;
@@ -3690,11 +3682,6 @@ ScrollbarGutter RenderStyle::initialScrollbarGutter()
     return { };
 }
 
-ScrollbarWidth RenderStyle::initialScrollbarWidth()
-{
-    return ScrollbarWidth::Auto;
-}
-
 ScrollSnapType RenderStyle::scrollSnapType() const
 {
     return m_nonInheritedData->rareData->scrollSnapType;
@@ -3715,11 +3702,6 @@ ScrollbarGutter RenderStyle::scrollbarGutter() const
     return m_nonInheritedData->rareData->scrollbarGutter;
 }
 
-ScrollbarWidth RenderStyle::scrollbarWidth() const
-{
-    return m_nonInheritedData->rareData->scrollbarWidth;
-}
-
 void RenderStyle::setScrollSnapType(ScrollSnapType type)
 {
     SET_NESTED_VAR(m_nonInheritedData, rareData, scrollSnapType, type);
@@ -3738,11 +3720,6 @@ void RenderStyle::setScrollSnapStop(ScrollSnapStop stop)
 void RenderStyle::setScrollbarGutter(const ScrollbarGutter gutter)
 {
     SET_NESTED_VAR(m_nonInheritedData, rareData, scrollbarGutter, gutter);
-}
-
-void RenderStyle::setScrollbarWidth(const ScrollbarWidth width)
-{
-    SET_NESTED_VAR(m_nonInheritedData, rareData, scrollbarWidth, width);
 }
 
 bool RenderStyle::hasSnapPosition() const

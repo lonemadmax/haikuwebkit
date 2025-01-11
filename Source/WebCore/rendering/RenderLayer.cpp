@@ -560,6 +560,9 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || renderer.hasFilter()
         || renderer.hasMask()
         || renderer.hasBackdropFilter()
+#if HAVE(CORE_MATERIAL)
+        || renderer.hasAppleVisualEffect()
+#endif
         || renderer.hasBlendMode()
         || renderer.isTransparent()
         || renderer.requiresRenderingConsolidationForViewTransition()
@@ -604,6 +607,9 @@ bool RenderLayer::computeCanBeBackdropRoot() const
     return isRenderViewLayer()
         || renderer().isTransparent()
         || renderer().hasBackdropFilter()
+#if HAVE(CORE_MATERIAL)
+        || renderer().hasAppleVisualEffect()
+#endif
         || renderer().hasClipPath()
         || renderer().hasFilter()
         || renderer().hasBlendMode()
@@ -1055,7 +1061,7 @@ void RenderLayer::updateLayerPositionsAfterStyleChange(bool environmentChanged)
         setSelfAndDescendantsNeedPositionUpdate();
 
     willUpdateLayerPositions();
-    recursiveUpdateLayerPositions(0, updateLayerPositionFlags(environmentChanged));
+    recursiveUpdateLayerPositions(updateLayerPositionFlags(environmentChanged));
 
     LOG(Compositing, "RenderLayer %p updateLayerPositionsAfterStyleChange - after", this);
 #if ENABLE(TREE_DEBUGGING)
@@ -1070,7 +1076,7 @@ uint32_t gVerifyPositionsCount = 0;
 uint32_t gVisitedPositionsCount = 0;
 #endif
 
-void RenderLayer::updateLayerPositionsAfterLayout(RenderElement::LayoutIdentifier layoutIdentifier, bool didFullRepaint, bool environmentChanged, CanUseSimplifiedRepaintPass canUseSimplifiedRepaintPass)
+void RenderLayer::updateLayerPositionsAfterLayout(bool didFullRepaint, bool environmentChanged)
 {
     ASSERT(isRenderViewLayer());
 
@@ -1102,7 +1108,7 @@ void RenderLayer::updateLayerPositionsAfterLayout(RenderElement::LayoutIdentifie
 
     willUpdateLayerPositions();
 
-    recursiveUpdateLayerPositions(layoutIdentifier, updateLayerPositionFlags(didFullRepaint, environmentChanged), canUseSimplifiedRepaintPass);
+    recursiveUpdateLayerPositions(updateLayerPositionFlags(didFullRepaint, environmentChanged));
 
     LOG(Compositing, "RenderLayer %p updateLayerPositionsAfterLayout - after", this);
 #if ASSERT_ENABLED
@@ -1138,7 +1144,7 @@ bool RenderLayer::ancestorLayerPositionStateChanged(OptionSet<UpdateLayerPositio
 #endif
 
 template<RenderLayer::UpdateLayerPositionsMode mode>
-void RenderLayer::recursiveUpdateLayerPositions(RenderElement::LayoutIdentifier layoutIdentifier, OptionSet<UpdateLayerPositionsFlag> flags, CanUseSimplifiedRepaintPass canUseSimplifiedRepaintPass)
+void RenderLayer::recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFlag> flags)
 {
 #if ASSERT_ENABLED
     if (mode == Write)
@@ -1150,7 +1156,7 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderElement::LayoutIdentifier 
 
     if (mode == Write && !needsPositionUpdate() && !flags.containsAny(invalidationLayerPositionsFlags())) {
 #if LAYER_POSITIONS_ASSERT_ENABLED
-        recursiveUpdateLayerPositions<Verify>(layoutIdentifier, flags, canUseSimplifiedRepaintPass);
+        recursiveUpdateLayerPositions<Verify>(flags);
 #endif
         return;
     }
@@ -1242,35 +1248,6 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderElement::LayoutIdentifier 
             return;
         }
 
-        auto mayNeedRepaintRectUpdate = [&] {
-            if (canUseSimplifiedRepaintPass == CanUseSimplifiedRepaintPass::No)
-                return true;
-            if (m_isSimplifiedLayoutRoot) {
-                // Disable optimization for normal flow subtree(s) while running simplified repaint (initiated by simplified layout).
-                m_isSimplifiedLayoutRoot = false;
-                canUseSimplifiedRepaintPass = CanUseSimplifiedRepaintPass::No;
-                return true;
-            }
-            if (!renderer().didVisitSinceLayout(layoutIdentifier))
-                return false;
-            if (auto* renderBox = this->renderBox(); renderBox && renderBox->hasRenderOverflow() && renderBox->hasTransformRelatedProperty()) {
-                // Disable optimization for subtree when dealing with overflow as RenderLayer is not sized to enclose overflow.
-                // FIXME: This should check if transform related property has changed.
-                canUseSimplifiedRepaintPass = CanUseSimplifiedRepaintPass::No;
-            }
-            return true;
-        };
-        if (!mayNeedRepaintRectUpdate()) {
-#if LAYER_POSITIONS_ASSERT_ENABLED
-            // With this optimization, it's possible for the repaint container to have changed
-            // (and thus the repaint rects), but we expect RenderLayerCompositor to already have
-            // issued the right repaint requests. We can just write here to stop the verification
-            // getting confused.
-            computeRepaintRects(renderer().containerForRepaint().renderer.get());
-#endif
-            return;
-        }
-
         // FIXME: Paint offset cache does not work with RenderLayers as there is not a 1-to-1
         // mapping between them and the RenderObjects. It would be neat to enable
         // LayoutState outside the layout() phase and use it here.
@@ -1336,11 +1313,11 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderElement::LayoutIdentifier 
 
     if (flags.containsAny(invalidationLayerPositionsFlags()) || m_layerPositionDirtyBits.contains(LayerPositionUpdates::DescendantNeedsPositionUpdate)) {
         for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
-            child->recursiveUpdateLayerPositions<mode>(layoutIdentifier, flags, canUseSimplifiedRepaintPass);
+            child->recursiveUpdateLayerPositions<mode>(flags);
     } else {
 #if LAYER_POSITIONS_ASSERT_ENABLED
         for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
-            child->recursiveUpdateLayerPositions<Verify>(layoutIdentifier, flags, canUseSimplifiedRepaintPass);
+            child->recursiveUpdateLayerPositions<Verify>(flags);
 #endif
     }
 
@@ -3023,6 +3000,9 @@ String RenderLayer::debugDescription() const
         transform() ? " has transform"_s : ""_s,
         hasFilter() ? " has filter"_s : ""_s,
         hasBackdropFilter() ? " has backdrop filter"_s : ""_s,
+#if HAVE(CORE_MATERIAL)
+        hasAppleVisualEffect() ? " has apple visual effect"_s : ""_s,
+#endif
         hasBlendMode() ? " has blend mode"_s : ""_s,
         isolatesBlending() ? " isolates blending"_s : ""_s,
         compositedDescription);
@@ -5057,7 +5037,7 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
             offset -= toLayoutSize(renderer().view().frameView().scrollPositionForFixedPosition());
 
         if (renderer().hasNonVisibleOverflow()) {
-            ClipRect newOverflowClip = rendererOverflowClipRectForChildLayers({ }, nullptr, clipRectsContext.overlayScrollbarSizeRelevancy());
+            ClipRect newOverflowClip = rendererOverflowClipRectForChildLayers({ }, clipRectsContext.overlayScrollbarSizeRelevancy());
             if (needsTransform)
                 newOverflowClip = LayoutRect(renderer().localToContainerQuad(FloatRect(newOverflowClip.rect()), &clipRectsContext.rootLayer->renderer()).boundingBox());
             newOverflowClip.moveBy(offset);
@@ -5070,7 +5050,7 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
         }
         if (renderer().hasClip()) {
             if (CheckedPtr box = dynamicDowncast<RenderBox>(renderer())) {
-                LayoutRect newPosClip = box->clipRect({ }, nullptr);
+                LayoutRect newPosClip = box->clipRect({ });
                 if (needsTransform)
                     newPosClip = LayoutRect(renderer().localToContainerQuad(FloatRect(newPosClip), &clipRectsContext.rootLayer->renderer()).boundingBox());
                 newPosClip.moveBy(offset);
@@ -5153,7 +5133,7 @@ void RenderLayer::calculateRects(const ClipRectsContext& clipRectsContext, const
         // This layer establishes a clip of some kind.
         if (renderer().hasNonVisibleOverflow()) {
             if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip()) {
-                LayoutRect overflowClipRect = rendererOverflowClipRect(toLayoutPoint(offsetFromRootLocal), nullptr, clipRectsContext.overlayScrollbarSizeRelevancy());
+                LayoutRect overflowClipRect = rendererOverflowClipRect(toLayoutPoint(offsetFromRootLocal), clipRectsContext.overlayScrollbarSizeRelevancy());
                 foregroundRect.intersect(overflowClipRect);
                 foregroundRect.setAffectedByRadius(true);
             } else if (transform() && renderer().style().hasBorderRadius())
@@ -5163,7 +5143,7 @@ void RenderLayer::calculateRects(const ClipRectsContext& clipRectsContext, const
         if (renderer().hasClip()) {
             if (CheckedPtr box = dynamicDowncast<RenderBox>(renderer())) {
                 // Clip applies to *us* as well, so update the damageRect.
-                LayoutRect newPosClip = box->clipRect(toLayoutPoint(offsetFromRootLocal), nullptr);
+                LayoutRect newPosClip = box->clipRect(toLayoutPoint(offsetFromRootLocal));
                 backgroundRect.intersect(newPosClip);
                 foregroundRect.intersect(newPosClip);
             }
@@ -5182,7 +5162,7 @@ void RenderLayer::calculateRects(const ClipRectsContext& clipRectsContext, const
                 backgroundRect.intersect(layerBoundsWithVisualOverflow);
         } else {
             // Shift the bounds to be for our region only.
-            LayoutRect bounds = rendererBorderBoxRectInFragment(nullptr);
+            LayoutRect bounds = rendererBorderBoxRect();
 
             bounds.move(offsetFromRootLocal);
             if (this != clipRectsContext.rootLayer || clipRectsContext.respectOverflowClip())
@@ -5243,7 +5223,7 @@ LayoutRect RenderLayer::localClipRect(bool& clipExceedsBounds, LocalClipRectMode
     if (renderer().hasClip()) {
         if (CheckedPtr box = dynamicDowncast<RenderBox>(renderer())) {
             // CSS clip may be larger than our border box.
-            LayoutRect cssClipRect = box->clipRect({ }, nullptr);
+            LayoutRect cssClipRect = box->clipRect({ });
             clipExceedsBounds = !cssClipRect.isEmpty() && (clipRect.width() < cssClipRect.width() || clipRect.height() < cssClipRect.height());
         }
     }
@@ -5276,9 +5256,9 @@ void RenderLayer::repaintBlockSelectionGaps()
     if (m_scrollableArea)
         rect.moveBy(-m_scrollableArea->scrollPosition());
     if (renderer().hasNonVisibleOverflow() && !usesCompositedScrolling())
-        rect.intersect(downcast<RenderBox>(renderer()).overflowClipRect(LayoutPoint(), nullptr)); // FIXME: Regions not accounted for.
+        rect.intersect(downcast<RenderBox>(renderer()).overflowClipRect({ }));
     if (renderer().hasClip())
-        rect.intersect(downcast<RenderBox>(renderer()).clipRect(LayoutPoint(), nullptr)); // FIXME: Regions not accounted for.
+        rect.intersect(downcast<RenderBox>(renderer()).clipRect({ }));
     if (!rect.isEmpty())
         renderer().repaintRectangle(rect);
 }

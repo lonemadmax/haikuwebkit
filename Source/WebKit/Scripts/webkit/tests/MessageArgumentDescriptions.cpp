@@ -152,6 +152,7 @@
 #include <WebCore/ServiceWorkerTypes.h>
 #include <WebCore/SharedWorkerIdentifier.h>
 #include <WebCore/SleepDisablerIdentifier.h>
+#include <WebCore/SnapshotIdentifier.h>
 #include <WebCore/SpeechRecognitionConnectionClientIdentifier.h>
 #include <WebCore/TextCheckingRequestIdentifier.h>
 #include <WebCore/TextManipulationItemIdentifier.h>
@@ -543,6 +544,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
 #if PLATFORM(COCOA)
     static_assert(sizeof(uint64_t) == sizeof(WebCore::AttributedStringTextTableID));
 #endif
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::BackForwardFrameItemIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::BackForwardItemIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::BackgroundFetchRecordIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::BroadcastChannelIdentifier));
@@ -587,6 +589,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SharedWorkerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SharedWorkerObjectIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SleepDisablerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::SnapshotIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SpeechRecognitionConnectionClientIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextCheckingRequestIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextManipulationItemIdentifier));
@@ -596,6 +599,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebCore::UserMediaRequestIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::WebLockIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::WebSocketIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::WebTransportStreamIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::WindowIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::AuthenticationChallengeIdentifier));
@@ -680,7 +684,6 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebGPUIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebPageProxyIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebTransportSessionIdentifier));
-    static_assert(sizeof(uint64_t) == sizeof(WebKit::WebTransportStreamIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebURLSchemeHandlerIdentifier));
     return {
         "IPC::AsyncReplyID"_s,
@@ -693,6 +696,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
 #if PLATFORM(COCOA)
         "WebCore::AttributedStringTextTableID"_s,
 #endif
+        "WebCore::BackForwardFrameItemIdentifierID"_s,
         "WebCore::BackForwardItemIdentifierID"_s,
         "WebCore::BackgroundFetchRecordIdentifier"_s,
         "WebCore::BroadcastChannelIdentifier"_s,
@@ -737,6 +741,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebCore::SharedWorkerIdentifier"_s,
         "WebCore::SharedWorkerObjectIdentifierID"_s,
         "WebCore::SleepDisablerIdentifier"_s,
+        "WebCore::SnapshotIdentifier"_s,
         "WebCore::SpeechRecognitionConnectionClientIdentifier"_s,
         "WebCore::TextCheckingRequestIdentifier"_s,
         "WebCore::TextManipulationItemIdentifier"_s,
@@ -746,6 +751,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebCore::UserMediaRequestIdentifier"_s,
         "WebCore::WebLockIdentifierID"_s,
         "WebCore::WebSocketIdentifier"_s,
+        "WebCore::WebTransportStreamIdentifier"_s,
         "WebCore::WindowIdentifier"_s,
         "WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier"_s,
         "WebKit::AuthenticationChallengeIdentifier"_s,
@@ -830,7 +836,6 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebKit::WebGPUIdentifier"_s,
         "WebKit::WebPageProxyIdentifier"_s,
         "WebKit::WebTransportSessionIdentifier"_s,
-        "WebKit::WebTransportStreamIdentifier"_s,
         "WebKit::WebURLSchemeHandlerIdentifier"_s,
     };
 }

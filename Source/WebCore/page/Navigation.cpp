@@ -117,7 +117,7 @@ void Navigation::initializeForNewWindow(std::optional<NavigationNavigationType> 
     if (!page)
         return;
 
-    RefPtr currentItem = frame()->history().currentItem();
+    RefPtr currentItem = frame()->loader().history().currentItem();
     if (!currentItem)
         return;
     // For main frames we can still rely on the page b/f list. However for subframes we need below logic to not lose the bookkeeping done in the previous window.
@@ -139,7 +139,7 @@ void Navigation::initializeForNewWindow(std::optional<NavigationNavigationType> 
             if (navigationType == NavigationNavigationType::Traverse) {
                 m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, *currentItem);
                 if (m_currentEntryIndex) {
-                    updateForActivation(frame()->history().previousItem(), navigationType);
+                    updateForActivation(frame()->loader().history().previousItem(), navigationType);
                     return;
                 }
                 // We are doing a cross document subframe traversal, we can't rely on previous window, so clear
@@ -195,7 +195,7 @@ void Navigation::initializeForNewWindow(std::optional<NavigationNavigationType> 
         m_entries.append(NavigationHistoryEntry::create(*this, WTFMove(item)));
 
     m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, *currentItem, start);
-    updateForActivation(frame()->history().previousItem(), navigationType);
+    updateForActivation(frame()->loader().history().previousItem(), navigationType);
 }
 
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-activation
@@ -242,7 +242,7 @@ RefPtr<NavigationActivation> Navigation::createForPageswapEvent(HistoryItem* new
     RefPtr<NavigationHistoryEntry> oldEntry;
     if (frame()->document() && frame()->document()->settings().navigationAPIEnabled())
         oldEntry = currentEntry();
-    else if (RefPtr currentItem = frame()->checkedHistory()->currentItem())
+    else if (RefPtr currentItem = frame()->loader().checkedHistory()->currentItem())
         oldEntry = NavigationHistoryEntry::create(*this, *currentItem);
 
     RefPtr<NavigationHistoryEntry> newEntry;
@@ -435,6 +435,7 @@ Navigation::Result Navigation::navigate(const String& url, NavigateOptions&& opt
 
     auto request = FrameLoadRequest(*frame(), newURL);
     request.setNavigationHistoryBehavior(options.history);
+    request.setIsFromNavigationAPI(true);
     frame()->loader().loadFrameRequest(WTFMove(request), nullptr, { });
 
     // If the load() call never made it to the point that NavigateEvent was emitted, thus promoteUpcomingAPIMethodTracker() called, this will be true.
@@ -581,6 +582,23 @@ void Navigation::rejectFinishedPromise(NavigationAPIMethodTracker* apiMethodTrac
     cleanupAPIMethodTracker(apiMethodTracker);
 }
 
+void Navigation::rejectFinishedPromise(NavigationAPIMethodTracker* apiMethodTracker)
+{
+    if (!apiMethodTracker)
+        return;
+
+    auto* globalObject = scriptExecutionContext()->globalObject();
+    if (!globalObject && apiMethodTracker)
+        globalObject = apiMethodTracker->committedPromise->globalObject();
+    if (!globalObject)
+        return;
+
+    JSC::JSLockHolder locker(globalObject->vm());
+    auto exception = Exception(ExceptionCode::AbortError, "Navigation aborted"_s);
+    auto domException = createDOMException(*globalObject, exception.isolatedCopy());
+    rejectFinishedPromise(apiMethodTracker, exception, domException);
+}
+
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#notify-about-the-committed-to-entry
 void Navigation::notifyCommittedToEntry(NavigationAPIMethodTracker* apiMethodTracker, NavigationHistoryEntry* entry, NavigationNavigationType navigationType)
 {
@@ -725,9 +743,20 @@ void Navigation::cleanupAPIMethodTracker(NavigationAPIMethodTracker* apiMethodTr
     }
 }
 
+auto Navigation::registerAbortHandler() -> Ref<AbortHandler>
+{
+    Ref abortHandler = AbortHandler::create();
+    m_abortHandlers.add(abortHandler.get());
+    return abortHandler;
+}
+
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#abort-the-ongoing-navigation
 void Navigation::abortOngoingNavigation(NavigateEvent& event)
 {
+    m_abortHandlers.forEach([](auto& abortHandler) {
+        abortHandler.markAsAborted();
+    });
+
     auto* globalObject = scriptExecutionContext()->globalObject();
     if (!globalObject && m_ongoingAPIMethodTracker)
         globalObject = m_ongoingAPIMethodTracker->committedPromise->globalObject();
@@ -1029,7 +1058,7 @@ Navigation::DispatchResult Navigation::innerDispatchNavigateEvent(NavigationNavi
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#fire-a-traverse-navigate-event
 Navigation::DispatchResult Navigation::dispatchTraversalNavigateEvent(HistoryItem& historyItem)
 {
-    auto* currentItem = frame() ? frame()->history().currentItem() : nullptr;
+    auto* currentItem = frame() ? frame()->loader().history().currentItem() : nullptr;
     bool isSameDocument = currentItem && currentItem->documentSequenceNumber() == historyItem.documentSequenceNumber();
 
     RefPtr<NavigationHistoryEntry> destinationEntry;

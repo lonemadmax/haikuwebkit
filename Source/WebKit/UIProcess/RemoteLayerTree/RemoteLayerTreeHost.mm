@@ -47,11 +47,16 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
-#import <pal/cocoa/QuartzCoreSoftLink.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIView.h>
+#if ENABLE(MODEL_PROCESS)
+#import "ModelPresentationManagerProxy.h"
 #endif
+#endif
+
+#import <pal/cocoa/CoreMaterialSoftLink.h>
+#import <pal/cocoa/QuartzCoreSoftLink.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -303,6 +308,14 @@ void RemoteLayerTreeHost::layerWillBeRemoved(WebCore::ProcessIdentifier processI
         m_videoLayers.remove(videoLayerIter);
     }
 #endif
+
+#if PLATFORM(IOS_FAMILY) && ENABLE(MODEL_PROCESS)
+    if (m_modelLayers.contains(layerID)) {
+        if (auto modelPresentationManager = m_drawingArea->page() ? m_drawingArea->page()->modelPresentationManagerProxy() : nullptr)
+            modelPresentationManager->invalidateModel(layerID);
+        m_modelLayers.remove(layerID);
+    }
+#endif
 }
 
 void RemoteLayerTreeHost::animationDidStart(std::optional<WebCore::PlatformLayerIdentifier> layerID, CAAnimation *animation, MonotonicTime startTime)
@@ -440,6 +453,12 @@ RefPtr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteLayerTreeT
 
     case PlatformCALayer::LayerType::LayerTypeBackdropLayer:
         return makeWithLayer(adoptNS([[CABackdropLayer alloc] init]));
+
+#if HAVE(CORE_MATERIAL)
+    case PlatformCALayer::LayerType::LayerTypeMaterialLayer:
+        return makeWithLayer(adoptNS([PAL::allocMTMaterialLayerInstance() init]));
+#endif
+
     case PlatformCALayer::LayerType::LayerTypeCustom:
     case PlatformCALayer::LayerType::LayerTypeAVPlayerLayer:
         if (m_isDebugLayerTreeHost)

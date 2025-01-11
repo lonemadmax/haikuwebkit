@@ -824,6 +824,8 @@ http/tests/storageAccess/deny-with-prompt-does-not-preserve-gesture.html [ Skip 
 
 # Enable on appropriate platforms: rdar://140222322
 http/tests/storageAccess/grant-with-prompt-under-general-third-party-cookie-blocking-with-partitioned-cookies.https.html [ Skip ]
+http/tests/resourceLoadStatistics/only-partitioned-third-party-cookies.https.html [ Skip ]
+http/tests/resourceLoadStatistics/only-partitioned-cookies-after-redirect.https.html [ Skip ]
 
 # Enable again when fixing https://bugs.webkit.org/show_bug.cgi?id=208400.
 http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.https.html [ Skip ]
@@ -1872,9 +1874,6 @@ tiled-drawing/tile-size-slow-zoomed.html [ Pass Failure ]
 # webkit.org/b/280989 [ Sequoia wk2 x86_64 ] webanimations/frame-rate/document-timeline-maximum-frame-rate.html is a constant failure 
 [ Sequoia x86_64 ] webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Failure ]
 
-# webkit.org/b/281090 REGRESSION(284131@main?):[ macOS wk2 x86_64  ] http/tests/site-isolation/selection-focus.html is a constant ImageOnlyFailure 
-[ x86_64 ] http/tests/site-isolation/selection-focus.html [ ImageOnlyFailure ]
-
 # webkit.org/b/281267 [ macOS wk2 ] imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html is a flaky failure.
 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html [ Pass Failure ]
 
@@ -1883,12 +1882,6 @@ imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-
 
 webkit.org/b/281531 [ Sequoia+ ] accessibility/mac/basic-embed-pdf-accessibility.html [ Timeout ]
 webkit.org/b/281531 [ Sequoia+ ] accessibility/mac/iframe-pdf.html [ Timeout ]
-
-# webkit.org/b/277908 NEW TEST (284866@main): [ macOS iOS ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html is a flaky failure.
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html [ Pass Failure ]
-
-# webkit.org/b/281939 [Sequoia] svg/stroke/non-scaling-stroke-gradient-text.html is a constant image failure
-[ Sequoia ] svg/stroke/non-scaling-stroke-gradient-text.html [ ImageOnlyFailure ]
 
 # webkit.org/b/282046 REGRESSION(285592@main): [ macOS iOS wk2 ] http/tests/site-isolation/l oad-event.html are near constant failures.
 http/tests/site-isolation/load-event.html [ Pass Failure ]
@@ -1903,23 +1896,6 @@ media/remote-control-command-is-user-gesture.html [ Timeout ]
 [ Sequoia+ x86_64 ] http/tests/swipe/swipe-back-with-outstanding-load-cancellation.html [ Timeout ]
 [ Sequoia+ x86_64 ] swipe/navigate-event-back-swipe-verify-ua-transition.html [ Timeout ]
 [ Sequoia+ x86_64 ] swipe/pushState-back-swipe-verify-ua-transition.html [ Timeout ]
-
-# webkit.org/b/282128 REGRESSION(285688@main?): [ macOS iOS wk2 ] 15x imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/* are near constant failures.
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/fetch.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/img-tag.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/sharedworker-classic.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/sharedworker-module.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/worklet-audio-import-data.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/worklet-audio.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/fetch.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/img-tag.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/sharedworker-classic.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/sharedworker-module.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/worklet-audio-import-data.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/worklet-audio.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/xhr.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/worker-classic-data.meta/unset/fetch.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/worker-module-data.meta/unset/fetch.https.html [ Pass Failure ]
 
 # webkit.org/b/282477 [macOS wk2 Debug ] fast/events/drag-and-drop-autoscroll-inner-frame.html is flaky failure (failure in EWS)
 fast/events/drag-and-drop-autoscroll-inner-frame.html [ Pass Failure ]
@@ -1965,3 +1941,5 @@ webkit.org/b/232282 [ Ventura+ ] fast/scrolling/mac/scrollbars/overlay-scrollbar
 # webkit.org/b/284853 REGRESSION(287869@main?): [macOS Debug wk2] ASSERTION FAILED: WebCore::MediaRecorderPrivateEncoder::interleaveAndEnqueueNextFrame() in http/wpt/mediarecorder tests (flaky in EWS)
 [ Debug ] http/wpt/mediarecorder/MediaRecorder-video-bitrate.html [ Skip ]
 [ Debug ] http/wpt/mediarecorder/pause-recording.html [ Skip ]
+
+webkit.org/b/285033 [ Ventura+ ] http/tests/download/sandboxed-iframe-download-not-allowed.html [ Pass Failure ]

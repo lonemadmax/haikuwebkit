@@ -45,8 +45,6 @@
 #include <arm_neon.h>
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(BiquadDSPKernel);
@@ -199,22 +197,22 @@ void BiquadDSPKernel::updateCoefficients(size_t numberOfFrames, std::span<const 
     updateTailTime(numberOfFrames - 1);
 }
 
-void BiquadDSPKernel::process(const float* source, float* destination, size_t framesToProcess)
+void BiquadDSPKernel::process(std::span<const float> source, std::span<float> destination)
 {
-    ASSERT(source && destination && biquadProcessor());
+    ASSERT(source.data() && destination.data() && biquadProcessor());
     
     // Recompute filter coefficients if any of the parameters have changed.
     // FIXME: as an optimization, implement a way that a Biquad object can simply copy its internal filter coefficients from another Biquad object.
     // Then re-factor this code to only run for the first BiquadDSPKernel of each BiquadProcessor.
 
-    updateCoefficientsIfNecessary(framesToProcess);
+    updateCoefficientsIfNecessary(source.size());
 
-    m_biquad.process(source, destination, framesToProcess);
+    m_biquad.process(source, destination);
 }
 
-void BiquadDSPKernel::getFrequencyResponse(unsigned nFrequencies, const float* frequencyHz, float* magResponse, float* phaseResponse)
+void BiquadDSPKernel::getFrequencyResponse(unsigned nFrequencies, std::span<const float> frequencyHz, std::span<float> magResponse, std::span<float> phaseResponse)
 {
-    bool isGood = nFrequencies > 0 && frequencyHz && magResponse && phaseResponse;
+    bool isGood = nFrequencies > 0 && frequencyHz.data() && magResponse.data() && phaseResponse.data();
     ASSERT(isGood);
     if (!isGood)
         return;
@@ -228,7 +226,7 @@ void BiquadDSPKernel::getFrequencyResponse(unsigned nFrequencies, const float* f
     for (unsigned k = 0; k < nFrequencies; ++k)
         frequency[k] = frequencyHz[k] / nyquist;
 
-    m_biquad.getFrequencyResponse(nFrequencies, frequency.data(), magResponse, phaseResponse);
+    m_biquad.getFrequencyResponse(nFrequencies, frequency.span(), magResponse, phaseResponse);
 }
 
 double BiquadDSPKernel::tailTime() const
@@ -267,7 +265,5 @@ bool BiquadDSPKernel::requiresTailProcessing() const
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEB_AUDIO)

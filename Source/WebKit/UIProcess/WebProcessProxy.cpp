@@ -641,7 +641,7 @@ bool WebProcessProxy::shouldSendPendingMessage(const PendingMessage& message)
             weakThis->send(Messages::WebPage::GoToBackForwardItem(WTFMove(*parameters)), destinationID);
         };
         if (RefPtr page = WebProcessProxy::webPage(*pageID)) {
-            if (RefPtr item = WebBackForwardListItem::itemForID(*frameState->identifier))
+            if (RefPtr item = WebBackForwardListItem::itemForID(*frameState->itemID))
                 page->maybeInitializeSandboxExtensionHandle(static_cast<WebProcessProxy&>(*this), URL { item->url() }, item->resourceDirectoryURL(), true, WTFMove(completionHandler));
         } else
             completionHandler(std::nullopt);
@@ -856,7 +856,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
 
     updateRegistrationWithDataStore();
     updateBackgroundResponsivenessTimer();
-    protectedWebsiteDataStore()->propagateSettingUpdatesToNetworkProcess();
+    protectedWebsiteDataStore()->propagateSettingUpdates();
 
     // If this was previously a standalone worker process with no pages we need to call didChangeThrottleState()
     // to update our process assertions on the network process since standalone worker processes do not hold
@@ -899,7 +899,7 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     updateAudibleMediaAssertions();
     updateMediaStreamingActivity();
     updateBackgroundResponsivenessTimer();
-    protectedWebsiteDataStore()->propagateSettingUpdatesToNetworkProcess();
+    protectedWebsiteDataStore()->propagateSettingUpdates();
 
     maybeShutDown();
 }
@@ -1099,50 +1099,6 @@ bool WebProcessProxy::shouldDisableJITCage() const
     return false;
 }
 #endif // !PLATFORM(COCOA)
-
-bool WebProcessProxy::hasProvisionalPageWithID(WebPageProxyIdentifier pageID) const
-{
-    for (Ref provisionalPage : m_provisionalPages) {
-        if (provisionalPage->page() && provisionalPage->page()->identifier() == pageID)
-            return true;
-    }
-    return false;
-}
-
-bool WebProcessProxy::isAllowedToUpdateBackForwardItem(WebBackForwardListItem& item) const
-{
-    if (m_pageMap.contains(item.pageID()))
-        return true;
-
-    if (hasProvisionalPageWithID(item.pageID()))
-        return true;
-
-    RefPtr suspendedPage = item.suspendedPage();
-    if (suspendedPage && suspendedPage->page() && suspendedPage->page()->identifier() == item.pageID() && &suspendedPage->process() == this)
-        return true;
-
-    return false;
-}
-
-void WebProcessProxy::updateBackForwardItem(Ref<FrameState>&& frameState)
-{
-    RefPtr frameItem = frameState->identifier ? WebBackForwardListFrameItem::itemForID(*frameState->identifier) : nullptr;
-    if (!frameItem)
-        return;
-
-    RefPtr item = frameItem->backForwardListItem();
-    if (!item || !isAllowedToUpdateBackForwardItem(*item))
-        return;
-
-    if (!!item->backForwardCacheEntry() != frameState->hasCachedPage) {
-        if (frameState->hasCachedPage)
-            protectedProcessPool()->protectedBackForwardCache()->addEntry(*item, coreProcessIdentifier());
-        else if (!item->suspendedPage())
-            protectedProcessPool()->protectedBackForwardCache()->removeEntry(*item);
-    }
-
-    frameItem->setFrameState(WTFMove(frameState));
-}
 
 void WebProcessProxy::getNetworkProcessConnection(CompletionHandler<void(NetworkProcessConnectionInfo&&)>&& reply)
 {
@@ -1792,10 +1748,10 @@ RefPtr<API::Object> WebProcessProxy::transformHandlesToObjects(API::Object* obje
         {
             switch (object.type()) {
             case API::Object::Type::FrameHandle:
-                return static_cast<const API::FrameHandle&>(object).isAutoconverting();
+                return downcast<const API::FrameHandle>(object).isAutoconverting();
 
             case API::Object::Type::PageHandle:
-                return static_cast<const API::PageHandle&>(object).isAutoconverting();
+                return downcast<const API::PageHandle>(object).isAutoconverting();
 
             default:
                 return false;
@@ -1806,13 +1762,13 @@ RefPtr<API::Object> WebProcessProxy::transformHandlesToObjects(API::Object* obje
         {
             switch (object.type()) {
             case API::Object::Type::FrameHandle: {
-                ASSERT(static_cast<API::FrameHandle&>(object).isAutoconverting());
-                auto frameID = static_cast<API::FrameHandle&>(object).frameID();
+                ASSERT(downcast<API::FrameHandle>(object).isAutoconverting());
+                auto frameID = downcast<API::FrameHandle>(object).frameID();
                 return WebFrameProxy::webFrame(frameID);
             }
             case API::Object::Type::PageHandle:
-                ASSERT(static_cast<API::PageHandle&>(object).isAutoconverting());
-                return protectedProcess()->webPage(static_cast<API::PageHandle&>(object).pageProxyID());
+                ASSERT(downcast<API::PageHandle>(object).isAutoconverting());
+                return protectedProcess()->webPage(downcast<API::PageHandle>(object).pageProxyID());
 
             default:
                 return &object;
@@ -1847,10 +1803,10 @@ RefPtr<API::Object> WebProcessProxy::transformObjectsToHandles(API::Object* obje
         {
             switch (object.type()) {
             case API::Object::Type::Frame:
-                return API::FrameHandle::createAutoconverting(static_cast<const WebFrameProxy&>(object).frameID());
+                return API::FrameHandle::createAutoconverting(downcast<WebFrameProxy>(object).frameID());
 
             case API::Object::Type::Page:
-                return API::PageHandle::createAutoconverting(static_cast<const WebPageProxy&>(object).identifier(), static_cast<const WebPageProxy&>(object).webPageIDInMainFrameProcess());
+                return API::PageHandle::createAutoconverting(downcast<WebPageProxy>(object).identifier(), downcast<WebPageProxy>(object).webPageIDInMainFrameProcess());
 
             default:
                 return &object;
@@ -1885,7 +1841,7 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
 {
     AuxiliaryProcessProxy::didChangeThrottleState(type);
 
-    auto scope = makeScopeExit([this]() {
+    auto scope = makeScopeExit([this, protectedThis = Ref { *this }]() {
         updateRuntimeStatistics();
     });
 
@@ -3096,6 +3052,26 @@ const WebCore::ProcessIdentity& WebProcessProxy::processIdentity()
 }
 #endif
 
+#if ENABLE(CONTENT_EXTENSIONS)
+void WebProcessProxy::requestResourceMonitorRuleLists()
+{
+    if (RefPtr processPool = m_processPool.get()) {
+        m_resourceMonitorRuleListRequestedBySomePage = true;
+
+        if (RefPtr ruleList = processPool->cachedResourceMonitorRuleList())
+            setResourceMonitorRuleListsIfRequired(ruleList.get());
+    }
+}
+
+void WebProcessProxy::setResourceMonitorRuleListsIfRequired(WebCompiledContentRuleList* ruleList)
+{
+    if (!m_resourceMonitorRuleListRequestedBySomePage || m_resourceMonitorRuleList == ruleList)
+        return;
+
+    m_resourceMonitorRuleList = ruleList;
+    send(Messages::WebProcess::SetResourceMonitorContentRuleList(ruleList->data()), 0);
+}
+#endif
 
 } // namespace WebKit
 

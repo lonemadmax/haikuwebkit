@@ -25,12 +25,11 @@
 
 #if defined(TARGET_OS_VISION) && TARGET_OS_VISION
 
-#import "WKRemoteLayerTreeViewProtocols.h"
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface WKSeparatedImageView : UIView <WKContentControlled>
+@interface WKSeparatedImageView : UIView
 
 - (instancetype)init NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;

@@ -38,8 +38,6 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AudioChannel);
@@ -49,7 +47,7 @@ void AudioChannel::scale(float scale)
     if (isSilent())
         return;
 
-    VectorMath::multiplyByScalar(data(), scale, mutableData(), length());
+    VectorMath::multiplyByScalar(span(), scale, mutableSpan());
 }
 
 void AudioChannel::copyFrom(const AudioChannel* sourceChannel)
@@ -107,7 +105,7 @@ void AudioChannel::sumFrom(const AudioChannel* sourceChannel)
     if (isSilent())
         copyFrom(sourceChannel);
     else
-        VectorMath::add(data(), sourceChannel->data(), mutableData(), length());
+        VectorMath::add(span(), sourceChannel->span().first(length()), mutableSpan());
 }
 
 float AudioChannel::maxAbsValue() const
@@ -115,11 +113,9 @@ float AudioChannel::maxAbsValue() const
     if (isSilent())
         return 0;
 
-    return VectorMath::maximumMagnitude(data(), length());
+    return VectorMath::maximumMagnitude(span());
 }
 
 } // WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(WEB_AUDIO)

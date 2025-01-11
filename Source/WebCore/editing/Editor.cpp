@@ -136,6 +136,7 @@
 #include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/ParsingUtilities.h>
 #include <wtf/unicode/CharacterNames.h>
 
 #if PLATFORM(MAC)
@@ -806,7 +807,7 @@ bool Editor::tryDHTMLCut()
 bool Editor::shouldInsertText(const String& text, const std::optional<SimpleRange>& range, EditorInsertAction action) const
 {
     // FIXME(273431): shouldSuppressTextInputFromEditing does not work with site isolation.
-    RefPtr localFrame = dynamicDowncast<LocalFrame>(document().frame()->mainFrame());
+    RefPtr localFrame = document().localMainFrame();
     if (localFrame && localFrame->loader().shouldSuppressTextInputFromEditing() && action == EditorInsertAction::Typed)
         return false;
 
@@ -4120,7 +4121,7 @@ static Vector<SimpleRange> scanForTelephoneNumbers(const SimpleRange& range)
         auto scannerPosition = span.data() - characters.span().data();
         ASSERT(scannerPosition + relativeEndPosition <= text.length());
         result.append(resolveCharacterRange(range, CharacterRange(scannerPosition + relativeStartPosition, relativeEndPosition - relativeStartPosition)));
-        span = span.subspan(relativeEndPosition);
+        skip(span, relativeEndPosition);
     }
     return result;
 }

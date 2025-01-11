@@ -86,8 +86,6 @@
 #import <wtf/text/MakeString.h>
 #import <wtf/text/WTFString.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 using namespace WebCore;
 
 static id attributeValueForTesting(const RefPtr<AXCoreObject>&, NSString *);
@@ -804,10 +802,6 @@ static NSAttributedString *attributedStringForTextMarkerRange(const AXCoreObject
     if (!textMarkerRangeRef)
         return nil;
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    if (AXObjectCache::useAXThreadTextApis())
-        return AXTextMarkerRange { textMarkerRangeRef }.toAttributedString(spellCheck).autorelease();
-#endif // ENABLE(AX_THREAD_TEXT_APIS)
     return object.attributedStringForTextMarkerRange({ textMarkerRangeRef }, spellCheck).autorelease();
 }
 
@@ -1448,7 +1442,9 @@ static void WebTransformCGPathToNSBezierPath(void* info, const CGPathElement *el
         [bezierPath lineToPoint:NSPointFromCGPoint(element->points[0])];
         break;
     case kCGPathElementAddCurveToPoint:
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         [bezierPath curveToPoint:NSPointFromCGPoint(element->points[0]) controlPoint1:NSPointFromCGPoint(element->points[1]) controlPoint2:NSPointFromCGPoint(element->points[2])];
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         break;
     case kCGPathElementCloseSubpath:
         [bezierPath closePath];
@@ -1638,7 +1634,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString:NSAccessibilitySelectedChildrenAttribute]) {
         auto selectedChildren = backingObject->selectedChildren();
-        return selectedChildren ? makeNSArray(*selectedChildren) : nil;
+        return selectedChildren.size() ? makeNSArray(WTFMove(selectedChildren)) : nil;
     }
 
     if ([attributeName isEqualToString:NSAccessibilityActiveElementAttribute]) {
@@ -1859,7 +1855,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
         if ([attributeName isEqualToString:NSAccessibilitySelectedRowsAttribute]) {
             auto selectedChildren = backingObject->selectedChildren();
-            return selectedChildren ? makeNSArray(*selectedChildren) : nil;
+            return selectedChildren.size() ? makeNSArray(WTFMove(selectedChildren)) : nil;
         }
 
         // HTML tables don't support this attribute yet.
@@ -1938,7 +1934,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (backingObject->isTree()) {
         if ([attributeName isEqualToString:NSAccessibilitySelectedRowsAttribute]) {
             auto selectedChildren = backingObject->selectedChildren();
-            return selectedChildren ? makeNSArray(*selectedChildren) : nil;
+            return selectedChildren.size() ? makeNSArray(WTFMove(selectedChildren)) : nil;
         }
 
         if ([attributeName isEqualToString:NSAccessibilityRowsAttribute])
@@ -2215,9 +2211,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return backingObject->identifierAttribute();
     if ([attributeName isEqualToString:NSAccessibilityDOMClassListAttribute])
         return createNSArray(backingObject->classList()).autorelease();
-
-    if ([attributeName isEqualToString:@"AXResolvedEditingStyles"])
-        return [self baseAccessibilityResolvedEditingStyles];
 
     // This allows us to connect to a plugin that creates a shadow node for editing (like PDFs).
     if ([attributeName isEqualToString:@"_AXAssociatedPluginParent"])
@@ -2824,7 +2817,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         }
     }
 
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame()))
+    if (RefPtr localMainFrame = page->localMainFrame())
         page->contextMenuController().showContextMenuAt(*localMainFrame, rect.center());
 }
 
@@ -4109,7 +4102,5 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 
 @end
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // PLATFORM(MAC)

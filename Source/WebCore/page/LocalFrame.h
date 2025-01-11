@@ -148,6 +148,7 @@ public:
     RefPtr<Document> protectedDocument() const;
     LocalFrameView* view() const;
     inline RefPtr<LocalFrameView> protectedView() const; // Defined in LocalFrameView.h.
+    WEBCORE_EXPORT RefPtr<LocalFrame> localMainFrame() const;
 
     Editor& editor() { return document()->editor(); }
     const Editor& editor() const { return document()->editor(); }
@@ -307,7 +308,7 @@ public:
     void selfOnlyRef();
     void selfOnlyDeref();
 
-    void documentURLDidChange(const URL&);
+    void documentURLOrOriginDidChange();
 
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
     void didAccessWindowProxyPropertyViaOpener(WindowProxyProperty);
@@ -331,7 +332,7 @@ public:
     WEBCORE_EXPORT void setScrollingMode(ScrollbarMode);
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    void networkUsageDidExceedThreshold();
+    WEBCORE_EXPORT void showResourceMonitoringError();
 #endif
 
 protected:
@@ -356,15 +357,11 @@ private:
     FrameLoaderClient& loaderClient() final;
     void documentURLForConsoleLog(CompletionHandler<void(const URL&)>&&) final;
 
-#if ENABLE(CONTENT_EXTENSIONS)
-    void showResourceMonitoringError(String&& htmlContent);
-#endif
-
     WeakHashSet<FrameDestructionObserver> m_destructionObservers;
 
     Vector<std::pair<Ref<DOMWrapperWorld>, UniqueRef<UserScript>>> m_userScriptsAwaitingNotification;
 
-    UniqueRef<FrameLoader> m_loader;
+    const UniqueRef<FrameLoader> m_loader;
 
     RefPtr<LocalFrameView> m_view;
     RefPtr<Document> m_doc;

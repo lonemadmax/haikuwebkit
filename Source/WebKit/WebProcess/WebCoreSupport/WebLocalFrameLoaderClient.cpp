@@ -674,6 +674,9 @@ void WebLocalFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceErr
 
     webPage->sandboxExtensionTracker().didFailProvisionalLoad(m_frame.ptr());
 
+    if (m_frame->isMainFrame())
+        completePageTransitionIfNeeded();
+
     // FIXME: This is gross. This is necessary because if the client calls WKBundlePageStopLoading() from within the didFailProvisionalLoadWithErrorForFrame
     // injected bundle client call, that will cause the provisional DocumentLoader to be disconnected from the Frame, and didDistroyNavigation message
     // to be sent to the UIProcess (and the destruction of the DocumentLoader). If that happens, and we had captured the navigationID before injected bundle 
@@ -874,7 +877,7 @@ LocalFrame* WebLocalFrameLoaderClient::dispatchCreatePage(const NavigationAction
     if (!newPage)
         return nullptr;
     
-    return dynamicDowncast<LocalFrame>(newPage->mainFrame());
+    return newPage->localMainFrame().get();
 }
 
 void WebLocalFrameLoaderClient::dispatchShow()
@@ -1232,7 +1235,7 @@ bool WebLocalFrameLoaderClient::shouldGoToHistoryItem(HistoryItem& item) const
     RefPtr webPage = m_frame->page();
     if (!webPage)
         return false;
-    webPage->send(Messages::WebPageProxy::WillGoToBackForwardListItem(item.identifier(), item.isInBackForwardCache()));
+    webPage->send(Messages::WebPageProxy::WillGoToBackForwardListItem(item.itemID(), item.isInBackForwardCache()));
     return true;
 }
 
@@ -1404,7 +1407,7 @@ void WebLocalFrameLoaderClient::saveViewStateToItem(HistoryItem& historyItem)
 void WebLocalFrameLoaderClient::restoreViewState()
 {
 #if PLATFORM(IOS_FAMILY)
-    auto* currentItem = m_localFrame->history().currentItem();
+    auto* currentItem = m_localFrame->loader().history().currentItem();
     if (auto* view =  m_localFrame->view()) {
         if (m_frame->isMainFrame())
             m_frame->page()->restorePageState(*currentItem);
@@ -1413,7 +1416,7 @@ void WebLocalFrameLoaderClient::restoreViewState()
     }
 #else
     // Inform the UI process of the scale factor.
-    double scaleFactor = m_localFrame->history().currentItem()->pageScaleFactor();
+    double scaleFactor = m_localFrame->loader().history().currentItem()->pageScaleFactor();
 
     // A scale factor of 0 means the history item has the default scale factor, thus we do not need to update it.
     if (scaleFactor)
@@ -2018,6 +2021,36 @@ bool WebLocalFrameLoaderClient::siteIsolationEnabled() const
         return coreFrame->settings().siteIsolationEnabled();
     return false;
 }
+
+RefPtr<WebCore::HistoryItem> WebLocalFrameLoaderClient::createHistoryItemTree(bool clipAtTarget, WebCore::BackForwardItemIdentifier itemID) const
+{
+    Ref frame = m_localFrame.get();
+    return frame->loader().history().createItemTree(frame, clipAtTarget, itemID);
+}
+
+#if ENABLE(CONTENT_EXTENSIONS)
+
+void WebLocalFrameLoaderClient::didExceedNetworkUsageThreshold()
+{
+    ASSERT(!m_frame->isMainFrame());
+
+    RefPtr webPage = m_frame->page();
+    RefPtr localMainFrame = webPage ? dynamicDowncast<LocalFrame>(webPage->mainFrame()) : nullptr;
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document)
+        return;
+
+    auto url = document->url();
+    if (url.isEmpty())
+        return;
+
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), [frame = m_frame->coreLocalFrame()] (bool wasGranted) {
+        if (wasGranted)
+            frame->showResourceMonitoringError();
+    });
+}
+
+#endif
 
 } // namespace WebKit
 

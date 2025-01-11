@@ -28,6 +28,7 @@
 
 #include "ScriptExecutionContext.h"
 #include "URLPatternCanonical.h"
+#include "URLPatternConstructorStringParser.h"
 #include "URLPatternInit.h"
 #include "URLPatternOptions.h"
 #include "URLPatternParser.h"
@@ -199,24 +200,22 @@ static ExceptionOr<URLPatternInit> processInit(URLPatternInit&& init, BaseURLStr
     return result;
 }
 
-ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context, URLPatternInput&&, String&& baseURL, URLPatternOptions&&)
-{
-    UNUSED_PARAM(baseURL);
-    UNUSED_PARAM(context);
-
-    return Exception { ExceptionCode::NotSupportedError, "Not implemented."_s };
-}
-
-ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context, std::optional<URLPatternInput>&& input, URLPatternOptions&& options)
+// https://urlpattern.spec.whatwg.org/#url-pattern-create
+ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context, URLPatternInput&& input, String&& baseURL, URLPatternOptions&& options)
 {
     URLPatternInit init;
 
-    if (!input)
-        return Exception { ExceptionCode::NotSupportedError, "Not implemented."_s };
-    if (std::holds_alternative<String>(*input) && !std::get<String>(*input).isNull())
-        return Exception { ExceptionCode::NotSupportedError, "Not implemented."_s };
-    if (std::holds_alternative<URLPatternInit>(*input))
-        init = std::get<URLPatternInit>(*input);
+    if (std::holds_alternative<String>(input) && !std::get<String>(input).isNull()) {
+        auto maybeInit = URLPatternConstructorStringParser(WTFMove(std::get<String>(input))).parse(context);
+        if (maybeInit.hasException())
+            return maybeInit.releaseException();
+        init = maybeInit.releaseReturnValue();
+
+        if (baseURL.isNull() && init.protocol.isEmpty())
+            return Exception { ExceptionCode::TypeError, "Relative constructor string must have additional baseURL argument."_s };
+        init.baseURL = WTFMove(baseURL);
+    } else if (std::holds_alternative<URLPatternInit>(input))
+        init = std::get<URLPatternInit>(input);
 
     auto maybeProcessedInit = processInit(WTFMove(init), BaseURLStringType::Pattern);
 
@@ -255,8 +254,20 @@ ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context,
     return result;
 }
 
+// https://urlpattern.spec.whatwg.org/#urlpattern-initialize
+ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context, std::optional<URLPatternInput>&& input, URLPatternOptions&& options)
+{
+    if (!input) {
+        // FIXME: File a bug to URLPattern owners to tell them that spec does not mention supporting empty URLPattern objects. Spec and test cases have diverged!
+        return Exception { ExceptionCode::NotSupportedError, "Not implemented."_s };
+    }
+
+    return create(context, WTFMove(*input), String { }, WTFMove(options));
+}
+
 URLPattern::~URLPattern() = default;
 
+// https://urlpattern.spec.whatwg.org/#dom-urlpattern-test
 ExceptionOr<bool> URLPattern::test(ScriptExecutionContext& context, std::optional<URLPatternInput>&& input, String&& baseURL) const
 {
     if (!input)
@@ -270,6 +281,7 @@ ExceptionOr<bool> URLPattern::test(ScriptExecutionContext& context, std::optiona
 
 }
 
+// https://urlpattern.spec.whatwg.org/#dom-urlpattern-exec
 ExceptionOr<std::optional<URLPatternResult>> URLPattern::exec(ScriptExecutionContext& context, std::optional<URLPatternInput>&& input, String&& baseURL) const
 {
     if (!input)
@@ -281,7 +293,7 @@ ExceptionOr<std::optional<URLPatternResult>> URLPattern::exec(ScriptExecutionCon
 ExceptionOr<void> URLPattern::compileAllComponents(ScriptExecutionContext& context, URLPatternInit&& processedInit, const URLPatternOptions& options)
 {
     Ref vm = context.vm();
-    JSLockHolder lock(vm);
+    JSC::JSLockHolder lock(vm);
 
     auto maybeProtocolComponent = URLPatternUtilities::URLPatternComponent::compile(vm, processedInit.protocol, EncodingCallbackType::Protocol, URLPatternUtilities::URLPatternStringOptions { });
     if (maybeProtocolComponent.hasException())

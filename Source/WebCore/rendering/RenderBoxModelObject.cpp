@@ -381,7 +381,7 @@ LayoutSize RenderBoxModelObject::relativePositionOffset() const
             if (!renderBox || !renderBox->isGridItem())
                 return containingBlock->availableWidth();
             // For grid items the containing block is the grid area, so offsets should be resolved against that.
-            auto containingBlockContentWidth = renderBox->overridingContainingBlockContentWidth(containingBlock->writingMode());
+            auto containingBlockContentWidth = renderBox->gridAreaContentWidth(containingBlock->writingMode());
             if (!containingBlockContentWidth || !*containingBlockContentWidth) {
                 ASSERT_NOT_REACHED();
                 return containingBlock->availableWidth();
@@ -414,7 +414,7 @@ LayoutSize RenderBoxModelObject::relativePositionOffset() const
         if (!renderBox || !renderBox->isGridItem())
             return containingBlock->availableHeight();
         // For grid items the containing block is the grid area, so offsets should be resolved against that.
-        auto containingBlockContentHeight = renderBox->overridingContainingBlockContentHeight(containingBlock->style().writingMode());
+        auto containingBlockContentHeight = renderBox->gridAreaContentHeight(containingBlock->style().writingMode());
         if (!containingBlockContentHeight || !*containingBlockContentHeight) {
             ASSERT_NOT_REACHED();
             return containingBlock->availableHeight();
@@ -614,7 +614,7 @@ FloatRect RenderBoxModelObject::constrainingRectForStickyPosition() const
 
     if (enclosingClippingLayer) {
         RenderBox& enclosingClippingBox = downcast<RenderBox>(enclosingClippingLayer->renderer());
-        LayoutRect clipRect = enclosingClippingBox.overflowClipRect(LayoutPoint(), nullptr); // FIXME: make this work in regions.
+        LayoutRect clipRect = enclosingClippingBox.overflowClipRect({ });
         clipRect.contract(LayoutSize(enclosingClippingBox.paddingLeft() + enclosingClippingBox.paddingRight(),
             enclosingClippingBox.paddingTop() + enclosingClippingBox.paddingBottom()));
 
@@ -837,7 +837,7 @@ bool RenderBoxModelObject::borderObscuresBackground() const
     return true;
 }
 
-BorderShape RenderBoxModelObject::borderShapeForContentClipping(const LayoutRect& borderBoxRect, bool includeLeftEdge, bool includeRightEdge) const
+BorderShape RenderBoxModelObject::borderShapeForContentClipping(const LayoutRect& borderBoxRect, RectEdges<bool> closedEdges) const
 {
     auto borderWidths = this->borderWidths();
     auto padding = this->padding();
@@ -849,7 +849,7 @@ BorderShape RenderBoxModelObject::borderShapeForContentClipping(const LayoutRect
         borderWidths.left() + padding.left(),
     };
 
-    return BorderShape::shapeForBorderRect(style(), borderBoxRect, contentBoxInsets, includeLeftEdge, includeRightEdge);
+    return BorderShape::shapeForBorderRect(style(), borderBoxRect, contentBoxInsets, closedEdges);
 }
 
 LayoutUnit RenderBoxModelObject::containingBlockLogicalWidthForContent() const

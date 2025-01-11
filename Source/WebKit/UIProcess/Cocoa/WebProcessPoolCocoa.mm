@@ -46,7 +46,9 @@
 #import "SandboxUtilities.h"
 #import "TextChecker.h"
 #import "WKBrowsingContextControllerInternal.h"
+#import "WKContentRuleListInternal.h"
 #import "WebBackForwardCache.h"
+#import "WebCompiledContentRuleList.h"
 #import "WebMemoryPressureHandler.h"
 #import "WebPageGroup.h"
 #import "WebPageMessages.h"
@@ -907,8 +909,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 #endif
 
-    m_powerSourceNotifier = WTF::makeUnique<WebCore::PowerSourceNotifier>([this] (bool hasAC) {
-        sendToAllProcesses(Messages::WebProcess::PowerSourceDidChange(hasAC));
+    m_powerSourceNotifier = WTF::makeUnique<WebCore::PowerSourceNotifier>([weakThis = WeakPtr { this }] (bool hasAC) {
+        if (RefPtr webProcessPool = weakThis.get())
+            webProcessPool->sendToAllProcesses(Messages::WebProcess::PowerSourceDidChange(hasAC));
     });
 
 #if PLATFORM(COCOA)
@@ -1332,5 +1335,123 @@ void WebProcessPool::setCachedHardwareKeyboardState(HardwareKeyboardState hardwa
     m_hardwareKeyboardState = hardwareKeyboardState;
 }
 #endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void WebProcessPool::platformLoadResourceMonitorRuleList(CompletionHandler<void()>&& completionHandler)
+{
+    ResourceMonitorURLsController::singleton().prepare([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](WKContentRuleList *list, bool updated) mutable {
+        if (RefPtr protectedThis = weakThis.get()) {
+            if (list && (updated || !protectedThis->m_resourceMonitorRuleListCache)) {
+                auto data = list->_contentRuleList->compiledRuleList().data();
+                protectedThis->m_resourceMonitorRuleListCache = WebCompiledContentRuleList::create(WTFMove(data));
+            }
+        }
+        completionHandler();
+    });
+}
+#endif
+
+static AdditionalFonts additionalFonts(const Vector<URL>& fontURLs, std::optional<audit_token_t> auditToken)
+{
+    AdditionalFonts additionalFonts;
+    additionalFonts.fontDataList = WTF::compactMap(fontURLs, [auditToken = WTFMove(auditToken)](auto& fontURL) -> std::optional<FontData> {
+        std::optional<SandboxExtension::Handle> sandboxExtensionHandle;
+        if (auditToken)
+            sandboxExtensionHandle = SandboxExtension::createHandleForReadByAuditToken(fontURL.fileSystemPath(), *auditToken);
+        else
+            sandboxExtensionHandle = SandboxExtension::createHandle(fontURL.fileSystemPath(), SandboxExtension::Type::ReadOnly);
+
+        if (sandboxExtensionHandle)
+            return FontData { fontURL, WTFMove(*sandboxExtensionHandle) };
+        return FontData { fontURL, SandboxExtension::Handle() };
+    });
+    return additionalFonts;
+}
+
+void WebProcessPool::registerUserInstalledFonts(WebProcessProxy& process)
+{
+    if (m_userInstalledFontURLs) {
+        process.send(Messages::WebProcess::RegisterAdditionalFonts(additionalFonts(*m_userInstalledFontURLs, process.auditToken())), 0);
+        return;
+    }
+
+    auto blockPtr = makeBlockPtr([weakThis = WeakPtr { *this }, weakProcess = WeakPtr { process }] {
+        RetainPtr userInstalledFontsPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Fonts"];
+        RetainPtr enumerator = [NSFileManager.defaultManager enumeratorAtPath:userInstalledFontsPath.get()];
+
+        Vector<URL> fontURLs;
+        for (NSString *font in enumerator.get()) {
+            if ([font hasSuffix:@"ttf"] || [font hasSuffix:@"ttc"] || [font hasSuffix:@"otf"]) {
+                RetainPtr fontsPath = [userInstalledFontsPath stringByAppendingPathComponent:font];
+                auto fontURL = URL::fileURLWithFileSystemPath(String(fontsPath.get()));
+                fontURLs.append(WTFMove(fontURL));
+                RELEASE_LOG(Process, "Registering font url %s", fontURL.string().utf8().data());
+            }
+        }
+
+        RunLoop::protectedMain()->dispatch([weakThis = WTFMove(weakThis), weakProcess = WTFMove(weakProcess), fontURLs = crossThreadCopy(WTFMove(fontURLs))] {
+            if (weakProcess)
+                weakProcess->send(Messages::WebProcess::RegisterAdditionalFonts(additionalFonts(fontURLs, weakProcess->auditToken())), 0);
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->m_userInstalledFontURLs = WTFMove(fontURLs);
+        });
+    });
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), blockPtr.get());
+}
+
+static URL fontURLFromName(ASCIILiteral fontName)
+{
+    RetainPtr cfFontName = fontName.createCFString();
+    RetainPtr font = adoptCF(CTFontCreateWithName(cfFontName.get(), 0.0, nullptr));
+    return URL(adoptCF(static_cast<CFURLRef>(CTFontCopyAttribute(font.get(), kCTFontURLAttribute))).get());
+}
+
+static RetainPtr<CTFontDescriptorRef> fontDescription(ASCIILiteral fontName)
+{
+    RetainPtr nsFontName = fontName.createNSString();
+    RetainPtr attributes = @{ (NSString *)kCTFontFamilyNameAttribute: nsFontName.get(), (NSString *)kCTFontRegistrationScopeAttribute: @(kCTFontPriorityComputer) };
+    return adoptCF(CTFontDescriptorCreateWithAttributes((__bridge CFDictionaryRef)attributes.get()));
+}
+
+void WebProcessPool::registerAssetFonts(WebProcessProxy& process)
+{
+    if (m_assetFontURLs) {
+        process.send(Messages::WebProcess::RegisterAdditionalFonts(additionalFonts({ *m_assetFontURLs }, process.auditToken())), 0);
+        return;
+    }
+
+    Vector<ASCIILiteral> assetFonts = { "Canela Text"_s, "Proxima Nova"_s, "Publico Text"_s };
+
+    RetainPtr<NSMutableArray> descriptions = [NSMutableArray array];
+    for (auto& fontName : assetFonts)
+        [descriptions addObject:(__bridge id)fontDescription(fontName).get()];
+
+    auto blockPtr = makeBlockPtr([assetFonts = WTFMove(assetFonts), weakProcess = WeakPtr { process }, weakThis = WeakPtr { *this }](CTFontDescriptorMatchingState state, CFDictionaryRef progressParameter) {
+        if (state != kCTFontDescriptorMatchingDidFinish)
+            return true;
+        RELEASE_LOG(Process, "Font matching finished, progress parameter = %@", (__bridge id)progressParameter);
+        RunLoop::protectedMain()->dispatch([assetFonts = WTFMove(assetFonts), weakProcess = WTFMove(weakProcess), weakThis = WTFMove(weakThis)] {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            if (!protectedThis->m_assetFontURLs) {
+                protectedThis->m_assetFontURLs = Vector<URL> { };
+                for (auto& fontName : assetFonts) {
+                    URL fontURL = fontURLFromName(fontName);
+                    RELEASE_LOG(Process, "Registering font name %s with url %s", fontName.characters(), fontURL.string().utf8().data());
+                    protectedThis->m_assetFontURLs->append(WTFMove(fontURL));
+                }
+            }
+            if (weakProcess)
+                weakProcess->send(Messages::WebProcess::RegisterAdditionalFonts(additionalFonts({ *protectedThis->m_assetFontURLs }, weakProcess->auditToken())), 0);
+        });
+        return true;
+    });
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [descriptions = RetainPtr<NSArray>(descriptions), blockPtr] {
+        CTFontDescriptorMatchFontDescriptorsWithProgressHandler((__bridge CFArrayRef)descriptions.get(), nullptr, blockPtr.get());
+    });
+}
 
 } // namespace WebKit

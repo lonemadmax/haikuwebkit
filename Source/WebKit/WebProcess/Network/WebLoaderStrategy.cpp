@@ -124,8 +124,8 @@ void WebLoaderStrategy::deref() const
 void WebLoaderStrategy::loadResource(LocalFrame& frame, CachedResource& resource, ResourceRequest&& request, const ResourceLoaderOptions& options, CompletionHandler<void(RefPtr<SubresourceLoader>&&)>&& completionHandler)
 {
     if (resource.type() != CachedResource::Type::MainResource || !frame.isMainFrame()) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(frame.mainFrame())) {
-            if (auto* document = localMainFrame->document()) {
+        if (RefPtr localMainFrame = frame.localMainFrame()) {
+            if (RefPtr document = localMainFrame->document()) {
                 if (document && document->loader())
                     request.setIsAppInitiated(document->loader()->lastNavigationWasAppInitiated());
             }
@@ -315,7 +315,7 @@ bool WebLoaderStrategy::tryLoadingUsingPDFJSHandler(ResourceLoader& resourceLoad
 
 static RefPtr<DocumentLoader> policySourceDocumentLoaderForFrame(const LocalFrame& frame, bool isMainFrameNavigation = false)
 {
-    RefPtr mainFrame = dynamicDowncast<LocalFrame>(frame.mainFrame());
+    RefPtr mainFrame = frame.localMainFrame();
     if (!mainFrame)
         return { };
 

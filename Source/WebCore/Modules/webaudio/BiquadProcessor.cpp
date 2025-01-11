@@ -106,7 +106,7 @@ void BiquadProcessor::process(const AudioBus* source, AudioBus* destination, siz
             
     // For each channel of our input, process using the corresponding BiquadDSPKernel into the output channel.
     for (unsigned i = 0; i < m_kernels.size(); ++i)
-        m_kernels[i]->process(source->channel(i)->data(), destination->channel(i)->mutableData(), framesToProcess);
+        m_kernels[i]->process(source->channel(i)->span().first(framesToProcess), destination->channel(i)->mutableSpan());
 }
 
 void BiquadProcessor::processOnlyAudioParams(size_t framesToProcess)
@@ -129,7 +129,7 @@ void BiquadProcessor::setType(BiquadFilterType type)
     }
 }
 
-void BiquadProcessor::getFrequencyResponse(unsigned nFrequencies, const float* frequencyHz, float* magResponse, float* phaseResponse)
+void BiquadProcessor::getFrequencyResponse(unsigned nFrequencies, std::span<const float> frequencyHz, std::span<float> magResponse, std::span<float> phaseResponse)
 {
     // Compute the frequency response on a separate temporary kernel
     // to avoid interfering with the processing running in the audio

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,6 +91,9 @@ public:
 #endif
     void applyDeviceScaleFactor(float) final;
 
+    void beginPage(const IntSize&) final;
+    void endPage() final;
+
 private:
     void recordSetInlineFillColor(PackedColor::RGBA) final;
     void recordSetInlineStroke(SetInlineStroke&&) final;
@@ -98,7 +101,7 @@ private:
     void recordClearDropShadow() final;
     void recordClipToImageBuffer(ImageBuffer&, const FloatRect& destinationRect) final;
     void recordDrawFilteredImageBuffer(ImageBuffer*, const FloatRect& sourceImageRect, Filter&) final;
-    void recordDrawGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode) final;
+    void recordDrawGlyphs(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint& localAnchor, FontSmoothingMode) final;
     void recordDrawDecomposedGlyphs(const Font&, const DecomposedGlyphs&) final;
     void recordDrawImageBuffer(ImageBuffer&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions) final;
     void recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions) final;

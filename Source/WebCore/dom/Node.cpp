@@ -103,8 +103,6 @@
 #include "ContentChangeObserver.h"
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Node);
@@ -804,6 +802,12 @@ void Node::normalize()
     }
 }
 
+Ref<Node> Node::cloneNode(bool deep)
+{
+    ASSERT(!isShadowRoot());
+    return cloneNodeInternal(document(), deep ? CloningOperation::Everything : CloningOperation::OnlySelf);
+}
+
 ExceptionOr<Ref<Node>> Node::cloneNodeForBindings(bool deep)
 {
     if (UNLIKELY(isShadowRoot()))
@@ -937,9 +941,9 @@ LayoutRect Node::absoluteBoundingRect(bool* isReplaced)
     }
     RenderObject* renderer = hitRenderer;
     while (renderer && !renderer->isBody() && !renderer->isDocumentElementRenderer()) {
-        if (renderer->isRenderBlock() || renderer->isInlineBlockOrInlineTable() || renderer->isReplacedOrInlineBlock()) {
+        if (renderer->isRenderBlock() || renderer->isNonReplacedAtomicInline() || renderer->isReplacedOrAtomicInline()) {
             // FIXME: Is this really what callers want for the "isReplaced" flag?
-            *isReplaced = renderer->isReplacedOrInlineBlock();
+            *isReplaced = renderer->isReplacedOrAtomicInline();
             return renderer->absoluteBoundingBoxRect();
         }
         renderer = renderer->parent();
@@ -1810,7 +1814,7 @@ ExceptionOr<void> Node::setTextContent(String&& text)
 static SHA1::Digest hashPointer(const void* pointer)
 {
     SHA1 sha1;
-    sha1.addBytes(std::span { reinterpret_cast<const uint8_t*>(&pointer), sizeof(pointer) });
+    sha1.addBytes(asByteSpan(pointer));
     SHA1::Digest digest;
     sha1.computeHash(digest);
     return digest;
@@ -3098,8 +3102,6 @@ TextStream& operator<<(TextStream& ts, const Node& node)
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #if ENABLE(TREE_DEBUGGING)
 

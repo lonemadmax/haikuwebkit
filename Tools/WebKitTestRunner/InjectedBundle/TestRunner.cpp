@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,9 +79,7 @@ TestRunner::TestRunner()
     platformInitialize();
 }
 
-TestRunner::~TestRunner()
-{
-}
+TestRunner::~TestRunner() = default;
 
 JSClassRef TestRunner::wrapperClass()
 {
@@ -1502,11 +1500,13 @@ void TestRunner::setStatisticsShouldDowngradeReferrer(JSContextRef context, bool
     postMessageWithAsyncReply(context, "SetStatisticsShouldDowngradeReferrer", adoptWK(WKBooleanCreate(value)), completionHandler);
 }
 
-void TestRunner::setStatisticsShouldBlockThirdPartyCookies(JSContextRef context, bool value, JSValueRef completionHandler, bool onlyOnSitesWithoutUserInteraction)
+void TestRunner::setStatisticsShouldBlockThirdPartyCookies(JSContextRef context, bool value, JSValueRef completionHandler, bool onlyOnSitesWithoutUserInteraction, bool onlyUnpartitionedCookies)
 {
     auto messageName = "SetStatisticsShouldBlockThirdPartyCookies";
     if (onlyOnSitesWithoutUserInteraction)
         messageName = "SetStatisticsShouldBlockThirdPartyCookiesOnSitesWithoutUserInteraction";
+    else if (onlyUnpartitionedCookies)
+        messageName = "SetStatisticsShouldBlockThirdPartyCookiesExceptPartitioned";
     postMessageWithAsyncReply(context, messageName, adoptWK(WKBooleanCreate(value)), completionHandler);
 }
 

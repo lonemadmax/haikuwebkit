@@ -1975,14 +1975,27 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         _page->activityStateDidChange(WebCore::ActivityState::IsFocused, WebKit::WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
 
-        if ([self canShowNonEmptySelectionView] || (!_suppressSelectionAssistantReasons && _activeTextInteractionCount))
-            [_textInteractionWrapper activateSelection];
+        if (self._shouldActivateSelectionAfterBecomingFirstResponder) {
+            _page->callAfterNextPresentationUpdate([weakSelf = WeakObjCPtr<WKContentView>(self)] {
+                RetainPtr strongSelf = weakSelf.get();
+                if (![strongSelf _shouldActivateSelectionAfterBecomingFirstResponder])
+                    return;
+
+                [strongSelf->_textInteractionWrapper setNeedsSelectionUpdate];
+                [strongSelf->_textInteractionWrapper activateSelection];
+            });
+        }
 
         [self _scheduleResetInputViewDeferralAfterBecomingFirstResponder];
     } else
         [self stopDeferringInputViewUpdates:WebKit::InputViewUpdateDeferralSource::BecomeFirstResponder];
 
     return didBecomeFirstResponder;
+}
+
+- (BOOL)_shouldActivateSelectionAfterBecomingFirstResponder
+{
+    return self.canShowNonEmptySelectionView || (!_suppressSelectionAssistantReasons && _activeTextInteractionCount);
 }
 
 - (BOOL)resignFirstResponder
@@ -8351,6 +8364,22 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     if (!self._hasFocusedElement || !_suppressSelectionAssistantReasons)
         return;
 
+    [self _internalInvalidateTextEntryContext];
+}
+
+- (void)_didProgrammaticallyClearFocusedElement:(WebCore::ElementContext&&)context
+{
+    if (!self._hasFocusedElement)
+        return;
+
+    if (!context.isSameElement(_focusedElementInformation.elementContext))
+        return;
+
+    [self _internalInvalidateTextEntryContext];
+}
+
+- (void)_internalInvalidateTextEntryContext
+{
 #if USE(BROWSERENGINEKIT)
     if (self.shouldUseAsyncInteractions) {
         [_asyncInputDelegate invalidateTextEntryContextForTextInput:self.asBETextInput];

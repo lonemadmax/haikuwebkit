@@ -27,13 +27,43 @@
 
 #include "CSSCalcValue.h"
 #include "RenderStyleInlines.h"
+#include "StyleLengthResolution.h"
 
 namespace WebCore {
 namespace Style {
 
-Ref<CSSCalcValue> makeCalc(const CalculationValue& calculation, const RenderStyle& style)
+// MARK: Length Canonicalization
+
+double canonicalizeLength(double value, CSS::LengthUnit unit, NoConversionDataRequiredToken)
 {
-    return CSSCalcValue::create(calculation, style);
+    return computeNonCalcLengthDouble(value, unit, { });
+}
+
+double canonicalizeLength(double value, CSS::LengthUnit unit, const CSSToLengthConversionData& conversionData)
+{
+    return computeNonCalcLengthDouble(value, unit, conversionData);
+}
+
+float clampLengthToAllowedLimits(double value)
+{
+    return clampTo<float>(narrowPrecisionToFloat(value), minValueForCssLength, maxValueForCssLength);
+}
+
+float canonicalizeAndClampLength(double value, CSS::LengthUnit unit, NoConversionDataRequiredToken token)
+{
+    return clampLengthToAllowedLimits(canonicalizeLength(value, unit, token));
+}
+
+float canonicalizeAndClampLength(double value, CSS::LengthUnit unit, const CSSToLengthConversionData& conversionData)
+{
+    return clampLengthToAllowedLimits(canonicalizeLength(value, unit, conversionData));
+}
+
+// MARK: ToCSS utilities
+
+Ref<CSSCalcValue> makeCalc(Ref<CalculationValue> calculation, const RenderStyle& style)
+{
+    return CSSCalcValue::create(WTFMove(calculation), style);
 }
 
 float adjustForZoom(float value, const RenderStyle& style)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2009 Joseph Pecoraro
  *
@@ -196,7 +196,7 @@ static bool parseQuad(Ref<JSON::Array>&& quadArray, FloatQuad* quad)
 }
 
 class RevalidateStyleAttributeTask final : public CanMakeCheckedPtr<RevalidateStyleAttributeTask> {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(RevalidateStyleAttributeTask);
+    WTF_MAKE_TZONE_ALLOCATED(RevalidateStyleAttributeTask);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RevalidateStyleAttributeTask);
 public:
     RevalidateStyleAttributeTask(InspectorDOMAgent*);
@@ -209,6 +209,8 @@ private:
     Timer m_timer;
     HashSet<RefPtr<Element>> m_elements;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RevalidateStyleAttributeTask);
 
 RevalidateStyleAttributeTask::RevalidateStyleAttributeTask(InspectorDOMAgent* domAgent)
     : m_domAgent(domAgent)
@@ -326,10 +328,7 @@ void InspectorDOMAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, 
     m_domEditor = makeUnique<DOMEditor>(*m_history);
 
     m_instrumentingAgents.setPersistentDOMAgent(this);
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_inspectedPage.mainFrame());
-    if (!localMainFrame)
-        return;
-    m_document = localMainFrame->document();
+    m_document = m_inspectedPage.localTopDocument();
 
     // Force a layout so that we can collect additional information from the layout process.
     relayoutDocument();
@@ -2412,9 +2411,9 @@ Ref<Inspector::Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildO
             selected = axObject->isSelected();
 
             auto selectedChildren = axObject->selectedChildren();
-            if (selectedChildren && selectedChildren->size()) {
+            if (selectedChildren.size()) {
                 selectedChildNodeIds = JSON::ArrayOf<Inspector::Protocol::DOM::NodeId>::create();
-                for (auto& selectedChildObject : *selectedChildren) {
+                for (auto& selectedChildObject : selectedChildren) {
                     if (Node* selectedChildNode = selectedChildObject->node()) {
                         if (auto selectedChildNodeId = pushNodePathToFrontend(selectedChildNode))
                             selectedChildNodeIds->addItem(selectedChildNodeId);

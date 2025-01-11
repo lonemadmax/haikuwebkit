@@ -1970,6 +1970,9 @@
     "imported/w3c/web-platform-tests/content-security-policy/object-src/object-src-2_2.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/content-security-policy/report-hash/multiple-policies.https.sub.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-report-to-overrides-report-uri-2.https.sub.html": [
         "slow"
     ],
@@ -2463,6 +2466,9 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/dom/traversal/TreeWalker.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/editing/crashtests/insertparagraph-in-listitem-in-svg-followed-by-collapsible-spaces.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/editing/run/backcolor.html": [
@@ -5823,6 +5829,21 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/svg/animations/svglengthlist-animation-3.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/svg/interact/scripted/async-01.svg": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/svg/interact/scripted/async-02.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/svg/interact/scripted/async-03.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/svg/interact/scripted/defer-02.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/svg/interact/scripted/module-02.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/trusted-types/TrustedTypePolicyFactory-getAttributeType-event-handler-content-attributes.tentative.html": [

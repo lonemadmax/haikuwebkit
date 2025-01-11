@@ -28,6 +28,13 @@
 
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
 
+#import "RemoteLayerTreeViews.h"
+
+@interface WKSeparatedImageView (WKContentControlled) <WKContentControlled>
+@end
+@implementation WKSeparatedImageView (WKContentControlled)
+@end
+
 #if USE(APPLE_INTERNAL_SDK)
 // Swift implementation.
 #else

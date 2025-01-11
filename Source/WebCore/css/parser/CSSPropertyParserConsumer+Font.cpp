@@ -66,8 +66,8 @@
 #include "Document.h"
 #include "FontCustomPlatformData.h"
 #include "FontFace.h"
-#include "ParsingUtilities.h"
 #include "WebKitFontFamilyNames.h"
+#include <wtf/text/ParsingUtilities.h>
 
 #if ENABLE(VARIATION_FONTS)
 #include "CSSFontStyleRangeValue.h"
@@ -82,7 +82,7 @@ template<typename Result, typename... Ts> static Result forwardVariantTo(std::va
     return WTF::switchOn(WTFMove(variant), [](auto&& alternative) -> Result { return { WTFMove(alternative) }; });
 }
 
-template<typename T> static Ref<CSSPrimitiveValue> resolveToCSSPrimitiveValue(CSS::PrimitiveNumeric<T>&& primitive)
+static Ref<CSSPrimitiveValue> resolveToCSSPrimitiveValue(CSS::Numeric auto&& primitive)
 {
     return WTF::switchOn(WTFMove(primitive), [](auto&& alternative) { return CSSPrimitiveValueResolverBase::resolve(WTFMove(alternative), { }); }).releaseNonNull();
 }

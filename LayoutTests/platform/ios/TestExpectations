@@ -2302,6 +2302,8 @@ accessibility/display-flex-shadow-dom-accname.html [ Pass ]
 accessibility/display-none-descendant-of-relation.html [ Pass ]
 accessibility/dynamic-aria-describedby-subtree.html [ Pass ]
 accessibility/dynamic-aria-describedby-text.html [ Pass ]
+accessibility/dynamic-datetime-attribute.html [ Pass ]
+accessibility/dynamic-speak-as.html [ Pass ]
 accessibility/dynamic-text.html [ Pass ]
 accessibility/dynamically-ignored-canvas.html [ Pass ]
 accessibility/editable-webpage-focused-ui-element.html [ Pass ]
@@ -2319,6 +2321,7 @@ accessibility/input-type-hidden-in-aria-hidden-false.html [ Pass ]
 accessibility/datetime/input-time-label-value.html [ Pass ]
 accessibility/invalid-inputs.html [ Pass ]
 accessibility/insert-text-into-password-field.html [ Pass ]
+accessibility/link-becomes-visited.html [ Pass ]
 accessibility/list-with-dynamically-changing-content.html [ Pass ]
 accessibility/live-region-attributes-update-after-dynamic-change.html [ Pass ]
 accessibility/menu-list-crash2.html [ Pass ]
@@ -2812,6 +2815,8 @@ http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies.http
 
 # Enable on appropriate platforms: rdar://140222322
 http/tests/storageAccess/grant-with-prompt-under-general-third-party-cookie-blocking-with-partitioned-cookies.https.html [ Skip ]
+http/tests/resourceLoadStatistics/only-partitioned-third-party-cookies.https.html [ Skip ]
+http/tests/resourceLoadStatistics/only-partitioned-cookies-after-redirect.https.html [ Skip ]
 
 # Enable again when fixing https://bugs.webkit.org/show_bug.cgi?id=208400.
 http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.https.html [ Skip ]
@@ -4602,12 +4607,18 @@ imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients-dynamic
 imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-lists/content-property/marker-text-matches-disc.html [ Skip ]
 
+# Failing with a lot of fuzziness on iOS
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-conic-gradient.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-linear-gradient.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-radial-gradient.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-repeating-conic-gradient.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-repeating-linear-gradient.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-repeating-radial-gradient.html [ ImageOnlyFailure ]
+
 http/tests/site-isolation/mouse-events/ [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/draw-after-navigation.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/draw-with-size-after-same-origin-navigation.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/page-zoom.html [ Skip ]
-
-webkit.org/b/269550 http/tests/site-isolation/scrolling/ [ Skip ]
 
 # This test can't be enabled on iOS until EventSenderProxy::keyDown() is implemented on iOS.
 http/tests/site-isolation/key-events.html [ Skip ]
@@ -6980,6 +6991,8 @@ http/tests/security/clipboard/copy-paste-html-across-origin-sanitizes-html.html 
 http/tests/security/clipboard/copy-paste-html-across-origin-strips-mso-list.html [ Pass Failure ]
 imported/w3c/web-platform-tests/content-security-policy/script-src/script-src-report-only-policy-works-with-external-hash-policy.html [ Pass Failure ]
 
+imported/w3c/web-platform-tests/css/css-break/form-control.html [ ImageOnlyFailure ]
+
 webkit.org/b/271445 fast/events/ios/rotation/resize-iframe-after-orientation-change.html [ Pass Failure ]
 
 webkit.org/b/271682 imported/w3c/web-platform-tests/css/css-content/quotes-007.html [ ImageOnlyFailure ] # TODO: uncomment line above with explicit pass expectation for this test when issue is resolved.
@@ -7468,9 +7481,6 @@ webanimations/frame-rate/animation-frame-rate-alignment-started-with-one-frame-s
 # webkit.org/b/277905 [ iOS ] fast/scrolling/ios/scroll-anchoring-momentum-scroll.html is a flaky text failure
 fast/scrolling/ios/scroll-anchoring-momentum-scroll.html [ Pass Failure ]
 
-# webkit.org/b/277907 [ iOS ] fast/scrolling/ios/overscroll-behavior-on-body.html is a flaky text failure
-fast/scrolling/ios/overscroll-behavior-on-body.html [ Pass Failure ]
-
 # rdar://124971386 (css-box/margin-trim/computed-margin-values layout tests failing in recursive cases)
 imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-child-with-border.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-self-collapsing-nested.html [ Pass Failure ]
@@ -7576,9 +7586,6 @@ webkit.org/b/281238 compositing/tiling/tile-cache-zoomed.html [ Failure ]
 # Platform-specific test enabled on macOS and iOS separately.
 webanimations/scroll-timeline-clamped-current-time-while-rubber-banding-ios.html [ Pass ]
 
-# webkit.org/b/277908 NEW TEST (284866@main): [ macOS iOS ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html is a flaky failure.
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/noopener/coop-noopener-allow-popups.https.html [ Pass Failure ]
-
 # webkit.org/b/282046 REGRESSION(285592@main): [ macOS iOS wk2 ] http/tests/site-isolation/load-event.html are near constant failures.
 http/tests/site-isolation/load-event.html [ Pass Failure ]
 
@@ -7593,23 +7600,6 @@ webgl/1.0.x/conformance/offscreencanvas/context-lost-restored-worker.html [ Fail
 webgl/1.0.x/conformance/offscreencanvas/context-lost-worker.html [ Failure ]
 webgl/2.0.y/conformance/offscreencanvas/context-lost-restored-worker.html [ Failure ]
 webgl/2.0.y/conformance/offscreencanvas/context-lost-worker.html [ Failure ]
-
-# webkit.org/b/282128 REGRESSION(285688@main?): [ macOS iOS wk2 ] 15x imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/* are near constant failures.
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/fetch.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/img-tag.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/sharedworker-classic.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/sharedworker-module.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/worklet-audio-import-data.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/srcdoc-inherit.meta/unset/worklet-audio.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/fetch.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/img-tag.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/sharedworker-classic.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/sharedworker-module.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/worklet-audio-import-data.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/worklet-audio.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/top.meta/unset/xhr.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/worker-classic-data.meta/unset/fetch.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/worker-module-data.meta/unset/fetch.https.html [ Pass Failure ]
 
 # webkit.org/b/276092 (REGRESSION (iOS 17.5?): [ iOS Debug ] 2 fast/events/ios/key-events-comprehensive/* tests are constantly failing.)
 fast/events/ios/key-events-comprehensive/key-events-control-shift.html [ Pass Timeout Failure ]
@@ -7678,3 +7668,10 @@ imported/w3c/web-platform-tests/html/interaction/focus/sequential-focus-navigati
 imported/w3c/web-platform-tests/html/interaction/focus/sequential-focus-navigation-and-the-tabindex-attribute/focus-tabindex-order.html [ Skip ]
 imported/w3c/web-platform-tests/html/interaction/focus/sequential-focus-navigation-and-the-tabindex-attribute/focus-tabindex-positive.html [ Skip ]
 imported/w3c/web-platform-tests/html/interaction/focus/sequential-focus-navigation-and-the-tabindex-attribute/focus-tabindex-zero.html [ Skip ]
+
+# webkit.org/b/284886 [iOS] 2 tests in fast/writing-mode are constantly failing (flaky in EWS)
+fast/writing-mode/inline-block-baseline.html [ ImageOnlyFailure ]
+fast/writing-mode/vertical-subst-font-vert-no-dflt.html [ ImageOnlyFailure ]
+
+# webkit.org/b/267890 REGRESSION (273260@main): [ iOS17 ] 3 tests in fast/forms/switch regularly timeout
+fast/forms/switch/pointer-tracking.html [ Timeout ]

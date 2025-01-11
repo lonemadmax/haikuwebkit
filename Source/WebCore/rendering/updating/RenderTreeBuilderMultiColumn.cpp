@@ -39,7 +39,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RenderTreeBuilder, MultiColumn);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTreeBuilder::MultiColumn);
 
 static RenderMultiColumnSet* findSetRendering(const RenderMultiColumnFlow& fragmentedFlow, const RenderObject& renderer)
 {
@@ -188,10 +188,10 @@ void RenderTreeBuilder::MultiColumn::restoreColumnSpannersForContainer(const Ren
     auto& spanners = multiColumnFlow.spannerMap();
     Vector<RenderMultiColumnSpannerPlaceholder*> placeholdersToRestore;
     for (auto& spannerAndPlaceholder : spanners) {
-        auto& placeholder = *spannerAndPlaceholder.value;
-        if (!placeholder.isDescendantOf(&container))
+        auto& placeholder = spannerAndPlaceholder.value;
+        if (!placeholder || !placeholder->isDescendantOf(&container))
             continue;
-        placeholdersToRestore.append(&placeholder);
+        placeholdersToRestore.append(placeholder.get());
     }
     for (auto* placeholder : placeholdersToRestore) {
         auto* spanner = placeholder->spanner();

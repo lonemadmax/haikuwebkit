@@ -125,6 +125,7 @@ public:
     RefPtr<AccessibilityUIElement> focusableAncestor();
     RefPtr<AccessibilityUIElement> editableAncestor();
     RefPtr<AccessibilityUIElement> highestEditableAncestor();
+    JSRetainPtr<JSStringRef> selectedText();
 #else
     void syncPress() { press(); }
     void asyncIncrement() { }
@@ -132,7 +133,14 @@ public:
     RefPtr<AccessibilityUIElement> focusableAncestor() { return nullptr; }
     RefPtr<AccessibilityUIElement> editableAncestor() { return nullptr; }
     RefPtr<AccessibilityUIElement> highestEditableAncestor() { return nullptr; }
-#endif
+    JSRetainPtr<JSStringRef> selectedText() { return nullptr; }
+#endif // PLATFORM(MAC)
+
+#if PLATFORM(COCOA)
+    JSRetainPtr<JSStringRef> dateTimeValue() const;
+#else
+    JSRetainPtr<JSStringRef> dateTimeValue() const { return nullptr; }
+#endif // PLATFORM(COCOA)
 
     // Attributes - platform-independent implementations
     JSRetainPtr<JSStringRef> stringDescriptionOfAttributeValue(JSStringRef attribute);
@@ -282,8 +290,8 @@ public:
     RefPtr<AccessibilityUIElement> ownerElementAtIndex(unsigned);
     RefPtr<AccessibilityUIElement> ariaOwnsElementAtIndex(unsigned);
 
-    // ARIA Drag and Drop
-    bool ariaIsGrabbed() const;
+    // Drag and drop
+    bool isGrabbed() const;
     // A space concatentated string of all the drop effects.
     JSRetainPtr<JSStringRef> ariaDropEffects() const;
     

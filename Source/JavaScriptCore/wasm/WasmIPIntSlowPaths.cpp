@@ -975,13 +975,9 @@ static inline UGPRPair doWasmCall(JSWebAssemblyInstance* instance, Wasm::Functio
     EncodedJSValue boxedCallee = CalleeBits::encodeNullCallee();
 
     if (functionIndex < importFunctionCount) {
-        JSWebAssemblyInstance::ImportFunctionInfo* functionInfo = instance->importFunctionInfo(functionIndex);
+        auto* functionInfo = instance->importFunctionInfo(functionIndex);
         codePtr = functionInfo->importFunctionStub;
-#if USE(JSVALUE64)
-        *callee = std::bit_cast<uint64_t>(functionInfo->boxedTargetCalleeLoadLocation);
-#else
-        *callee = std::bit_cast<uint32_t>(functionInfo->boxedTargetCalleeLoadLocation);
-#endif
+        *callee = *std::bit_cast<uintptr_t*>(functionInfo->boxedWasmCalleeLoadLocation);
     } else {
         // Target is a wasm function within the same instance
         codePtr = *instance->calleeGroup()->entrypointLoadLocationFromFunctionIndexSpace(functionIndex);

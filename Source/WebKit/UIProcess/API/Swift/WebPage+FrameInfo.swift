@@ -30,6 +30,10 @@ extension WebPage_v0 {
     @MainActor
     @_spi(Private)
     public struct FrameInfo: Sendable {
+        init(_ wrapped: WKFrameInfo) {
+            self.wrapped = wrapped
+        }
+
         public var isMainFrame: Bool { wrapped.isMainFrame }
 
         public var request: URLRequest { wrapped.request }
@@ -37,10 +41,6 @@ extension WebPage_v0 {
         public var securityOrigin: WKSecurityOrigin { wrapped.securityOrigin }
 
         var wrapped: WKFrameInfo
-
-        init(_ wrapped: WKFrameInfo) {
-            self.wrapped = wrapped
-        }
     }
 }
 

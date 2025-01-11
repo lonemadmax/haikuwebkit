@@ -235,7 +235,6 @@ enum class TextZoom : bool;
 enum class TouchAction : uint8_t;
 enum class TransformBox : uint8_t;
 enum class TransformStyle3D : uint8_t;
-enum class TypographicMode : bool;
 enum class UnicodeBidi : uint8_t;
 enum class UsedClear : uint8_t;
 enum class UsedFloat : uint8_t;
@@ -571,7 +570,7 @@ public:
 
     UnicodeBidi unicodeBidi() const { return static_cast<UnicodeBidi>(m_nonInheritedFlags.unicodeBidi); }
 
-    FieldSizing fieldSizing() const;
+    inline FieldSizing fieldSizing() const;
 
     WEBCORE_EXPORT const FontCascade& fontCascade() const;
     WEBCORE_EXPORT const FontMetrics& metricsOfPrimaryFont() const;
@@ -1086,7 +1085,7 @@ public:
     inline const Style::Color& scrollbarThumbColor() const;
     inline const Style::Color& scrollbarTrackColor() const;
     WEBCORE_EXPORT ScrollbarGutter scrollbarGutter() const;
-    WEBCORE_EXPORT ScrollbarWidth scrollbarWidth() const;
+    inline ScrollbarWidth scrollbarWidth() const;
 
 #if ENABLE(TOUCH_EVENTS)
     inline Style::Color tapHighlightColor() const;
@@ -1154,6 +1153,8 @@ public:
 
 #if HAVE(CORE_MATERIAL)
     inline AppleVisualEffect appleVisualEffect() const;
+    inline bool hasAppleVisualEffect() const;
+    inline bool hasAppleVisualEffectRequiringBackdropFilter() const;
 #endif
 
     inline MathStyle mathStyle() const;
@@ -1233,10 +1234,10 @@ public:
     inline void setHasExplicitlySetBorderTopLeftRadius(bool);
     inline void setHasExplicitlySetBorderTopRightRadius(bool);
 
-    RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
+    RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, RectEdges<bool> closedEdges) const;
 
-    RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, LayoutUnit topWidth, LayoutUnit bottomWidth, LayoutUnit leftWidth, LayoutUnit rightWidth, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
-    static RoundedRect getRoundedInnerBorderFor(const LayoutRect&, LayoutUnit topWidth, LayoutUnit bottomWidth, LayoutUnit leftWidth, LayoutUnit rightWidth, std::optional<BorderDataRadii>, bool isHorizontal, bool includeLogicalLeftEdge, bool includeLogicalRightEdge);
+    RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, LayoutUnit topWidth, LayoutUnit bottomWidth, LayoutUnit leftWidth, LayoutUnit rightWidth, RectEdges<bool> closedEdges) const;
+    static RoundedRect getRoundedInnerBorderFor(const LayoutRect&, LayoutUnit topWidth, LayoutUnit bottomWidth, LayoutUnit leftWidth, LayoutUnit rightWidth, std::optional<BorderDataRadii>, RectEdges<bool> closedEdges);
 
     inline void setBorderLeftWidth(float);
     inline void setBorderLeftStyle(BorderStyle);
@@ -1276,7 +1277,7 @@ public:
 
     void setClear(Clear v) { m_nonInheritedFlags.clear = static_cast<unsigned>(v); }
 
-    void setFieldSizing(FieldSizing);
+    inline void setFieldSizing(FieldSizing);
 
     void setFontCascade(FontCascade&&);
     WEBCORE_EXPORT void setFontDescription(FontCascadeDescription&&);
@@ -1637,7 +1638,7 @@ public:
     inline void setScrollbarThumbColor(const Style::Color&);
     inline void setScrollbarTrackColor(const Style::Color&);
     void setScrollbarGutter(ScrollbarGutter);
-    void setScrollbarWidth(ScrollbarWidth);
+    inline void setScrollbarWidth(ScrollbarWidth);
 
 #if ENABLE(TOUCH_EVENTS)
     inline void setTapHighlightColor(const Style::Color&);
@@ -1873,7 +1874,6 @@ public:
     bool lastChildState() const { return m_nonInheritedFlags.lastChildState; }
     void setLastChildState() { setUnique(); m_nonInheritedFlags.lastChildState = true; }
 
-    Style::Color unresolvedColorForProperty(CSSPropertyID colorProperty, bool visitedLink = false) const;
     Color colorResolvingCurrentColor(CSSPropertyID colorProperty, bool visitedLink) const;
 
     // Resolves the currentColor keyword, but must not be used for the "color" property which has a different semantic.
@@ -2093,7 +2093,7 @@ public:
 
     static constexpr TouchAction initialTouchActions();
 
-    static FieldSizing initialFieldSizing();
+    static constexpr FieldSizing initialFieldSizing();
 
     static inline Length initialScrollMargin();
     static inline Length initialScrollPadding();
@@ -2111,7 +2111,7 @@ public:
 
     static inline std::optional<ScrollbarColor> initialScrollbarColor();
     static ScrollbarGutter initialScrollbarGutter();
-    static ScrollbarWidth initialScrollbarWidth();
+    static constexpr ScrollbarWidth initialScrollbarWidth();
 
 #if ENABLE(APPLE_PAY)
     static constexpr ApplePayButtonStyle initialApplePayButtonStyle();
@@ -2406,6 +2406,8 @@ private:
     RenderStyle(RenderStyle&, RenderStyle&&);
 
     constexpr DisplayType originalDisplay() const { return static_cast<DisplayType>(m_nonInheritedFlags.originalDisplay); }
+
+    const Style::Color& unresolvedColorForProperty(CSSPropertyID, bool visitedLink = false) const;
 
     inline bool hasAutoLeftAndRight() const;
     inline bool hasAutoTopAndBottom() const;

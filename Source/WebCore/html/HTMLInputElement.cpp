@@ -83,7 +83,6 @@
 #include <wtf/Language.h>
 #include <wtf/MathExtras.h>
 #include <wtf/Ref.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
@@ -99,7 +98,7 @@ using namespace HTMLNames;
 
 #if ENABLE(DATALIST_ELEMENT)
 class ListAttributeTargetObserver final : public IdTargetObserver {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(ListAttributeTargetObserver);
+    WTF_MAKE_TZONE_ALLOCATED(ListAttributeTargetObserver);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ListAttributeTargetObserver);
 public:
     ListAttributeTargetObserver(const AtomString& id, HTMLInputElement&);
@@ -109,6 +108,8 @@ public:
 private:
     WeakPtr<HTMLInputElement, WeakPtrImplWithEventTargetData> m_element;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ListAttributeTargetObserver);
 #endif
 
 static constexpr int maxSavedResults = 256;
@@ -792,12 +793,12 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
     switch (name.nodeName()) {
     case AttributeNames::typeAttr:
         if (attributeModificationReason != AttributeModificationReason::Directly)
-            return; // initializeInputTypeAfterParsingOrCloning has taken care of this.
+            return; // initializeInputTypeAfterParsingOrCloning will take care of this.
         updateType(newValue);
         break;
     case AttributeNames::valueAttr:
         if (attributeModificationReason != AttributeModificationReason::Directly)
-            return; // initializeInputTypeAfterParsingOrCloning has taken care of this.
+            return; // initializeInputTypeAfterParsingOrCloning will take care of this.
         // Changes to the value attribute may change whether or not this element has a default value.
         // If this field is autocomplete=off that might affect the return value of needsSuspensionCallback.
         if (m_autocomplete == Off) {
@@ -888,6 +889,8 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
         if (document().settings().switchControlEnabled()) {
             auto hasSwitchAttribute = !newValue.isNull();
             m_hasSwitchAttribute = hasSwitchAttribute;
+            if (attributeModificationReason != AttributeModificationReason::Directly)
+                return; // initializeInputTypeAfterParsingOrCloning and updateUserAgentShadowTree will take care of this.
             if (isSwitch())
                 m_inputType->createShadowSubtreeIfNeeded();
             else if (isCheckbox())
@@ -1205,6 +1208,11 @@ ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEvent
 
         if (m_isAutoFilledAndObscured)
             setAutofilledAndObscured(false);
+
+        if (valueChanged && value.isEmpty()) {
+            if (RefPtr page = document().page())
+                page->chrome().client().didProgrammaticallyClearTextFormControl(*this);
+        }
     }
 
     return { };

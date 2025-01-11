@@ -37,7 +37,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RenderTreeBuilder, Inline);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTreeBuilder::Inline);
 
 static bool canUseAsParentForContinuation(const RenderObject* renderer)
 {
@@ -52,7 +52,7 @@ static bool canUseAsParentForContinuation(const RenderObject* renderer)
 
 static RenderBoxModelObject* nextContinuation(RenderObject* renderer)
 {
-    if (auto* renderInline = dynamicDowncast<RenderInline>(*renderer); renderInline && !renderInline->isReplacedOrInlineBlock())
+    if (auto* renderInline = dynamicDowncast<RenderInline>(*renderer); renderInline && !renderInline->isReplacedOrAtomicInline())
         return renderInline->continuation();
     return downcast<RenderBlock>(*renderer).inlineContinuation();
 }
@@ -211,7 +211,14 @@ void RenderTreeBuilder::Inline::splitFlow(RenderInline& parent, RenderObject* be
 
     RenderPtr<RenderBlock> createdPre;
     bool madeNewBeforeBlock = false;
-    if (block->isAnonymousBlock() && (!block->parent() || !block->parent()->createsAnonymousWrapper())) {
+    auto canResueContainingBlockAsPreBlock = [&] {
+        if (!block->isAnonymousBlock())
+            return false;
+        if (auto* containingBlockParent = block->parent())
+            return !containingBlockParent->createsAnonymousWrapper() && !containingBlockParent->isRenderDeprecatedFlexibleBox();
+        return false;
+    };
+    if (canResueContainingBlockAsPreBlock()) {
         // We can reuse this block and make it the preBlock of the next continuation.
         pre = block;
         pre->removePositionedObjects(nullptr);

@@ -233,6 +233,11 @@
 #include "WebMockContentFilterManager.h"
 #endif
 
+#if ENABLE(CONTENT_EXTENSIONS)
+#include "WebCompiledContentRuleList.h"
+#include <WebCore/ResourceMonitorChecker.h>
+#endif
+
 #if HAVE(LSDATABASECONTEXT)
 #include "LaunchServicesDatabaseManager.h"
 #endif
@@ -1339,6 +1344,11 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
     }
 
     m_cacheStorageProvider->networkProcessConnectionClosed();
+
+    for (auto& weakSession : m_webTransportSessions.values()) {
+        if (RefPtr webtransportSession = weakSession.get())
+            webtransportSession->networkProcessCrashed();
+    }
 }
 
 WebFileSystemStorageConnection& WebProcess::fileSystemStorageConnection()
@@ -2419,19 +2429,22 @@ Ref<WebNotificationManager> WebProcess::protectedNotificationManager()
     return *supplement<WebNotificationManager>();
 }
 
-WebTransportSession* WebProcess::webTransportSession(WebTransportSessionIdentifier identifier)
+RefPtr<WebTransportSession> WebProcess::webTransportSession(WebTransportSessionIdentifier identifier)
 {
+    ASSERT(RunLoop::isMain());
     return m_webTransportSessions.get(identifier).get();
 }
 
 void WebProcess::addWebTransportSession(WebTransportSessionIdentifier identifier, WebTransportSession& session)
 {
+    ASSERT(RunLoop::isMain());
     ASSERT(!m_webTransportSessions.contains(identifier));
     m_webTransportSessions.set(identifier, session);
 }
 
 void WebProcess::removeWebTransportSession(WebTransportSessionIdentifier identifier)
 {
+    ASSERT(RunLoop::isMain());
     ASSERT(m_webTransportSessions.contains(identifier));
     m_webTransportSessions.remove(identifier);
 }
@@ -2449,6 +2462,8 @@ bool WebProcess::requiresScriptTelemetryForURL(const URL& url, const WebCore::Se
 
 void WebProcess::enableMediaPlayback()
 {
+    m_mediaPlaybackEnabled = true;
+
 #if USE(AUDIO_SESSION)
     if (!WebCore::AudioSession::enableMediaPlayback())
         return;
@@ -2470,6 +2485,23 @@ Ref<WebCookieJar> WebProcess::protectedCookieJar()
 {
     return m_cookieJar;
 }
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void WebProcess::setResourceMonitorContentRuleList(WebCompiledContentRuleListData&& ruleListData)
+{
+    RefPtr compiledContentRuleList = WebCompiledContentRuleList::create(WTFMove(ruleListData));
+    if (!compiledContentRuleList) {
+        WEBPROCESS_RELEASE_LOG_ERROR(ResourceLoadStatistics, "setResourceMonitorContentRuleList: Failed to create rule list");
+        return;
+    }
+
+    WebCore::ContentExtensions::ContentExtensionsBackend backend;
+    auto identifier = compiledContentRuleList->data().identifier;
+    backend.addContentExtension(identifier, compiledContentRuleList.releaseNonNull(), { }, ContentExtensions::ContentExtension::ShouldCompileCSS::No);
+
+    WebCore::ResourceMonitorChecker::singleton().setContentRuleList(WTFMove(backend));
+}
+#endif
 
 } // namespace WebKit
 

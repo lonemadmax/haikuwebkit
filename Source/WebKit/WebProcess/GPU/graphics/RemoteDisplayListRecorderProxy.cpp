@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -259,9 +259,9 @@ void RemoteDisplayListRecorderProxy::recordDrawFilteredImageBuffer(ImageBuffer* 
     send(Messages::RemoteDisplayListRecorder::DrawFilteredImageBuffer(WTFMove(identifier), sourceImageRect, filter));
 }
 
-void RemoteDisplayListRecorderProxy::recordDrawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode mode)
+void RemoteDisplayListRecorderProxy::recordDrawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& localAnchor, FontSmoothingMode mode)
 {
-    send(Messages::RemoteDisplayListRecorder::DrawGlyphs(DisplayList::DrawGlyphs { font, glyphs, advances, count, localAnchor, mode }));
+    send(Messages::RemoteDisplayListRecorder::DrawGlyphs(DisplayList::DrawGlyphs { font, glyphs, advances, localAnchor, mode }));
 }
 
 void RemoteDisplayListRecorderProxy::recordDrawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
@@ -556,6 +556,18 @@ void RemoteDisplayListRecorderProxy::applyDeviceScaleFactor(float scaleFactor)
 {
     updateStateForApplyDeviceScaleFactor(scaleFactor);
     send(Messages::RemoteDisplayListRecorder::ApplyDeviceScaleFactor(scaleFactor));
+}
+
+void RemoteDisplayListRecorderProxy::beginPage(const IntSize& pageSize)
+{
+    appendStateChangeItemIfNecessary();
+    send(Messages::RemoteDisplayListRecorder::BeginPage(pageSize));
+}
+
+void RemoteDisplayListRecorderProxy::endPage()
+{
+    appendStateChangeItemIfNecessary();
+    send(Messages::RemoteDisplayListRecorder::EndPage());
 }
 
 bool RemoteDisplayListRecorderProxy::recordResourceUse(NativeImage& image)

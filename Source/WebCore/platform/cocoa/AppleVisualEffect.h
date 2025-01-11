@@ -50,7 +50,9 @@ enum class AppleVisualEffect : uint8_t {
     VibrancySeparator,
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, AppleVisualEffect);
+WEBCORE_EXPORT bool appleVisualEffectNeedsBackdrop(AppleVisualEffect);
+
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, AppleVisualEffect);
 
 } // namespace WebCore
 

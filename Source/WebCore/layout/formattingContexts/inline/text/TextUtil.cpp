@@ -40,6 +40,8 @@
 #include "TextSpacing.h"
 #include "WidthIterator.h"
 #include <unicode/ubidi.h>
+#include <wtf/text/CharacterProperties.h>
+#include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
@@ -517,7 +519,7 @@ bool TextUtil::containsStrongDirectionalityText(StringView text)
             };
 
             auto result = SIMD::splat<UnsignedType>(0);
-            for (; span.size() < stride; span = span.subspan(stride))
+            for (; span.size() < stride; skip(span, stride))
                 result = SIMD::bitOr(result, maybeBidiRTL(span));
             if (!span.empty())
                 result = SIMD::bitOr(result, maybeBidiRTL(span.last(stride)));
@@ -690,6 +692,19 @@ bool TextUtil::hasPositionDependentContentWidth(StringView textContent)
     if (textContent.is8Bit())
         return charactersContain<LChar, tabCharacter>(textContent.span8());
     return charactersContain<UChar, tabCharacter>(textContent.span16());
+}
+
+char32_t TextUtil::lastBaseCharacterFromText(StringView string)
+{
+    if (!string.length())
+        return 0;
+
+    for (size_t characterIndex = string.length(); characterIndex > 0; --characterIndex) {
+        auto character = string.characterAt(characterIndex - 1);
+        if (!isCombiningMark(character))
+            return character;
+    }
+    return 0;
 }
 
 }

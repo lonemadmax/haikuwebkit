@@ -127,7 +127,7 @@ private:
     std::unique_ptr<ServiceWorkerStorageManager> m_serviceWorkerStorageManager;
 };
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(OriginStorageManager, StorageBucket);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(OriginStorageManager::StorageBucket);
 
 OriginStorageManager::StorageBucket::StorageBucket(const String& rootPath, const String& identifier, const String& localStoragePath, const String& idbStoragePath, const String& cacheStoragePath, UnifiedOriginStorageLevel level)
     : m_rootPath(rootPath)
@@ -757,6 +757,11 @@ CacheStorageManager& OriginStorageManager::cacheStorageManager(CacheStorageRegis
             completionHandler(decision == OriginQuotaManager::Decision::Grant);
         });
     }, WTFMove(queue));
+}
+
+Ref<CacheStorageManager> OriginStorageManager::protectedCacheStorageManager(CacheStorageRegistry& registry, const WebCore::ClientOrigin& origin, Ref<WorkQueue>&& queue)
+{
+    return cacheStorageManager(registry, origin, WTFMove(queue));
 }
 
 BackgroundFetchStoreManager& OriginStorageManager::backgroundFetchManager(Ref<WorkQueue>&& queue)

@@ -128,8 +128,7 @@ void WebPage::platformInitializeAccessibility()
     // Get the pid for the starting process.
     pid_t pid = legacyPresentingApplicationPID();
     createMockAccessibilityElement(pid);
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
-    if (localMainFrame)
+    if (m_page->localMainFrame())
         accessibilityTransferRemoteToken(accessibilityRemoteTokenData());
 
     // Close Mach connection to Launch Services.
@@ -217,7 +216,6 @@ void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandid
         return;
 
     frame->editor().handleAcceptedCandidate(acceptedCandidate);
-    send(Messages::WebPageProxy::DidHandleAcceptedCandidate());
 }
 
 NSObject *WebPage::accessibilityObjectForMainFramePlugin()
@@ -457,7 +455,7 @@ void WebPage::registerUIProcessAccessibilityTokens(std::span<const uint8_t> elem
 
     [remoteElement setWindowUIElement:remoteWindow.get()];
     [remoteElement setTopLevelUIElement:remoteWindow.get()];
-
+    [accessibilityRemoteObject() setWindow:remoteWindow.get()];
     [accessibilityRemoteObject() setRemoteParent:remoteElement.get()];
 }
 
@@ -966,13 +964,13 @@ std::optional<WebCore::SimpleRange> WebPage::lookupTextAtLocation(FrameIdentifie
 
 void WebPage::immediateActionDidUpdate()
 {
-    if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame()))
+    if (RefPtr localMainFrame = m_page->localMainFrame())
         localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionUpdated);
 }
 
 void WebPage::immediateActionDidCancel()
 {
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    RefPtr localMainFrame = m_page->localMainFrame();
     if (!localMainFrame)
         return;
     ImmediateActionStage lastStage = localMainFrame->eventHandler().immediateActionStage();
@@ -984,7 +982,7 @@ void WebPage::immediateActionDidCancel()
 
 void WebPage::immediateActionDidComplete()
 {
-    if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame()))
+    if (RefPtr localMainFrame = m_page->localMainFrame())
         localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCompleted);
 }
 
@@ -1066,7 +1064,7 @@ void WebPage::didBeginMagnificationGesture()
 void WebPage::didEndMagnificationGesture()
 {
 #if ENABLE(MAC_GESTURE_EVENTS)
-    if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame()))
+    if (RefPtr localMainFrame = m_page->localMainFrame())
         localMainFrame->eventHandler().didEndMagnificationGesture();
 #endif
 #if ENABLE(PDF_PLUGIN)

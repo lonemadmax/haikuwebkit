@@ -57,6 +57,7 @@
 #import <mach/task.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/OSObjectPtr.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/UUID.h>
 #import <wtf/UniqueRef.h>
 #import <wtf/cocoa/SpanCocoa.h>
@@ -312,7 +313,7 @@ static WebKit::WebPushD::WebPushDaemonConnectionConfiguration defaultWebPushDaem
 {
     auto token = getSelfAuditToken();
     Vector<uint8_t> auditToken(sizeof(token));
-    memcpy(auditToken.data(), &token, sizeof(token));
+    memcpySpan(auditToken.mutableSpan(), asByteSpan(token));
 
     IGNORE_CLANG_WARNINGS_BEGIN("missing-designated-field-initializers")
     return { .hostAppAuditTokenData = WTFMove(auditToken) };
@@ -401,7 +402,7 @@ window.onload = function()
 async function subscribe(key)
 {
     try {
-        globalSubscription = await navigator.pushManager.subscribe({
+        globalSubscription = await window.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: key
         });
@@ -424,7 +425,7 @@ async function unsubscribe()
 async function getPushSubscription()
 {
     try {
-        let subscription = await navigator.pushManager.getSubscription();
+        let subscription = await window.pushManager.getSubscription();
         return subscription ? subscription.toJSON() : null;
     } catch (error) {
         return "Error: " + error;

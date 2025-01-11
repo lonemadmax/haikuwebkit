@@ -24,7 +24,7 @@
 #if ENABLE_SWIFTUI && compiler(>=6.0)
 
 import Foundation
-import SwiftUI
+public import SwiftUI
 
 extension EnvironmentValues {
     @Entry var webViewAllowsBackForwardNavigationGestures = false
@@ -36,6 +36,10 @@ extension EnvironmentValues {
     @Entry var webViewAllowsTextInteraction = true
 
     @Entry var webViewAllowsElementFullscreen = false
+
+    @Entry var webViewFindContext: FindContext = .init()
+
+    @Entry var webViewContextMenuContext: ContextMenuContext? = nil
 }
 
 extension View {
@@ -63,6 +67,47 @@ extension View {
     public func webViewAllowsElementFullscreen(_ value: Bool = true) -> some View {
         environment(\.webViewAllowsElementFullscreen, value)
     }
+
+    @_spi(Private)
+    public func webViewFindNavigator(isPresented: Binding<Bool>) -> some View {
+        environment(\.webViewFindContext, .init(isPresented: isPresented))
+    }
+
+    @_spi(Private)
+    public func webViewFindDisabled(_ isDisabled: Bool = true) -> some View {
+        transformEnvironment(\.webViewFindContext) { $0.canFind = !isDisabled }
+    }
+
+    @_spi(Private)
+    public func webViewReplaceDisabled(_ isDisabled: Bool = true) -> some View {
+        transformEnvironment(\.webViewFindContext) { $0.canReplace = !isDisabled }
+    }
+
+    @_spi(Private)
+    public func webViewContextMenu<M>(@ViewBuilder menuItems: @escaping (WebPage_v0.ElementInfo) -> M) -> some View where M: View {
+#if os(macOS)
+        let converted = { (info: WebPage_v0.ElementInfo) in
+            let menuView = menuItems(info)
+            return NSHostingMenu(rootView: menuView)
+        }
+
+        return environment(\.webViewContextMenuContext, .init(menu: converted))
+#else
+        return self
+#endif
+    }
+}
+
+struct ContextMenuContext {
+#if os(macOS)
+    let menu: (WebPage_v0.ElementInfo) -> NSMenu
+#endif
+}
+
+struct FindContext {
+    var isPresented: Binding<Bool>?
+    var canFind = true
+    var canReplace = true
 }
 
 #endif

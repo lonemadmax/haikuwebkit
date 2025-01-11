@@ -740,6 +740,7 @@ WebProcess/GPU/graphics/WebGPU/RemoteXRProjectionLayerProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteXRSubImageProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteXRViewProxy.cpp
 WebProcess/GPU/graphics/WebGPU/WebGPUDowncastConvertToBackingContext.cpp
+WebProcess/GPU/graphics/ImageBufferRemotePDFDocumentBackend.cpp
 WebProcess/GPU/graphics/ImageBufferShareableBitmapBackend.cpp
 WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.cpp
 WebProcess/GPU/graphics/RemoteGraphicsContextGLProxyFunctionsGenerated.cpp
@@ -786,7 +787,6 @@ WebProcess/Network/WebResourceLoader.cpp
 WebProcess/Network/WebSocketChannel.cpp @no-unify
 WebProcess/Network/WebSocketChannelManager.cpp
 WebProcess/Network/WebSocketProvider.cpp
-WebProcess/Network/WebTransportReceiveStreamSource.cpp
 WebProcess/Network/WebTransportSendStreamSink.cpp
 WebProcess/Network/WebTransportSession.cpp
 

@@ -26,6 +26,7 @@
 #import "config.h"
 #import "TestWKWebView.h"
 
+#import "CGImagePixelReader.h"
 #import "ClassMethodSwizzler.h"
 #import "InstanceMethodSwizzler.h"
 #import "PlatformUtilities.h"
@@ -33,6 +34,7 @@
 #import "TestNavigationDelegate.h"
 #import "Utilities.h"
 
+#import <WebCore/Color.h>
 #import <WebKit/WKContentWorld.h>
 #import <WebKit/WKUIDelegate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
@@ -47,6 +49,7 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/Deque.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/Vector.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if PLATFORM(MAC)
@@ -281,6 +284,31 @@ static NSString *overrideBundleIdentifier(id, SEL)
     [self.textInputContentView insertTextSuggestion:textSuggestion];
 }
 
+#if HAVE(UI_WK_DOCUMENT_CONTEXT)
+
+- (UIWKDocumentContext *)synchronouslyRequestDocumentContext:(UIWKDocumentRequest *)request
+{
+    __block bool finished = false;
+    __block RetainPtr<id> result;
+    [self.textInputContentView requestDocumentContext:request completionHandler:^(UIWKDocumentContext *context) {
+        result = context;
+        finished = true;
+    }];
+    TestWebKitAPI::Util::run(&finished);
+
+#if USE(BROWSERENGINEKIT)
+    if (RetainPtr context = dynamic_objc_cast<BETextDocumentContext>(result.get()))
+        return [context _uikitDocumentContext];
+#endif
+
+    if (RetainPtr context = dynamic_objc_cast<UIWKDocumentContext>(result.get()))
+        return context.autorelease();
+
+    return nil;
+}
+
+#endif // HAVE(UI_WK_DOCUMENT_CONTEXT)
+
 #if USE(BROWSERENGINEKIT)
 
 - (id<BETextInput>)asyncTextInput
@@ -446,6 +474,23 @@ static WebEvent *unwrap(BEKeyEntry *event)
     [self.textInputContentView prepareSelectionForContextMenuWithLocationInView:locationInView completionHandler:[completion = makeBlockPtr(completion)](BOOL shouldPresent, RVItem *) {
         completion(shouldPresent);
     }];
+}
+
+- (void)selectTextInGranularity:(UITextGranularity)granularity atPoint:(CGPoint)pointInRootView
+{
+    bool done = false;
+    auto completion = makeBlockPtr([&] {
+        done = true;
+    });
+
+#if USE(BROWSERENGINEKIT)
+    if (self.hasAsyncTextInput)
+        [self.asyncTextInput selectTextInGranularity:granularity atPoint:pointInRootView completionHandler:completion.get()];
+    else
+#endif
+        [self.textInputContentView selectTextWithGranularity:granularity atPoint:pointInRootView completionHandler:completion.get()];
+
+    TestWebKitAPI::Util::run(&done);
 }
 
 - (void)handleKeyEvent:(WebEvent *)event completion:(void (^)(WebEvent *theEvent, BOOL handled))completion
@@ -1130,6 +1175,23 @@ static InputSessionChangeCount nextInputSessionChangeCount()
     return CGPointMake(midpoint.firstObject.doubleValue, midpoint.lastObject.doubleValue);
 }
 
+- (Vector<WebCore::Color>)sampleColors
+{
+    return [self sampleColorsWithInterval:TestWebKitAPI::CGImagePixelReader::defaultWebViewSamplingInterval];
+}
+
+- (Vector<WebCore::Color>)sampleColorsWithInterval:(unsigned)interval
+{
+    [self waitForNextPresentationUpdate];
+    Vector<WebCore::Color> samples;
+    TestWebKitAPI::CGImagePixelReader reader { [self snapshotAfterScreenUpdates] };
+    for (unsigned x = interval; x < reader.width() - interval; x += interval) {
+        for (unsigned y = interval; y < reader.height() - interval; y += interval)
+            samples.append(reader.at(x, y));
+    }
+    return samples;
+}
+
 #if PLATFORM(IOS_FAMILY)
 
 - (NSString *)textForSpeakSelection
@@ -1502,6 +1564,11 @@ static WKContentView *recursiveFindWKContentView(UIView *view)
 - (WKFrameInfo *)firstChildFrame
 {
     return [self mainFrame].childFrames.firstObject.info;
+}
+
+- (WKFrameInfo *)secondChildFrame
+{
+    return [self mainFrame].childFrames[1].info;
 }
 
 - (void)evaluateJavaScript:(NSString *)string inFrame:(WKFrameInfo *)frame completionHandler:(void(^)(id, NSError *))completionHandler

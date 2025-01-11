@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -226,7 +226,7 @@ void ClipOutRoundedRect::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("rect", rect());
 }
 
-void ClipToImageBuffer::apply(GraphicsContext& context, WebCore::ImageBuffer& imageBuffer) const
+void ClipToImageBuffer::apply(GraphicsContext& context, ImageBuffer& imageBuffer) const
 {
     context.clipToImageBuffer(imageBuffer, m_destinationRect);
 }
@@ -294,15 +294,15 @@ DrawGlyphs::DrawGlyphs(RenderingResourceIdentifier fontIdentifier, PositionedGly
 {
 }
 
-DrawGlyphs::DrawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
+DrawGlyphs::DrawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
     : m_fontIdentifier(font.renderingResourceIdentifier())
-    , m_positionedGlyphs { Vector(std::span { glyphs, count }), Vector(std::span { advances, count }), localAnchor, smoothingMode }
+    , m_positionedGlyphs { Vector(glyphs), Vector(advances), localAnchor, smoothingMode }
 {
 }
 
 void DrawGlyphs::apply(GraphicsContext& context, const Font& font) const
 {
-    return context.drawGlyphs(font, m_positionedGlyphs.glyphs.data(), m_positionedGlyphs.advances.data(), m_positionedGlyphs.glyphs.size(), anchorPoint(), m_positionedGlyphs.smoothingMode);
+    return context.drawGlyphs(font, m_positionedGlyphs.glyphs.span(), m_positionedGlyphs.advances.span(), anchorPoint(), m_positionedGlyphs.smoothingMode);
 }
 
 void DrawGlyphs::dump(TextStream& ts, OptionSet<AsTextFlag>) const
@@ -355,7 +355,7 @@ void DrawDisplayListItems::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("destination", destination());
 }
 
-void DrawImageBuffer::apply(GraphicsContext& context, WebCore::ImageBuffer& imageBuffer) const
+void DrawImageBuffer::apply(GraphicsContext& context, ImageBuffer& imageBuffer) const
 {
     context.drawImageBuffer(imageBuffer, m_destinationRect, m_srcRect, m_options);
 }
@@ -910,6 +910,21 @@ void ApplyDeviceScaleFactor::apply(GraphicsContext& context) const
 void ApplyDeviceScaleFactor::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
     ts.dumpProperty("scale-factor", scaleFactor());
+}
+
+void BeginPage::apply(GraphicsContext& context) const
+{
+    context.beginPage(m_pageSize);
+}
+
+void BeginPage::dump(TextStream& ts, OptionSet<AsTextFlag>) const
+{
+    ts.dumpProperty("page-size", pageSize());
+}
+
+void EndPage::apply(GraphicsContext& context) const
+{
+    context.endPage();
 }
 
 } // namespace DisplayList

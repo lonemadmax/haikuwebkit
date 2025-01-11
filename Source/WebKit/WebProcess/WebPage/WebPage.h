@@ -54,6 +54,7 @@
 #include <WebCore/ShareData.h>
 #include <WebCore/ShareableBitmap.h>
 #include <WebCore/SimpleRange.h>
+#include <WebCore/SnapshotIdentifier.h>
 #include <WebCore/SubstituteData.h>
 #include <WebCore/TextManipulationController.h>
 #include <WebCore/TextManipulationItem.h>
@@ -183,10 +184,12 @@ class HTMLElement;
 class HTMLImageElement;
 class HTMLPlugInElement;
 class HTMLSelectElement;
+class HTMLTextFormControlElement;
 class HTMLVideoElement;
 class HandleUserInputEventResult;
 class HistoryItem;
 class IgnoreSelectionChangeForScope;
+class ImageBuffer;
 class IntPoint;
 class IntRect;
 class KeyboardEvent;
@@ -735,6 +738,8 @@ public:
     WebCore::Frame* mainFrame() const; // May return nullptr.
     WebCore::FrameView* mainFrameView() const; // May return nullptr.
     WebCore::LocalFrameView* localMainFrameView() const; // May return nullptr.
+    RefPtr<WebCore::LocalFrame> localMainFrame() const;
+    RefPtr<WebCore::Document> localTopDocument() const;
 
     void createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID, const String& newChildFrameName);
 
@@ -880,8 +885,6 @@ public:
 #if PLATFORM(MAC)
     void setTopOverhangImage(WebImage*);
     void setBottomOverhangImage(WebImage*);
-
-    void setUseSystemAppearance(bool);
 
     void setUseFormSemanticContext(bool);
     void semanticContextDidChange(bool);
@@ -1291,6 +1294,8 @@ public:
     void computePagesForPrintingImpl(WebCore::FrameIdentifier, const PrintInfo&, Vector<WebCore::IntRect>& pageRects, double& totalScaleFactor, WebCore::FloatBoxExtent& computedMargin);
 
 #if PLATFORM(COCOA)
+    void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
+    void drawCompositedToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground, WebCore::SnapshotIdentifier);
     void drawRectToImage(WebCore::FrameIdentifier, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, CompletionHandler<void(std::optional<WebCore::ShareableBitmap::Handle>&&)>&&);
     void drawRectToImageDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, const WebCore::IntRect& rect, const WebCore::IntSize& imageSize, CompletionHandler<void(std::optional<WebCore::ShareableBitmap::Handle>&&)>&& completionHandler) { drawRectToImage(frameID, printInfo, rect, imageSize, WTFMove(completionHandler)); }
     void drawPagesToPDF(WebCore::FrameIdentifier, const PrintInfo&, uint32_t first, uint32_t count, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
@@ -1303,8 +1308,6 @@ public:
     void drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
     void drawToImage(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(std::optional<WebCore::ShareableBitmap::Handle>&&)>&&);
 #endif
-
-    void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
 
 #if PLATFORM(GTK)
     void drawPagesForPrinting(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(std::optional<WebCore::SharedMemoryHandle>&&, WebCore::ResourceError&&)>&&);
@@ -1638,7 +1641,7 @@ public:
     void configureLoggingChannel(const String&, WTFLogChannelState, WTFLogLevel);
 
     RefPtr<WebCore::Element> elementForContext(const WebCore::ElementContext&) const;
-    std::optional<WebCore::ElementContext> contextForElement(WebCore::Element&) const;
+    std::optional<WebCore::ElementContext> contextForElement(const WebCore::Element&) const;
 
     void startTextManipulations(Vector<WebCore::TextManipulationController::ExclusionRule>&&, bool includesSubframes, CompletionHandler<void()>&&);
     void completeTextManipulation(const Vector<WebCore::TextManipulationItem>&, CompletionHandler<void(bool allFailed, const Vector<WebCore::TextManipulationController::ManipulationFailure>&)>&&);
@@ -1935,6 +1938,8 @@ public:
     void setPresentingApplicationAuditToken(CoreIPCAuditToken&&);
 #endif
 
+    void didProgrammaticallyClearTextFormControl(const WebCore::HTMLTextFormControlElement&);
+
 private:
     WebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
 
@@ -1968,7 +1973,7 @@ private:
     void sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier, WebCore::Node*, WebCore::FloatPoint);
     WebCore::VisiblePosition visiblePositionInFocusedNodeForPoint(const WebCore::LocalFrame&, const WebCore::IntPoint&, bool isInteractingWithFocusedElement);
     std::optional<WebCore::SimpleRange> rangeForGranularityAtPoint(WebCore::LocalFrame&, const WebCore::IntPoint&, WebCore::TextGranularity, bool isInteractingWithFocusedElement);
-    void setFocusedFrameBeforeSelectingTextAtLocation(const WebCore::IntPoint&);
+    void updateFocusBeforeSelectingTextAtLocation(const WebCore::IntPoint&);
     void setSelectedRangeDispatchingSyntheticMouseEventsIfNeeded(const WebCore::SimpleRange&, WebCore::Affinity);
     void dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch, const WebCore::IntPoint&);
     void invokePendingSyntheticClickCallback(WebCore::SyntheticClickResult);
@@ -2371,8 +2376,10 @@ private:
 
     RefPtr<WebImage> snapshotAtSize(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions, WebCore::LocalFrame&, WebCore::LocalFrameView&);
     RefPtr<WebImage> snapshotNode(WebCore::Node&, SnapshotOptions, unsigned maximumPixelCount = std::numeric_limits<unsigned>::max());
+
 #if PLATFORM(COCOA)
-    RefPtr<WebCore::SharedBuffer> pdfSnapshotAtSize(WebCore::IntRect, WebCore::IntSize bitmapSize, SnapshotOptions);
+    void drawMainFrameToPDF(WebCore::LocalFrame&, WebCore::GraphicsContext&, WebCore::IntRect& snapshotRect, bool allowTransparentBackground);
+    void pdfSnapshotAtSize(WebCore::LocalFrame&, WebCore::GraphicsContext&, const WebCore::IntRect& snapshotRect, SnapshotOptions);
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -2982,7 +2989,7 @@ private:
     WebCore::HighlightVisibility m_appHighlightsVisible { WebCore::HighlightVisibility::Hidden };
 #endif
 
-    Ref<WebHistoryItemClient> m_historyItemClient;
+    const Ref<WebHistoryItemClient> m_historyItemClient;
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     WeakHashSet<WebCore::HTMLImageElement, WebCore::WeakPtrImplWithEventTargetData> m_elementsToExcludeFromRemoveBackground;
@@ -3005,6 +3012,7 @@ private:
 inline void WebPage::platformWillPerformEditingCommand() { }
 inline bool WebPage::requiresPostLayoutDataForEditorState(const WebCore::LocalFrame&) const { return false; }
 inline void WebPage::prepareToRunModalJavaScriptDialog() { }
+inline void WebPage::didProgrammaticallyClearTextFormControl(const WebCore::HTMLTextFormControlElement&) { }
 #endif
 
 #if !ENABLE(IOS_TOUCH_EVENTS)

@@ -4,7 +4,7 @@
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -28,8 +28,10 @@
 
 #include "BorderPainter.h"
 #include "Document.h"
-#include "HitTestResult.h"
+#include "HTMLFieldSetElement.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLNames.h"
+#include "HitTestResult.h"
 #include "PaintInfo.h"
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
@@ -292,9 +294,9 @@ LayoutUnit RenderTableSection::calcRowLogicalHeight()
                 // For row spanning cells, |r| is the last row in the span.
                 unsigned cellStartRow = cell->rowIndex();
 
-                if (cell->overridingLogicalHeight()) {
+                if (cell->overridingBorderBoxLogicalHeight()) {
                     cell->clearIntrinsicPadding();
-                    cell->clearOverridingContentSize();
+                    cell->clearOverridingSize();
                     cell->setChildNeedsLayout(MarkOnlyThis);
                     cell->layoutIfNeeded();
                 }
@@ -473,7 +475,9 @@ static bool shouldFlexCellChild(const RenderTableCell& cell, const RenderBox& ce
         return false;
     if (cellDescendant.scrollsOverflowY())
         return true;
-    return cellDescendant.shouldTreatChildAsReplacedInTableCells();
+    if (cellDescendant.isReplacedOrAtomicInline())
+        return true;
+    return is<HTMLFormControlElement>(cellDescendant.element()) && !is<HTMLFieldSetElement>(cellDescendant.element());
 }
 
 void RenderTableSection::relayoutCellIfFlexed(RenderTableCell& cell, int rowIndex, int rowHeight)
@@ -1471,7 +1475,7 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     // Just forward to our children always.
     LayoutPoint adjustedLocation = accumulatedOffset + location();
 
-    if (hasNonVisibleOverflow() && !locationInContainer.intersects(overflowClipRect(adjustedLocation, nullptr)))
+    if (hasNonVisibleOverflow() && !locationInContainer.intersects(overflowClipRect(adjustedLocation)))
         return false;
 
     if (hasOverflowingCell()) {

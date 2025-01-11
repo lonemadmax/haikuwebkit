@@ -77,6 +77,7 @@
 #import <JavaScriptCore/JSContextInternal.h>
 #import <WebCore/AuthenticationMac.h>
 #import <WebCore/BackForwardController.h>
+#import <WebCore/BackForwardItemIdentifier.h>
 #import <WebCore/BitmapImage.h>
 #import <WebCore/CachedFrame.h>
 #import <WebCore/Chrome.h>
@@ -1242,7 +1243,7 @@ void WebFrameLoaderClient::saveViewStateToItem(WebCore::HistoryItem& item)
 
 void WebFrameLoaderClient::restoreViewState()
 {
-    WebCore::HistoryItem* currentItem = core(m_webFrame.get())->history().currentItem();
+    WebCore::HistoryItem* currentItem = core(m_webFrame.get())->loader().history().currentItem();
     ASSERT(currentItem);
 
     // FIXME: As the ASSERT attests, it seems we should always have a currentItem here.
@@ -1926,6 +1927,12 @@ void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapp
 Ref< WebCore::FrameNetworkingContext> WebFrameLoaderClient::createNetworkingContext()
 {
     return WebFrameNetworkingContext::create(core(m_webFrame.get()));
+}
+
+RefPtr<WebCore::HistoryItem> WebFrameLoaderClient::createHistoryItemTree(bool clipAtTarget, WebCore::BackForwardItemIdentifier itemID) const
+{
+    Ref coreMainFrame = core(m_webFrame.get())->rootFrame();
+    return coreMainFrame->loader().history().createItemTree(*core(m_webFrame.get()), clipAtTarget, itemID);
 }
 
 #if PLATFORM(IOS_FAMILY)

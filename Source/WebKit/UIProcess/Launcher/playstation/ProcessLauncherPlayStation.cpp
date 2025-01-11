@@ -80,7 +80,7 @@ void ProcessLauncher::launchProcess()
     };
 
 #if USE(WPE_BACKEND_PLAYSTATION)
-    auto appLocalPid = ProcessProviderLibWPE::singleton().launchProcess(m_launchOptions, argv, socketPair.client);
+    auto appLocalPid = ProcessProviderLibWPE::singleton().launchProcess(m_launchOptions, argv, socketPair.client.value());
 #else
     PlayStation::LaunchParam param { socketPair.client.value(), m_launchOptions.userId };
     int32_t appLocalPid = PlayStation::launchProcess(
@@ -96,10 +96,8 @@ void ProcessLauncher::launchProcess()
     }
 
     // We've finished launching the process, message back to the main run loop.
-    IPC::Connection::Identifier serverIdentifier { WTFMove(socketPair.server) };
-    RefPtr<ProcessLauncher> protectedThis(this);
-    RunLoop::main().dispatch([=] {
-        protectedThis->didFinishLaunchingProcess(appLocalPid, WTFMove(serverIdentifier));
+    RunLoop::main().dispatch([protectedThis = Ref { *this }, appLocalPid, serverIdentifier = WTFMove(socketPair.server)] mutable {
+        protectedThis->didFinishLaunchingProcess(appLocalPid, IPC::Connection::Identifier { WTFMove(serverIdentifier) });
     });
 }
 

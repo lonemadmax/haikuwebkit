@@ -33,6 +33,7 @@
 #import <wtf/HashTraits.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCountedAndCanMakeWeakPtr.h>
+#import <wtf/RetainReleaseSwift.h>
 #import <wtf/TZoneMalloc.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
@@ -105,8 +106,8 @@ public:
     static double quantizedDepthValue(double, WGPUTextureFormat);
     NSString* errorValidatingPipeline(const RenderPipeline&) const;
 
-    static std::pair<id<MTLBuffer>, uint64_t> clampIndirectIndexBufferToValidValues(Buffer*, Buffer&, MTLIndexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, MTLPrimitiveType, Device&, uint32_t rasterSampleCount, id<MTLRenderCommandEncoder>, bool& splitEncoder);
-    static id<MTLBuffer> clampIndirectBufferToValidValues(Buffer&, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, Device&, uint32_t rasterSampleCount, id<MTLRenderCommandEncoder>, bool& splitEncoder);
+    static std::pair<id<MTLBuffer>, uint64_t> clampIndirectIndexBufferToValidValues(Buffer*, Buffer&, MTLIndexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, MTLPrimitiveType, Device&, uint32_t rasterSampleCount, RenderPassEncoder&, bool& splitEncoder);
+    static std::pair<id<MTLBuffer>, uint64_t> clampIndirectBufferToValidValues(Buffer&, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, Device&, uint32_t rasterSampleCount, RenderPassEncoder&, bool& splitEncoder);
     enum class IndexCall { Draw, IndirectDraw, Skip, CachedIndirectDraw };
     static IndexCall clampIndexBufferToValidValues(uint32_t indexCount, uint32_t instanceCount, int32_t baseVertex, uint32_t firstInstance, MTLIndexType, NSUInteger indexBufferOffsetInBytes, Buffer*, uint32_t minVertexCount, uint32_t minInstanceCount, RenderPassEncoder&, Device&, uint32_t rasterSampleCount, MTLPrimitiveType);
     void splitRenderPass();
@@ -136,7 +137,7 @@ private:
     IndexCall clampIndexBufferToValidValues(uint32_t indexCount, uint32_t instanceCount, int32_t baseVertex, uint32_t firstInstance, MTLIndexType, NSUInteger indexBufferOffsetInBytes);
     std::pair<uint32_t, uint32_t> computeMininumVertexInstanceCount() const;
     std::pair<id<MTLBuffer>, uint64_t> clampIndirectIndexBufferToValidValues(Buffer&, MTLIndexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, bool& splitEncoder);
-    id<MTLBuffer> clampIndirectBufferToValidValues(Buffer&, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, bool& splitEncoder);
+    std::pair<id<MTLBuffer>, uint64_t> clampIndirectBufferToValidValues(Buffer&, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount, bool& splitEncoder);
     void setCachedRenderPassState(id<MTLRenderCommandEncoder>);
 
     id<MTLRenderCommandEncoder> m_renderCommandEncoder { nil };
@@ -204,6 +205,16 @@ private:
     bool m_clearStencilAttachment { false };
     bool m_occlusionQueryActive { false };
     bool m_passEnded { false };
-};
+} SWIFT_SHARED_REFERENCE(refRenderPassEncoder, derefRenderPassEncoder);
 
 } // namespace WebGPU
+
+inline void refRenderPassEncoder(WebGPU::RenderPassEncoder* obj)
+{
+    ref(obj);
+}
+
+inline void derefRenderPassEncoder(WebGPU::RenderPassEncoder* obj)
+{
+    deref(obj);
+}

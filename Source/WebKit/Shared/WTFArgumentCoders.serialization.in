@@ -117,6 +117,7 @@ template: struct WebCore::AttributedStringTextListIDType
 template: struct WebCore::AttributedStringTextTableBlockIDType
 template: struct WebCore::AttributedStringTextTableIDType
 #endif
+template: struct WebCore::BackForwardFrameItemIdentifierType
 template: struct WebCore::BackForwardItemIdentifierType
 template: struct WebCore::DictationContextType
 template: struct WebCore::FrameIdentifierType
@@ -134,6 +135,7 @@ template: struct WebCore::SharedWorkerObjectIdentifierType
 template: struct WebCore::SleepDisablerIdentifierType
 template: struct WebCore::UserGestureTokenIdentifierType
 template: struct WebCore::UserMediaRequestIdentifierType
+template: struct WebCore::WebTransportStreamIdentifierType
 template: struct WebKit::AuthenticationChallengeIdentifierType
 template: struct WebKit::DataTaskIdentifierType
 template: struct WebKit::DisplayLinkObserverIDType
@@ -157,7 +159,6 @@ template: struct WebKit::WebExtensionTabIdentifierType
 template: struct WebKit::WebExtensionWindowIdentifierType
 template: struct WebKit::WebPageProxyIdentifierType
 template: struct WebKit::WebTransportSessionIdentifierType
-template: struct WebKit::WebTransportStreamIdentifierType
 [WebKitPlatform, AdditionalEncoder=StreamConnectionEncoder] class WTF::ObjectIdentifier {
     [Validator='WTF::ObjectIdentifierGenericBase<uint64_t>::isValidIdentifier(*toUInt64)'] uint64_t toUInt64()
 }
@@ -185,6 +186,7 @@ template: enum class WebCore::RenderingResourceIdentifierType
 template: enum class WebCore::ServiceWorkerIdentifierType
 template: enum class WebCore::ServiceWorkerJobIdentifierType
 template: enum class WebCore::ServiceWorkerRegistrationIdentifierType
+template: enum class WebCore::SnapshotIdentifierType
 template: enum class WebCore::WebLockIdentifierType
 template: enum class WebCore::WebSocketIdentifierType
 template: enum class WebCore::WorkerFileSystemStorageConnectionCallbackIdentifierType

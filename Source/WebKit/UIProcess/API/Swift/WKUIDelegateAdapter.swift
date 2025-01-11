@@ -26,6 +26,11 @@
 import Foundation
 internal import WebKit_Private
 
+#if os(macOS)
+internal import WebKit_Private._WKContextMenuElementInfo
+internal import WebKit_Private._WKHitTestResult
+#endif
+
 private struct DefaultDialogPresenting: DialogPresenting {
 }
 
@@ -34,6 +39,12 @@ final class WKUIDelegateAdapter: NSObject, WKUIDelegate {
     init(dialogPresenter: (any DialogPresenting)?) {
         self.dialogPresenter = dialogPresenter ?? DefaultDialogPresenting()
     }
+
+    weak var owner: WebPage_v0? = nil
+
+#if os(macOS)
+    var menuBuilder: ((WebPage_v0.ElementInfo) -> NSMenu)? = nil
+#endif
 
     private let dialogPresenter: any DialogPresenting
 
@@ -69,6 +80,38 @@ final class WKUIDelegateAdapter: NSObject, WKUIDelegate {
         case .cancel: nil
         }
     }
+
+    // MARK: Permissions
+
+    func webView(_ webView: WKWebView, requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo) async -> WKPermissionDecision {
+        guard let owner else {
+            return .prompt
+        }
+
+        return await owner.configuration.deviceSensorAuthorization.decisionHandler(.deviceOrientationAndMotion, .init(frame), origin)
+    }
+
+    func webView(_ webView: WKWebView, decideMediaCapturePermissionsFor origin: WKSecurityOrigin, initiatedBy frame: WKFrameInfo, type: WKMediaCaptureType) async -> WKPermissionDecision {
+        guard let owner else {
+            return .prompt
+        }
+
+        return await owner.configuration.deviceSensorAuthorization.decisionHandler(.mediaCapture(type), .init(frame), origin)
+    }
+
+    // MARK: Context menu support
+
+#if os(macOS)
+    @objc(_webView:getContextMenuFromProposedMenu:forElement:userInfo:completionHandler:)
+    func _webView(_ webView: WKWebView!, getContextMenuFromProposedMenu menu: NSMenu!, forElement element: _WKContextMenuElementInfo!, userInfo: (any NSSecureCoding)!) async -> NSMenu? {
+        guard let menuBuilder else {
+            return menu
+        }
+
+        let info = WebPage_v0.ElementInfo(linkURL: element.hitTestResult.absoluteLinkURL)
+        return menuBuilder(info)
+    }
+#endif
 }
 
 #endif

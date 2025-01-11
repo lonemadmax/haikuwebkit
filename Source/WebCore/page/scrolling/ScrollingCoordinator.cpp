@@ -28,6 +28,7 @@
 #include "ScrollingCoordinator.h"
 
 #include "Document.h"
+#include "DocumentClasses.h"
 #include "EventNames.h"
 #include "GraphicsLayer.h"
 #include "LocalFrame.h"
@@ -197,7 +198,7 @@ EventTrackingRegions ScrollingCoordinator::absoluteEventTrackingRegionsForFrame(
 
 EventTrackingRegions ScrollingCoordinator::absoluteEventTrackingRegions() const
 {
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    RefPtr localMainFrame = m_page->localMainFrame();
     if (!localMainFrame)
         return EventTrackingRegions();
     return absoluteEventTrackingRegionsForFrame(*localMainFrame);
@@ -341,11 +342,8 @@ void ScrollingCoordinator::updateSynchronousScrollingReasons(LocalFrameView& fra
     if (hasVisibleSlowRepaintViewportConstrainedObjects(frameView))
         newSynchronousScrollingReasons.add(SynchronousScrollingReason::HasNonLayerViewportConstrainedObjects);
 
-    Ref localFrame = frameView.frame();
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(localFrame->mainFrame()); 
-    if (localMainFrame
-        && localMainFrame->document()
-        && localFrame->document()->isImageDocument())
+    RefPtr page = frameView.frame().protectedPage();
+    if (page && page->topDocumentHasDocumentClass(DocumentClass::Image))
         newSynchronousScrollingReasons.add(SynchronousScrollingReason::IsImageDocument);
 
     setSynchronousScrollingReasons(frameView.scrollingNodeID(), newSynchronousScrollingReasons);
@@ -439,7 +437,7 @@ String ScrollingCoordinator::synchronousScrollingReasonsAsText(OptionSet<Synchro
 
 String ScrollingCoordinator::synchronousScrollingReasonsAsText() const
 {
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    RefPtr localMainFrame = m_page->localMainFrame();
     if (localMainFrame) {
         if (auto* frameView = localMainFrame->view())
             return synchronousScrollingReasonsAsText(synchronousScrollingReasons(frameView->scrollingNodeID()));

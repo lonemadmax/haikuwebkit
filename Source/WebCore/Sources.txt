@@ -373,6 +373,7 @@ Modules/streams/WritableStream.cpp
 Modules/url-pattern/URLPattern.cpp
 Modules/url-pattern/URLPatternCanonical.cpp
 Modules/url-pattern/URLPatternComponent.cpp
+Modules/url-pattern/URLPatternConstructorStringParser.cpp
 Modules/url-pattern/URLPatternParser.cpp
 Modules/url-pattern/URLPatternTokenizer.cpp
 Modules/web-locks/WebLock.cpp
@@ -511,6 +512,7 @@ Modules/webtransport/WebTransportReceiveStream.cpp
 Modules/webtransport/WebTransportReceiveStreamSource.cpp
 Modules/webtransport/WebTransportSendStream.cpp
 Modules/webtransport/WebTransportSession.cpp
+Modules/webtransport/WorkerWebTransportSession.cpp
 Modules/webxr/NavigatorWebXR.cpp
 Modules/webxr/WebXRBoundedReferenceSpace.cpp
 Modules/webxr/WebXRFrame.cpp
@@ -620,6 +622,7 @@ animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
 animation/WebAnimationTime.cpp
 animation/WebAnimationUtilities.cpp
+automation/AutomationInstrumentation.cpp
 bindings/js/BindingsJSTZoneImpls.cpp
 bindings/js/CachedModuleScriptLoader.cpp
 bindings/js/CachedScriptFetcher.cpp
@@ -1171,7 +1174,7 @@ css/values/primitives/CSSPrimitiveNumericTypes+Canonicalization.cpp
 css/values/primitives/CSSPrimitiveNumericTypes+ComputedStyleDependencies.cpp
 css/values/primitives/CSSPrimitiveNumericTypes+Serialization.cpp
 css/values/primitives/CSSPrimitiveNumericTypes+SymbolReplacement.cpp
-css/values/primitives/CSSPrimitiveNumericTypes.cpp
+css/values/primitives/CSSPrimitiveNumericUnits.cpp
 css/values/primitives/CSSSymbol.cpp
 css/values/primitives/CSSUnevaluatedCalc.cpp
 css/values/shapes/CSSCircleFunction.cpp
@@ -1224,6 +1227,7 @@ dom/DOMQuad.cpp
 dom/DOMRectList.cpp
 dom/DOMRectReadOnly.cpp
 dom/DOMStringList.cpp
+dom/DOMTZoneImpls.cpp
 dom/DataTransfer.cpp
 dom/DataTransferItem.cpp
 dom/DataTransferItemList.cpp
@@ -2022,6 +2026,7 @@ loader/ResourceLoadStatistics.cpp
 loader/ResourceLoader.cpp
 loader/ResourceMonitor.cpp
 loader/ResourceMonitorChecker.cpp
+loader/ResourceMonitorThrottler.cpp
 loader/ResourceTiming.cpp
 loader/ResourceTimingInformation.cpp
 loader/ServerTiming.cpp
@@ -2306,6 +2311,7 @@ platform/PlatformSpeechSynthesisUtterance.cpp
 platform/PlatformSpeechSynthesisVoice.cpp
 platform/PlatformSpeechSynthesizer.cpp
 platform/PlatformStrategies.cpp
+platform/PlatformTZoneImpls.cpp
 platform/PlatformWheelEvent.cpp
 platform/PreviewConverter.cpp
 platform/ProcessCapabilities.cpp
@@ -2358,6 +2364,7 @@ platform/VideoDecoder.cpp
 platform/VideoFrame.cpp
 platform/VideoPixelFormat.cpp
 platform/WebCoreCrossThreadCopier.cpp
+platform/WebCoreHeapSupport.cpp
 platform/WebCorePersistentCoders.cpp
 platform/Widget.cpp
 platform/animation/AcceleratedEffect.cpp
@@ -2491,6 +2498,7 @@ platform/graphics/GraphicsLayer.cpp
 platform/graphics/GraphicsLayerContentsDisplayDelegate.cpp
 platform/graphics/GraphicsLayerTransform.cpp
 platform/graphics/GraphicsStyle.cpp
+platform/graphics/GraphicsTZoneImpls.cpp
 platform/graphics/GraphicsTypes.cpp
 platform/graphics/HEVCUtilities.cpp
 platform/graphics/Icon.cpp
@@ -2522,6 +2530,7 @@ platform/graphics/MediaPlayerPrivate.cpp
 platform/graphics/MediaResourceSniffer.cpp
 platform/graphics/MediaSourcePrivate.cpp
 platform/graphics/Model.cpp
+platform/graphics/ModelContext.cpp
 platform/graphics/NamedImageGeneratedImage.cpp
 platform/graphics/NullImageBufferBackend.cpp
 platform/graphics/NativeImage.cpp
@@ -3157,10 +3166,10 @@ style/values/filter-effects/StyleOpacityFunction.cpp
 style/values/filter-effects/StyleSaturateFunction.cpp
 style/values/filter-effects/StyleSepiaFunction.cpp
 style/values/images/StyleGradient.cpp
+style/values/primitives/StyleLengthResolution.cpp
 style/values/primitives/StyleNone.cpp
 style/values/primitives/StylePosition.cpp
 style/values/primitives/StylePrimitiveNumericTypes+Conversions.cpp
-style/values/primitives/StylePrimitiveNumericTypes+Logging.cpp
 style/values/shapes/StyleBasicShape.cpp
 style/values/shapes/StyleCircleFunction.cpp
 style/values/shapes/StyleEllipseFunction.cpp
@@ -3280,6 +3289,7 @@ svg/SVGStringList.cpp
 svg/SVGStyleElement.cpp
 svg/SVGSwitchElement.cpp
 svg/SVGSymbolElement.cpp
+svg/SVGTZoneImpls.cpp
 svg/SVGTRefElement.cpp
 svg/SVGTSpanElement.cpp
 svg/SVGTests.cpp
@@ -3580,7 +3590,6 @@ JSCSSStyleSheet.cpp
 JSCSSSupportsRule.cpp
 JSCSSTransition.cpp
 JSCSSTransitionEvent.cpp
-JSCSSUnknownRule.cpp
 JSCSSViewTransitionRule.cpp
 JSCOEPInheritenceViolationReportBody.cpp
 JSCORPViolationReportBody.cpp

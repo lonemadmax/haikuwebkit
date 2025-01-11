@@ -3518,6 +3518,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCatch(unsigned exceptionIndex, const
 PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, ControlType& data, ResultList& results)
 {
     m_usesExceptions = true;
+    unbindAllRegisters();
     ControlData dataCatch(*this, BlockType::Catch, data.signature(), data.enclosedHeight());
     dataCatch.setCatchKind(CatchKind::Catch);
     if (ControlData::isTry(data)) {
@@ -3562,6 +3563,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchAll(Stack& expressionStack, Con
 PartialResult WARN_UNUSED_RETURN BBQJIT::addCatchAllToUnreachable(ControlType& data)
 {
     m_usesExceptions = true;
+    unbindAllRegisters();
     ControlData dataCatch(*this, BlockType::Catch, data.signature(), data.enclosedHeight());
     dataCatch.setCatchKind(CatchKind::CatchAll);
     if (ControlData::isTry(data)) {
@@ -3805,14 +3807,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addEndToUnreachable(ControlEntry& entry
             Type type = blockSignature.m_signature->returnType(i);
             entry.enclosedExpressionStack.constructAndAppend(type, Value::fromTemp(type.kind, entryData.enclosedHeight() + entryData.implicitSlots() + i));
         }
-        for (const auto& binding : m_gprBindings) {
-            if (!binding.isNone())
-                consume(binding.toValue());
-        }
-        for (const auto& binding : m_fprBindings) {
-            if (!binding.isNone())
-                consume(binding.toValue());
-        }
+        unbindAllRegisters();
     } else {
         unsigned offset = stack.size() - returnCount;
         for (unsigned i = 0; i < returnCount; ++i)
@@ -4175,7 +4170,7 @@ void BBQJIT::emitTailCall(FunctionSpaceIndex functionIndex, const TypeDefinition
     // Nothing should refer to FP after this point.
 
     if (m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex)) {
-        static_assert(sizeof(JSWebAssemblyInstance::ImportFunctionInfo) * maxImports < std::numeric_limits<int32_t>::max());
+        static_assert(sizeof(WasmOrJSImportableFunction) * maxImports < std::numeric_limits<int32_t>::max());
         RELEASE_ASSERT(JSWebAssemblyInstance::offsetOfImportFunctionStub(functionIndex) < std::numeric_limits<int32_t>::max());
         m_jit.farJump(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfImportFunctionStub(functionIndex)), WasmEntryPtrTag);
     } else {
@@ -4214,7 +4209,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(FunctionSpaceIndex functionInde
     saveValuesAcrossCallAndPassArguments(arguments, callInfo, signature);
 
     if (m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex)) {
-        static_assert(sizeof(JSWebAssemblyInstance::ImportFunctionInfo) * maxImports < std::numeric_limits<int32_t>::max());
+        static_assert(sizeof(WasmOrJSImportableFunction) * maxImports < std::numeric_limits<int32_t>::max());
         RELEASE_ASSERT(JSWebAssemblyInstance::offsetOfImportFunctionStub(functionIndex) < std::numeric_limits<int32_t>::max());
         m_jit.call(Address(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfImportFunctionStub(functionIndex)), WasmEntryPtrTag);
     } else {
@@ -4462,7 +4457,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
         calleeCodeScratch.unbindPreserved();
 
         {
-            ScratchScope<2, 0> scratches(*this);
+            ScratchScope<3, 0> scratches(*this);
 
             if (calleeIndex.isConst())
                 emitMoveConst(calleeIndex, calleeIndexLocation = Location::fromGPR(scratches.gpr(1)));
@@ -4531,6 +4526,16 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
             // We should move just to use a single branch and then figure out what
             // error to use in the exception handler.
 
+            // Save the table entry in calleeRTT if needed for the subtype check.
+            bool needsSubtypeCheck = Options::useWasmGC() && !originalSignature.isFinalType();
+            if (needsSubtypeCheck)
+                m_jit.move(calleeSignatureIndex, calleeRTT);
+
+            auto calleeSignatureIndexTmp = scratches.gpr(2);
+            m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation()), calleeCode, calleeSignatureIndexTmp);
+
+            throwExceptionIf(ExceptionType::NullTableEntry, m_jit.branchTestPtr(ResultCondition::Zero, calleeSignatureIndexTmp, calleeSignatureIndexTmp));
+
             {
                 auto calleeTmp = calleeInstance;
                 m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfBoxedWasmCalleeLoadLocation()), calleeTmp);
@@ -4539,17 +4544,8 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
             }
 
             m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfInstance()), calleeInstance);
-            static_assert(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfSignatureIndex() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation());
 
-            // Save the table entry in calleeRTT if needed for the subtype check.
-            bool needsSubtypeCheck = Options::useWasmGC() && !originalSignature.isFinalType();
-            if (needsSubtypeCheck)
-                m_jit.move(calleeSignatureIndex, calleeRTT);
-
-            m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfSignatureIndex()), calleeSignatureIndex, calleeCode);
-
-            throwExceptionIf(ExceptionType::NullTableEntry, m_jit.branchTestPtr(ResultCondition::Zero, calleeSignatureIndex, calleeSignatureIndex));
-            auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeSignatureIndex, TrustedImmPtr(TypeInformation::get(originalSignature)));
+            auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeSignatureIndexTmp, TrustedImmPtr(TypeInformation::get(originalSignature)));
 
             if (needsSubtypeCheck)
                 addRTTSlowPathJump(originalSignature.index(), calleeRTT);
@@ -4557,6 +4553,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
                 emitThrowException(ExceptionType::BadSignature);
 
             indexEqual.link(&m_jit);
+            static_assert(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfSignatureIndex());
         }
     }
 
@@ -4969,6 +4966,18 @@ void BBQJIT::unbind(Value value, Location loc)
 
     if (UNLIKELY(Options::verboseBBQJITAllocation()))
         dataLogLn("BBQ\tUnbound value ", value, " from ", loc);
+}
+
+void BBQJIT::unbindAllRegisters()
+{
+    for (const auto& binding : m_gprBindings) {
+        if (!binding.isNone())
+            consume(binding.toValue());
+    }
+    for (const auto& binding : m_fprBindings) {
+        if (!binding.isNone())
+            consume(binding.toValue());
+    }
 }
 
 GPRReg BBQJIT::nextGPR()

@@ -269,7 +269,8 @@ public:
     void setStatisticsCacheMaxAgeCap(double seconds);
     bool hasStatisticsIsolatedSession(WKStringRef hostName);
     void setStatisticsShouldDowngradeReferrer(bool value, CompletionHandler<void(WKTypeRef)>&&);
-    void setStatisticsShouldBlockThirdPartyCookies(bool value, bool onlyOnSitesWithoutUserInteraction, CompletionHandler<void(WKTypeRef)>&&);
+    enum class ThirdPartyCookieBlockingPolicy { All, AllOnlyOnSitesWithoutUserInteraction, AllExceptPartitioned };
+    void setStatisticsShouldBlockThirdPartyCookies(bool value, ThirdPartyCookieBlockingPolicy, CompletionHandler<void(WKTypeRef)>&&);
     void setStatisticsFirstPartyWebsiteDataRemovalMode(bool value, CompletionHandler<void(WKTypeRef)>&&);
     void setStatisticsToSameSiteStrictCookies(WKStringRef hostName, CompletionHandler<void(WKTypeRef)>&&);
     void setStatisticsFirstPartyHostCNAMEDomain(WKStringRef firstPartyURLString, WKStringRef cnameURLString, CompletionHandler<void(WKTypeRef)>&&);
@@ -367,6 +368,7 @@ public:
     UIKeyboardInputMode *overriddenKeyboardInputMode() const { return m_overriddenKeyboardInputMode.get(); }
     void setIsInHardwareKeyboardMode(bool value) { m_isInHardwareKeyboardMode = value; }
     bool isInHardwareKeyboardMode() const { return m_isInHardwareKeyboardMode; }
+    unsigned keyboardUpdateForChangedSelectionCount() const;
 #endif
 
     void setAllowedMenuActions(const Vector<String>&);

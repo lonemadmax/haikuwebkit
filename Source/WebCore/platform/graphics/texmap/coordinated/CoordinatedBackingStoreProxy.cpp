@@ -51,12 +51,18 @@ void CoordinatedBackingStoreProxy::Update::appendUpdate(float scale, Vector<uint
 
     // Remove any creations or updates previously registered for tiles that are going to be removed now.
     if (!m_tilesToCreate.isEmpty() || !m_tilesToUpdate.isEmpty()) {
+        Vector<uint32_t, 8> createdTilesRemoved;
         for (const auto& tileID : tilesToRemove) {
-            m_tilesToCreate.removeAll(tileID);
+            if (m_tilesToCreate.removeAll(tileID))
+                createdTilesRemoved.append(tileID);
             m_tilesToUpdate.removeAllMatching([tileID](auto& update) {
                 return update.tileID == tileID;
             });
         }
+
+        // Remove the removals of tiles also registered to be created.
+        for (const auto& tileID : createdTilesRemoved)
+            tilesToRemove.removeFirst(tileID);
     }
 
     if (m_tilesToCreate.isEmpty())
@@ -73,6 +79,12 @@ void CoordinatedBackingStoreProxy::Update::appendUpdate(float scale, Vector<uint
         m_tilesToRemove = WTFMove(tilesToRemove);
     else
         m_tilesToRemove.appendVector(WTFMove(tilesToRemove));
+}
+
+void CoordinatedBackingStoreProxy::Update::waitUntilPaintingComplete()
+{
+    for (auto& update : m_tilesToUpdate)
+        update.buffer->waitUntilPaintingComplete();
 }
 
 Ref<CoordinatedBackingStoreProxy> CoordinatedBackingStoreProxy::create(float contentsScale, std::optional<IntSize> tileSize)
@@ -150,6 +162,11 @@ OptionSet<CoordinatedBackingStoreProxy::UpdateResult> CoordinatedBackingStorePro
     }
 
     WTFEndSignpost(this, UpdateTiles);
+
+#if !HAVE(OS_SIGNPOST) && !USE(SYSPROF_CAPTURE)
+    UNUSED_VARIABLE(dirtyTilesCount);
+    UNUSED_VARIABLE(dirtyTileIndex);
+#endif
 
     if (tilesToCreate.isEmpty() && tilesToUpdate.isEmpty() && tilesToRemove.isEmpty())
         return result;
@@ -425,6 +442,12 @@ void CoordinatedBackingStoreProxy::forEachTilePositionInRect(const IntRect& rect
         for (int x = topLeft.x(); x <= innerBottomRight.x(); ++x)
             callback(IntPoint(x, y));
     }
+}
+
+void CoordinatedBackingStoreProxy::waitUntilPaintingComplete()
+{
+    Locker locker { m_update.lock };
+    m_update.pending.waitUntilPaintingComplete();
 }
 
 } // namespace WebCore

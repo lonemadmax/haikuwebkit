@@ -241,10 +241,12 @@
 /* LIFETIME_BOUND */
 
 #if !defined(LIFETIME_BOUND) && defined(__cplusplus)
-#if defined(__has_cpp_attribute) && __has_cpp_attribute(clang::lifetimebound)
+#if __has_cpp_attribute(clang::lifetimebound)
 #define LIFETIME_BOUND [[clang::lifetimebound]]
-#elif COMPILER_HAS_ATTRIBUTE(lifetimebound)
-#define LIFETIME_BOUND __attribute__((lifetimebound))
+#elif __has_cpp_attribute(msvc::lifetimebound)
+#define LIFETIME_BOUND [[msvc::lifetimebound]]
+#elif __has_cpp_attribute(lifetimebound)
+#define LIFETIME_BOUND [[lifetimebound]]
 #endif
 #endif
 
@@ -650,6 +652,7 @@
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN \
     ALLOW_COMMA_BEGIN \
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN \
+    ALLOW_UNUSED_PARAMETERS_BEGIN \
     IGNORE_WARNINGS_BEGIN("cast-align") \
     IGNORE_CLANG_WARNINGS_BEGIN("thread-safety-reference-return")
 
@@ -658,4 +661,5 @@
     IGNORE_WARNINGS_END \
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_END \
     ALLOW_COMMA_END \
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    ALLOW_DEPRECATED_DECLARATIONS_END \
+    ALLOW_UNUSED_PARAMETERS_END

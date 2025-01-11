@@ -45,7 +45,6 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/NumberOfCores.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/TZoneMallocInlines.h>
 #include <wtf/TranslatedProcess.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -81,12 +80,12 @@ namespace OptionsHelper {
 // VM run time. For now, the only field it contains is a copy of Options defaults
 // which are only used to provide more info for Options dumps.
 struct Metadata {
-    WTF_MAKE_TZONE_ALLOCATED(Metadata);
+    // This struct does not need to be TZONE_ALLOCATED because it is only used for transient memory
+    // during Options initialization, and will not be re-allocated thereafter. See comment above.
+    WTF_MAKE_FAST_ALLOCATED(Metadata);
 public:
     OptionsStorage defaults;
 };
-
-WTF_MAKE_TZONE_ALLOCATED_IMPL(Metadata);
 
 static LazyNeverDestroyed<std::unique_ptr<Metadata>> g_metadata;
 static LazyNeverDestroyed<WTF::BitSet<NumberOfOptions>> g_optionWasOverridden;
@@ -801,7 +800,7 @@ void Options::notifyOptionsChanged()
         Options::useJIT() = false; // We don't support JIT with !allowDoubleShape. So disable it.
 
     // When reenabling JITLess wasm we should unskip the tests disabled in https://bugs.webkit.org/show_bug.cgi?id=281857
-    if (!Options::useWasm() || !Options::useJIT())
+    if (!Options::useWasm() || (!Options::useJIT() && !OptionsHelper::wasOverridden(useWasmID)))
         disableAllWasmOptions();
 
     if (!Options::useJIT())

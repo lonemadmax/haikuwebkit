@@ -549,6 +549,41 @@ static VisibleSelection expandSelectionToRespectSelectOnMouseDown(Node& targetNo
     return newSelection;
 }
 
+static bool shouldAvoidExtendingSelectionOnClick(const Node& targetNode, const VisibleSelection& selection)
+{
+    if (is<Text>(targetNode))
+        return false;
+
+    if (selection.isContentEditable())
+        return false;
+
+    auto range = selection.toNormalizedRange();
+    if (!range)
+        return false;
+
+    if (range->collapsed())
+        return false;
+
+    static constexpr OptionSet plainTextOptions {
+        TextIteratorBehavior::EmitsObjectReplacementCharacters,
+        TextIteratorBehavior::EntersTextControls,
+    };
+
+    if (hasAnyPlainText(*range, plainTextOptions, IgnoreCollapsedRanges::Yes))
+        return false;
+
+    return true;
+}
+
+bool EventHandler::expandAndUpdateSelectionForMouseDownIfNeeded(Node& targetNode, const VisibleSelection& selection, TextGranularity granularity)
+{
+    auto expandedSelection = expandSelectionToRespectSelectOnMouseDown(targetNode, selection);
+    if (shouldAvoidExtendingSelectionOnClick(targetNode, expandedSelection))
+        return false;
+
+    return updateSelectionForMouseDownDispatchingSelectStart(&targetNode, expandedSelection, granularity);
+}
+
 bool EventHandler::updateSelectionForMouseDownDispatchingSelectStart(Node* targetNode, const VisibleSelection& selection, TextGranularity granularity)
 {
     if (Position::nodeIsUserSelectNone(targetNode))
@@ -594,7 +629,7 @@ void EventHandler::selectClosestWordFromHitTestResult(const HitTestResult& resul
         if (appendTrailingWhitespace == ShouldAppendTrailingWhitespace && newSelection.isRange())
             newSelection.appendTrailingWhitespace();
 
-        updateSelectionForMouseDownDispatchingSelectStart(targetNode.get(), expandSelectionToRespectSelectOnMouseDown(*targetNode, newSelection), TextGranularity::WordGranularity);
+        expandAndUpdateSelectionForMouseDownIfNeeded(*targetNode, newSelection, TextGranularity::WordGranularity);
     }
 }
 
@@ -700,7 +735,7 @@ bool EventHandler::handleMousePressEventTripleClick(const MouseEventWithHitTestR
         newSelection.expandUsingGranularity(TextGranularity::ParagraphGranularity);
     }
 
-    return updateSelectionForMouseDownDispatchingSelectStart(targetNode.get(), expandSelectionToRespectSelectOnMouseDown(*targetNode, newSelection), TextGranularity::ParagraphGranularity);
+    return expandAndUpdateSelectionForMouseDownIfNeeded(*targetNode, newSelection, TextGranularity::ParagraphGranularity);
 }
 
 static uint64_t textDistance(const Position& start, const Position& end)
@@ -833,7 +868,7 @@ bool EventHandler::handleMousePressEvent(const MouseEventWithHitTestResults& eve
 
 #if ENABLE(DRAG_SUPPORT)
     // Reset drag state.
-    dragState().source = nullptr;
+    setDragStateSource(nullptr);
 #endif
 
 #if !ENABLE(IOS_TOUCH_EVENTS)
@@ -2520,6 +2555,15 @@ bool EventHandler::dispatchDragEvent(const AtomString& eventType, Element& dragT
 Element* EventHandler::draggingElement() const
 {
     return dragState().source.get();
+}
+
+void EventHandler::setDragStateSource(Element* element) const
+{
+    RefPtr document = m_frame->document();
+    if (CheckedPtr cache = document ? document->existingAXObjectCache() : nullptr)
+        cache->onDragElementChanged(dragState().source.get(), element);
+
+    dragState().source = element;
 }
 
 bool EventHandler::canDropCurrentlyDraggedImageAsFile() const
@@ -4226,7 +4270,7 @@ static void removeDraggedContentDocumentMarkersFromAllFramesInPage(Page& page)
         document.markers().removeMarkers(DocumentMarkerType::DraggedContent);
     });
 
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame())) {
+    if (RefPtr localMainFrame = page.localMainFrame()) {
         if (auto* mainFrameRenderer = localMainFrame->contentRenderer())
             mainFrameRenderer->repaintRootContents();
     }
@@ -4284,7 +4328,7 @@ std::optional<RemoteUserInputEventData> EventHandler::dragSourceEndedAt(const Pl
             removeDraggedContentDocumentMarkersFromAllFramesInPage(*page);
     }
 
-    dragState().source = nullptr;
+    setDragStateSource(nullptr);
     // In case the drag was ended due to an escape key press we need to ensure
     // that consecutive mousemove events don't reinitiate the drag and drop.
     m_mouseDownMayStartDrag = false;
@@ -4295,7 +4339,7 @@ void EventHandler::updateDragStateAfterEditDragIfNeeded(Element& rootEditableEle
 {
     // If inserting the dragged contents removed the drag source, we still want to fire dragend at the root editable element.
     if (draggedElement() && !draggedElement()->isConnected())
-        dragState().source = &rootEditableElement;
+        setDragStateSource(&rootEditableElement);
 }
 
 bool EventHandler::shouldDispatchEventsToDragSourceElement()
@@ -4341,8 +4385,8 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event, CheckDr
         HitTestResult result(m_mouseDownContentsPosition);
         frame->protectedDocument()->hitTest(OptionSet<HitTestRequest::Type> { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::DisallowUserAgentShadowContent }, result);
         if (RefPtr page = frame->page())
-            dragState().source = page->dragController().draggableElement(frame.ptr(), result.protectedTargetElement().get(), m_mouseDownContentsPosition, dragState());
-        
+            setDragStateSource(page->dragController().draggableElement(frame.ptr(), result.protectedTargetElement().get(), m_mouseDownContentsPosition, dragState()).get());
+
         if (!draggedElement())
             m_mouseDownMayStartDrag = false; // no element is draggable
         else
@@ -4359,7 +4403,7 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event, CheckDr
         } else if (!dragState().type.containsAny({ DragSourceAction::DHTML, DragSourceAction::Link })) {
             // ... but only bail if we're not over an unselectable element.
             m_mouseDownMayStartDrag = false;
-            dragState().source = nullptr;
+            setDragStateSource(nullptr);
             // ... but if this was the first click in the window, we don't even want to start selection
             if (eventActivatedView(event.event()))
                 m_mouseDownMayStartSelect = false;
@@ -4431,7 +4475,7 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event, CheckDr
                 dispatchEventToDragSourceElement(eventNames().dragendEvent, event.event());
                 m_mouseDownMayStartDrag = false;
                 invalidateDataTransfer();
-                dragState().source = nullptr;
+                setDragStateSource(nullptr);
                 return true;
             }
         }
@@ -4476,7 +4520,7 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event, CheckDr
     if (!m_mouseDownMayStartDrag) {
         // Something failed to start the drag, clean up.
         invalidateDataTransfer();
-        dragState().source = nullptr;
+        setDragStateSource(nullptr);
     }
     
     // No more default handling (like selection), whether we're past the hysteresis bounds or not
@@ -5014,14 +5058,13 @@ HandleUserInputEventResult EventHandler::handleTouchEvent(const PlatformTouchEve
 
     // Array of touches per state, used to assemble the 'changedTouches' list in the JS event.
     typedef HashSet<RefPtr<EventTarget>> EventTargetSet;
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    struct {
+    struct Touches {
         // The touches corresponding to the particular change state this struct instance represents.
         RefPtr<TouchList> m_touches;
         // Set of targets involved in m_touches.
         EventTargetSet m_targets;
-    } changedTouches[PlatformTouchPoint::TouchStateEnd];
-    WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    };
+    std::array<Touches, PlatformTouchPoint::TouchStateEnd> changedTouches;
 
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
 

@@ -1,10 +1,4 @@
-ByteLengthQueuingStrategyBuiltins.h
-CommandLineAPIModuleSourceBuiltins.h
-CompressionStreamBuiltins.h
-CountQueuingStrategyBuiltins.h
-DecompressionStreamBuiltins.h
 EventNames.h
-InternalSettingsGenerated.cpp
 Modules/ShapeDetection/BarcodeDetector.cpp
 Modules/ShapeDetection/FaceDetector.cpp
 Modules/ShapeDetection/TextDetector.cpp
@@ -150,7 +144,6 @@ Modules/mediastream/RTCRtpScriptTransformer.cpp
 Modules/mediastream/RTCRtpSender.cpp
 Modules/mediastream/RTCRtpTransceiver.cpp
 Modules/mediastream/RTCRtpTransform.cpp
-Modules/mediastream/UserMediaController.cpp
 Modules/mediastream/UserMediaRequest.cpp
 Modules/mediastream/VideoTrackGenerator.cpp
 Modules/mediastream/libwebrtc/LibWebRTCDtlsTransportBackend.cpp
@@ -259,22 +252,7 @@ Modules/websockets/WebSocket.cpp
 Modules/websockets/WebSocketChannelInspector.cpp
 Modules/websockets/WorkerThreadableWebSocketChannel.cpp
 Modules/webtransport/WebTransport.cpp
-ReadableByteStreamControllerBuiltins.h
-ReadableByteStreamInternalsBuiltins.h
-ReadableStreamBYOBReaderBuiltins.h
-ReadableStreamBYOBRequestBuiltins.h
-ReadableStreamDefaultControllerBuiltins.h
-ReadableStreamDefaultReaderBuiltins.h
-ReadableStreamInternalsBuiltins.h
-StreamInternalsBuiltins.h
 StyleBuilderGenerated.cpp
-TextDecoderStreamBuiltins.h
-TextEncoderStreamBuiltins.h
-TransformStreamDefaultControllerBuiltins.h
-TransformStreamInternalsBuiltins.h
-WritableStreamDefaultControllerBuiltins.h
-WritableStreamDefaultWriterBuiltins.h
-WritableStreamInternalsBuiltins.h
 accessibility/AXCoreObject.cpp
 accessibility/AXImage.cpp
 accessibility/AXLogger.cpp
@@ -332,11 +310,9 @@ animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
 animation/WebAnimationUtilities.cpp
 bindings/js/CachedModuleScriptLoader.cpp
-bindings/js/CachedScriptFetcher.cpp
 bindings/js/CommonVM.cpp
 bindings/js/DOMPromiseProxy.h
 bindings/js/DOMWrapperWorld.cpp
-bindings/js/GCController.cpp
 bindings/js/IDBBindingUtilities.cpp
 bindings/js/JSAudioBufferCustom.cpp
 bindings/js/JSAudioBufferSourceNodeCustom.cpp
@@ -352,23 +328,16 @@ bindings/js/JSDOMAsyncIterator.h
 bindings/js/JSDOMBindingSecurity.cpp
 bindings/js/JSDOMBindingSecurity.h
 bindings/js/JSDOMBindingSecurityInlines.h
-bindings/js/JSDOMConstructorWithDocument.h
 bindings/js/JSDOMConvertBase.h
 bindings/js/JSDOMConvertBufferSource.h
 bindings/js/JSDOMConvertCallbacks.h
-bindings/js/JSDOMConvertDate.cpp
-bindings/js/JSDOMConvertEnumeration.h
 bindings/js/JSDOMConvertEventListener.h
 bindings/js/JSDOMConvertInterface.h
 bindings/js/JSDOMConvertScheduledAction.h
-bindings/js/JSDOMConvertStrings.h
-bindings/js/JSDOMConvertWebGL.cpp
 bindings/js/JSDOMExceptionHandling.cpp
 bindings/js/JSDOMGlobalObject.cpp
-bindings/js/JSDOMGuardedObject.cpp
 bindings/js/JSDOMIterator.h
 bindings/js/JSDOMMapLike.h
-bindings/js/JSDOMPromise.cpp
 bindings/js/JSDOMPromiseDeferred.cpp
 bindings/js/JSDOMPromiseDeferred.h
 bindings/js/JSDOMQuadCustom.cpp
@@ -376,7 +345,6 @@ bindings/js/JSDOMSetLike.h
 bindings/js/JSDOMWindowBase.cpp
 bindings/js/JSDOMWindowCustom.cpp
 bindings/js/JSDOMWindowProperties.cpp
-bindings/js/JSDOMWindowProperties.h
 bindings/js/JSDOMWrapperCache.h
 bindings/js/JSDeprecatedCSSOMValueCustom.cpp
 bindings/js/JSDocumentCustom.cpp
@@ -384,7 +352,6 @@ bindings/js/JSElementCustom.cpp
 bindings/js/JSElementInternalsCustom.cpp
 bindings/js/JSEventListener.cpp
 bindings/js/JSEventTargetCustom.cpp
-bindings/js/JSExecState.h
 bindings/js/JSFetchEventCustom.cpp
 bindings/js/JSHTMLCanvasElementCustom.cpp
 bindings/js/JSHTMLElementCustom.cpp
@@ -430,7 +397,6 @@ bindings/js/JSSubscriberCustom.cpp
 bindings/js/JSTextTrackCueCustom.cpp
 bindings/js/JSTrustedTypePolicyFactoryCustom.cpp
 bindings/js/JSUndoItemCustom.cpp
-bindings/js/JSValueInWrappedObject.h
 bindings/js/JSWebAnimationCustom.cpp
 bindings/js/JSWebGL2RenderingContextCustom.cpp
 bindings/js/JSWebGLRenderingContextCustom.cpp
@@ -447,7 +413,6 @@ bindings/js/ScriptControllerMac.mm
 bindings/js/ScriptModuleLoader.cpp
 bindings/js/ScriptSourceCode.h
 bindings/js/SerializedScriptValue.cpp
-bindings/js/StructuredClone.cpp
 bindings/js/WebAssemblyCachedScriptSourceProvider.h
 bindings/js/WebAssemblyScriptBufferSourceProvider.h
 bindings/js/WebCoreJSClientData.cpp
@@ -455,10 +420,8 @@ bindings/js/WebCoreTypedArrayController.cpp
 bindings/js/WindowProxy.cpp
 bridge/jsc/BridgeJSC.cpp
 bridge/objc/WebScriptObject.mm
-bridge/objc/objc_instance.mm
 bridge/objc/objc_runtime.mm
 bridge/runtime_method.cpp
-bridge/runtime_root.cpp
 contentextensions/ContentExtension.cpp
 contentextensions/ContentExtensionStyleSheet.cpp
 contentextensions/ContentExtensionsBackend.cpp
@@ -527,7 +490,6 @@ css/CSSViewTransitionRule.h
 css/CSSViewValue.cpp
 css/CSSViewValue.h
 css/ComputedStyleExtractor.cpp
-css/DOMCSSNamespace.cpp
 css/DeprecatedCSSOMPrimitiveValue.h
 css/DeprecatedCSSOMRGBColor.h
 css/DeprecatedCSSOMRect.h
@@ -568,8 +530,6 @@ css/typedom/CSSStyleValueFactory.cpp
 css/typedom/ComputedStylePropertyMapReadOnly.cpp
 css/typedom/DeclaredStylePropertyMap.cpp
 css/typedom/InlineStylePropertyMap.cpp
-css/typedom/MainThreadStylePropertyMapReadOnly.cpp
-css/typedom/StylePropertyMap.cpp
 css/typedom/numeric/CSSMathClamp.cpp
 css/typedom/numeric/CSSMathInvert.cpp
 css/typedom/numeric/CSSMathMax.cpp
@@ -779,7 +739,6 @@ html/HTMLCollection.cpp
 html/HTMLCollectionInlines.h
 html/HTMLDetailsElement.cpp
 html/HTMLDialogElement.cpp
-html/HTMLDocument.cpp
 html/HTMLElement.cpp
 html/HTMLEmbedElement.cpp
 html/HTMLFormControlElement.cpp
@@ -904,7 +863,6 @@ html/shadow/SliderThumbElement.cpp
 html/shadow/SpinButtonElement.cpp
 html/shadow/TextControlInnerElements.cpp
 html/track/AudioTrack.cpp
-html/track/DataCue.cpp
 html/track/InbandGenericTextTrack.cpp
 html/track/InbandTextTrack.cpp
 html/track/InbandWebVTTTextTrack.cpp
@@ -916,7 +874,6 @@ html/track/VTTCue.cpp
 html/track/VTTRegion.cpp
 html/track/VideoTrack.cpp
 html/track/WebVTTParser.cpp
-inspector/CommandLineAPIHost.cpp
 inspector/CommandLineAPIModule.cpp
 inspector/DOMEditor.cpp
 inspector/DOMPatchSupport.cpp
@@ -957,9 +914,11 @@ inspector/agents/InspectorPageAgent.cpp
 inspector/agents/InspectorTimelineAgent.cpp
 inspector/agents/InspectorWorkerAgent.cpp
 inspector/agents/WebDebuggerAgent.cpp
+inspector/agents/page/PageAuditAgent.cpp
 inspector/agents/page/PageCanvasAgent.cpp
 inspector/agents/page/PageConsoleAgent.cpp
 inspector/agents/page/PageDOMDebuggerAgent.cpp
+inspector/agents/page/PageDebuggerAgent.cpp
 inspector/agents/page/PageNetworkAgent.cpp
 inspector/agents/page/PageRuntimeAgent.cpp
 inspector/agents/worker/ServiceWorkerAgent.cpp
@@ -1046,7 +1005,6 @@ page/LocalFrame.h
 page/LocalFrameView.cpp
 page/LocalFrameViewLayoutContext.cpp
 page/Location.cpp
-page/NavigateEvent.cpp
 page/Navigation.cpp
 page/NavigationDestination.cpp
 page/NavigationDestination.h
@@ -1077,7 +1035,6 @@ page/RenderingUpdateScheduler.cpp
 page/ResizeObservation.cpp
 page/ResizeObserver.cpp
 page/ResourceUsageOverlay.cpp
-page/ResourceUsageThread.cpp
 page/Screen.cpp
 page/ScrollBehavior.cpp
 page/SettingsBase.cpp
@@ -1123,7 +1080,6 @@ platform/NowPlayingManager.cpp
 platform/ScrollAnimationSmooth.cpp
 platform/ScrollAnimator.cpp
 platform/ScrollView.cpp
-platform/ScrollableArea.cpp
 platform/ShareableResource.cpp
 platform/SharedBuffer.cpp
 platform/SharedBuffer.h
@@ -1691,7 +1647,6 @@ xml/XPathParser.cpp
 xml/XPathValue.cpp
 xml/XSLImportRule.cpp
 xml/XSLStyleSheetLibxslt.cpp
-xml/XSLTProcessor.cpp
 xml/XSLTProcessorLibxslt.cpp
 xml/parser/XMLDocumentParser.cpp
 xml/parser/XMLDocumentParserLibxml2.cpp

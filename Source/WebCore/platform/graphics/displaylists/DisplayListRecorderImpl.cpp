@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -200,9 +200,9 @@ void RecorderImpl::recordDrawFilteredImageBuffer(ImageBuffer* sourceImage, const
     append(DrawFilteredImageBuffer(WTFMove(identifier), sourceImageRect, filter));
 }
 
-void RecorderImpl::recordDrawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode mode)
+void RecorderImpl::recordDrawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& localAnchor, FontSmoothingMode mode)
 {
-    append(DrawGlyphs(font, glyphs, advances, count, localAnchor, mode));
+    append(DrawGlyphs(font, glyphs, advances, localAnchor, mode));
 }
 
 void RecorderImpl::recordDrawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
@@ -485,6 +485,18 @@ void RecorderImpl::applyDeviceScaleFactor(float scaleFactor)
 {
     updateStateForApplyDeviceScaleFactor(scaleFactor);
     append(ApplyDeviceScaleFactor(scaleFactor));
+}
+
+void RecorderImpl::beginPage(const IntSize& pageSize)
+{
+    appendStateChangeItemIfNecessary();
+    append(BeginPage({ pageSize }));
+}
+
+void RecorderImpl::endPage()
+{
+    appendStateChangeItemIfNecessary();
+    append(EndPage());
 }
 
 bool RecorderImpl::recordResourceUse(NativeImage& nativeImage)

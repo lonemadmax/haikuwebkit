@@ -585,7 +585,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/PictureInPictureEvent.idl \
     $(WebCore)/Modules/pictureinpicture/PictureInPictureWindow.idl \
-    $(WebCore)/Modules/push-api/NavigatorPush.idl \
     $(WebCore)/Modules/push-api/PushEncryptionKeyName.idl \
     $(WebCore)/Modules/push-api/PushEvent.idl \
     $(WebCore)/Modules/push-api/PushEventInit.idl \
@@ -600,6 +599,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/push-api/PushSubscriptionOptionsInit.idl \
     $(WebCore)/Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl \
     $(WebCore)/Modules/push-api/ServiceWorkerRegistration+PushAPI.idl \
+    $(WebCore)/Modules/push-api/WindowPush.idl \
     $(WebCore)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl \
@@ -1002,7 +1002,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSStyleRule.idl \
     $(WebCore)/css/CSSStyleSheet.idl \
     $(WebCore)/css/CSSSupportsRule.idl \
-    $(WebCore)/css/CSSUnknownRule.idl \
     $(WebCore)/css/CSSViewTransitionRule.idl \
     $(WebCore)/css/DocumentOrShadowRoot+CSSOM.idl \
     $(WebCore)/css/DOMCSSCustomPropertyDescriptor.idl \

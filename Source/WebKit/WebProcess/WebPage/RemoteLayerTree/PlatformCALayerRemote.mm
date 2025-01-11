@@ -50,6 +50,10 @@
 #import <WebCore/AcceleratedEffectValues.h>
 #endif
 
+#if ENABLE(MODEL_PROCESS)
+#import <WebCore/ModelContext.h>
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -72,10 +76,12 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(PlatformLayer *platform
     return PlatformCALayerRemoteCustom::create(platformLayer, owner, context);
 }
 
-Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(LayerHostingContextID contextID, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
+#if ENABLE(MODEL_PROCESS)
+Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(Ref<WebCore::ModelContext> modelContext, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
 {
-    return PlatformCALayerRemoteCustom::create(contextID, owner, context);
+    return PlatformCALayerRemoteCustom::create(modelContext, owner, context);
 }
+#endif
 
 #if ENABLE(MODEL_ELEMENT)
 Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(Ref<WebCore::Model> model, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
@@ -1110,6 +1116,24 @@ void PlatformCALayerRemote::setIsDescendentOfSeparatedPortal(bool value)
     m_properties.notePropertiesChanged(LayerChange::DescendentOfSeparatedPortalChanged);
 }
 #endif
+#endif
+
+#if HAVE(CORE_MATERIAL)
+
+WebCore::AppleVisualEffect PlatformCALayerRemote::appleVisualEffect() const
+{
+    return m_properties.appleVisualEffect;
+}
+
+void PlatformCALayerRemote::setAppleVisualEffect(WebCore::AppleVisualEffect effect)
+{
+    if (m_properties.appleVisualEffect == effect)
+        return;
+
+    m_properties.appleVisualEffect = effect;
+    m_properties.notePropertiesChanged(LayerChange::AppleVisualEffectChanged);
+}
+
 #endif
 
 Ref<PlatformCALayer> PlatformCALayerRemote::createCompatibleLayer(PlatformCALayer::LayerType layerType, PlatformCALayerClient* client) const

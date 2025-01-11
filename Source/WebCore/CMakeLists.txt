@@ -80,6 +80,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility"
     "${WEBCORE_DIR}/accessibility/isolatedtree"
     "${WEBCORE_DIR}/animation"
+    "${WEBCORE_DIR}/automation"
     "${WEBCORE_DIR}/bindings"
     "${WEBCORE_DIR}/bindings/js"
     "${WEBCORE_DIR}/bridge"
@@ -618,7 +619,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/pictureinpicture/PictureInPictureEvent.idl
     Modules/pictureinpicture/PictureInPictureWindow.idl
 
-    Modules/push-api/NavigatorPush.idl
     Modules/push-api/PushEncryptionKeyName.idl
     Modules/push-api/PushEvent.idl
     Modules/push-api/PushEventInit.idl
@@ -633,6 +633,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/push-api/PushSubscriptionOptionsInit.idl
     Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl
     Modules/push-api/ServiceWorkerRegistration+PushAPI.idl
+    Modules/push-api/WindowPush.idl
 
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
@@ -990,7 +991,6 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSStyleRule.idl
     css/CSSStyleSheet.idl
     css/CSSSupportsRule.idl
-    css/CSSUnknownRule.idl
     css/CSSViewTransitionRule.idl
     css/DocumentOrShadowRoot+CSSOM.idl
     css/DOMCSSCustomPropertyDescriptor.idl
