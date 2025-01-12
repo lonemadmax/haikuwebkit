@@ -156,6 +156,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void updateOpener(const WebCore::Frame&) override;
 
     bool shouldGoToHistoryItem(HistoryItem&) const override;
+    RefPtr<HistoryItem> createHistoryItemTree(bool clipAtTarget, BackForwardItemIdentifier) const override;
 
     bool canCachePage() const override;
     void convertMainResourceLoadToDownload(DocumentLoader*,

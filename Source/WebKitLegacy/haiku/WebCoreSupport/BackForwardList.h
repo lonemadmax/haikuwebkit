@@ -39,7 +39,7 @@ public:
     static Ref<BackForwardList> create() { return adoptRef(*new BackForwardList()); }
     virtual ~BackForwardList();
 
-    void addItem(WebCore::FrameIdentifier, Ref<WebCore::HistoryItem>&&) override;
+    void addItem(Ref<WebCore::HistoryItem>&&) override;
     //void goBack() override;
     //void goForward() override;
     void goToItem(WebCore::HistoryItem&) override;
@@ -50,7 +50,7 @@ public:
     //WebCore::HistoryItem& currentItem() override;
     //WebCore::HistoryItem& forwardItem() override;
     RefPtr<WebCore::HistoryItem> itemAtIndex(int, WebCore::FrameIdentifier) override;
-    void setChildItem(WebCore::BackForwardItemIdentifier, WTF::Ref<WebCore::HistoryItem>&&) override {};
+    void setChildItem(WebCore::BackForwardFrameItemIdentifier, WTF::Ref<WebCore::HistoryItem>&&) override {};
 
     //void backListWithLimit(int, HistoryItemVector&) override;
     //void forwardListWithLimit(int, HistoryItemVector&) override;

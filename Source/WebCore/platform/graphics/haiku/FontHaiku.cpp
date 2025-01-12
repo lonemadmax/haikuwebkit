@@ -56,7 +56,7 @@ bool FontCascade::canReturnFallbackFontsForComplexText()
 }
 
 void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font,
-    const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned numGlyphs,
+    std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances,
     const FloatPoint& point, WebCore::FontSmoothingMode smoothing)
 {
     BView* view = graphicsContext.platformContext();
@@ -82,12 +82,12 @@ void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font,
         bfont.SetFlags(B_FORCE_ANTIALIASING);
     view->SetFont(&bfont);
 
-    BPoint offsets[numGlyphs];
+    BPoint offsets[glyphs.size()];
     char buffer[4];
     BString utf8;
     int32 realGlyphCount = 0;
     float offset = point.x();
-    for (unsigned i = 0; i < numGlyphs; i++) {
+    for (unsigned i = 0; i < glyphs.size(); i++) {
         Glyph glyph = glyphs[i];
         if (glyph == 0) {
             if (advances[i].width() == 0.0) {

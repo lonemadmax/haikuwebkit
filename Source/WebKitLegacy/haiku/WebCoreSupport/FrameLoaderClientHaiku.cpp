@@ -49,6 +49,7 @@
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameTree.h"
 #include "WebCore/FrameView.h"
+#include "WebCore/HistoryItem.h"
 #include "WebCore/HitTestResult.h"
 #include "WebCore/HTMLFormElement.h"
 #include "WebCore/HTMLFrameOwnerElement.h"
@@ -698,6 +699,11 @@ bool FrameLoaderClientHaiku::shouldGoToHistoryItem(WebCore::HistoryItem&) const
     // FIXME: Should probably be refuse to go to the item when it contains
     // form data that has already been sent or something.
     return true;
+}
+
+RefPtr<HistoryItem> FrameLoaderClientHaiku::createHistoryItemTree(bool clipAtTarget, BackForwardItemIdentifier identiier) const
+{
+	return nullptr;
 }
 
 void FrameLoaderClientHaiku::didDisplayInsecureContent()
