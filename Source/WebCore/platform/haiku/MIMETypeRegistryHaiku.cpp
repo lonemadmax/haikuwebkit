@@ -71,7 +71,7 @@ String MIMETypeRegistry::mimeTypeForExtension(const StringView ext)
     // Try WebCore built-in types.
     const ExtensionMap* extMap = extensionMap;
     while (extMap->extension) {
-        if (str == extMap->extension)
+        if (str == StringView::fromLatin1(extMap->extension))
             return String::fromUTF8(extMap->mimeType);
         ++extMap;
     }

@@ -41,7 +41,6 @@ namespace WebCore {
 static const double focusRingOpacity = 0.8; // Keep in sync with focusRingOpacity in RenderThemeHaiku.
 static const unsigned focusLineWidth = 2;
 static const unsigned arrowSize = 16;
-static const int buttonBorderSize = 1; // Keep in sync with menuListButtonBorderSize in RenderThemeHaiku.
 
 
 Theme& Theme::singleton()
