@@ -17,7 +17,7 @@ checkout to about 600MB.
 - A recent version of Haiku (beta4 or later)
 - The GCC11 development tools
 - The dependencies as listed below
-- At least about 2G of RAM
+- At least about 3G of RAM
 - Preferably a fast computer!
 
 Dependencies can be installed (for a gcc2hybrid version) via:
@@ -70,7 +70,7 @@ On a gcc2hybrid (32bit) Haiku:
 
     $ PKG_CONFIG_LIBDIR=/boot/system/develop/lib/x86/pkgconfig \
         CC=gcc-x86 CXX=g++-x86 Tools/Scripts/build-webkit \
-        --cmakeargs="-DCMAKE_AR=/bin/ar-x86 -DCMAKE_RANLIB=/bin/ranlib-x86" --haiku \
+        --cmakeargs="-DCMAKE_AR=/bin/ar-x86 -DCMAKE_RANLIB=/bin/ranlib-x86 -DCMAKE_CXX_FLAGS='-ftrack-macro-expansion=0 --param ggc-min-expand=10' -DENABLE_UNIFIED_BUILDS=0" --haiku \
         --no-fatal-warnings
 
 On other versions:
