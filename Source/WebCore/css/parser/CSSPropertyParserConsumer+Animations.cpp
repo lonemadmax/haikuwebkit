@@ -28,9 +28,11 @@
 
 #include "CSSCalcSymbolTable.h"
 #include "CSSParserContext.h"
+#include "CSSParserIdioms.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyParserConsumer+Ident.h"
+#include "CSSPropertyParser.h"
 
 namespace WebCore {
 namespace CSSPropertyParserHelpers {
