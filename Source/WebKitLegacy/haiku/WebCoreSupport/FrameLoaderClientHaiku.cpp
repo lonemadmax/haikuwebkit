@@ -49,6 +49,7 @@
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameTree.h"
 #include "WebCore/FrameView.h"
+#include "WebCore/HistoryController.h"
 #include "WebCore/HistoryItem.h"
 #include "WebCore/HitTestResult.h"
 #include "WebCore/HTMLFormElement.h"
@@ -701,9 +702,14 @@ bool FrameLoaderClientHaiku::shouldGoToHistoryItem(WebCore::HistoryItem&) const
     return true;
 }
 
-RefPtr<HistoryItem> FrameLoaderClientHaiku::createHistoryItemTree(bool clipAtTarget, BackForwardItemIdentifier identiier) const
+RefPtr<HistoryItem> FrameLoaderClientHaiku::createHistoryItemTree(bool clipAtTarget,
+    BackForwardItemIdentifier identifier) const
 {
-	return nullptr;
+    WebCore::LocalFrame* frame = m_webFrame->Frame();
+    if (!frame)
+        return nullptr;
+
+    return frame->loader().history().createItemTree(*frame, clipAtTarget, identifier);
 }
 
 void FrameLoaderClientHaiku::didDisplayInsecureContent()
@@ -718,7 +724,7 @@ void FrameLoaderClientHaiku::didRunInsecureContent(WebCore::SecurityOrigin&)
 void FrameLoaderClientHaiku::convertMainResourceLoadToDownload(DocumentLoader*,
     const ResourceRequest& request, const ResourceResponse&)
 {
-startDownload(request, {}, FromDownloadAttribute::No);
+    startDownload(request, {}, FromDownloadAttribute::No);
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::cancelledError(const WebCore::ResourceRequest& request) const
