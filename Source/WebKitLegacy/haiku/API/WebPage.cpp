@@ -1452,14 +1452,14 @@ void BWebPage::handleFindString(BMessage* message)
 
 void BWebPage::handleResendNotifications(BMessage*)
 {
-	// Prepare navigation capabilities notification
+    // Prepare navigation capabilities notification
     BMessage message(UPDATE_NAVIGATION_INTERFACE);
     message.AddBool("can go backward", fPage->get().backForward().canGoBackOrForward(-1));
     message.AddBool("can go forward", fPage->get().backForward().canGoBackOrForward(1));
     WebCore::FrameLoader& loader = fMainFrame->Frame()->loader();
     message.AddBool("can stop", loader.isLoading());
     dispatchMessage(message);
-	// Send loading progress and status text notifications
+    // Send loading progress and status text notifications
     setLoadingProgress(fLoadingProgress);
     setDisplayedStatusMessage(fStatusMessage, true);
     // TODO: Other notifications...
