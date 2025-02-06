@@ -49,12 +49,16 @@
 
 namespace WebCore {
 
+
+
 SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandleClient& client, const StorageSessionProvider* provider)
     : SocketStreamHandle(url, client)
     , m_storageSessionProvider(provider)
 {
     LOG(Network, "SocketStreamHandle %p new client %p", this, &m_client);
-    ASSERT(isMainThread());
+
+    ASSERT(url.protocolIs("ws"_s) || url.protocolIs("wss"_s));
+
 
     m_workerThread = Thread::create("WebSocket thread"_s, [this, protectedThis = Ref{*this}] {
         threadEntryPoint();
@@ -107,16 +111,16 @@ void SocketStreamHandleImpl::threadEntryPoint()
 {
     ASSERT(!isMainThread());
 
-	unsigned int port = m_url.port() ? *m_url.port() : (m_url.protocolIs(ASCIILiteral::fromLiteralUnsafe("wss")) ? 443 : 80);
+    unsigned int port = m_url.port() ? *m_url.port() : (m_url.protocolIs(ASCIILiteral::fromLiteralUnsafe("wss")) ? 443 : 80);
     BNetworkAddress peer(m_url.host().utf8().data(), port);
     BSocket* socket = m_url.protocolIs(ASCIILiteral::fromLiteralUnsafe("wss")) ? new BSecureSocket : new BSocket;
 
     // Connect to host
-	status_t status = socket->Connect(peer);
+    status_t status = socket->Connect(peer);
     if (status != B_OK) {
-		handleError(status);
+        handleError(status);
         return;
-	}
+    }
 
     callOnMainThread([this, protectedThis = Ref{*this}] {
         if (m_state == Connecting) {
@@ -129,13 +133,23 @@ void SocketStreamHandleImpl::threadEntryPoint()
         executeTasks();
 
         status_t readable = socket->WaitForReadable(20 * 1000);
-		status_t writable = B_ERROR;
+        status_t writable = B_ERROR;
         if (m_writeBuffer.get() != nullptr)
-			writable = socket->WaitForWritable(20 * 1000);
+            writable = socket->WaitForWritable(20 * 1000);
 
         // These logic only run when there's data waiting.
         if ((writable == B_OK) && m_running) {
             auto bytesSent = socket->Write(m_writeBuffer.get() + m_writeBufferOffset, m_writeBufferSize - m_writeBufferOffset);
+            if (bytesSent <= 0) {
+                // Make sure we are still connected.
+                if (!socket->IsConnected()) {
+                    m_running = false;
+                    callOnMainThread([this, protectedThis = Ref{*this}] {
+                            close();
+                            });
+                    break;
+                }
+            }
             m_writeBufferOffset += bytesSent;
 
             if (m_writeBufferSize <= m_writeBufferOffset) {
@@ -155,16 +169,16 @@ void SocketStreamHandleImpl::threadEntryPoint()
             ssize_t bytesRead = socket->Read(readBuffer.get(), kReadBufferSize);
             // `0` result means nothing to handle at this moment.
             if (bytesRead <= 0) {
-				// Make sure we are still connected.
-				if (!socket->IsConnected()) {
-					m_running = false;
-					callOnMainThread([this, protectedThis = Ref{*this}] {
-						close();
-					});
-					break;
-				}
+                // Make sure we are still connected.
+                if (!socket->IsConnected()) {
+                    m_running = false;
+                    callOnMainThread([this, protectedThis = Ref{*this}] {
+                            close();
+                            });
+                    break;
+                }
                 continue;
-			}
+            }
 
             callOnMainThread([this, protectedThis = Ref{*this}, buffer = WTFMove(readBuffer), size = bytesRead ] {
                 if (m_state == Open)
@@ -174,7 +188,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
     }
 
     m_writeBuffer = nullptr;
-	delete socket;
+    delete socket;
 }
 
 void SocketStreamHandleImpl::handleError(status_t errorCode)
