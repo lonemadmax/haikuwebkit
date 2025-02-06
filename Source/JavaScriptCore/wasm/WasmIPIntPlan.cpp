@@ -131,7 +131,7 @@ void IPIntPlan::compileFunction(FunctionCodeIndex functionIndex)
         ASSERT(!callee->entrypoint());
 
 #if ENABLE(JIT)
-        if (Options::useWasmJIT()) {
+        if (Options::useWasmJIT() && Options::useBBQJIT()) {
             if (m_moduleInformation->usesSIMD(functionIndex))
                 callee->setEntrypoint(LLInt::inPlaceInterpreterSIMDEntryThunk().retaggedCode<WasmEntryPtrTag>());
             else
@@ -269,7 +269,7 @@ void IPIntPlan::addTailCallEdge(uint32_t callerIndex, uint32_t calleeIndex)
 void IPIntPlan::computeTransitiveTailCalls() const
 {
     // FIXME: Use FunctionCodeIndex -> FunctionSpaceIndex by adding the right HashTraits.
-    GraphNodeWorklist<uint32_t, HashSet<uint32_t, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>> worklist;
+    GraphNodeWorklist<uint32_t, UncheckedKeyHashSet<uint32_t, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>> worklist;
 
     for (auto clobberingTailCall : m_moduleInformation->clobberingTailCalls())
         worklist.push(clobberingTailCall);

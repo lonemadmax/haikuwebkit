@@ -255,10 +255,8 @@ extension WebGPU.CommandEncoder {
                 return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "parent texture is nil")
             }
             let baseMipLevel = textureIsDestroyed ? 0 : texture.baseMipLevel()
-            //continue review here
             let depthAndMipLevel: UInt64 = depthSliceOrArrayLayer | (UInt64(baseMipLevel) << 32)
             if var setValue = depthSlices[bridgedTexture!] {
-            //if (auto it = depthSlices.find(bridgedTexture); it != depthSlices.end()) {
                 if depthSlices[bridgedTexture!]!.contains(depthAndMipLevel) {
                     return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "attempting to render to overlapping color attachment")
                 }
@@ -280,7 +278,7 @@ extension WebGPU.CommandEncoder {
 
             if attachment.resolveTarget != nil {
                 let resolveTarget = WebGPU.fromAPI(attachment.resolveTarget)
-                if !WebGPU_Internal.isValidToUseWith_TextureView_CommandEncoder(resolveTarget, self) {
+                if !WebGPU_Internal.isValidToUseWithTextureViewCommandEncoder(resolveTarget, self) {
                     return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "resolve target created from different device")
                 }
                 resolveTarget.setCommandEncoder(self)
@@ -288,7 +286,7 @@ extension WebGPU.CommandEncoder {
                 if (resolveTexture == nil || mtlTexture == nil) {
                     return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "resolveTexture/mtlTexture is nil")
                 }
-                if mtlTexture!.sampleCount == 1 || resolveTexture!.sampleCount != 1 || isMultisampleTexture(texture: resolveTexture!) || !isMultisampleTexture(texture: mtlTexture!) || !isRenderableTextureView(texture: resolveTarget) || mtlTexture!.pixelFormat != resolveTexture!.pixelFormat || WebGPU.Texture.supportsResolve(resolveTarget.format(), m_device.ptr()) {
+                if mtlTexture!.sampleCount == 1 || resolveTexture!.sampleCount != 1 || isMultisampleTexture(texture: resolveTexture!) || !isMultisampleTexture(texture: mtlTexture!) || !isRenderableTextureView(texture: resolveTarget) || mtlTexture!.pixelFormat != resolveTexture!.pixelFormat || !WebGPU.Texture.supportsResolve(resolveTarget.format(), m_device.ptr()) {
                     return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "resolve target is invalid")
                 }
 
@@ -469,8 +467,8 @@ extension WebGPU.CommandEncoder {
             self.generateInvalidEncoderStateError()
             return
         }
-        let error = self.errorValidatingCopyBufferToBuffer(source, sourceOffset, destination, destinationOffset, size)
-        guard error != nil else {
+
+        if let error = self.errorValidatingCopyBufferToBuffer(source, sourceOffset, destination, destinationOffset, size) {
             self.makeInvalid(error)
             return
         }
@@ -502,8 +500,7 @@ extension WebGPU.CommandEncoder {
         }
 
         let sourceTexture = WebGPU.fromAPI(source.texture);
-        let error = self.errorValidatingCopyTextureToBuffer(source, destination, copySize)
-        guard error != nil else {
+        if let error = self.errorValidatingCopyTextureToBuffer(source, destination, copySize) {
             self.makeInvalid(error)
             return
         }
@@ -784,8 +781,7 @@ extension WebGPU.CommandEncoder {
         }
         let destinationTexture = WebGPU.fromAPI(destination.texture)
 
-        let error = self.errorValidatingCopyBufferToTexture(source, destination, copySize)
-        guard error != nil else {
+        if let error = self.errorValidatingCopyBufferToTexture(source, destination, copySize) {
             self.makeInvalid(error)
             return
         }
@@ -817,7 +813,7 @@ extension WebGPU.CommandEncoder {
                     let blockSizeValue: UInt32 = blockSize.value()
                     let (result, didOverflow) = blockSizeValue.multipliedReportingOverflow(by: device.limitsCopy().maxTextureDimension1D)
                     if !didOverflow {
-                        sourceBytesPerRow = UInt(result)
+                        sourceBytesPerRow = min(sourceBytesPerRow, UInt(result))
                     }
                 }
             case WGPUTextureDimension_2D, WGPUTextureDimension_3D:
@@ -826,7 +822,7 @@ extension WebGPU.CommandEncoder {
                     let blockSizeValue: UInt32 = blockSize.value()
                     let (result, didOverflow) = blockSizeValue.multipliedReportingOverflow(by: device.limitsCopy().maxTextureDimension2D)
                     if !didOverflow {
-                        sourceBytesPerRow = UInt(result)
+                        sourceBytesPerRow = min(sourceBytesPerRow, UInt(result))
                     }
                 }
             case WGPUTextureDimension_Force32:
@@ -1014,7 +1010,7 @@ extension WebGPU.CommandEncoder {
                 let destinationOrigin = MTLOriginMake(Int(destination.origin.x), Int(destination.origin.y), 0);
                 for layer in 0..<copySize.depthOrArrayLayers {
                     var layerTimesSourceBytesPerImage = UInt(layer)
-                    (layerTimesSourceBytesPerImage, didOverflow) = layerTimesSourceBytesPerImage.addingReportingOverflow(sourceBytesPerImage)
+                    (layerTimesSourceBytesPerImage, didOverflow) = layerTimesSourceBytesPerImage.multipliedReportingOverflow(by: sourceBytesPerImage)
                     guard !didOverflow else {
                         return
                     }
@@ -1178,8 +1174,7 @@ extension WebGPU.CommandEncoder {
             self.generateInvalidEncoderStateError()
             return
         }
-        let error = self.errorValidatingCopyTextureToTexture(source, destination, copySize)
-        guard error == nil else {
+        if let error = self.errorValidatingCopyTextureToTexture(source, destination, copySize) {
             self.makeInvalid(error)
             return
         }
@@ -1226,7 +1221,7 @@ extension WebGPU.CommandEncoder {
                 self.clearTextureIfNeeded(destination, destinationSlice)
             }
         }
-        guard let mtlDestinationTexture = destinationTexture.texture(), let mtlSourceTexture = sourceTexture.texture() else {
+        guard let mtlDestinationTexture = destinationTexture.texture(), let mtlSourceTexture = WebGPU.fromAPI(source.texture).texture() else {
             return
         }
 

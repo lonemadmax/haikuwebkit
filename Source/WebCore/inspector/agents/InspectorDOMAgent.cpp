@@ -328,7 +328,7 @@ void InspectorDOMAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, 
     m_domEditor = makeUnique<DOMEditor>(*m_history);
 
     m_instrumentingAgents.setPersistentDOMAgent(this);
-    m_document = m_inspectedPage.localTopDocument();
+    m_document = m_inspectedPage->localTopDocument();
 
     // Force a layout so that we can collect additional information from the layout process.
     relayoutDocument();
@@ -813,7 +813,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::setAttributesAsText(
     }
 
     bool foundOriginalAttribute = false;
-    for (const Attribute& attribute : childElement->attributesIterator()) {
+    for (auto& attribute : childElement->attributes()) {
         // Add attribute pair
         auto attributeName = attribute.name().toAtomString();
         foundOriginalAttribute = foundOriginalAttribute || attributeName == name;
@@ -1318,7 +1318,7 @@ void InspectorDOMAgent::setSearchingForNode(Inspector::Protocol::ErrorString& er
 
     protectedOverlay()->didSetSearchingForNode(m_searchingForNode);
 
-    if (InspectorClient* client = m_inspectedPage.inspectorController().inspectorClient())
+    if (InspectorClient* client = m_inspectedPage->inspectorController().inspectorClient())
         client->elementSelectionChanged(m_searchingForNode);
 }
 
@@ -2032,7 +2032,7 @@ Ref<JSON::ArrayOf<String>> InspectorDOMAgent::buildArrayForElementAttributes(Ele
     // Go through all attributes and serialize them.
     if (!element->hasAttributes())
         return attributesValue;
-    for (const Attribute& attribute : element->attributesIterator()) {
+    for (auto& attribute : element->attributes()) {
         // Add attribute pair
         attributesValue->addItem(attribute.name().toString());
         attributesValue->addItem(attribute.value());

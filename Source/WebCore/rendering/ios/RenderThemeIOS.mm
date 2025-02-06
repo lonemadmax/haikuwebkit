@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,9 +54,11 @@
 #import "GraphicsContextCG.h"
 #import "HTMLAttachmentElement.h"
 #import "HTMLButtonElement.h"
+#import "HTMLDataListElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLMeterElement.h"
 #import "HTMLNames.h"
+#import "HTMLOptionElement.h"
 #import "HTMLSelectElement.h"
 #import "HTMLTextAreaElement.h"
 #import "IOSurface.h"
@@ -92,18 +94,11 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 
-#if ENABLE(DATALIST_ELEMENT)
-#include "HTMLDataListElement.h"
-#include "HTMLOptionElement.h"
-#endif
-
 #if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/RenderThemeIOSAdditions.mm>
+#import <WebKitAdditions/RenderThemeIOSAdditions.mm>
 #endif
 
 #import <pal/ios/UIKitSoftLink.h>
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace WebCore {
 
@@ -181,10 +176,8 @@ bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const RenderStyle
     if (style.usedAppearance() == StyleAppearance::TextField || style.usedAppearance() == StyleAppearance::TextArea || style.usedAppearance() == StyleAppearance::SearchField)
         return !style.borderAndBackgroundEqual(userAgentStyle);
 
-#if ENABLE(DATALIST_ELEMENT)
     if (style.usedAppearance() == StyleAppearance::ListButton)
         return style.hasContent() || style.hasUsedContentNone();
-#endif
 
     return RenderTheme::isControlStyled(style, userAgentStyle);
 }
@@ -629,9 +622,7 @@ bool RenderThemeIOS::paintSliderTrack(const RenderObject& box, const PaintInfo& 
 
     context.fillRoundedRect(innerBorder, systemColor(CSSValueAppleSystemOpaqueFill, styleColorOptions));
 
-#if ENABLE(DATALIST_ELEMENT)
     paintSliderTicks(box, paintInfo, trackClip);
-#endif
 
     double valueRatio = renderSlider->valueRatio();
     if (isHorizontal) {
@@ -802,7 +793,6 @@ bool RenderThemeIOS::paintProgressBar(const RenderObject& renderer, const PaintI
     return false;
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 IntSize RenderThemeIOS::sliderTickSize() const
 {
     // FIXME: <rdar://problem/12271791> MERGEBOT: Correct values for slider tick of <input type="range"> elements (requires ENABLE_DATALIST_ELEMENT)
@@ -814,7 +804,6 @@ int RenderThemeIOS::sliderTickOffsetFromTrackCenter() const
     // FIXME: <rdar://problem/12271791> MERGEBOT: Correct values for slider tick of <input type="range"> elements (requires ENABLE_DATALIST_ELEMENT)
     return -9;
 }
-#endif
 
 void RenderThemeIOS::adjustSearchFieldStyle(RenderStyle& style, const Element* element) const
 {
@@ -894,10 +883,8 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
         style.setLogicalMinHeight(Length(minimumHeight, LengthType::Fixed));
     }
 
-#if ENABLE(INPUT_TYPE_COLOR)
     if (style.usedAppearance() == StyleAppearance::ColorWell)
         return;
-#endif
 
     // Set padding: 0 1.0em; on buttons.
     // CSSPrimitiveValue::resolveAsLength only needs the element's style to calculate em lengths.
@@ -1666,8 +1653,6 @@ bool RenderThemeIOS::paintMeter(const RenderObject& renderer, const PaintInfo& p
     return false;
 }
 
-#if ENABLE(DATALIST_ELEMENT)
-
 bool RenderThemeIOS::paintListButton(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     auto& context = paintInfo.context();
@@ -1753,11 +1738,11 @@ void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& 
     auto deviceScaleFactor = box.document().deviceScaleFactor();
     auto styleColorOptions = box.styleColorOptions();
 
-    bool isReversedInlineDirection = (!isHorizontal && box.writingMode().isHorizontal()) || !box.style().isLeftToRightDirection();
+    bool isInlineFlipped = (!isHorizontal && box.writingMode().isHorizontal()) || box.writingMode().isInlineFlipped();
     for (auto& optionElement : dataList->suggestions()) {
         if (auto optionValue = input->listOptionValueAsDouble(optionElement)) {
             auto tickFraction = (*optionValue - min) / (max - min);
-            auto tickRatio = isReversedInlineDirection ? 1.0 - tickFraction : tickFraction;
+            auto tickRatio = isInlineFlipped ? 1.0 - tickFraction : tickFraction;
             if (isHorizontal)
                 tickRect.setX(rect.x() + tickRatio * (rect.width() - tickRect.width()));
             else
@@ -1769,28 +1754,19 @@ void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& 
     }
 }
 
-#endif // ENABLE(DATALIST_ELEMENT)
-
-#if ENABLE(INPUT_TYPE_COLOR)
-
-String RenderThemeIOS::colorInputStyleSheet() const
-{
-    return "input[type=\"color\"] { appearance: auto; width: 28px; height: 28px; box-sizing: border-box; outline: none; border: initial; border-radius: 50%; } "_s;
-}
-
 void RenderThemeIOS::paintColorWellDecorations(const RenderObject&, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     constexpr int strokeThickness = 3;
-    constexpr DisplayP3<float> colorStops[] = {
-        { 1, 1, 0, 1 },
-        { 1, 0.5, 0, 1 },
-        { 1, 0, 0, 1 },
-        { 1, 0, 1, 1},
-        { 0, 0, 1, 1 },
-        { 0, 1, 1, 1 },
-        { 0, 1, 0, 1},
-        { 0.63, 0.88, 0.03, 1 },
-        { 1, 1, 0, 1 }
+    constexpr std::array colorStops {
+        DisplayP3<float> { 1, 1, 0, 1 },
+        DisplayP3<float> { 1, 0.5, 0, 1 },
+        DisplayP3<float> { 1, 0, 0, 1 },
+        DisplayP3<float> { 1, 0, 1, 1 },
+        DisplayP3<float> { 0, 0, 1, 1 },
+        DisplayP3<float> { 0, 1, 1, 1 },
+        DisplayP3<float> { 0, 1, 0, 1 },
+        DisplayP3<float> { 0.63, 0.88, 0.03, 1 },
+        DisplayP3<float> { 1, 1, 0, 1 }
     };
     constexpr int numColorStops = std::size(colorStops);
 
@@ -1809,8 +1785,6 @@ void RenderThemeIOS::paintColorWellDecorations(const RenderObject&, const PaintI
     context.setStrokeGradient(WTFMove(gradient));
     context.strokeEllipse(strokeRect);
 }
-
-#endif // ENABLE(INPUT_TYPE_COLOR)
 
 void RenderThemeIOS::adjustSearchFieldDecorationPartStyle(RenderStyle& style, const Element* element) const
 {
@@ -1890,7 +1864,5 @@ bool RenderThemeIOS::paintSearchFieldResultsButton(const RenderBox& box, const P
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif //PLATFORM(IOS_FAMILY)

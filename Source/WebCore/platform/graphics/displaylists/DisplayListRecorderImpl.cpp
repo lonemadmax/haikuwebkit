@@ -210,11 +210,6 @@ void RecorderImpl::recordDrawDecomposedGlyphs(const Font& font, const Decomposed
     append(DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier()));
 }
 
-void RecorderImpl::recordDrawDisplayListItems(const Vector<Item>& items, const FloatPoint& destination)
-{
-    append(DrawDisplayListItems(items, destination));
-}
-
 void RecorderImpl::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     append(DrawImageBuffer(imageBuffer.renderingResourceIdentifier(), destRect, srcRect, options));
@@ -499,10 +494,16 @@ void RecorderImpl::endPage()
     append(EndPage());
 }
 
+void RecorderImpl::setURLForRect(const URL& link, const FloatRect& destRect)
+{
+    appendStateChangeItemIfNecessary();
+    append(SetURLForRect(link, destRect));
+}
+
 bool RecorderImpl::recordResourceUse(NativeImage& nativeImage)
 {
 #if USE(SKIA)
-    if (m_displayList.replayOptions().contains(ReplayOption::FlushImagesAndWaitForCompletion))
+    if (m_displayList.replayOptions().contains(ReplayOption::FlushAcceleratedImagesAndWaitForCompletion))
         nativeImage.backend().finishAcceleratedRenderingAndCreateFence();
 #endif
 
@@ -513,7 +514,7 @@ bool RecorderImpl::recordResourceUse(NativeImage& nativeImage)
 bool RecorderImpl::recordResourceUse(ImageBuffer& imageBuffer)
 {
 #if USE(SKIA)
-    if (m_displayList.replayOptions().contains(ReplayOption::FlushImagesAndWaitForCompletion))
+    if (m_displayList.replayOptions().contains(ReplayOption::FlushAcceleratedImagesAndWaitForCompletion))
         imageBuffer.finishAcceleratedRenderingAndCreateFence();
 #endif
 

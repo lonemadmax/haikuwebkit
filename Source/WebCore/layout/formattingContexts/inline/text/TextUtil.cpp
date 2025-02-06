@@ -28,6 +28,7 @@
 #include "TextUtil.h"
 
 #include "BreakLines.h"
+#include "ComplexTextController.h"
 #include "FontCascade.h"
 #include "InlineLineTypes.h"
 #include "InlineTextItem.h"
@@ -38,8 +39,8 @@
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextRun.h"
 #include "TextSpacing.h"
+#include "UnicodeHelpers.h"
 #include "WidthIterator.h"
-#include <unicode/ubidi.h>
 #include <wtf/text/CharacterProperties.h>
 #include <wtf/text/ParsingUtilities.h>
 #include <wtf/text/TextBreakIterator.h>
@@ -208,7 +209,6 @@ static TextUtil::EnclosingAscentDescent enclosingGlyphBoundsForRunWithIterator(c
 
             auto glyphData = fontCascade.glyphDataForCharacter(character, isRTL);
             auto& font = glyphData.font ? *glyphData.font : primaryFont;
-            // FIXME: This may need some adjustment for ComplexTextController. See glyphOrigin.
             auto bounds = font.boundsForGlyph(glyphData.glyph);
 
             enclosingAscent = std::min(enclosingAscent.value_or(bounds.y()), bounds.y());
@@ -220,15 +220,21 @@ static TextUtil::EnclosingAscentDescent enclosingGlyphBoundsForRunWithIterator(c
     return { enclosingAscent.value_or(0.f), enclosingDescent.value_or(0.f) };
 }
 
-TextUtil::EnclosingAscentDescent TextUtil::enclosingGlyphBoundsForText(StringView textContent, const RenderStyle& style)
+TextUtil::EnclosingAscentDescent TextUtil::enclosingGlyphBoundsForText(StringView textContent, const RenderStyle& style, ShouldUseSimpleGlyphOverflowCodePath shouldUseSimpleGlyphOverflowCodePath)
 {
     if (textContent.isEmpty())
         return { };
+
+    if (shouldUseSimpleGlyphOverflowCodePath == ShouldUseSimpleGlyphOverflowCodePath::No) {
+        auto overflow = ComplexTextController::enclosingGlyphBoundsForTextRun(style.fontCascade(), TextRun { textContent });
+        return { overflow.first, overflow.second };
+    }
 
     if (textContent.is8Bit()) {
         Latin1TextIterator textIterator { textContent.span8(), 0, textContent.length() };
         return enclosingGlyphBoundsForRunWithIterator(style.fontCascade(), style.writingMode().isBidiRTL(), textIterator);
     }
+
     SurrogatePairAwareTextIterator textIterator { textContent.span16(), 0, textContent.length() };
     return enclosingGlyphBoundsForRunWithIterator(style.fontCascade(), style.writingMode().isBidiRTL(), textIterator);
 }
@@ -574,8 +580,7 @@ TextDirection TextUtil::directionForTextContent(StringView content)
 {
     if (content.is8Bit())
         return TextDirection::LTR;
-    auto characters = content.span16();
-    return ubidi_getBaseDirection(characters.data(), characters.size()) == UBIDI_RTL ? TextDirection::RTL : TextDirection::LTR;
+    return baseTextDirection(content).value_or(TextDirection::LTR);
 }
 
 AtomString TextUtil::ellipsisTextInInlineDirection(bool isHorizontal)
@@ -668,6 +673,12 @@ bool TextUtil::canUseSimplifiedTextMeasuring(StringView textContent, const FontC
     // FIXME: All these checks should be more fine-grained at the inline item level.
     if (fontCascade.wordSpacing() || fontCascade.letterSpacing())
         return false;
+
+#if USE(FONT_VARIANT_VIA_FEATURES)
+    auto fontVariantCaps = fontCascade.fontDescription().variantCaps();
+    if (fontVariantCaps == FontVariantCaps::Small || fontVariantCaps == FontVariantCaps::AllSmall || fontVariantCaps ==  FontVariantCaps::Petite || fontVariantCaps == FontVariantCaps::AllPetite)
+        return false;
+#endif
 
     // Additional check on the font codepath.
     auto run = TextRun { textContent };

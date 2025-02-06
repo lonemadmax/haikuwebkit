@@ -44,10 +44,8 @@ class CStringBuffer final : public RefCounted<CStringBuffer> {
 public:
     size_t length() const { return m_length; }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    std::span<const LChar> span() const { return unsafeMakeSpan(reinterpret_cast_ptr<const LChar*>(this + 1), m_length); }
-    std::span<const char> spanIncludingNullTerminator() const { return unsafeMakeSpan(reinterpret_cast_ptr<const char*>(this + 1), m_length + 1); }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    std::span<const char> span() const LIFETIME_BOUND { return unsafeMakeSpan(m_data, m_length); }
+    std::span<const char> unsafeSpanIncludingNullTerminator() const LIFETIME_BOUND { return unsafeMakeSpan(m_data, m_length + 1); }
 
 private:
     friend class CString;
@@ -55,12 +53,11 @@ private:
     static Ref<CStringBuffer> createUninitialized(size_t length);
 
     CStringBuffer(size_t length) : m_length(length) { }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    std::span<char> mutableSpan() { return unsafeMakeSpan(reinterpret_cast_ptr<char*>(this + 1), m_length); }
-    std::span<char> mutableSpanIncludingNullTerminator() { return unsafeMakeSpan(reinterpret_cast_ptr<char*>(this + 1), m_length + 1); }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    std::span<char> mutableSpan() LIFETIME_BOUND { return unsafeMakeSpan(m_data, m_length); }
+    std::span<char> mutableSpanIncludingNullTerminator() LIFETIME_BOUND { return unsafeMakeSpan(m_data, m_length + 1); }
 
     const size_t m_length;
+    char m_data[0];
 };
 
 // A container for a null-terminated char array supporting copy-on-write assignment.
@@ -77,21 +74,21 @@ public:
     WTF_EXPORT_PRIVATE static CString newUninitialized(size_t length, std::span<char>& characterBuffer);
     CString(HashTableDeletedValueType) : m_buffer(HashTableDeletedValue) { }
 
-    const char* data() const;
+    const char* data() const LIFETIME_BOUND;
 
-    std::string toStdString() const { return m_buffer ? std::string(m_buffer->spanIncludingNullTerminator().data()) : std::string(); }
+    std::string toStdString() const { return m_buffer ? std::string(m_buffer->unsafeSpanIncludingNullTerminator().data()) : std::string(); }
 
-    std::span<const LChar> span() const;
-    std::span<const char> spanIncludingNullTerminator() const;
+    std::span<const LChar> span() const LIFETIME_BOUND;
+    std::span<const char> unsafeSpanIncludingNullTerminator() const LIFETIME_BOUND;
 
-    WTF_EXPORT_PRIVATE std::span<char> mutableSpan();
-    WTF_EXPORT_PRIVATE std::span<char> mutableSpanIncludingNullTerminator();
+    WTF_EXPORT_PRIVATE std::span<char> mutableSpan() LIFETIME_BOUND;
+    WTF_EXPORT_PRIVATE std::span<char> mutableSpanIncludingNullTerminator() LIFETIME_BOUND;
     size_t length() const;
 
     bool isNull() const { return !m_buffer; }
     bool isSafeToSendToAnotherThread() const;
 
-    CStringBuffer* buffer() const { return m_buffer.get(); }
+    CStringBuffer* buffer() const LIFETIME_BOUND { return m_buffer.get(); }
 
     bool isHashTableDeletedValue() const { return m_buffer.isHashTableDeletedValue(); }
 
@@ -107,7 +104,6 @@ private:
 };
 
 WTF_EXPORT_PRIVATE bool operator==(const CString&, const CString&);
-WTF_EXPORT_PRIVATE bool operator==(const CString&, const char*);
 WTF_EXPORT_PRIVATE bool operator<(const CString&, const CString&);
 
 struct CStringHash {
@@ -129,20 +125,20 @@ inline CString::CString(std::span<const LChar> bytes)
 
 inline const char* CString::data() const
 {
-    return m_buffer ? m_buffer->spanIncludingNullTerminator().data() : nullptr;
+    return m_buffer ? m_buffer->unsafeSpanIncludingNullTerminator().data() : nullptr;
 }
 
 inline std::span<const LChar> CString::span() const
 {
     if (m_buffer)
-        return m_buffer->span();
+        return byteCast<LChar>(m_buffer->span());
     return { };
 }
 
-inline std::span<const char> CString::spanIncludingNullTerminator() const
+inline std::span<const char> CString::unsafeSpanIncludingNullTerminator() const
 {
     if (m_buffer)
-        return m_buffer->spanIncludingNullTerminator();
+        return m_buffer->unsafeSpanIncludingNullTerminator();
     return { };
 }
 
@@ -150,6 +146,9 @@ inline size_t CString::length() const
 {
     return m_buffer ? m_buffer->length() : 0;
 }
+
+// CString is null terminated
+inline const char* safePrintfType(const CString& cstring) { return cstring.data(); }
 
 } // namespace WTF
 

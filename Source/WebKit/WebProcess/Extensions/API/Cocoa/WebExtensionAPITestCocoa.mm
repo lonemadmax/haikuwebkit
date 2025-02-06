@@ -33,6 +33,7 @@
 #import "CocoaHelpers.h"
 #import "MessageSenderInlines.h"
 #import "WebExtensionAPINamespace.h"
+#import "WebExtensionAPIWebPageNamespace.h"
 #import "WebExtensionControllerMessages.h"
 #import "WebExtensionControllerProxy.h"
 #import "WebExtensionEventListenerType.h"
@@ -89,21 +90,6 @@ void WebExtensionAPITest::notifyPass(JSContextRef context, NSString *message)
     WebProcess::singleton().send(Messages::WebExtensionController::TestFinished(true, message, location.first, location.second), webExtensionControllerProxy->identifier());
 }
 
-void WebExtensionAPITest::yield(JSContextRef context, NSString *message)
-{
-    auto location = scriptLocation(context);
-
-    RefPtr page = toWebPage(context);
-    if (!page)
-        return;
-
-    RefPtr webExtensionControllerProxy = page->webExtensionControllerProxy();
-    if (!webExtensionControllerProxy)
-        return;
-
-    WebProcess::singleton().send(Messages::WebExtensionController::TestYielded(message, location.first, location.second), webExtensionControllerProxy->identifier());
-}
-
 void WebExtensionAPITest::sendMessage(JSContextRef context, NSString *message, JSValue *argument)
 {
     auto location = scriptLocation(context);
@@ -146,7 +132,7 @@ void WebExtensionAPITest::log(JSContextRef context, JSValue *value)
     if (!webExtensionControllerProxy)
         return;
 
-    WebProcess::singleton().send(Messages::WebExtensionController::TestMessage(debugString(value), location.first, location.second), webExtensionControllerProxy->identifier());
+    WebProcess::singleton().send(Messages::WebExtensionController::TestLogMessage(debugString(value), location.first, location.second), webExtensionControllerProxy->identifier());
 }
 
 void WebExtensionAPITest::fail(JSContextRef context, NSString *message)
@@ -360,13 +346,21 @@ JSValue *WebExtensionAPITest::assertSafeResolve(JSContextRef context, JSValue *f
     return assertResolves(context, result, message);
 }
 
-void WebExtensionContextProxy::dispatchTestMessageEvent(const String& message, const String& argumentJSON)
+void WebExtensionContextProxy::dispatchTestMessageEvent(const String& message, const String& argumentJSON, WebExtensionContentWorldType contentWorldType)
 {
     id argument = parseJSON(argumentJSON, JSONOptions::FragmentsAllowed);
 
-    enumerateNamespaceObjects([&](auto& namespaceObject) {
+    if (contentWorldType == WebExtensionContentWorldType::WebPage) {
+        enumerateFramesAndWebPageNamespaceObjects([&](auto&, auto& namespaceObject) {
+            namespaceObject.test().onMessage().invokeListenersWithArgument(message, argument);
+        });
+
+        return;
+    }
+
+    enumerateFramesAndNamespaceObjects([&](auto&, auto& namespaceObject) {
         namespaceObject.test().onMessage().invokeListenersWithArgument(message, argument);
-    });
+    }, toDOMWrapperWorld(contentWorldType));
 }
 
 } // namespace WebKit

@@ -65,9 +65,9 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebAnimation);
 
-HashSet<WebAnimation*>& WebAnimation::instances()
+UncheckedKeyHashSet<WebAnimation*>& WebAnimation::instances()
 {
-    static NeverDestroyed<HashSet<WebAnimation*>> instances;
+    static NeverDestroyed<UncheckedKeyHashSet<WebAnimation*>> instances;
     return instances;
 }
 
@@ -228,7 +228,6 @@ void WebAnimation::setEffectInternal(RefPtr<AnimationEffect>&& newEffect, bool d
         oldEffect->setAnimation(nullptr);
         if (!doNotRemoveFromTimeline && previousTarget && previousTarget != newTarget)
             previousTarget->animationWasRemoved(*this);
-        updateRelevance();
     }
 
     if (m_effect) {
@@ -236,6 +235,8 @@ void WebAnimation::setEffectInternal(RefPtr<AnimationEffect>&& newEffect, bool d
         if (newTarget && previousTarget != newTarget)
             newTarget->animationWasAdded(*this);
     }
+
+    updateRelevance();
 
     InspectorInstrumentation::didSetWebAnimationEffect(*this);
 }
@@ -319,7 +320,13 @@ void WebAnimation::setTimeline(RefPtr<AnimationTimeline>&& timeline)
         if (previousPlayState == PlayState::Finished || previousPlayState == PlayState::Running) {
             // 5. If previous play state is "finished" or "running":
             //    Schedule a pending play task.
+            // FIXME: re-creating the ready promise is not part of the spec but Chrome implements this
+            // behavior and it makes sense since the new start time won't be computed until the timeline
+            // is updated. This is covered by https://github.com/w3c/csswg-drafts/issues/11465.
+            auto wasAlreadyPending = pending();
             m_timeToRunPendingPlayTask = TimeToRunPendingTask::WhenReady;
+            if (!wasAlreadyPending)
+                m_readyPromise = makeUniqueRef<ReadyPromise>(*this, &WebAnimation::readyPromiseResolve);
         } else if (previousPlayState == PlayState::Paused && previousProgress) {
             // 6. If previous play state is "paused" and previous progress is resolved:
             //    Set hold time to previous progress * end time.
@@ -1473,7 +1480,7 @@ void WebAnimation::autoAlignStartTime()
 
     RefPtr scrollTimeline = dynamicDowncast<ScrollTimeline>(m_timeline);
     ASSERT(scrollTimeline);
-    auto interval = scrollTimeline->intervalForAttachmentRange(m_timelineRange);
+    auto interval = scrollTimeline->intervalForAttachmentRange(range());
 
     // 5. Let start offset be the resolved timeline time corresponding to the start of the animation
     // attachment range. In the case of view timelines, it requires a calculation based on the proportion
@@ -1783,7 +1790,7 @@ ExceptionOr<void> WebAnimation::commitStyles()
 
     // 2.4 Let targeted properties be the set of physical longhand properties that are a target property for at least one
     // animation effect associated with animation whose effect target is target.
-    HashSet<AnimatableCSSProperty> targetedProperties;
+    UncheckedKeyHashSet<AnimatableCSSProperty> targetedProperties;
     for (auto property : effect->animatedProperties()) {
         if (std::holds_alternative<CSSPropertyID>(property)) {
             for (auto longhand : shorthandForProperty(std::get<CSSPropertyID>(property)))
@@ -1884,10 +1891,10 @@ void WebAnimation::setBindingsRangeStart(TimelineRangeValue&& rangeStartValue)
         return;
 
     auto rangeStart = SingleTimelineRange::parse(WTFMove(rangeStartValue), keyframeEffect->target(), SingleTimelineRange::Type::Start);
-    if (rangeStart == m_timelineRange.start)
+    if (m_specifiedRangeStart == rangeStart)
         return;
 
-    m_timelineRange.start = rangeStart;
+    m_specifiedRangeStart = WTFMove(rangeStart);
     if (RefPtr effect = this->effect())
         effect->animationRangeDidChange();
 }
@@ -1899,7 +1906,27 @@ void WebAnimation::setBindingsRangeEnd(TimelineRangeValue&& rangeEndValue)
         return;
 
     auto rangeEnd = SingleTimelineRange::parse(WTFMove(rangeEndValue), keyframeEffect->target(), SingleTimelineRange::Type::End);
-    if (rangeEnd == m_timelineRange.end)
+    if (m_specifiedRangeEnd == rangeEnd)
+        return;
+
+    m_specifiedRangeEnd = WTFMove(rangeEnd);
+    if (RefPtr effect = this->effect())
+        effect->animationRangeDidChange();
+}
+
+void WebAnimation::setRangeStart(SingleTimelineRange rangeStart)
+{
+    if (m_timelineRange.start == rangeStart)
+        return;
+
+    m_timelineRange.start = rangeStart;
+    if (RefPtr effect = this->effect())
+        effect->animationRangeDidChange();
+}
+
+void WebAnimation::setRangeEnd(SingleTimelineRange rangeEnd)
+{
+    if (m_timelineRange.end == rangeEnd)
         return;
 
     m_timelineRange.end = rangeEnd;
@@ -1907,21 +1934,23 @@ void WebAnimation::setBindingsRangeEnd(TimelineRangeValue&& rangeEndValue)
         effect->animationRangeDidChange();
 }
 
-void WebAnimation::setRange(TimelineRange range)
+const TimelineRange& WebAnimation::range()
 {
-    if (m_timelineRange == range)
-        return;
+    if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(m_effect)) {
+        if (m_specifiedRangeStart)
+            m_timelineRange.start = SingleTimelineRange::range(*m_specifiedRangeStart, SingleTimelineRange::Type::Start, nullptr, keyframeEffect->target());
+        if (m_specifiedRangeEnd)
+            m_timelineRange.end = SingleTimelineRange::range(*m_specifiedRangeEnd, SingleTimelineRange::Type::End, nullptr, keyframeEffect->target());
+    }
 
-    m_timelineRange = range;
-    if (RefPtr effect = this->effect())
-        effect->animationRangeDidChange();
+    return m_timelineRange;
 }
 
 void WebAnimation::progressBasedTimelineSourceDidChangeMetrics()
 {
     ASSERT(m_timeline && m_timeline->isProgressBased());
     RefPtr effect = m_effect;
-    if (effect && !m_timelineRange.isDefault())
+    if (effect && !range().isDefault())
         effect->animationProgressBasedTimelineSourceDidChangeMetrics();
 }
 

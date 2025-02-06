@@ -44,6 +44,8 @@
 #include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
 #include "TimelineRange.h"
+#include <algorithm>
+#include <wtf/IndexedRange.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -152,15 +154,11 @@ inline ShorthandSerializer::ShorthandSerializer(const PropertiesType& properties
 
 inline CSSPropertyID ShorthandSerializer::longhandProperty(unsigned index) const
 {
-    ASSERT(index < length());
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return m_shorthand.properties()[index];
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 inline CSSValue& ShorthandSerializer::longhandValue(unsigned index) const
 {
-    ASSERT(index < length());
     return *m_longhandValues[index];
 }
 
@@ -521,10 +519,8 @@ public:
     void set(unsigned index, const CSSValue* value, bool skipSerializing = false)
     {
         ASSERT(index < m_shorthand.length());
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         m_skipSerializing[index] = skipSerializing
             || !value || isInitialValueForLonghand(m_shorthand.properties()[index], *value);
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         m_values[index] = value;
     }
 
@@ -534,13 +530,10 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         return m_skipSerializing[index];
     }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     std::optional<CSSValueID> valueID(unsigned index) const
     {
-        ASSERT(index < m_shorthand.length());
         return longhandValueID(m_shorthand.properties()[index], m_values[index].get());
     }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     CSSValueID valueIDIncludingCustomIdent(unsigned index) const
     {
@@ -571,19 +564,17 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         return value && value->isPair();
     }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     void serialize(StringBuilder& builder) const
     {
         // If all are skipped, then serialize the first.
-        auto begin = std::begin(m_skipSerializing);
-        auto end = begin + m_shorthand.length();
-        bool allSkipped = std::find(begin, end, false) == end;
+        auto range = std::span { m_skipSerializing }.first(m_shorthand.length());
+        bool allSkipped = std::ranges::find(range, false) == range.end();
 
         auto separator = builder.isEmpty() ? ""_s : ", "_s;
-        for (unsigned j = 0; j < m_shorthand.length(); j++) {
+        auto longhands = m_shorthand.properties();
+        for (auto [j, longhand] : indexedRange(longhands)) {
             if (allSkipped ? j : m_skipSerializing[j])
                 continue;
-            auto longhand = m_shorthand.properties()[j];
             if (longhand == CSSPropertyBackgroundSize || longhand == CSSPropertyMaskSize)
                 separator = " / "_s;
             if (auto& value = m_values[j])
@@ -593,7 +584,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
             separator = " "_s;
         }
     }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 private:
     const StylePropertyShorthand& m_shorthand;

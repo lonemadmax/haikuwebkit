@@ -35,6 +35,7 @@
 #include "CSSSelectorParser.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CloseWatcherManager.h"
 #include "ComposedTreeIterator.h"
 #include "ContentExtensionActions.h"
 #include "ContentExtensionRule.h"
@@ -1591,6 +1592,8 @@ void LocalDOMWindow::notifyActivated(MonotonicTime activationTime)
     setLastActivationTimestamp(activationTime);
     if (!frame())
         return;
+    if (frame()->settings().closeWatcherEnabled())
+        closeWatcherManager().notifyAboutUserActivation();
 
     for (RefPtr ancestor = frame() ? frame()->tree().parent() : nullptr; ancestor; ancestor = ancestor->tree().parent()) {
         RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor.get());
@@ -1961,7 +1964,7 @@ bool LocalDOMWindow::isSecureContext() const
 
 bool LocalDOMWindow::crossOriginIsolated() const
 {
-    ASSERT(ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Shared || !document() || document()->topDocument().crossOriginOpenerPolicy().value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP);
+    ASSERT(ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Shared || !document() || !document()->mainFrameDocument() || document()->mainFrameDocument()->crossOriginOpenerPolicy().value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP);
     return ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Isolated;
 }
 
@@ -2228,7 +2231,7 @@ void LocalDOMWindow::failedToRegisterDeviceMotionEventListener()
 void LocalDOMWindow::incrementScrollEventListenersCount()
 {
     RefPtr document = this->document();
-    if (++m_scrollEventListenerCount == 1 && document == &document->topDocument()) {
+    if (++m_scrollEventListenerCount == 1 && document->isTopDocument()) {
         if (RefPtr frame = this->frame(); frame && frame->page())
             frame->protectedPage()->chrome().client().setNeedsScrollNotifications(*frame, true);
     }
@@ -2237,7 +2240,7 @@ void LocalDOMWindow::incrementScrollEventListenersCount()
 void LocalDOMWindow::decrementScrollEventListenersCount()
 {
     RefPtr document = this->document();
-    if (!--m_scrollEventListenerCount && document == &document->topDocument()) {
+    if (!--m_scrollEventListenerCount && document->isTopDocument()) {
         RefPtr frame = this->frame();
         if (frame && frame->page() && document->backForwardCacheState() == Document::NotInBackForwardCache)
             frame->protectedPage()->chrome().client().setNeedsScrollNotifications(*frame, false);
@@ -2625,8 +2628,12 @@ ExceptionOr<RefPtr<Frame>> LocalDOMWindow::createWindow(const String& urlString,
         newFrame->page()->setOpenedByDOMWithOpener(true);
     }
 
-    if (created == CreatedNewPage::Yes)
-        newFrame->protectedPage()->setOpenedByDOM();
+    if (created == CreatedNewPage::Yes) {
+        RefPtr page = newFrame->page();
+        page->setOpenedByDOM();
+        if (RefPtr openerDocument = openerFrame.document())
+            page->setOpenedByScriptDomain(RegistrableDomain { openerDocument->currentSourceURL(ScriptExecutionContext::CallStackPosition::TopMost) });
+    }
 
     RefPtr localNewFrame = dynamicDowncast<LocalFrame>(newFrame);
     if (localNewFrame && localNewFrame->document()->protectedWindow()->isInsecureScriptAccess(activeWindow, completedURL.string()))
@@ -2808,6 +2815,13 @@ CookieStore& LocalDOMWindow::cookieStore()
     if (!m_cookieStore)
         m_cookieStore = CookieStore::create(protectedDocument().get());
     return *m_cookieStore;
+}
+
+CloseWatcherManager& LocalDOMWindow::closeWatcherManager()
+{
+    if (!m_closeWatcherManager)
+        m_closeWatcherManager = adoptRef(*new CloseWatcherManager());
+    return *m_closeWatcherManager;
 }
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)

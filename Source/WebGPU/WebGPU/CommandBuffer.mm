@@ -50,6 +50,8 @@ CommandBuffer::CommandBuffer(Device& device)
 CommandBuffer::~CommandBuffer()
 {
     m_device->protectedQueue()->removeMTLCommandBuffer(m_commandBuffer);
+    m_commandBuffer = nil;
+    m_cachedCommandBuffer = nil;
 }
 
 void CommandBuffer::setLabel(String&& label)
@@ -65,6 +67,7 @@ void CommandBuffer::makeInvalid(NSString* lastError)
     m_lastErrorString = lastError;
     m_device->protectedQueue()->removeMTLCommandBuffer(m_commandBuffer);
     m_commandBuffer = nil;
+    m_cachedCommandBuffer = nil;
     m_commandEncoder = nullptr;
 }
 
@@ -76,8 +79,10 @@ void CommandBuffer::makeInvalidDueToCommit(NSString* lastError)
     m_cachedCommandBuffer = m_commandBuffer;
     [m_commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer>) {
         protectedThis->m_commandBufferComplete.signal();
-        protectedThis->m_cachedCommandBuffer = nil;
-        protectedThis->m_commandEncoder = nullptr;
+        protectedThis->m_device->protectedQueue()->scheduleWork([protectedThis = WTFMove(protectedThis)]() mutable {
+            protectedThis->m_cachedCommandBuffer = nil;
+            protectedThis->m_commandEncoder = nullptr;
+        });
     }];
     m_lastErrorString = lastError;
     m_commandBuffer = nil;

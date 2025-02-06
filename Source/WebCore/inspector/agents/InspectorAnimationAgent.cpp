@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InspectorAnimationAgent.h"
 
+#include "Animation.h"
 #include "AnimationEffect.h"
 #include "AnimationEffectPhase.h"
 #include "BlendingKeyframes.h"
@@ -277,7 +278,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorAnimationAgent::enable()
     const auto existsInCurrentPage = [&] (ScriptExecutionContext* scriptExecutionContext) {
         // FIXME: <https://webkit.org/b/168475> Web Inspector: Correctly display iframe's WebSockets
         RefPtr document = dynamicDowncast<Document>(scriptExecutionContext);
-        return document && document->page() == &m_inspectedPage;
+        return document && document->page() == m_inspectedPage.ptr();
     };
 
     {

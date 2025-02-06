@@ -640,6 +640,11 @@ const TypeDefinition& TypeInformation::signatureForLLIntBuiltin(LLIntBuiltin bui
     return *singleton().m_I64_Void;
 }
 
+const TypeDefinition& TypeInformation::signatureForJSException()
+{
+    return *singleton().m_Void_Externref;
+}
+
 struct FunctionParameterTypes {
     const Vector<Type, 16>& returnTypes;
     const Vector<Type, 16>& argumentTypes;
@@ -680,22 +685,30 @@ struct FunctionParameterTypes {
         RefPtr<TypeDefinition> signature = TypeDefinition::tryCreateFunctionSignature(params.returnTypes.size(), params.argumentTypes.size());
         RELEASE_ASSERT(signature);
         bool hasRecursiveReference = false;
+        bool argumentsOrResultsIncludeI64 = false;
         bool argumentsOrResultsIncludeV128 = false;
+        bool argumentsOrResultsIncludeExnref = false;
 
         for (unsigned i = 0; i < params.returnTypes.size(); ++i) {
             signature->as<FunctionSignature>()->getReturnType(i) = params.returnTypes[i];
             hasRecursiveReference |= isRefWithRecursiveReference(params.returnTypes[i]);
+            argumentsOrResultsIncludeI64 |= params.returnTypes[i].isI64();
             argumentsOrResultsIncludeV128 |= params.returnTypes[i].isV128();
+            argumentsOrResultsIncludeExnref |= isExnref(params.returnTypes[i]);
         }
 
         for (unsigned i = 0; i < params.argumentTypes.size(); ++i) {
             signature->as<FunctionSignature>()->getArgumentType(i) = params.argumentTypes[i];
             hasRecursiveReference |= isRefWithRecursiveReference(params.argumentTypes[i]);
+            argumentsOrResultsIncludeI64 |= params.argumentTypes[i].isI64();
             argumentsOrResultsIncludeV128 |= params.argumentTypes[i].isV128();
+            argumentsOrResultsIncludeExnref |= isExnref(params.argumentTypes[i]);
         }
 
         signature->as<FunctionSignature>()->setHasRecursiveReference(hasRecursiveReference);
+        signature->as<FunctionSignature>()->setArgumentsOrResultsIncludeI64(argumentsOrResultsIncludeI64);
         signature->as<FunctionSignature>()->setArgumentsOrResultsIncludeV128(argumentsOrResultsIncludeV128);
+        signature->as<FunctionSignature>()->setArgumentsOrResultsIncludeExnref(argumentsOrResultsIncludeExnref);
 
         entry.key = WTFMove(signature);
     }
@@ -904,8 +917,12 @@ TypeInformation::TypeInformation()
             RefPtr<TypeDefinition> sig = TypeDefinition::tryCreateFunctionSignature(1, 0); \
             sig->ref();                                                                    \
             sig->as<FunctionSignature>()->getReturnType(0) = Types::type;                  \
+            if (Types::type.isI64())                                                       \
+                sig->as<FunctionSignature>()->setArgumentsOrResultsIncludeI64(true);       \
             if (Types::type.isV128())                                                      \
                 sig->as<FunctionSignature>()->setArgumentsOrResultsIncludeV128(true);      \
+            if (isExnref(Types::type))                                                     \
+                sig->as<FunctionSignature>()->setArgumentsOrResultsIncludeExnref(true);    \
             thunkTypes[linearizeType(TypeKind::type)] = sig->as<FunctionSignature>();      \
             m_typeSet.add(TypeHash { sig.releaseNonNull() });                              \
         }                                                                                  \
@@ -926,12 +943,11 @@ TypeInformation::TypeInformation()
     m_Void_I32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Void_I32I32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_I32_I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Types::I32 }, { Wasm::Types::I32 } }).iterator->key;
-    if (!Options::useWasmGC())
-        return;
     m_I32_RefI32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Types::I32 }, { anyrefType(), Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Ref_RefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { anyrefType() }, { anyrefType(), Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Arrayref_I32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { arrayrefType(false) }, { Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Anyref_Externref = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { anyrefType() }, { externrefType() } }).iterator->key;
+    m_Void_Externref = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { externrefType() } }).iterator->key;
     m_Void_I32AnyrefI32I32AnyrefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { Wasm::Types::I32, anyrefType(), Wasm::Types::I32, Wasm::Types::I32, anyrefType(), Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Void_I32AnyrefI32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { Wasm::Types::I32, anyrefType(), Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
 }
@@ -1089,13 +1105,9 @@ std::optional<RefPtr<const RTT>> TypeInformation::tryGetCanonicalRTT(TypeIndex t
 
 RefPtr<const RTT> TypeInformation::getCanonicalRTT(TypeIndex type)
 {
-    if (Options::useWasmGC()) {
-        const auto result = TypeInformation::tryGetCanonicalRTT(type);
-        ASSERT(result.has_value());
-        return result.value();
-    }
-
-    return { };
+    const auto result = TypeInformation::tryGetCanonicalRTT(type);
+    ASSERT(result.has_value());
+    return result.value();
 }
 
 bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex typeIndex)
@@ -1114,6 +1126,7 @@ bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex 
             return jsDynamicCast<WebAssemblyFunctionBase*>(refValue);
         case TypeKind::Eqref:
             return (refValue.isInt32() && refValue.asInt32() <= maxI31ref && refValue.asInt32() >= minI31ref) || jsDynamicCast<JSWebAssemblyArray*>(refValue) || jsDynamicCast<JSWebAssemblyStruct*>(refValue);
+        case TypeKind::Nullexn:
         case TypeKind::Nullref:
         case TypeKind::Nullfuncref:
         case TypeKind::Nullexternref:

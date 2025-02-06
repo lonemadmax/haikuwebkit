@@ -45,6 +45,7 @@
 #include <WebCore/CookieJar.h>
 #include <WebCore/Credential.h>
 #include <WebCore/CredentialStorage.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/EventNames.h>
@@ -241,6 +242,7 @@ PluginView::PluginView(HTMLPlugInElement& element, const URL& mainResourceURL, c
 {
     protectedPlugin()->startLoading();
     m_webPage->addPluginView(*this);
+    updateDocumentForPluginSizingBehavior();
 }
 
 PluginView::~PluginView()
@@ -448,11 +450,9 @@ PlatformLayer* PluginView::platformLayer() const
     if (!m_isInitialized)
         return nullptr;
 
-#if ENABLE(LEGACY_PDFKIT_PLUGIN)
     Ref plugin = m_plugin;
     if (plugin->layerHostingStrategy() == PluginLayerHostingStrategy::PlatformLayer)
         return plugin->platformLayer();
-#endif
 
     return nullptr;
 }
@@ -1183,6 +1183,23 @@ CursorContext PluginView::cursorContext(FloatPoint pointInRootView) const
 bool PluginView::populateEditorStateIfNeeded(EditorState& state) const
 {
     return protectedPlugin()->populateEditorStateIfNeeded(state);
+}
+
+bool PluginView::shouldRespectPageScaleAdjustments() const
+{
+    if (!m_isInitialized)
+        return false;
+
+    return protectedPlugin()->shouldRespectPageScaleAdjustments();
+}
+
+void PluginView::updateDocumentForPluginSizingBehavior()
+{
+    if (!protectedPlugin()->shouldSizeToFitContent())
+        return;
+    // The styles in PluginDocumentParser are constructed to respond to this class.
+    if (RefPtr documentElement = protectedPluginElement()->protectedDocument()->protectedDocumentElement())
+        documentElement->setAttributeWithoutSynchronization(HTMLNames::classAttr, "plugin-fits-content"_s);
 }
 
 } // namespace WebKit

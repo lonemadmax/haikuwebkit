@@ -51,8 +51,6 @@
 #include "TileControllerMemoryHandlerIOS.h"
 #endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(TileController);
@@ -708,7 +706,7 @@ void TileController::willRevalidateTiles(TileGrid& tileGrid, TileRevalidationTyp
         m_client->willRevalidateTiles(*this, tileGrid.identifier(), revalidationType);
 }
 
-void TileController::didRevalidateTiles(TileGrid& tileGrid, TileRevalidationType revalidationType, const HashSet<TileIndex>& tilesNeedingDisplay)
+void TileController::didRevalidateTiles(TileGrid& tileGrid, TileRevalidationType revalidationType, const UncheckedKeyHashSet<TileIndex>& tilesNeedingDisplay)
 {
     m_boundsAtLastRevalidate = bounds();
 
@@ -729,10 +727,8 @@ unsigned TileController::blankPixelCountForTiles(const PlatformLayerList& tiles,
 {
     Region paintedVisibleTiles;
 
-    for (PlatformLayerList::const_iterator it = tiles.begin(), end = tiles.end(); it != end; ++it) {
-        const PlatformLayer* tileLayer = it->get();
-
-        FloatRect visiblePart(CGRectOffset(PlatformCALayer::frameForLayer(tileLayer), tileTranslation.x(), tileTranslation.y()));
+    for (auto& tileLayer : tiles) {
+        FloatRect visiblePart(CGRectOffset(PlatformCALayer::frameForLayer(tileLayer.get()), tileTranslation.x(), tileTranslation.y()));
         visiblePart.intersect(visibleRect);
 
         if (!visiblePart.isEmpty())
@@ -902,7 +898,5 @@ void TileController::logFilledVisibleFreshTile(unsigned blankPixelCount)
 }
 
 } // namespace WebCore
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // USE(CG)

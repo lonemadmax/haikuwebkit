@@ -111,8 +111,10 @@ private:
     WTFLogChannel& logChannel() const;
 #endif
 
-    Document& topDocument() { return m_topDocument ? *m_topDocument : document().topDocument(); }
-    Ref<Document> protectedTopDocument();
+    Document* mainFrameDocument();
+    RefPtr<Document> protectedMainFrameDocument();
+
+    void updatePageFullscreenStatusIfTopDocument();
 
     WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_topDocument;

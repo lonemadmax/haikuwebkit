@@ -54,7 +54,6 @@ public:
 
     ASCIILiteral renderName() const override;
 
-    bool avoidsFloats() const final { return true; }
     bool canDropAnonymousBlockChild() const final { return false; }
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) final;
 
@@ -101,7 +100,8 @@ public:
     
     std::optional<LayoutUnit> usedFlexItemOverridingLogicalHeightForPercentageResolution(const RenderBox&);
     bool canUseFlexItemForPercentageResolution(const RenderBox&);
-    
+    bool canUseFlexItemForPercentageResolutionByStyle(const RenderBox&);
+
     void clearCachedMainSizeForFlexItem(const RenderBox& flexItem);
     
     LayoutUnit cachedFlexItemIntrinsicContentLogicalHeight(const RenderBox& flexItem) const;
@@ -302,6 +302,7 @@ private:
     bool m_inLayout { false };
     bool m_inCrossAxisLayout { false };
     bool m_inFlexItemLayout { false };
+    bool m_inPostFlexUpdateScrollbarLayout { false };
     mutable bool m_inFlexItemIntrinsicWidthComputation { false };
     bool m_shouldResetFlexItemLogicalHeightBeforeLayout { false };
     bool m_isComputingFlexBaseSizes { false };

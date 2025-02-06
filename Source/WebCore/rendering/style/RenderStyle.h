@@ -401,6 +401,7 @@ public:
 
     inline bool hasBackgroundImage() const;
     inline bool hasAnyFixedBackground() const;
+    bool hasAnyBackgroundClipText() const;
 
     bool hasEntirelyFixedBackground() const;
     inline bool hasAnyLocalBackground() const;
@@ -630,11 +631,10 @@ public:
     WEBCORE_EXPORT float computedLineHeight() const;
     float computeLineHeight(const Length&) const;
 
-    WhiteSpace whiteSpace() const;
     inline bool autoWrap() const;
-    static constexpr bool preserveNewline(WhiteSpace);
+    static constexpr bool preserveNewline(WhiteSpaceCollapse);
     inline bool preserveNewline() const;
-    static constexpr bool collapseWhiteSpace(WhiteSpace);
+    static constexpr bool collapseWhiteSpace(WhiteSpaceCollapse);
     inline bool collapseWhiteSpace() const;
     inline bool isCollapsibleWhiteSpace(UChar) const;
     inline bool breakOnlyAfterWhiteSpace() const;
@@ -1823,6 +1823,7 @@ public:
     const AtomString& hyphenString() const;
 
     bool inheritedEqual(const RenderStyle&) const;
+    bool nonInheritedEqual(const RenderStyle&) const;
     bool fastPathInheritedEqual(const RenderStyle&) const;
     bool nonFastPathInheritedEqual(const RenderStyle&) const;
 
@@ -1848,6 +1849,7 @@ public:
     constexpr bool isDisplayFlexibleBoxIncludingDeprecatedOrGridBox() const;
     constexpr bool isDisplayRegionType() const;
     constexpr bool isDisplayBlockLevel() const;
+    constexpr bool doesDisplayGenerateBlockContainer() const;
     constexpr bool isOriginalDisplayBlockType() const;
     constexpr bool isDisplayTableOrTablePart() const;
     constexpr bool isInternalTableBox() const;

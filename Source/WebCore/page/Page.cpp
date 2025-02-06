@@ -104,6 +104,7 @@
 #include "LocalFrameView.h"
 #include "LogInitialization.h"
 #include "Logging.h"
+#include "LoginStatus.h"
 #include "LowPowerModeNotifier.h"
 #include "MediaCanStartListener.h"
 #include "MemoryCache.h"
@@ -133,6 +134,7 @@
 #include "ProcessSyncClient.h"
 #include "ProcessSyncData.h"
 #include "ProgressTracker.h"
+#include "RTCController.h"
 #include "Range.h"
 #include "RemoteFrame.h"
 #include "RenderDescendantIterator.h"
@@ -242,9 +244,9 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Page);
 
-static HashSet<WeakRef<Page>>& allPages()
+static UncheckedKeyHashSet<WeakRef<Page>>& allPages()
 {
-    static NeverDestroyed<HashSet<WeakRef<Page>>> set;
+    static NeverDestroyed<UncheckedKeyHashSet<WeakRef<Page>>> set;
     return set;
 }
 
@@ -334,8 +336,17 @@ Ref<Page> Page::create(PageConfiguration&& pageConfiguration)
     return adoptRef(*new Page(WTFMove(pageConfiguration)));
 }
 
+struct Page::Internals {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
+    Region topRelevantPaintedRegion;
+    Region bottomRelevantPaintedRegion;
+    Region relevantUnpaintedRegion;
+};
+
 Page::Page(PageConfiguration&& pageConfiguration)
-    : m_identifier(pageConfiguration.identifier)
+    : m_internals(makeUniqueRef<Internals>())
+    , m_identifier(pageConfiguration.identifier)
     , m_chrome(makeUniqueRef<Chrome>(*this, WTFMove(pageConfiguration.chromeClient)))
     , m_dragCaretController(makeUniqueRef<DragCaretController>())
 #if ENABLE(DRAG_SUPPORT)
@@ -629,10 +640,10 @@ ViewportArguments Page::viewportArguments() const
 
 void Page::setOverrideViewportArguments(const std::optional<ViewportArguments>& viewportArguments)
 {
-    if (viewportArguments == m_overrideViewportArguments)
+    std::optional<ViewportArguments> oldArguments = m_overrideViewportArguments ? std::optional(*m_overrideViewportArguments) : std::nullopt;
+    if (oldArguments == viewportArguments)
         return;
-
-    m_overrideViewportArguments = viewportArguments;
+    m_overrideViewportArguments = viewportArguments ? makeUnique<ViewportArguments>(*viewportArguments) : nullptr;
     if (RefPtr localTopDocument = this->localTopDocument())
         localTopDocument->updateViewportArguments();
 }
@@ -816,6 +827,9 @@ void Page::setMainFrameURLAndOrigin(const URL& url, RefPtr<SecurityOrigin>&& ori
         return;
     }
 
+    if (!settings().siteIsolationEnabled())
+        return;
+
     // If this page is hosting the local main frame, make sure the url and origin
     // match what we expect, then broadcast them out to other processes.
     RELEASE_ASSERT(url == m_topDocumentSyncData->documentURL);
@@ -831,7 +845,8 @@ void Page::setMainFrameURLAndOrigin(const URL& url, RefPtr<SecurityOrigin>&& ori
 void Page::setAudioSessionType(DOMAudioSessionType audioSessionType)
 {
     m_topDocumentSyncData->audioSessionType = audioSessionType;
-    processSyncClient().broadcastAudioSessionTypeToOtherProcesses(audioSessionType);
+    if (settings().siteIsolationEnabled())
+        processSyncClient().broadcastAudioSessionTypeToOtherProcesses(audioSessionType);
 }
 
 DOMAudioSessionType Page::audioSessionType() const
@@ -846,7 +861,8 @@ void Page::setUserDidInteractWithPage(bool didInteract)
         return;
 
     m_topDocumentSyncData->userDidInteractWithPage = didInteract;
-    processSyncClient().broadcastUserDidInteractWithPageToOtherProcesses(didInteract);
+    if (settings().siteIsolationEnabled())
+        processSyncClient().broadcastUserDidInteractWithPageToOtherProcesses(didInteract);
 }
 
 bool Page::userDidInteractWithPage() const
@@ -860,7 +876,8 @@ void Page::setAutofocusProcessed()
         return;
 
     m_topDocumentSyncData->isAutofocusProcessed = true;
-    processSyncClient().broadcastIsAutofocusProcessedToOtherProcesses(true);
+    if (settings().siteIsolationEnabled())
+        processSyncClient().broadcastIsAutofocusProcessedToOtherProcesses(true);
 }
 
 bool Page::autofocusProcessed() const
@@ -873,14 +890,46 @@ bool Page::topDocumentHasDocumentClass(DocumentClass documentClass) const
     return m_topDocumentSyncData->documentClasses.contains(documentClass);
 }
 
+void Page::setTopDocumentHasFullscreenElement(bool hasFullscreenElement)
+{
+    if (hasFullscreenElement == m_topDocumentSyncData->hasFullscreenElement)
+        return;
+
+    m_topDocumentSyncData->hasFullscreenElement = hasFullscreenElement;
+    if (settings().siteIsolationEnabled())
+        processSyncClient().broadcastHasFullscreenElementToOtherProcesses(hasFullscreenElement);
+}
+
+bool Page::topDocumentHasFullscreenElement()
+{
+    return m_topDocumentSyncData->hasFullscreenElement;
+}
+
+bool Page::hasInjectedUserScript()
+{
+    return m_topDocumentSyncData->hasInjectedUserScript;
+}
+
+void Page::setHasInjectedUserScript()
+{
+    if (m_topDocumentSyncData->hasInjectedUserScript)
+        return;
+
+    m_topDocumentSyncData->hasInjectedUserScript = true;
+    if (settings().siteIsolationEnabled())
+        processSyncClient().broadcastHasInjectedUserScriptToOtherProcesses(true);
+}
+
 void Page::updateProcessSyncData(const ProcessSyncData& data)
 {
     switch (data.type) {
+    case ProcessSyncDataType::DocumentClasses:
+    case ProcessSyncDataType::DocumentSecurityOrigin:
+    case ProcessSyncDataType::DocumentURL:
+    case ProcessSyncDataType::HasFullscreenElement:
+    case ProcessSyncDataType::HasInjectedUserScript:
     case ProcessSyncDataType::IsAutofocusProcessed:
     case ProcessSyncDataType::UserDidInteractWithPage:
-    case ProcessSyncDataType::DocumentClasses:
-    case ProcessSyncDataType::DocumentURL:
-    case ProcessSyncDataType::DocumentSecurityOrigin:
 #if ENABLE(DOM_AUDIO_SESSION)
     case ProcessSyncDataType::AudioSessionType:
 #endif
@@ -3457,9 +3506,9 @@ void Page::resetRelevantPaintedObjectCounter()
 {
     m_isCountingRelevantRepaintedObjects = false;
     m_relevantUnpaintedRenderObjects.clear();
-    m_topRelevantPaintedRegion = Region();
-    m_bottomRelevantPaintedRegion = Region();
-    m_relevantUnpaintedRegion = Region();
+    m_internals->topRelevantPaintedRegion = Region();
+    m_internals->bottomRelevantPaintedRegion = Region();
+    m_internals->relevantUnpaintedRegion = Region();
 }
 
 static LayoutRect relevantViewRect(RenderView* view)
@@ -3505,7 +3554,7 @@ void Page::addRelevantRepaintedObject(const RenderObject& object, const LayoutRe
     // If this object was previously counted as an unpainted object, remove it from that HashSet
     // and corresponding Region. FIXME: This doesn't do the right thing if the objects overlap.
     if (m_relevantUnpaintedRenderObjects.remove(object))
-        m_relevantUnpaintedRegion.subtract(snappedPaintRect);
+        m_internals->relevantUnpaintedRegion.subtract(snappedPaintRect);
 
     // Split the relevantRect into a top half and a bottom half. Making sure we have coverage in
     // both halves helps to prevent cases where we have a fully loaded menu bar or masthead with
@@ -3519,23 +3568,23 @@ void Page::addRelevantRepaintedObject(const RenderObject& object, const LayoutRe
     if (topRelevantRect.intersects(snappedPaintRect) && bottomRelevantRect.intersects(snappedPaintRect)) {
         IntRect topIntersection = snappedPaintRect;
         topIntersection.intersect(snappedIntRect(topRelevantRect));
-        m_topRelevantPaintedRegion.unite(topIntersection);
+        m_internals->topRelevantPaintedRegion.unite(topIntersection);
 
         IntRect bottomIntersection = snappedPaintRect;
         bottomIntersection.intersect(snappedIntRect(bottomRelevantRect));
-        m_bottomRelevantPaintedRegion.unite(bottomIntersection);
+        m_internals->bottomRelevantPaintedRegion.unite(bottomIntersection);
     } else if (topRelevantRect.intersects(snappedPaintRect))
-        m_topRelevantPaintedRegion.unite(snappedPaintRect);
+        m_internals->topRelevantPaintedRegion.unite(snappedPaintRect);
     else
-        m_bottomRelevantPaintedRegion.unite(snappedPaintRect);
+        m_internals->bottomRelevantPaintedRegion.unite(snappedPaintRect);
 
-    float topPaintedArea = m_topRelevantPaintedRegion.totalArea();
-    float bottomPaintedArea = m_bottomRelevantPaintedRegion.totalArea();
+    float topPaintedArea = m_internals->topRelevantPaintedRegion.totalArea();
+    float bottomPaintedArea = m_internals->bottomRelevantPaintedRegion.totalArea();
     float viewArea = relevantRect.width() * relevantRect.height();
 
     float ratioThatIsPaintedOnTop = topPaintedArea / viewArea;
     float ratioThatIsPaintedOnBottom = bottomPaintedArea / viewArea;
-    float ratioOfViewThatIsUnpainted = m_relevantUnpaintedRegion.totalArea() / viewArea;
+    float ratioOfViewThatIsUnpainted = m_internals->relevantUnpaintedRegion.totalArea() / viewArea;
 
     if (ratioThatIsPaintedOnTop > (gMinimumPaintedAreaRatio / 2) && ratioThatIsPaintedOnBottom > (gMinimumPaintedAreaRatio / 2)
         && ratioOfViewThatIsUnpainted < gMaximumUnpaintedAreaRatio) {
@@ -3556,7 +3605,7 @@ void Page::addRelevantUnpaintedObject(const RenderObject& object, const LayoutRe
         return;
 
     m_relevantUnpaintedRenderObjects.add(object);
-    m_relevantUnpaintedRegion.unite(snappedIntRect(objectPaintRect));
+    m_internals->relevantUnpaintedRegion.unite(snappedIntRect(objectPaintRect));
 }
 
 void Page::suspendActiveDOMObjectsAndAnimations()
@@ -4226,7 +4275,8 @@ void Page::didChangeMainDocument(Document* newDocument)
 {
     m_topDocumentSyncData = newDocument ? newDocument->syncData() : DocumentSyncData::create();
 
-    processSyncClient().broadcastTopDocumentSyncDataToOtherProcesses(m_topDocumentSyncData.get());
+    if (settings().siteIsolationEnabled())
+        processSyncClient().broadcastTopDocumentSyncDataToOtherProcesses(m_topDocumentSyncData.get());
 
 #if ENABLE(WEB_RTC)
     m_rtcController->reset(m_shouldEnableICECandidateFilteringByDefault);
@@ -4333,7 +4383,7 @@ void Page::forEachLocalFrame(const Function<void(LocalFrame&)>& functor)
 
 void Page::forEachWindowEventLoop(const Function<void(WindowEventLoop&)>& functor)
 {
-    HashSet<Ref<WindowEventLoop>> windowEventLoops;
+    UncheckedKeyHashSet<Ref<WindowEventLoop>> windowEventLoops;
     WindowEventLoop* lastEventLoop = nullptr;
     for (RefPtr frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
         RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
@@ -5052,6 +5102,24 @@ void Page::performOpportunisticallyScheduledTasks(MonotonicTime deadline)
     if (m_opportunisticTaskScheduler->hasImminentlyScheduledWork())
         options.add(JSC::VM::SchedulerOptions::HasImminentlyScheduledWork);
     commonVM().performOpportunisticallyScheduledTasks(deadline, options);
+
+    deleteRemovedNodes();
+}
+
+void Page::deleteRemovedNodes()
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    if (!localMainFrame)
+        return;
+    RefPtr document = localMainFrame->document();
+    if (!document)
+        return;
+    forEachLocalFrame([] (LocalFrame& frame) {
+        RefPtr document = frame.document();
+        if (!document)
+            return;
+        document->asyncNodeDeletionQueue().deleteNodesNow();
+    });
 }
 
 CheckedRef<ProgressTracker> Page::checkedProgress()
@@ -5354,7 +5422,7 @@ void Page::setLastAuthentication(LoginStatus::AuthenticationType authType)
     auto loginStatus = LoginStatus::create(RegistrableDomain(mainFrameURL()), emptyString(), LoginStatus::CredentialTokenType::HTTPStateToken, authType, LoginStatus::TimeToLiveAuthentication);
     if (loginStatus.hasException())
         return;
-    m_lastAuthentication = loginStatus.releaseReturnValue();
+    m_lastAuthentication = loginStatus.releaseReturnValue().moveToUniquePtr();
 }
 
 #if ENABLE(FULLSCREEN_API)

@@ -66,11 +66,9 @@ LocaleICU::~LocaleICU()
 #if !UCONFIG_NO_FORMATTING
     unum_close(m_numberFormat);
 #endif
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
     udat_close(m_shortDateFormat);
     udat_close(m_mediumTimeFormat);
     udat_close(m_shortTimeFormat);
-#endif
 }
 
 Locale::WritingDirection LocaleICU::defaultWritingDirection() const
@@ -154,7 +152,6 @@ void LocaleICU::initializeLocaleData()
 #endif
 }
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 bool LocaleICU::initializeShortDateFormat()
 {
     if (m_didCreateShortDateFormat)
@@ -388,8 +385,6 @@ const Vector<String>& LocaleICU::timeAMPMLabels()
     initializeDateTimeFormat();
     return m_timeAMPMLabels;
 }
-
-#endif
 
 } // namespace WebCore
 

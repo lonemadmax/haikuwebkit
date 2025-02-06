@@ -1022,6 +1022,27 @@ window.UIHelper = class UIHelper {
         return true;
     }
 
+    static async selectionBounds()
+    {
+        const rects = await this.getUISelectionViewRects();
+        if (!rects?.length)
+            return null;
+
+        let minTop = Infinity;
+        let minLeft = Infinity;
+        let maxTop = -Infinity;
+        let maxLeft = -Infinity;
+
+        for (const rect of rects) {
+            minTop = Math.min(minTop, rect.top);
+            minLeft = Math.min(minLeft, rect.left);
+            maxTop = Math.max(maxTop, rect.left + rect.width);
+            maxLeft = Math.max(maxLeft, rect.top + rect.height);
+        }
+
+        return { left: minLeft, top: minTop, width: maxLeft - minLeft, height: maxTop - minTop };
+    }
+
     static getSelectionStartGrabberViewRect()
     {
         if (!this.isWebKit2() || !this.isIOSFamily())
@@ -1257,6 +1278,15 @@ window.UIHelper = class UIHelper {
         });
     }
 
+    static waitForDataListSuggestionsToChangeVisibility(visible)
+    {
+        return new Promise(async resolve => {
+            while (visible != await this.isShowingDataListSuggestions())
+                continue;
+            resolve();
+        });
+    }
+
     static isShowingDateTimePicker()
     {
         return new Promise(resolve => {
@@ -1480,6 +1510,13 @@ window.UIHelper = class UIHelper {
                     uiController.uiScriptComplete();
                 });`, resolve);
         });
+    }
+
+    static stylusTapOnElement(element, modifiers=[])
+    {
+        const x = element.offsetLeft + element.offsetWidth / 2;
+        const y = element.offsetTop + element.offsetHeight / 2;
+        return UIHelper.stylusTapAt(x, y, modifiers);
     }
 
     static attachmentInfo(attachmentIdentifier)

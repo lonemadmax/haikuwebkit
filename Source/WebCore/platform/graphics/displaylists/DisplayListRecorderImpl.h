@@ -94,6 +94,8 @@ public:
     void beginPage(const IntSize&) final;
     void endPage() final;
 
+    void setURLForRect(const URL&, const FloatRect&) final;
+
 private:
     void recordSetInlineFillColor(PackedColor::RGBA) final;
     void recordSetInlineStroke(SetInlineStroke&&) final;
@@ -126,7 +128,6 @@ private:
 #endif
     void recordStrokePathSegment(const PathSegment&) final;
     void recordStrokePath(const Path&) final;
-    void recordDrawDisplayListItems(const Vector<Item>&, const FloatPoint& destination) final;
 
     bool recordResourceUse(NativeImage&) final;
     bool recordResourceUse(ImageBuffer&) final;

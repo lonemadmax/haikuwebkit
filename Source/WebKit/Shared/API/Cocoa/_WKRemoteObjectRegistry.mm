@@ -143,9 +143,9 @@ static uint64_t generateReplyIdentifier()
 
     NSMethodSignature *methodSignature = invocation.methodSignature;
     for (NSUInteger i = 0, count = methodSignature.numberOfArguments; i < count; ++i) {
-        const char *type = [methodSignature getArgumentTypeAtIndex:i];
+        auto type = unsafeSpan([methodSignature getArgumentTypeAtIndex:i]);
 
-        if (strcmp(type, "@?"))
+        if (!equalSpans(type, "@?"_span))
             continue;
 
         if (replyInfo)
@@ -158,8 +158,10 @@ static uint64_t generateReplyIdentifier()
 
         const char* replyBlockSignature = _Block_signature((__bridge void*)replyBlock);
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         if (strcmp([NSMethodSignature signatureWithObjCTypes:replyBlockSignature].methodReturnType, "v"))
             [NSException raise:NSInvalidArgumentException format:@"Return value of block argument must be 'void'. (%s)", sel_getName(invocation.selector)];
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         replyInfo = makeUnique<WebKit::RemoteObjectInvocation::ReplyInfo>(generateReplyIdentifier(), String::fromLatin1(replyBlockSignature));
 
@@ -229,9 +231,9 @@ static NSString *replyBlockSignature(Protocol *protocol, SEL selector, NSUIntege
 
     // Look for the block argument (if any).
     for (NSUInteger i = 0, count = methodSignature.numberOfArguments; i < count; ++i) {
-        const char *type = [methodSignature getArgumentTypeAtIndex:i];
+        auto type = unsafeSpan([methodSignature getArgumentTypeAtIndex:i]);
 
-        if (strcmp(type, "@?"))
+        if (!equalSpans(type, "@?"_span))
             continue;
 
         // We found the block.

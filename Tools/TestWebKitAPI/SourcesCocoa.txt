@@ -90,6 +90,7 @@ Tests/WebKitCocoa/ContentSecurityPolicyTestHelpers.mm
 Tests/WebKitCocoa/ContextMenus.mm
 Tests/WebKitCocoa/CookieAcceptPolicy.mm
 Tests/WebKitCocoa/CookiePrivateBrowsing.mm
+Tests/WebKitCocoa/CookieStoreAPI.mm
 Tests/WebKitCocoa/CopyHTML.mm
 Tests/WebKitCocoa/CopyRTF.mm
 Tests/WebKitCocoa/CopyURL.mm
@@ -106,13 +107,14 @@ Tests/WebKitCocoa/DisableSpellcheck.mm
 Tests/WebKitCocoa/DisplayName.mm
 Tests/WebKitCocoa/DoAfterNextPresentationUpdateAfterCrash.mm
 Tests/WebKitCocoa/DocumentEditingContext.mm
-Tests/WebKitCocoa/DoubleDefersLoading.mm
 Tests/WebKitCocoa/Download.mm
 Tests/WebKitCocoa/DownloadProgress.mm
 Tests/WebKitCocoa/DragAndDropTests.mm
+Tests/WebKitCocoa/DrawingToPDF.mm
 Tests/WebKitCocoa/DuplicateCompletionHandlerCalls.mm
 Tests/WebKitCocoa/EditorStateTests.mm
 Tests/WebKitCocoa/ElementTargetingTests.mm
+Tests/WebKitCocoa/ElementTextPreview.mm
 Tests/WebKitCocoa/EventAttribution.mm
 Tests/WebKitCocoa/ExitFullscreenOnEnterPiP.mm
 Tests/WebKitCocoa/ExitPiPOnSuspendVideoElement.mm
@@ -356,6 +358,7 @@ Tests/WebKitCocoa/WKWebViewFirstResponderTests.mm
 Tests/WebKitCocoa/WKWebViewGetContents.mm
 Tests/WebKitCocoa/WKWebViewInspection.mm
 Tests/WebKitCocoa/WKWebViewLoadAPIs.mm
+Tests/WebKitCocoa/WKWebViewNotificationForwarding.mm
 Tests/WebKitCocoa/WKWebViewPrintFormatter.mm
 Tests/WebKitCocoa/WKWebViewResize.mm
 Tests/WebKitCocoa/WKWebViewServerTrustKVC.mm

@@ -136,7 +136,7 @@ void LLIntPlan::compileFunction(FunctionCodeIndex functionIndex)
         auto callee = LLIntCallee::create(*m_wasmInternalFunctions[functionIndex], functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace));
         ASSERT(!callee->entrypoint());
 
-        if (Options::useWasmJIT()) {
+        if (Options::useWasmJIT() && Options::useBBQJIT()) {
 #if ENABLE(JIT)
             if (m_moduleInformation->usesSIMD(functionIndex))
                 callee->setEntrypoint(LLInt::wasmFunctionEntryThunkSIMD().retaggedCode<WasmEntryPtrTag>());
@@ -272,7 +272,7 @@ void LLIntPlan::addTailCallEdge(uint32_t callerIndex, uint32_t calleeIndex)
 void LLIntPlan::computeTransitiveTailCalls() const
 {
     // FIXME: Use FunctionCodeIndex -> FunctionSpaceIndex by adding the right HashTraits.
-    GraphNodeWorklist<uint32_t, HashSet<uint32_t, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>> worklist;
+    GraphNodeWorklist<uint32_t, UncheckedKeyHashSet<uint32_t, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>> worklist;
 
     for (auto clobberingTailCall : m_moduleInformation->clobberingTailCalls())
         worklist.push(clobberingTailCall);

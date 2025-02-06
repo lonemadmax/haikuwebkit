@@ -148,6 +148,10 @@ enum class ContentRelevancy : uint8_t {
     Selected = 1 << 3,
 };
 
+namespace Calculation {
+class RandomKeyMap;
+}
+
 namespace Style {
 class Resolver;
 enum class Change : uint8_t;
@@ -239,7 +243,7 @@ public:
 
     // Internal methods that assume the existence of attribute storage, one should use hasAttributes()
     // before calling them.
-    inline AttributeIteratorAccessor attributesIterator() const;
+    inline std::span<const Attribute> attributes() const;
     inline unsigned attributeCount() const;
     inline const Attribute& attributeAt(unsigned index) const;
     inline const Attribute* findAttributeByName(const QualifiedName&) const;
@@ -352,7 +356,7 @@ public:
     WEBCORE_EXPORT void setBooleanAttribute(const QualifiedName& name, bool);
 
     // For exposing to DOM only.
-    WEBCORE_EXPORT NamedNodeMap& attributes() const;
+    WEBCORE_EXPORT NamedNodeMap& attributesMap() const;
 
     enum class AttributeModificationReason : uint8_t { Directly, ByCloning, Parser };
     // This function is called whenever an attribute is added, changed or removed.
@@ -831,6 +835,9 @@ public:
 
     AtomString viewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>&) const;
     void setViewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>&, AtomString);
+
+    Ref<Calculation::RandomKeyMap> randomKeyMap(const std::optional<Style::PseudoElementIdentifier>&) const;
+    bool hasRandomKeyMap() const;
 
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);

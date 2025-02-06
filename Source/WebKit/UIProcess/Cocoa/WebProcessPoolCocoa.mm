@@ -47,6 +47,7 @@
 #import "TextChecker.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKContentRuleListInternal.h"
+#import "WKContentRuleListStore.h"
 #import "WebBackForwardCache.h"
 #import "WebCompiledContentRuleList.h"
 #import "WebMemoryPressureHandler.h"
@@ -80,6 +81,7 @@
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #import <sys/param.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/CallbackAggregator.h>
 #import <wtf/FileSystem.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
@@ -166,6 +168,10 @@ static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCooki
 
 #if HAVE(POWERLOG_TASK_MODE_QUERY) && ENABLE(GPU_PROCESS)
 static NSString * const kPLTaskingStartNotificationGlobal = @"kPLTaskingStartNotificationGlobal";
+#endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+static NSString * const WebKitResourceMonitorURLsForTestingIdentifier = @"com.apple.WebPrivacy.ResourceMonitorURLsForTesting";
 #endif
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
@@ -537,6 +543,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     parameters.scriptTelemetryRules = ScriptTelemetryController::sharedSingleton().cachedListData();
 #endif // ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+
+#if ENABLE(NOTIFY_BLOCKING)
+    parameters.notifyState = WTF::map(m_notifyState, [] (auto&& item) {
+        return std::make_pair(item.key, item.value);
+    });
+#endif
 }
 
 void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationParameters& parameters)
@@ -765,6 +777,7 @@ void WebProcessPool::registerNotificationObservers()
                 RefPtr protectedThis = weakThis.get();
                 if (!protectedThis)
                     return;
+                protectedThis->setNotifyState(message, status, state);
                 String messageString(message);
                 for (auto& process : protectedThis->m_processes) {
                     if (process->auditToken() && !WTF::hasEntitlement(process->auditToken().value(), "com.apple.developer.web-browser-engine.restrict.notifyd"_s))
@@ -775,6 +788,13 @@ void WebProcessPool::registerNotificationObservers()
         });
         if (registerStatus)
             return std::nullopt;
+
+        if (RefPtr protectedThis = weakThis.get()) {
+            uint64_t state;
+            int stateStatus = notify_get_state(notifyToken, &state);
+            protectedThis->setNotifyState(message, stateStatus, state);
+        }
+
         return notifyToken;
     });
 
@@ -947,6 +967,7 @@ void WebProcessPool::unregisterNotificationObservers()
         notify_cancel(token);
     for (auto observer : m_notificationObservers)
         [[NSNotificationCenter defaultCenter] removeObserver:observer.get()];
+    m_notifyState.clear();
 #endif
 #if !PLATFORM(IOS_FAMILY)
     m_powerObserver = nullptr;
@@ -1004,6 +1025,18 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
     m_weakObserver = nil;
 }
+
+#if ENABLE(NOTIFY_BLOCKING)
+
+void WebProcessPool::setNotifyState(const String& name, int status, uint64_t state)
+{
+    if (status == NOTIFY_STATUS_OK && state)
+        m_notifyState.set(name, state);
+    else
+        m_notifyState.remove(name);
+}
+
+#endif
 
 bool WebProcessPool::isURLKnownHSTSHost(const String& urlString) const
 {
@@ -1337,17 +1370,40 @@ void WebProcessPool::setCachedHardwareKeyboardState(HardwareKeyboardState hardwa
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-void WebProcessPool::platformLoadResourceMonitorRuleList(CompletionHandler<void()>&& completionHandler)
+static RefPtr<WebCompiledContentRuleList> createCompiledContentRuleList(WKContentRuleList* list)
+{
+    if (!list)
+        return nullptr;
+
+    auto data = list->_contentRuleList->compiledRuleList().data();
+    return WebCompiledContentRuleList::create(WTFMove(data));
+}
+
+void WebProcessPool::platformLoadResourceMonitorRuleList(CompletionHandler<void(RefPtr<WebCompiledContentRuleList>)>&& completionHandler)
 {
     ResourceMonitorURLsController::singleton().prepare([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](WKContentRuleList *list, bool updated) mutable {
+        RefPtr<WebCompiledContentRuleList> ruleList;
+
         if (RefPtr protectedThis = weakThis.get()) {
-            if (list && (updated || !protectedThis->m_resourceMonitorRuleListCache)) {
-                auto data = list->_contentRuleList->compiledRuleList().data();
-                protectedThis->m_resourceMonitorRuleListCache = WebCompiledContentRuleList::create(WTFMove(data));
-            }
+            if (list && (updated || !protectedThis->m_resourceMonitorRuleListCache))
+                ruleList = createCompiledContentRuleList(list);
         }
-        completionHandler();
+        completionHandler(WTFMove(ruleList));
     });
+}
+
+void WebProcessPool::platformCompileResourceMonitorRuleList(const String& rulesText, CompletionHandler<void(RefPtr<WebCompiledContentRuleList>)>&& completionHandler)
+{
+    StringView view { rulesText };
+    RetainPtr source = view.createNSStringWithoutCopying();
+    RetainPtr store = [WKContentRuleListStore defaultStore];
+
+    [store compileContentRuleListForIdentifier:WebKitResourceMonitorURLsForTestingIdentifier encodedContentRuleList:source.get() completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](WKContentRuleList *list, NSError *error) mutable {
+        if (error || !list)
+            RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to compile test urls");
+
+        completionHandler(createCompiledContentRuleList(list));
+    }).get()];
 }
 #endif
 
@@ -1368,6 +1424,20 @@ static AdditionalFonts additionalFonts(const Vector<URL>& fontURLs, std::optiona
     return additionalFonts;
 }
 
+static void addUserInstalledFontURLs(NSString *path, Vector<URL>& fontURLs)
+{
+    RetainPtr enumerator = [NSFileManager.defaultManager enumeratorAtPath:path];
+
+    for (NSString *font in enumerator.get()) {
+        if ([font hasSuffix:@"ttf"] || [font hasSuffix:@"ttc"] || [font hasSuffix:@"otf"]) {
+            RetainPtr fontsPath = [path stringByAppendingPathComponent:font];
+            auto fontURL = URL::fileURLWithFileSystemPath(String(fontsPath.get()));
+            fontURLs.append(WTFMove(fontURL));
+            RELEASE_LOG(Process, "Registering font url %s", fontURL.string().utf8().data());
+        }
+    }
+}
+
 void WebProcessPool::registerUserInstalledFonts(WebProcessProxy& process)
 {
     if (m_userInstalledFontURLs) {
@@ -1377,17 +1447,10 @@ void WebProcessPool::registerUserInstalledFonts(WebProcessProxy& process)
 
     auto blockPtr = makeBlockPtr([weakThis = WeakPtr { *this }, weakProcess = WeakPtr { process }] {
         RetainPtr userInstalledFontsPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Fonts"];
-        RetainPtr enumerator = [NSFileManager.defaultManager enumeratorAtPath:userInstalledFontsPath.get()];
 
         Vector<URL> fontURLs;
-        for (NSString *font in enumerator.get()) {
-            if ([font hasSuffix:@"ttf"] || [font hasSuffix:@"ttc"] || [font hasSuffix:@"otf"]) {
-                RetainPtr fontsPath = [userInstalledFontsPath stringByAppendingPathComponent:font];
-                auto fontURL = URL::fileURLWithFileSystemPath(String(fontsPath.get()));
-                fontURLs.append(WTFMove(fontURL));
-                RELEASE_LOG(Process, "Registering font url %s", fontURL.string().utf8().data());
-            }
-        }
+        addUserInstalledFontURLs(userInstalledFontsPath.get(), fontURLs);
+        addUserInstalledFontURLs(@"/Library/Fonts", fontURLs);
 
         RunLoop::protectedMain()->dispatch([weakThis = WTFMove(weakThis), weakProcess = WTFMove(weakProcess), fontURLs = crossThreadCopy(WTFMove(fontURLs))] {
             if (weakProcess)

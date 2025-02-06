@@ -50,7 +50,7 @@ static inline void append(Vector<uint8_t>& buffer, std::span<const uint8_t> byte
 
 static inline void append(Vector<uint8_t>& buffer, const char* string)
 {
-    buffer.append(span8(string));
+    buffer.append(unsafeSpan8(string));
 }
 
 static inline void append(Vector<uint8_t>& buffer, const CString& string)
@@ -92,11 +92,10 @@ static void appendQuoted(Vector<uint8_t>& buffer, const Vector<uint8_t>& string)
 // https://url.spec.whatwg.org/#concept-urlencoded-byte-serializer
 static void appendFormURLEncoded(Vector<uint8_t>& buffer, std::span<const uint8_t> string)
 {
-    static const char safeCharacters[] = "-._*";
+    static constexpr auto safeCharacters = "-._*"_span;
     for (size_t i = 0; i < string.size(); ++i) {
         auto character = string[i];
-        if (isASCIIAlphanumeric(character)
-            || (character != '\0' && strchr(safeCharacters, character)))
+        if (isASCIIAlphanumeric(character) || (character != '\0' && WTF::contains(safeCharacters, character)))
             append(buffer, character);
         else if (character == ' ')
             append(buffer, '+');

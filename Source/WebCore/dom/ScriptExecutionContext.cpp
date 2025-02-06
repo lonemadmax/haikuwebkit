@@ -31,6 +31,7 @@
 #include "CSSValuePool.h"
 #include "CachedScript.h"
 #include "CommonVM.h"
+#include "ContentSecurityPolicy.h"
 #include "CrossOriginOpenerPolicy.h"
 #include "DOMTimer.h"
 #include "DatabaseContext.h"
@@ -318,7 +319,7 @@ JSC::ScriptExecutionStatus ScriptExecutionContext::jscScriptExecutionStatus() co
     return JSC::ScriptExecutionStatus::Running;
 }
 
-URL ScriptExecutionContext::currentSourceURL() const
+URL ScriptExecutionContext::currentSourceURL(CallStackPosition position) const
 {
     auto* globalObject = this->globalObject();
     if (!globalObject)
@@ -330,7 +331,7 @@ URL ScriptExecutionContext::currentSourceURL() const
         return { };
 
     URL sourceURL;
-    JSC::StackVisitor::visit(topCallFrame, vm, [&sourceURL](auto& visitor) {
+    JSC::StackVisitor::visit(topCallFrame, vm, [&sourceURL, position](auto& visitor) {
         if (visitor->isNativeFrame())
             return IterationStatus::Continue;
 
@@ -338,11 +339,12 @@ URL ScriptExecutionContext::currentSourceURL() const
         if (urlString.isEmpty())
             return IterationStatus::Continue;
 
-        sourceURL = URL { WTFMove(urlString) };
-        if (sourceURL.isValid())
+        auto newSourceURL = URL { WTFMove(urlString) };
+        if (!newSourceURL.isValid())
             return IterationStatus::Continue;
 
-        return IterationStatus::Done;
+        sourceURL = WTFMove(newSourceURL);
+        return position == CallStackPosition::BottomMost ? IterationStatus::Continue : IterationStatus::Done;
     });
     return sourceURL;
 }
@@ -780,6 +782,27 @@ bool ScriptExecutionContext::ensureOnContextThread(ScriptExecutionContextIdentif
     }
 
     task.performTask(*context);
+    return true;
+}
+
+bool ScriptExecutionContext::ensureOnContextThreadForCrossThreadTask(ScriptExecutionContextIdentifier identifier, CrossThreadTask&& crossThreadTask)
+{
+    {
+        Locker locker { allScriptExecutionContextsMapLock };
+        auto context = allScriptExecutionContextsMap().get(identifier);
+
+        if (!context)
+            return false;
+
+        if (!context->isContextThread()) {
+            context->postTask([crossThreadTask = WTFMove(crossThreadTask)](ScriptExecutionContext&) mutable {
+                crossThreadTask.performTask();
+            });
+            return true;
+        }
+    }
+
+    crossThreadTask.performTask();
     return true;
 }
 

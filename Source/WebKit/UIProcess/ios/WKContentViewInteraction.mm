@@ -61,6 +61,7 @@
 #import "WKError.h"
 #import "WKExtendedTextInputTraits.h"
 #import "WKFocusedFormControlView.h"
+#import "WKFormColorControl.h"
 #import "WKFormSelectControl.h"
 #import "WKFrameInfoInternal.h"
 #import "WKHighlightLongPressGestureRecognizer.h"
@@ -130,6 +131,7 @@
 #import <WebCore/Path.h>
 #import <WebCore/PathUtilities.h>
 #import <WebCore/PlatformTextAlternatives.h>
+#import <WebCore/PointerEventTypeNames.h>
 #import <WebCore/PromisedAttachmentInfo.h>
 #import <WebCore/ScrollTypes.h>
 #import <WebCore/Scrollbar.h>
@@ -189,10 +191,6 @@
 #import "APIAttachment.h"
 #endif
 
-#if ENABLE(INPUT_TYPE_COLOR)
-#import "WKFormColorControl.h"
-#endif
-
 #if HAVE(PEPPER_UI_CORE)
 #import "PepperUICoreSPI.h"
 #endif
@@ -228,7 +226,7 @@
 
 + (instancetype)selectionRectWithCGRect:(CGRect)rect
 {
-    return [[[WKUITextSelectionRect alloc] initWithCGRect:rect] autorelease];
+    return adoptNS([[WKUITextSelectionRect alloc] initWithCGRect:rect]).autorelease();
 }
 
 - (instancetype)initWithCGRect:(CGRect)rect
@@ -387,7 +385,7 @@ WKSelectionDrawingInfo::WKSelectionDrawingInfo()
 
 WKSelectionDrawingInfo::WKSelectionDrawingInfo(const EditorState& editorState)
 {
-    if (editorState.selectionIsNone) {
+    if (editorState.selectionIsNone || (!editorState.selectionIsRange && !editorState.isContentEditable)) {
         type = SelectionType::None;
         return;
     }
@@ -964,11 +962,9 @@ inline static NSString *textRelativeToSelectionStart(WKRelativeTextRange *range,
     case WebKit::InputType::Drawing:
         _type = WKInputTypeDrawing;
         break;
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
         _type = WKInputTypeColor;
         break;
-#endif
     case WebKit::InputType::None:
         _type = WKInputTypeNone;
         break;
@@ -1471,10 +1467,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
     _isUpdatingAccessoryView = NO;
 
-#if ENABLE(DATALIST_ELEMENT)
     _dataListTextSuggestionsInputView = nil;
     _dataListTextSuggestions = nil;
-#endif
 
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
     _textCheckingController = makeUnique<WebKit::TextCheckingController>(*_page);
@@ -1641,10 +1635,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_keyboardScrollingAnimator invalidate];
     _keyboardScrollingAnimator = nil;
 
-#if ENABLE(DATALIST_ELEMENT)
     _dataListTextSuggestionsInputView = nil;
     _dataListTextSuggestions = nil;
-#endif
 
 #if ENABLE(IMAGE_ANALYSIS)
     [self _tearDownImageAnalysis];
@@ -1910,9 +1902,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     [_inputPeripheral endEditing];
     [_formInputSession endEditing];
-#if ENABLE(DATALIST_ELEMENT)
     [_dataListTextSuggestionsInputView controlEndEditing];
-#endif
 }
 
 - (void)_cancelPreviousResetInputViewDeferralRequest
@@ -2731,9 +2721,7 @@ static inline WebCore::FloatSize tapHighlightBorderRadius(WebCore::FloatSize bor
 
     switch (_focusedElementInformation.elementType) {
     case WebKit::InputType::None:
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
-#endif
     case WebKit::InputType::Drawing:
     case WebKit::InputType::Date:
     case WebKit::InputType::Month:
@@ -2881,10 +2869,8 @@ static inline WebCore::FloatSize tapHighlightBorderRadius(WebCore::FloatSize bor
     if (UIView *customInputView = [_formInputSession customInputView])
         return customInputView;
 
-#if ENABLE(DATALIST_ELEMENT)
     if (_dataListTextSuggestionsInputView)
         return _dataListTextSuggestionsInputView.get();
-#endif
 
     return [_inputPeripheral assistantView];
 }
@@ -3606,10 +3592,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (gesture == WKBEGestureTypeLoupe && _positionInformation.selectability == WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToUserSelectNone)
         return NO;
 
-#if ENABLE(DATALIST_ELEMENT)
     if (_positionInformation.preventTextInteraction)
         return NO;
-#endif
 
 #if ENABLE(IMAGE_ANALYSIS)
     if (_elementPendingImageAnalysis && _positionInformation.hostImageOrVideoElementContext == _elementPendingImageAnalysis)
@@ -3884,11 +3868,20 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     RELEASE_LOG(ViewGestures, "Single tap recognized - commit potential tap (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     WebCore::PointerID pointerId = WebCore::mousePointerID;
+    String pointerType = WebCore::mousePointerEventType();
     if (auto* singleTapTouchIdentifier = [_singleTapGestureRecognizer lastActiveTouchIdentifier]) {
         pointerId = [singleTapTouchIdentifier unsignedIntValue];
         _commitPotentialTapPointerId = pointerId;
+
+        if (auto maybeTouchType = [_singleTapGestureRecognizer lastActiveTouchType]) {
+            auto touchType = *maybeTouchType;
+            if (touchType == UITouchTypePencil)
+                pointerType = WebCore::penPointerEventType();
+            else if (touchType == UITouchTypeDirect)
+                pointerType = WebCore::touchPointerEventType();
+        }
     }
-    _page->commitPotentialTap(WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags), _layerTreeTransactionIdAtLastInteractionStart, pointerId);
+    _page->commitPotentialTap(WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags), _layerTreeTransactionIdAtLastInteractionStart, pointerId, pointerType);
 
     if (!_isExpectingFastSingleTapCommit)
         [self _finishInteraction];
@@ -4032,9 +4025,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 {
     switch (type) {
     case WebKit::InputType::None:
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
-#endif
     case WebKit::InputType::Drawing:
     case WebKit::InputType::Date:
     case WebKit::InputType::DateTimeLocal:
@@ -6208,7 +6199,6 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
     }
 #endif
 
-#if ENABLE(DATALIST_ELEMENT)
     if ([_dataListTextSuggestions count] && ![[_formInputSession suggestions] count]) {
         RetainPtr inputText = [textSuggestion inputText];
         for (WKBETextSuggestion *dataListTextSuggestion in _dataListTextSuggestions.get()) {
@@ -6218,7 +6208,6 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
             }
         }
     }
-#endif
 
     id <_WKInputDelegate> inputDelegate = [_webView _inputDelegate];
     if ([inputDelegate respondsToSelector:@selector(_webView:insertTextSuggestion:inInputSession:)]) {
@@ -6727,7 +6716,25 @@ static WebKit::WritingDirection coreWritingDirection(NSWritingDirection directio
     WebKit::InsertTextOptions options;
     options.processingUserGesture = _isHandlingActiveKeyEvent || _isHandlingActivePressesEvent;
     options.shouldSimulateKeyboardInput = [self _shouldSimulateKeyboardInputOnTextInsertion];
-    _page->insertTextAsync(aStringValue, WebKit::EditingRange(), WTFMove(options));
+    options.directionFromCurrentInputMode = [self] -> std::optional<WebCore::TextDirection> {
+        NSString *inputLanguage = self.textInputMode.primaryLanguage;
+        if (!inputLanguage.length)
+            return { };
+
+        switch ([NSLocale characterDirectionForLanguage:inputLanguage]) {
+        case NSLocaleLanguageDirectionRightToLeft:
+            return WebCore::TextDirection::RTL;
+        case NSLocaleLanguageDirectionLeftToRight:
+            return WebCore::TextDirection::LTR;
+        case NSLocaleLanguageDirectionTopToBottom:
+        case NSLocaleLanguageDirectionBottomToTop:
+        case NSLocaleLanguageDirectionUnknown:
+            return { };
+        }
+        ASSERT_NOT_REACHED();
+        return { };
+    }();
+    _page->insertTextAsync(aStringValue, { }, WTFMove(options));
 
     if (_focusedElementInformation.autocapitalizeType == WebCore::AutocapitalizeType::Words && aStringValue.length) {
         _lastInsertedCharacterToOverrideCharacterBeforeSelection = [aStringValue characterAtIndex:aStringValue.length - 1];
@@ -7064,9 +7071,7 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
         case WebKit::InputType::Time:
         case WebKit::InputType::Select:
         case WebKit::InputType::Drawing:
-#if ENABLE(INPUT_TYPE_COLOR)
         case WebKit::InputType::Color:
-#endif
             traits.keyboardType = UIKeyboardTypeDefault;
         }
         break;
@@ -7108,9 +7113,7 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
         case WebKit::InputType::TextArea:
         case WebKit::InputType::None:
             return NO;
-#if ENABLE(INPUT_TYPE_COLOR)
         case WebKit::InputType::Color:
-#endif
         case WebKit::InputType::Date:
         case WebKit::InputType::DateTimeLocal:
         case WebKit::InputType::Drawing:
@@ -7970,9 +7973,7 @@ static bool mayContainSelectableText(WebKit::InputType type)
     switch (type) {
     case WebKit::InputType::None:
     // The following types have custom UI and do not look or behave like a text field.
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
-#endif
     case WebKit::InputType::Date:
     case WebKit::InputType::DateTimeLocal:
     case WebKit::InputType::Drawing:
@@ -8024,14 +8025,12 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     switch (type) {
     case WebKit::InputType::Select:
         return adoptNS([[WKFormSelectControl alloc] initWithView:view]);
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
 #if PLATFORM(APPLETV)
         return nil;
 #else
         return adoptNS([[WKFormColorControl alloc] initWithView:view]);
 #endif
-#endif // ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Date:
     case WebKit::InputType::DateTimeLocal:
     case WebKit::InputType::Month:
@@ -8309,10 +8308,8 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     [_formInputSession invalidate];
     _formInputSession = nil;
 
-#if ENABLE(DATALIST_ELEMENT)
     _dataListTextSuggestionsInputView = nil;
     _dataListTextSuggestions = nil;
-#endif
 
     BOOL editableChanged = [self setIsEditable:NO];
     // FIXME: We should completely invalidate _focusedElementInformation here, instead of a subset of individual members.
@@ -8506,8 +8503,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!scroller)
         return;
 
-    auto possiblyStaleScrollPosition = state.visualData->enclosingScrollPosition;
-    auto scrollDelta = possiblyStaleScrollPosition - WebCore::roundedIntPoint([scroller contentOffset]);
+    auto possiblyStaleScrollOffset = state.visualData->enclosingScrollOffset;
+    auto scrollDelta = possiblyStaleScrollOffset - WebCore::roundedIntPoint([scroller contentOffset]);
 
     static constexpr auto adjustmentThreshold = 1;
     if (std::abs(scrollDelta.width()) <= adjustmentThreshold && std::abs(scrollDelta.height()) <= adjustmentThreshold)
@@ -8837,9 +8834,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     case WebKit::InputType::Select:
     case WebKit::InputType::Time:
     case WebKit::InputType::Date:
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
-#endif
         return nil;
     case WebKit::InputType::Search:
         return WebCore::formControlSearchButtonTitle();
@@ -9204,8 +9199,6 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         [_textInteractionWrapper activateSelection];
 }
 
-#if ENABLE(DATALIST_ELEMENT)
-
 - (UIView <WKFormControl> *)dataListTextSuggestionsInputView
 {
     return _dataListTextSuggestionsInputView.get();
@@ -9238,8 +9231,6 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         [self updateTextSuggestionsForInputDelegate];
 }
 
-#endif
-
 - (void)updateTextSuggestionsForInputDelegate
 {
     // Text suggestions vended from clients take precedence over text suggestions from a focused form control with a datalist.
@@ -9249,12 +9240,10 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         return;
     }
 
-#if ENABLE(DATALIST_ELEMENT)
     if ([_dataListTextSuggestions count]) {
         [self _provideSuggestionsToInputDelegate:_dataListTextSuggestions.get()];
         return;
     }
-#endif
 
     [self _provideSuggestionsToInputDelegate:nil];
 }
@@ -12856,8 +12845,6 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 {
     auto unitInteractionRect = _imageAnalysisInteractionBounds;
     WebCore::FloatRect contentViewBounds = self.bounds;
-    auto obscuredInset = self.webView._computedObscuredInset;
-    unitInteractionRect.move(obscuredInset.left, obscuredInset.top);
     unitInteractionRect.moveBy(-contentViewBounds.location());
     unitInteractionRect.scale(1 / contentViewBounds.size());
     return unitInteractionRect;
@@ -14049,7 +14036,6 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
     [self accessoryDone];
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 - (void)_selectDataListOption:(NSInteger)optionIndex
 {
     [_dataListSuggestionsControl didSelectOptionAtIndex:optionIndex];
@@ -14064,7 +14050,6 @@ static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationTy
 {
     return [_dataListSuggestionsControl isShowingSuggestions];
 }
-#endif
 
 - (UIWKTextInteractionAssistant *)textInteractionAssistant
 {

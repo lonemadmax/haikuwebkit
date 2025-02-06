@@ -39,6 +39,7 @@
 #import "APIPageConfiguration.h"
 #import "CocoaHelpers.h"
 #import "ContextMenuContextData.h"
+#import "FormDataReference.h"
 #import "InjectUserScriptImmediately.h"
 #import "Logging.h"
 #import "PageLoadStateObserver.h"
@@ -81,7 +82,6 @@
 #import "_WKWebExtensionDeclarativeNetRequestSQLiteStore.h"
 #import "_WKWebExtensionDeclarativeNetRequestTranslator.h"
 #import "_WKWebExtensionRegisteredScriptsSQLiteStore.h"
-#import "_WKWebExtensionStorageSQLiteStore.h"
 #import <UniformTypeIdentifiers/UTType.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/TextResourceDecoder.h>
@@ -632,7 +632,7 @@ RefPtr<API::Data> WebExtensionContext::localizedResourceData(const RefPtr<API::D
     if (!equalLettersIgnoringASCIICase(mimeType, "text/css"_s) || !resourceData)
         return resourceData;
 
-    RefPtr decoder = WebCore::TextResourceDecoder::create(mimeType, { }, true);
+    RefPtr decoder = WebCore::TextResourceDecoder::create(mimeType, PAL::UTF8Encoding());
     auto stylesheetContents = decoder->decode(resourceData->span());
 
     auto localizedString = localizedResourceString(stylesheetContents, mimeType);
@@ -2697,9 +2697,15 @@ void WebExtensionContext::resourceLoadDidSendRequest(WebPageProxyIdentifier page
     RefPtr window = tab->window();
     auto windowIdentifier = window ? window->identifier() : WebExtensionWindowConstants::NoneIdentifier;
 
+    std::optional<IPC::FormDataReference> formDataReference;
+    if (RefPtr formData = request.httpBody()) {
+        RefPtr resolvedFormData = formData->resolveBlobReferences().ptr();
+        formDataReference = IPC::FormDataReference { WTFMove(resolvedFormData) };
+    }
+
     auto eventTypes = { WebExtensionEventListenerType::WebRequestOnBeforeRequest, WebExtensionEventListenerType::WebRequestOnBeforeSendHeaders, WebExtensionEventListenerType::WebRequestOnSendHeaders };
     wakeUpBackgroundContentIfNecessaryToFireEvents(eventTypes, [=, this, protectedThis = Ref { *this }] {
-        sendToProcessesForEvents(eventTypes, Messages::WebExtensionContextProxy::ResourceLoadDidSendRequest(tab->identifier(), windowIdentifier, request, loadInfo));
+        sendToProcessesForEvents(eventTypes, Messages::WebExtensionContextProxy::ResourceLoadDidSendRequest(tab->identifier(), windowIdentifier, request, loadInfo, formDataReference));
     });
 }
 
@@ -3029,7 +3035,18 @@ NSArray *WebExtensionContext::platformMenuItems(const WebExtensionTab& tab) cons
     contextParameters.tabIdentifier = tab.identifier();
     contextParameters.frameURL = tab.url();
 
-    if (auto *menuItem = singleMenuItemOrExtensionItemWithSubmenu(contextParameters))
+#if USE(APPKIT)
+#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
+    RefPtr page = [tab.webView() _page].get();
+    bool allowTopLevelImages = page && page->preferences().contextMenuImagesForInternalClientsEnabled();
+#else
+    bool allowTopLevelImages = false;
+#endif
+#else
+    bool allowTopLevelImages = true;
+#endif
+
+    if (auto *menuItem = singleMenuItemOrExtensionItemWithSubmenu(contextParameters, allowTopLevelImages))
         return @[ menuItem ];
     return @[ ];
 }
@@ -3066,7 +3083,7 @@ void WebExtensionContext::performMenuItem(WebExtensionMenuItem& menuItem, const 
     fireMenusClickedEventIfNeeded(menuItem, wasChecked, contextParameters);
 }
 
-CocoaMenuItem *WebExtensionContext::singleMenuItemOrExtensionItemWithSubmenu(const WebExtensionMenuItemContextParameters& contextParameters) const
+CocoaMenuItem *WebExtensionContext::singleMenuItemOrExtensionItemWithSubmenu(const WebExtensionMenuItemContextParameters& contextParameters, const bool allowTopLevelImages) const
 {
 #if USE(APPKIT)
     auto *menuItems = WebExtensionMenuItem::matchingPlatformMenuItems(mainMenuItems(), contextParameters);
@@ -3074,9 +3091,8 @@ CocoaMenuItem *WebExtensionContext::singleMenuItemOrExtensionItemWithSubmenu(con
         return nil;
 
     if (menuItems.count == 1) {
-        // Don't allow images for the top-level items, it isn't typical on macOS for menus.
-        dynamic_objc_cast<NSMenuItem>(menuItems.firstObject).image = nil;
-
+        if (!allowTopLevelImages)
+            dynamic_objc_cast<NSMenuItem>(menuItems.firstObject).image = nil;
         return menuItems.firstObject;
     }
 
@@ -3087,6 +3103,7 @@ CocoaMenuItem *WebExtensionContext::singleMenuItemOrExtensionItemWithSubmenu(con
 
     return extensionItem;
 #else
+    UNUSED_PARAM(allowTopLevelImages);
     auto *menuItems = WebExtensionMenuItem::matchingPlatformMenuItems(mainMenuItems(), contextParameters);
     if (!menuItems.count)
         return nil;
@@ -3169,7 +3186,14 @@ void WebExtensionContext::addItemsToContextMenu(WebPageProxy& page, const Contex
     if (contextParameters.types.isEmpty())
         contextParameters.types.add(frameInfo.isMainFrame ? WebExtensionMenuItemContextType::Page : WebExtensionMenuItemContextType::Frame);
 
-    if (auto *menuItem = singleMenuItemOrExtensionItemWithSubmenu(contextParameters))
+    // Don't allow images for the top-level items unless an internal client has
+    // enabled them, it isn't typical on macOS for menus.
+#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
+    bool allowTopLevelImages = page.preferences().contextMenuImagesForInternalClientsEnabled();
+#else
+    bool allowTopLevelImages = false;
+#endif
+    if (auto *menuItem = singleMenuItemOrExtensionItemWithSubmenu(contextParameters, allowTopLevelImages))
         [menu addItem:menuItem];
 }
 #endif
@@ -3360,7 +3384,7 @@ void WebExtensionContext::addExtensionTabPage(WebPageProxy& page, WebExtensionTa
     });
 }
 
-void WebExtensionContext::enumerateExtensionPages(Function<void(WebPageProxy&, bool&)>&& action)
+void WebExtensionContext::enumerateExtensionPages(NOESCAPE Function<void(WebPageProxy&, bool&)>&& action)
 {
     if (!isLoaded())
         return;
@@ -3836,7 +3860,7 @@ void WebExtensionContext::performTasksAfterBackgroundContentLoads()
     scheduleBackgroundContentToUnload();
 }
 
-void WebExtensionContext::wakeUpBackgroundContentIfNecessary(CompletionHandler<void()>&& completionHandler)
+void WebExtensionContext::wakeUpBackgroundContentIfNecessary(Function<void()>&& completionHandler)
 {
     if (!protectedExtension()->hasBackgroundContent()) {
         completionHandler();
@@ -3857,7 +3881,7 @@ void WebExtensionContext::wakeUpBackgroundContentIfNecessary(CompletionHandler<v
     loadBackgroundWebViewIfNeeded();
 }
 
-void WebExtensionContext::wakeUpBackgroundContentIfNecessaryToFireEvents(EventListenerTypeSet&& types, CompletionHandler<void()>&& completionHandler)
+void WebExtensionContext::wakeUpBackgroundContentIfNecessaryToFireEvents(EventListenerTypeSet&& types, Function<void()>&& completionHandler)
 {
     RefPtr extension = m_extension;
     if (!extension->hasBackgroundContent()) {
@@ -4919,28 +4943,28 @@ size_t WebExtensionContext::quotaForStorageType(WebExtensionDataType storageType
     return 0;
 }
 
-_WKWebExtensionStorageSQLiteStore *WebExtensionContext::localStorageStore()
+Ref<WebExtensionStorageSQLiteStore> WebExtensionContext::localStorageStore()
 {
     if (!m_localStorageStore)
-        m_localStorageStore = [[_WKWebExtensionStorageSQLiteStore alloc] initWithUniqueIdentifier:m_uniqueIdentifier storageType:WebExtensionDataType::Local directory:storageDirectory() usesInMemoryDatabase:!storageIsPersistent()];
-    return m_localStorageStore.get();
+        m_localStorageStore = WebExtensionStorageSQLiteStore::create(m_uniqueIdentifier, WebExtensionDataType::Local, storageDirectory(), storageIsPersistent() ? WebExtensionStorageSQLiteStore::UsesInMemoryDatabase::No : WebExtensionStorageSQLiteStore::UsesInMemoryDatabase::Yes);
+    return *m_localStorageStore;
 }
 
-_WKWebExtensionStorageSQLiteStore *WebExtensionContext::sessionStorageStore()
+Ref<WebExtensionStorageSQLiteStore> WebExtensionContext::sessionStorageStore()
 {
     if (!m_sessionStorageStore)
-        m_sessionStorageStore = [[_WKWebExtensionStorageSQLiteStore alloc] initWithUniqueIdentifier:m_uniqueIdentifier storageType:WebExtensionDataType::Session directory:storageDirectory() usesInMemoryDatabase:true];
-    return m_sessionStorageStore.get();
+        m_sessionStorageStore = WebExtensionStorageSQLiteStore::create(m_uniqueIdentifier, WebExtensionDataType::Session, storageDirectory(), WebExtensionStorageSQLiteStore::UsesInMemoryDatabase::Yes);
+    return *m_sessionStorageStore;
 }
 
-_WKWebExtensionStorageSQLiteStore *WebExtensionContext::syncStorageStore()
+Ref<WebExtensionStorageSQLiteStore> WebExtensionContext::syncStorageStore()
 {
     if (!m_syncStorageStore)
-        m_syncStorageStore = [[_WKWebExtensionStorageSQLiteStore alloc] initWithUniqueIdentifier:m_uniqueIdentifier storageType:WebExtensionDataType::Sync directory:storageDirectory() usesInMemoryDatabase:!storageIsPersistent()];
-    return m_syncStorageStore.get();
+        m_syncStorageStore = WebExtensionStorageSQLiteStore::create(m_uniqueIdentifier, WebExtensionDataType::Sync, storageDirectory(), storageIsPersistent() ? WebExtensionStorageSQLiteStore::UsesInMemoryDatabase::No : WebExtensionStorageSQLiteStore::UsesInMemoryDatabase::Yes);
+    return *m_syncStorageStore;
 }
 
-_WKWebExtensionStorageSQLiteStore *WebExtensionContext::storageForType(WebExtensionDataType storageType)
+Ref<WebExtensionStorageSQLiteStore> WebExtensionContext::storageForType(WebExtensionDataType storageType)
 {
     switch (storageType) {
     case WebExtensionDataType::Local:
@@ -4950,9 +4974,6 @@ _WKWebExtensionStorageSQLiteStore *WebExtensionContext::storageForType(WebExtens
     case WebExtensionDataType::Sync:
         return syncStorageStore();
     }
-
-    ASSERT_NOT_REACHED();
-    return nil;
 }
 
 void WebExtensionContext::sendTestMessage(const String& message, id argument)
@@ -4964,8 +4985,13 @@ void WebExtensionContext::sendTestMessage(const String& message, id argument)
     String argumentJSON = encodeJSONString(argument, JSONOptions::FragmentsAllowed);
 
     constexpr auto eventType = WebExtensionEventListenerType::TestOnMessage;
+
+    sendToProcesses(processes(eventType, WebExtensionContentWorldType::WebPage), Messages::WebExtensionContextProxy::DispatchTestMessageEvent(message, argumentJSON, WebExtensionContentWorldType::WebPage));
+
+    sendToContentScriptProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchTestMessageEvent(message, argumentJSON, WebExtensionContentWorldType::ContentScript));
+
     wakeUpBackgroundContentIfNecessaryToFireEvents({ eventType }, [=, this, protectedThis = Ref { *this }] {
-        sendToProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchTestMessageEvent(message, argumentJSON));
+        sendToProcessesForEvent(eventType, Messages::WebExtensionContextProxy::DispatchTestMessageEvent(message, argumentJSON, WebExtensionContentWorldType::Main));
     });
 }
 

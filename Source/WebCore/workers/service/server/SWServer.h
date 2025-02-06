@@ -130,6 +130,8 @@ public:
         SWServer* server() { return m_server.get(); }
         const SWServer* server() const { return m_server.get(); }
 
+        virtual bool isWebSWServerConnection() const { return false; }
+
     protected:
         WEBCORE_EXPORT Connection(SWServer&, Identifier);
 
@@ -239,7 +241,6 @@ public:
     WEBCORE_EXPORT void addContextConnection(SWServerToContextConnection&);
     WEBCORE_EXPORT void removeContextConnection(SWServerToContextConnection&);
     WEBCORE_EXPORT void terminateIdleServiceWorkers(SWServerToContextConnection&);
-    WEBCORE_EXPORT bool areServiceWorkersIdle(const SWServerToContextConnection&);
 
     WEBCORE_EXPORT SWServerToContextConnection* contextConnectionForRegistrableDomain(const RegistrableDomain&);
     WEBCORE_EXPORT void createContextConnection(const Site&, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier);

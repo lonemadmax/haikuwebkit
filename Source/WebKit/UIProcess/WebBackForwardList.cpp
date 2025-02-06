@@ -63,7 +63,7 @@ WebBackForwardList::~WebBackForwardList()
     ASSERT((!m_page && !provisionalOrCurrentIndex()) || !m_page->hasRunningProcess());
 }
 
-WebBackForwardListItem* WebBackForwardList::itemForID(const BackForwardItemIdentifier& identifier)
+WebBackForwardListItem* WebBackForwardList::itemForID(BackForwardItemIdentifier identifier)
 {
     if (!m_page)
         return nullptr;
@@ -117,16 +117,19 @@ void WebBackForwardList::addItem(Ref<WebBackForwardListItem>&& newItem)
             m_entries.removeLast();
         }
 
-        if (auto frameID = newItem->navigatedFrameItem().frameID()) {
-            while (m_entries.size()) {
-                Ref lastEntry = m_entries.last();
-                if (!lastEntry->isRemoteFrameNavigation() || !lastEntry->navigatedFrameItem().hasAncestorFrame(*frameID))
-                    break;
-                didRemoveItem(lastEntry);
-                removedItems.append(WTFMove(lastEntry));
-                m_entries.removeLast();
+        while (m_entries.size()) {
+            Ref lastEntry = m_entries.last();
+            if (!lastEntry->isRemoteFrameNavigation() || lastEntry->navigatedFrameItem().sharesAncestor(newItem->navigatedFrameItem()))
+                break;
+            didRemoveItem(lastEntry);
+            removedItems.append(WTFMove(lastEntry));
+            m_entries.removeLast();
+
+            if (m_entries.isEmpty()) {
+                m_currentIndex = std::nullopt;
+                m_provisionalIndex = std::nullopt;
+            } else
                 setProvisionalOrCurrentIndex(*provisionalOrCurrentIndex() - 1);
-            }
         }
 
         // Toss the first item if the list is getting too big, as long as we're not using it
@@ -268,6 +271,22 @@ void WebBackForwardList::clearProvisionalItem(WebBackForwardListFrameItem& frame
         return;
 
     m_provisionalIndex = std::nullopt;
+}
+
+void WebBackForwardList::commitProvisionalItem(WebBackForwardListFrameItem& frameItem)
+{
+    if (!m_provisionalIndex)
+        return;
+
+    if (m_entries[*m_provisionalIndex].ptr() != frameItem.backForwardListItem())
+        return;
+
+    if (*m_provisionalIndex >= m_entries.size()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    m_currentIndex = std::exchange(m_provisionalIndex, std::nullopt);
 }
 
 WebBackForwardListItem* WebBackForwardList::currentItem() const

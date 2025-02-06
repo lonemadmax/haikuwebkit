@@ -30,8 +30,8 @@
 
 #include "Connection.h"
 #include "FullScreenMediaDetails.h"
-#include "InjectedBundlePageFullScreenClient.h"
 #include "Logging.h"
+#include "MessageSenderInlines.h"
 #include "WebFrame.h"
 #include "WebFullScreenManagerProxyMessages.h"
 #include "WebPage.h"
@@ -164,7 +164,11 @@ bool WebFullScreenManager::supportsFullScreenForElement(const WebCore::Element& 
     if (!m_page->corePage()->isFullscreenManagerEnabled())
         return false;
 
-    return m_page->injectedBundleFullScreenClient().supportsFullScreen(m_page.ptr(), withKeyboard);
+#if PLATFORM(IOS_FAMILY)
+    return !withKeyboard;
+#else
+    return true;
+#endif
 }
 
 static auto& eventsToObserve()
@@ -247,15 +251,11 @@ FullScreenMediaDetails WebFullScreenManager::getImageMediaDetails(CheckedPtr<Ren
 }
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
 
-void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
+void WebFullScreenManager::enterFullScreenForElement(WebCore::Element& element, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
 {
-    ASSERT(element);
-    if (!element)
-        return;
+    ALWAYS_LOG(LOGIDENTIFIER, "<", element.tagName(), " id=\"", element.getIdAttribute(), "\">");
 
-    ALWAYS_LOG(LOGIDENTIFIER, "<", element->tagName(), " id=\"", element->getIdAttribute(), "\">");
-
-    setElement(*element);
+    setElement(element);
 
 
     FullScreenMediaDetails mediaDetails;
@@ -268,7 +268,7 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element, 
 #endif
 
 #if PLATFORM(VISION) && ENABLE(QUICKLOOK_FULLSCREEN)
-    if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(element->renderer()))
+    if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(element.renderer()))
         mediaDetails = getImageMediaDetails(renderImage, IsUpdating::No);
 
     if (m_willUseQuickLookForFullscreen)
@@ -286,7 +286,7 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element, 
 
         auto mainVideoElementSize = [&]() -> FloatSize {
 #if PLATFORM(VISION)
-            if (!fullscreenElementIsVideoElement && element->document().quirks().shouldDisableFullscreenVideoAspectRatioAdaptiveSizing())
+            if (!fullscreenElementIsVideoElement && element.document().quirks().shouldDisableFullscreenVideoAspectRatioAdaptiveSizing())
                 return { };
 #endif
             return FloatSize(m_mainVideoElement->videoWidth(), m_mainVideoElement->videoHeight());
@@ -300,7 +300,12 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element, 
 #endif
 
     m_page->prepareToEnterElementFullScreen();
-    m_page->injectedBundleFullScreenClient().enterFullScreenForElement(m_page.ptr(), element, m_element->document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk(), mode, WTFMove(mediaDetails));
+    if (mode != WebCore::HTMLMediaElementEnums::VideoFullscreenModeInWindow) {
+        m_page->sendWithAsyncReply(Messages::WebFullScreenManagerProxy::EnterFullScreen(m_element->document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk(), WTFMove(mediaDetails)), [page = m_page] (bool success) {
+            if (success)
+                page->protectedFullscreenManager()->willEnterFullScreen();
+        });
+    }
 
     if (mode == WebCore::HTMLMediaElementEnums::VideoFullscreenModeInWindow) {
         willEnterFullScreen(mode);
@@ -330,7 +335,7 @@ void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element)
         ALWAYS_LOG(LOGIDENTIFIER, "null");
 
     m_page->prepareToExitElementFullScreen();
-    m_page->injectedBundleFullScreenClient().exitFullScreenForElement(m_page.ptr(), element, m_inWindowFullScreenMode);
+    m_page->send(Messages::WebFullScreenManagerProxy::ExitFullScreen());
 
     if (m_inWindowFullScreenMode) {
         willExitFullScreen();
@@ -344,7 +349,6 @@ void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element)
 
 void WebFullScreenManager::willEnterFullScreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
 {
-    ASSERT(m_element);
     if (!m_element)
         return;
 
@@ -367,12 +371,11 @@ void WebFullScreenManager::willEnterFullScreen(WebCore::HTMLMediaElementEnums::V
 #endif
     m_element->protectedDocument()->updateLayout();
     m_finalFrame = screenRectOfContents(m_element.get());
-    m_page->injectedBundleFullScreenClient().beganEnterFullScreen(m_page.ptr(), m_initialFrame, m_finalFrame);
+    m_page->send(Messages::WebFullScreenManagerProxy::BeganEnterFullScreen(m_initialFrame, m_finalFrame));
 }
 
 void WebFullScreenManager::didEnterFullScreen()
 {
-    ASSERT(m_element);
     if (!m_element)
         return;
 
@@ -455,7 +458,9 @@ void WebFullScreenManager::willExitFullScreen()
 #if !PLATFORM(IOS_FAMILY)
     m_page->showPageBanners();
 #endif
-    m_page->injectedBundleFullScreenClient().beganExitFullScreen(m_page.ptr(), m_finalFrame, m_initialFrame);
+    // FIXME: The order of these frames is switched, but that is kept for historical reasons.
+    // It should probably be fixed to be consistent at some point.
+    m_page->send(Messages::WebFullScreenManagerProxy::BeganExitFullScreen(m_finalFrame, m_initialFrame));
 }
 
 static Vector<Ref<Element>> collectFullscreenElementsFromElement(Element* element)
@@ -505,7 +510,6 @@ void WebFullScreenManager::didExitFullScreen()
 
 void WebFullScreenManager::setAnimatingFullScreen(bool animating)
 {
-    ASSERT(m_element);
     if (!m_element)
         return;
     m_element->document().fullscreenManager().setAnimatingFullscreen(animating);
@@ -536,12 +540,19 @@ void WebFullScreenManager::requestExitFullScreen()
         return;
     }
 
-    auto& topDocument = m_element->document().topDocument();
-    if (!topDocument.fullscreenManager().fullscreenElement()) {
+    RefPtr corePage = m_page->protectedCorePage();
+    if (!corePage) {
+        ALWAYS_LOG(LOGIDENTIFIER, "no page, closing");
+        close();
+        return;
+    }
+
+    if (!corePage->topDocumentHasFullscreenElement()) {
         ALWAYS_LOG(LOGIDENTIFIER, "top document not in fullscreen, closing");
         close();
         return;
     }
+
     ALWAYS_LOG(LOGIDENTIFIER);
     m_element->document().fullscreenManager().cancelFullscreen();
 }

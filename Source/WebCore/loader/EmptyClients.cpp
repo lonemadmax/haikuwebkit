@@ -41,6 +41,7 @@
 #include "DOMPasteAccess.h"
 #include "DataListSuggestionPicker.h"
 #include "DatabaseProvider.h"
+#include "DateTimeChooser.h"
 #include "DiagnosticLoggingClient.h"
 #include "DisplayRefreshMonitor.h"
 #include "DisplayRefreshMonitorFactory.h"
@@ -101,10 +102,6 @@
 #include "LegacyPreviewLoaderClient.h"
 #endif
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-#include "DateTimeChooser.h"
-#endif
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DummyStorageProvider);
@@ -119,6 +116,7 @@ class EmptyBackForwardClient final : public BackForwardClient {
     void goToItem(HistoryItem&) final { }
     void goToProvisionalItem(const HistoryItem&) final { }
     void clearProvisionalItem(const HistoryItem&) final { }
+    void commitProvisionalItem(const HistoryItem&) final { }
     RefPtr<HistoryItem> itemAtIndex(int, FrameIdentifier) final { return nullptr; }
     unsigned backListCount() const final { return 0; }
     unsigned forwardListCount() const final { return 0; }
@@ -231,10 +229,10 @@ class EmptyDatabaseProvider final : public DatabaseProvider {
         ~EmptyIDBConnectionToServerDeletegate() { }
     };
 
-    IDBClient::IDBConnectionToServer& idbConnectionToServerForSession(PAL::SessionID) final
+    IDBClient::IDBConnectionToServer& idbConnectionToServerForSession(PAL::SessionID sessionID) final
     {
         static NeverDestroyed<EmptyIDBConnectionToServerDeletegate> emptyDelegate;
-        static auto& emptyConnection = IDBClient::IDBConnectionToServer::create(emptyDelegate.get()).leakRef();
+        static auto& emptyConnection = IDBClient::IDBConnectionToServer::create(emptyDelegate.get(), sessionID).leakRef();
         return emptyConnection;
     }
 };
@@ -571,32 +569,20 @@ RefPtr<SearchPopupMenu> EmptyChromeClient::createSearchPopupMenu(PopupMenuClient
     return adoptRef(*new EmptySearchPopupMenu);
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-
 RefPtr<ColorChooser> EmptyChromeClient::createColorChooser(ColorChooserClient&, const Color&)
 {
     return nullptr;
 }
-
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
 
 RefPtr<DataListSuggestionPicker> EmptyChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient&)
 {
     return nullptr;
 }
 
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-
 RefPtr<DateTimeChooser> EmptyChromeClient::createDateTimeChooser(DateTimeChooserClient&)
 {
     return nullptr;
 }
-
-#endif
 
 void EmptyChromeClient::setTextIndicator(const TextIndicatorData&) const
 {
@@ -902,65 +888,6 @@ void EmptyFrameLoaderClient::finishedLoading(DocumentLoader*)
 {
 }
 
-ResourceError EmptyFrameLoaderClient::cancelledError(const ResourceRequest&) const
-{
-    return { ResourceError::Type::Cancellation };
-}
-
-ResourceError EmptyFrameLoaderClient::blockedError(const ResourceRequest&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::blockedByContentBlockerError(const ResourceRequest&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::cannotShowURLError(const ResourceRequest&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::interruptedForPolicyChangeError(const ResourceRequest&) const
-{
-    return { };
-}
-
-#if ENABLE(CONTENT_FILTERING)
-
-ResourceError EmptyFrameLoaderClient::blockedByContentFilterError(const ResourceRequest&) const
-{
-    return { };
-}
-
-#endif
-
-ResourceError EmptyFrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::fileDoesNotExistError(const ResourceResponse&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::httpsUpgradeRedirectLoopError(const ResourceRequest&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::httpNavigationWithHTTPSOnlyError(const ResourceRequest&) const
-{
-    return { };
-}
-
-ResourceError EmptyFrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse&) const
-{
-    return { };
-}
-
 bool EmptyFrameLoaderClient::shouldFallBack(const ResourceError&) const
 {
     return false;
@@ -1224,7 +1151,7 @@ private:
 class EmptySocketProvider final : public SocketProvider {
 public:
     RefPtr<ThreadableWebSocketChannel> createWebSocketChannel(Document&, WebSocketChannelClient&) final { return nullptr; }
-    Ref<WebTransportSessionPromise> initializeWebTransportSession(ScriptExecutionContext&, const URL&) { return WebTransportSessionPromise::createAndReject(); }
+    Ref<WebTransportSessionPromise> initializeWebTransportSession(ScriptExecutionContext&, WebTransportSessionClient&, const URL&) { return WebTransportSessionPromise::createAndReject(); }
 };
 
 class EmptyHistoryItemClient final : public HistoryItemClient {
@@ -1232,6 +1159,7 @@ public:
     static Ref<EmptyHistoryItemClient> create() { return adoptRef(*new EmptyHistoryItemClient); }
 private:
     void historyItemChanged(const HistoryItem&) { }
+    void clearChildren(const HistoryItem&) const { }
 };
 
 PageConfiguration pageConfigurationWithEmptyClients(std::optional<PageIdentifier> identifier, PAL::SessionID sessionID)

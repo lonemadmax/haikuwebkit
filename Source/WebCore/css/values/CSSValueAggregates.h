@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2024-2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,8 +43,29 @@ namespace WebCore {
 template<typename> inline constexpr ASCIILiteral SerializationSeparator = ""_s;
 
 // Helper to define a simple `get()` implementation for a single value `name`.
-#define DEFINE_TYPE_WRAPPER(t, name) \
+#define DEFINE_TYPE_WRAPPER_GET(t, name) \
     template<size_t> const auto& get(const t& value) { return value.name; }
+
+// Helper to define a tuple-like conformance for a type with `numberOfArguments` arguments.
+#define DEFINE_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    namespace std { \
+        template<> class tuple_size<t> : public std::integral_constant<size_t, numberOfArguments> { }; \
+        template<size_t I> class tuple_element<I, t> { \
+        public: \
+            using type = decltype(get<I>(std::declval<t>())); \
+        }; \
+    } \
+    template<> inline constexpr bool WebCore::TreatAsTupleLike<t> = true;
+
+// Helper to define a tuple-like conformance and that the type should be serialized as space separated.
+#define DEFINE_SPACE_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    DEFINE_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    template<> inline constexpr ASCIILiteral WebCore::SerializationSeparator<t> = " "_s;
+
+// Helper to define a tuple-like conformance and that the type should be serialized as comma separated.
+#define DEFINE_COMMA_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    DEFINE_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    template<> inline constexpr ASCIILiteral WebCore::SerializationSeparator<t> = ", "_s;
 
 // MARK: - Conforming Existing Types
 
@@ -57,12 +78,6 @@ template<typename... Ts> inline constexpr auto TreatAsTupleLike<std::tuple<Ts...
 
 // - Variant-like
 template<typename... Ts> inline constexpr auto TreatAsVariantLike<std::variant<Ts...>> = true;
-
-// MARK: Utility Concepts
-
-template<typename T> concept HasIsZero = requires(T t) {
-    { t.isZero() } -> std::convertible_to<bool>;
-};
 
 // MARK: - Standard Leaf Types
 
@@ -372,12 +387,6 @@ template<typename T> struct SpaceSeparatedPoint {
     const T& x() const { return get<0>(value); }
     const T& y() const { return get<1>(value); }
 
-    bool isZero() const
-        requires HasIsZero<T>
-    {
-        return x().isZero() && y().isZero();
-    }
-
     SpaceSeparatedPair<T> value;
 };
 
@@ -408,18 +417,6 @@ template<typename T> struct SpaceSeparatedSize {
 
     const T& width() const { return get<0>(value); }
     const T& height() const { return get<1>(value); }
-
-    bool isZero() const
-        requires HasIsZero<T>
-    {
-        return width().isZero() && height().isZero();
-    }
-
-    bool isEmpty() const
-        requires HasIsZero<T>
-    {
-        return width().isZero() || height().isZero();
-    }
 
     SpaceSeparatedPair<T> value;
 };

@@ -125,8 +125,8 @@ public:
     static bool isEmpty() { return false; }
     UChar currentCharacter() const { return m_source.atEnd() ? 0 : *m_source; }
     void advance() { m_source.advance(); }
-    void pushEverythingBack() { m_source.setPosition(m_startPosition.data()); }
-    void pushBackButKeep(unsigned keepCount) { m_source.setPosition(m_startPosition.subspan(keepCount).data()); }
+    void pushEverythingBack() { m_source.setPosition(m_startPosition); }
+    void pushBackButKeep(unsigned keepCount) { m_source.setPosition(m_startPosition.subspan(keepCount)); }
 
 private:
     StringParsingBuffer<CharacterType>& m_source;
@@ -291,12 +291,11 @@ DecodedHTMLEntity consumeHTMLEntity(StringParsingBuffer<UChar>& source)
     return consumeHTMLEntity(StringParsingBufferSource<UChar> { source }, 0);
 }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 DecodedHTMLEntity decodeNamedHTMLEntityForXMLParser(const char* name)
 {
     HTMLEntitySearch search;
-    while (*name) {
-        search.advance(*name++);
+    for (char character : unsafeSpan(name)) {
+        search.advance(character);
         if (!search.isEntityPrefix())
             return { };
     }
@@ -305,6 +304,5 @@ DecodedHTMLEntity decodeNamedHTMLEntityForXMLParser(const char* name)
         return { };
     return makeEntity(*search.match());
 }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 } // namespace WebCore

@@ -600,6 +600,12 @@ IntPoint WebChromeClient::screenToRootView(const IntPoint& p) const
     return p;
 }
 
+IntPoint WebChromeClient::rootViewToScreen(const IntPoint& p) const
+{
+    // FIXME: Implement this.
+    return p;
+}
+
 IntRect WebChromeClient::rootViewToScreen(const IntRect& r) const
 {
     // FIXME: Implement this.
@@ -695,8 +701,6 @@ void WebChromeClient::exceededDatabaseQuota(LocalFrame& frame, const String& dat
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-
 RefPtr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserClient& client, const Color& initialColor)
 {
     // FIXME: Implement <input type='color'> for WK1 (Bug 119094).
@@ -704,23 +708,17 @@ RefPtr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserClient& cli
     return nullptr;
 }
 
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
 RefPtr<DataListSuggestionPicker> WebChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient& client)
 {
     ASSERT_NOT_REACHED();
     return nullptr;
 }
-#endif
 
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 RefPtr<DateTimeChooser> WebChromeClient::createDateTimeChooser(DateTimeChooserClient&)
 {
     ASSERT_NOT_REACHED();
     return nullptr;
 }
-#endif
 
 void WebChromeClient::setTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
 {

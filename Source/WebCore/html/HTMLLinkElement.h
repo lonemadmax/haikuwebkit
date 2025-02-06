@@ -96,9 +96,11 @@ public:
 
     void setFetchPriorityForBindings(const AtomString&);
     String fetchPriorityForBindings() const;
-    RequestPriority fetchPriorityHint() const;
+    RequestPriority fetchPriority() const;
 
-    void processInternalResourceLink(HTMLAnchorElement* = nullptr);
+    // If element is specified, checks if that Element satisfies the link.
+    // Otherwise checks if any Element in the tree does.
+    void processInternalResourceLink(Element* = nullptr);
 
 private:
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;

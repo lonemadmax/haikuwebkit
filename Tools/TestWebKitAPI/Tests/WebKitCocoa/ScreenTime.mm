@@ -27,30 +27,65 @@
 
 #if ENABLE(SCREEN_TIME)
 
+#import "InstanceMethodSwizzler.h"
 #import "TestWKWebView.h"
+#import <ScreenTime/STWebHistory.h>
 #import <ScreenTime/STWebpageController.h>
 #import <WebKit/WKPreferencesPrivate.h>
+#import <WebKit/WKWebViewConfiguration.h>
 #import <WebKit/WKWebViewPrivate.h>
+#import <WebKit/WKWebsiteDataStore.h>
 #import <WebKit/_WKFeature.h>
+#import <pal/cocoa/ScreenTimeSoftLink.h>
 #import <wtf/RetainPtr.h>
 
 static void *blockedStateObserverChangeKVOContext = &blockedStateObserverChangeKVOContext;
 static bool stateDidChange = false;
 
-static RetainPtr<TestWKWebView> webViewForScreenTimeTests()
+static RetainPtr<TestWKWebView> webViewForScreenTimeTests(WKWebViewConfiguration *configuration = nil)
 {
-    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    if (!configuration)
+        configuration = adoptNS([[WKWebViewConfiguration alloc] init]).autorelease();
+
     auto preferences = [configuration preferences];
     for (_WKFeature *feature in [WKPreferences _features]) {
         if ([feature.key isEqualToString:@"ScreenTimeEnabled"])
             [preferences _setEnabled:YES forFeature:feature];
     }
-    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 300) configuration:configuration.get()]);
-    return webView;
+    return adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 300) configuration:configuration]);
+}
+
+static void testSuppressUsageRecordingWithDataStore(RetainPtr<WKWebsiteDataStore>&& websiteDataStore, bool suppressUsageRecordingExpectation)
+{
+    __block bool done = false;
+    __block bool suppressUsageRecording = false;
+
+    InstanceMethodSwizzler swizzler {
+        PAL::getSTWebpageControllerClass(),
+        @selector(setSuppressUsageRecording:),
+        imp_implementationWithBlock(^(id object, bool value) {
+            suppressUsageRecording = value;
+            done = true;
+        })
+    };
+
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration setWebsiteDataStore:websiteDataStore.get()];
+
+    RetainPtr webView = webViewForScreenTimeTests(configuration.get());
+    [webView synchronouslyLoadHTMLString:@""];
+
+    TestWebKitAPI::Util::run(&done);
+
+    EXPECT_EQ(suppressUsageRecordingExpectation, suppressUsageRecording);
 }
 
 @interface STWebpageController ()
 @property (setter=setURLIsBlocked:) BOOL URLIsBlocked;
+@end
+
+@interface STWebpageController (Staging_138865295)
+@property (nonatomic, copy) NSString *profileIdentifier;
 @end
 
 @interface WKWebView (Internal)
@@ -151,6 +186,74 @@ TEST(ScreenTime, IsBlockedByScreenTimeKVO)
     TestWebKitAPI::Util::run(&stateDidChange);
 
     EXPECT_TRUE([webView _isBlockedByScreenTime]);
+}
+
+TEST(ScreenTime, IdentifierNil)
+{
+    if (![PAL::getSTWebpageControllerClass() instancesRespondToSelector:@selector(setProfileIdentifier:)])
+        return;
+
+    __block bool done = false;
+    __block NSString * identifier = @"testing123";
+
+    InstanceMethodSwizzler swizzler {
+        PAL::getSTWebpageControllerClass(),
+        @selector(setProfileIdentifier:),
+        imp_implementationWithBlock(^(id object, NSString *profileIdentifier) {
+            identifier = profileIdentifier;
+            done = true;
+        })
+    };
+
+    RetainPtr webView = webViewForScreenTimeTests();
+    [webView synchronouslyLoadHTMLString:@""];
+
+    TestWebKitAPI::Util::run(&done);
+
+    EXPECT_NULL(identifier);
+}
+
+TEST(ScreenTime, IdentifierString)
+{
+    if (![PAL::getSTWebpageControllerClass() instancesRespondToSelector:@selector(setProfileIdentifier:)])
+        return;
+
+    __block bool done = false;
+    __block NSString * identifier = @"";
+
+    InstanceMethodSwizzler swizzler {
+        PAL::getSTWebpageControllerClass(),
+        @selector(setProfileIdentifier:),
+        imp_implementationWithBlock(^(id object, NSString *profileIdentifier) {
+            identifier = profileIdentifier;
+            done = true;
+        })
+    };
+
+    RetainPtr uuid = [NSUUID UUID];
+    RetainPtr websiteDataStore = [WKWebsiteDataStore dataStoreForIdentifier:uuid.get()];
+
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration setWebsiteDataStore:websiteDataStore.get()];
+
+    RetainPtr webView = webViewForScreenTimeTests(configuration.get());
+    [webView synchronouslyLoadHTMLString:@""];
+
+    TestWebKitAPI::Util::run(&done);
+
+    RetainPtr uuidString = [uuid UUIDString];
+
+    EXPECT_WK_STREQ(identifier, uuidString.get());
+}
+
+TEST(ScreenTime, PersistentSession)
+{
+    testSuppressUsageRecordingWithDataStore([WKWebsiteDataStore defaultDataStore], false);
+}
+
+TEST(ScreenTime, NonPersistentSession)
+{
+    testSuppressUsageRecordingWithDataStore([WKWebsiteDataStore nonPersistentDataStore], true);
 }
 
 #endif

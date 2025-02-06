@@ -30,8 +30,13 @@
 #include "ScriptableDocumentParser.h"
 #include "SegmentedString.h"
 #include "XMLErrors.h"
+// FIXME (286277): Stop ignoring -Wundef and -Wdeprecated-declarations in code that imports libxml and libxslt headers
+IGNORE_WARNINGS_BEGIN("deprecated-declarations")
+IGNORE_WARNINGS_BEGIN("undef")
 #include <libxml/tree.h>
 #include <libxml/xmlstring.h>
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
 #include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
@@ -81,7 +86,7 @@ public:
     ~XMLDocumentParser();
 
     // Exposed for callbacks:
-    void handleError(XMLErrors::ErrorType, const char* message, TextPosition);
+    void handleError(XMLErrors::Type, const char* message, TextPosition);
 
     void setIsXHTMLDocument(bool isXHTML) { m_isXHTMLDocument = isXHTML; }
     bool isXHTMLDocument() const { return m_isXHTMLDocument; }
@@ -125,7 +130,7 @@ public:
     // Callbacks from parser SAX, and other functions needed inside
     // the parser implementation, but outside this class.
 
-    void error(XMLErrors::ErrorType, const char* message, va_list args) WTF_ATTRIBUTE_PRINTF(3, 0);
+    void error(XMLErrors::Type, const char* message, va_list args) WTF_ATTRIBUTE_PRINTF(3, 0);
     void startElementNs(const xmlChar* xmlLocalName, const xmlChar* xmlPrefix, const xmlChar* xmlURI,
         int numNamespaces, const xmlChar** namespaces,
         int numAttributes, int numDefaulted, const xmlChar** libxmlAttributes);

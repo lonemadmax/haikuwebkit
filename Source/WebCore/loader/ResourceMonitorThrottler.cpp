@@ -26,9 +26,11 @@
 #include "config.h"
 #include "ResourceMonitorThrottler.h"
 
+#include "Logging.h"
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Seconds.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringHash.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
 
@@ -128,6 +130,12 @@ bool ResourceMonitorThrottler::AccessThrottler::tryExpire(ApproximateTime time, 
     }
     // Tell caller that the queue is empty.
     return true;
+}
+
+void ResourceMonitorThrottler::setCountPerDuration(size_t count, Seconds duration)
+{
+    m_config.count = count;
+    m_config.duration = duration;
 }
 
 } // namespace WebCore

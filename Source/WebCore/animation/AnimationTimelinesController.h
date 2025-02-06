@@ -80,7 +80,7 @@ public:
     WEBCORE_EXPORT void resumeAnimations();
     bool animationsAreSuspended() const { return m_isSuspended; }
 
-    void registerNamedScrollTimeline(const AtomString&, const Element&, ScrollAxis);
+    void registerNamedScrollTimeline(const AtomString&, Element&, ScrollAxis);
     void registerNamedViewTimeline(const AtomString&, const Element&, ScrollAxis, ViewTimelineInsets&&);
     void unregisterNamedTimeline(const AtomString&, const Element&);
     void setTimelineForName(const AtomString&, const Element&, WebAnimation&);
@@ -103,6 +103,9 @@ private:
     Vector<WeakPtr<Element, WeakPtrImplWithEventTargetData>> relatedTimelineScopeElements(const AtomString&);
     void attachPendingOperations();
     bool isPendingTimelineAttachment(const WebAnimation&) const;
+    void updateCSSAnimationsAssociatedWithNamedTimeline(const AtomString&);
+
+    Ref<Document> protectedDocument() const { return m_document.get(); }
 
     Vector<TimelineMapAttachOperation> m_pendingAttachOperations;
     Vector<std::pair<TimelineScope, WeakPtr<Element, WeakPtrImplWithEventTargetData>>> m_timelineScopeEntries;
@@ -115,7 +118,7 @@ private:
     UncheckedKeyHashMap<FramesPerSecond, ReducedResolutionSeconds> m_animationFrameRateToLastTickTimeMap;
     WeakHashSet<AnimationTimeline> m_timelines;
     TaskCancellationGroup m_currentTimeClearingTaskCancellationGroup;
-    Document& m_document;
+    WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     FrameRateAligner m_frameRateAligner;
     Markable<Seconds, Seconds::MarkableTraits> m_cachedCurrentTime;
     bool m_isSuspended { false };

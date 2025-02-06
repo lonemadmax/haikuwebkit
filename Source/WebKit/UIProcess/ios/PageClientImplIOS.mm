@@ -458,6 +458,11 @@ IntPoint PageClientImpl::screenToRootView(const IntPoint& point)
     return IntPoint([contentView() convertPoint:point fromView:nil]);
 }
 
+IntPoint PageClientImpl::rootViewToScreen(const IntPoint& point)
+{
+    return IntPoint([contentView() convertPoint:point toView:nil]);
+}
+
 IntRect PageClientImpl::rootViewToScreen(const IntRect& rect)
 {
     return enclosingIntRect([contentView() convertRect:rect toView:nil]);
@@ -766,6 +771,8 @@ void PageClientImpl::disableInspectorNodeSearch()
 
 WebFullScreenManagerProxyClient& PageClientImpl::fullScreenManagerProxyClient()
 {
+    if (m_fullscreenClientForTesting)
+        return *m_fullscreenClientForTesting;
     return *this;
 }
 
@@ -785,9 +792,11 @@ bool PageClientImpl::isFullScreen()
     return [webView fullScreenWindowController].isFullScreen;
 }
 
-void PageClientImpl::enterFullScreen(FloatSize mediaDimensions)
+void PageClientImpl::enterFullScreen(FloatSize mediaDimensions, CompletionHandler<void(bool)>&& completionHandler)
 {
-    [[webView() fullScreenWindowController] enterFullScreen:mediaDimensions];
+    if (![webView() fullScreenWindowController])
+        return completionHandler(false);
+    [[webView() fullScreenWindowController] enterFullScreen:mediaDimensions completionHandler:WTFMove(completionHandler)];
 }
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
@@ -976,26 +985,10 @@ Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& messa
     return ValidationBubble::create(m_contentView.getAutoreleased(), message, settings);
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&, ColorControlSupportsAlpha, Vector<WebCore::Color>&&)
-{
-    return nullptr;
-}
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
 RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestionsDropdown(WebPageProxy& page)
 {
     return WebDataListSuggestionsDropdownIOS::create(page, m_contentView.getAutoreleased());
 }
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-RefPtr<WebDateTimePicker> PageClientImpl::createDateTimePicker(WebPageProxy&)
-{
-    return nullptr;
-}
-#endif
 
 #if ENABLE(DRAG_SUPPORT)
 void PageClientImpl::didPerformDragOperation(bool handled)

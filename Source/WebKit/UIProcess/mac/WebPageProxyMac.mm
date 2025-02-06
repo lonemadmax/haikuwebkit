@@ -42,6 +42,7 @@
 #import "PageClient.h"
 #import "PageClientImplMac.h"
 #import "PlatformFontInfo.h"
+#import "PlatformWritingToolsUtilities.h"
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeNode.h"
 #import "TextChecker.h"
@@ -521,7 +522,9 @@ static NSString *pathToPDFOnDisk(const String& suggestedFilename)
         NSString *pathTemplate = [pathTemplatePrefix stringByAppendingString:suggestedFilename];
         CString pathTemplateRepresentation = [pathTemplate fileSystemRepresentation];
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         int fd = mkstemps(pathTemplateRepresentation.mutableSpanIncludingNullTerminator().data(), pathTemplateRepresentation.length() - strlen([pathTemplatePrefix fileSystemRepresentation]) + 1);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         if (fd < 0) {
             WTFLogAlways("Cannot create PDF file in the temporary directory (%s).", suggestedFilename.utf8().data());
             return nil;
@@ -598,6 +601,10 @@ void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu,
         [nsItem setTitle:item.title];
         [nsItem setEnabled:item.enabled == ContextMenuItemEnablement::Enabled];
         [nsItem setState:item.state];
+#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
+        if (m_preferences->contextMenuImagesForInternalClientsEnabled() && [nsItem respondsToSelector:@selector(_setActionImage:)])
+            [nsItem _setActionImage:[NSImage imageWithSystemSymbolName:symbolNameForAction(item.action, false) accessibilityDescription:nil]];
+#endif
         if (item.hasAction == ContextMenuItemHasAction::Yes) {
             [nsItem setTarget:menuTarget.get()];
             [nsItem setAction:@selector(contextMenuAction:)];
@@ -914,6 +921,25 @@ void WebPageProxy::handleContextMenuCopySubject(const String& preferredMIMEType)
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 #if ENABLE(WRITING_TOOLS)
+
+bool WebPageProxy::shouldEnableWritingToolsRequestedTool(WebCore::WritingTools::RequestedTool tool) const
+{
+    WTRequestedTool requestedTool = convertToPlatformRequestedTool(tool);
+
+    if (requestedTool == WTRequestedToolIndex)
+        return true;
+
+    auto& editorState = this->editorState();
+    bool editorStateIsContentEditable = editorState.isContentEditable;
+
+    if (requestedTool == WTRequestedToolCompose)
+        return editorStateIsContentEditable;
+
+    if (editorStateIsContentEditable)
+        return editorState.hasPostLayoutData() && !editorState.postLayoutData->paragraphContextForCandidateRequest.isEmpty();
+
+    return true;
+}
 
 void WebPageProxy::handleContextMenuWritingTools(WebCore::WritingTools::RequestedTool tool)
 {

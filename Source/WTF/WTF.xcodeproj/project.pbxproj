@@ -333,7 +333,6 @@
 		DD3DC8C027A4BF8E007E5B61 /* DoublyLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47280151A825A004123FF /* DoublyLinkedList.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8C127A4BF8E007E5B61 /* SentinelLinkedList.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A47307151A825B004123FF /* SentinelLinkedList.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8C227A4BF8E007E5B61 /* UUID.h in Headers */ = {isa = PBXBuildFile; fileRef = 7AFEC6AE1EB22AC600DADE36 /* UUID.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD3DC8C327A4BF8E007E5B61 /* DisallowCType.h in Headers */ = {isa = PBXBuildFile; fileRef = A9A4727F151A825A004123FF /* DisallowCType.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8C427A4BF8E007E5B61 /* ParallelJobsLibdispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = A8A472E9151A825B004123FF /* ParallelJobsLibdispatch.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8C527A4BF8E007E5B61 /* PlatformOS.h in Headers */ = {isa = PBXBuildFile; fileRef = 7C42307323CE2D8B006E54D0 /* PlatformOS.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD3DC8C627A4BF8E007E5B61 /* PtrTag.h in Headers */ = {isa = PBXBuildFile; fileRef = FE7497E4208FFCAA0003565B /* PtrTag.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -889,7 +888,11 @@
 		E4A0AD391A96245500536DF6 /* WorkQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E4A0AD371A96245500536DF6 /* WorkQueue.cpp */; };
 		E4A0AD3D1A96253C00536DF6 /* WorkQueueCocoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E4A0AD3C1A96253C00536DF6 /* WorkQueueCocoa.cpp */; };
 		EB2C86D9267B275D0052CB9A /* CPUTimePOSIX.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB2C86D8267B275C0052CB9A /* CPUTimePOSIX.cpp */; };
+		EB33ED2E2D2DD91B00521B7B /* ContinuousTime.h in Headers */ = {isa = PBXBuildFile; fileRef = EB33ED2C2D2DD91B00521B7B /* ContinuousTime.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB33ED2F2D2DD91B00521B7B /* ContinuousTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB33ED2D2D2DD91B00521B7B /* ContinuousTime.cpp */; };
 		EB61EDC72409CCC1001EFE36 /* SystemTracingCocoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB61EDC62409CCC0001EFE36 /* SystemTracingCocoa.cpp */; };
+		EBEE51132D2DF488004FEC23 /* ContinuousApproximateTime.h in Headers */ = {isa = PBXBuildFile; fileRef = EBEE51112D2DF488004FEC23 /* ContinuousApproximateTime.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EBEE51142D2DF488004FEC23 /* ContinuousApproximateTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EBEE51122D2DF488004FEC23 /* ContinuousApproximateTime.cpp */; };
 		FA0C387B2BEAD56B00583842 /* SmallMap.h in Headers */ = {isa = PBXBuildFile; fileRef = FA0C387A2BEAD56B00583842 /* SmallMap.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE032AD22463E43B0012D7C7 /* WTFConfig.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE032AD02463E43B0012D7C7 /* WTFConfig.cpp */; };
 		FE03831C2ABC04F700A576A2 /* TZoneMallocInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = FE03831A2ABC04F700A576A2 /* TZoneMallocInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1567,7 +1570,6 @@
 		A8A47371151A825B004123FF /* VectorTraits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VectorTraits.h; sourceTree = "<group>"; };
 		A8A47372151A825B004123FF /* VMTags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VMTags.h; sourceTree = "<group>"; };
 		A8A4748B151A8264004123FF /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
-		A9A4727F151A825A004123FF /* DisallowCType.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DisallowCType.h; sourceTree = "<group>"; };
 		AD653DA82006B6C200D820D7 /* RawValueTraits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RawValueTraits.h; sourceTree = "<group>"; };
 		AD7C434A1DD2A4A70026888B /* Expected.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Expected.h; sourceTree = "<group>"; };
 		AD89B6B51E6415080090707F /* MemoryPressureHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MemoryPressureHandler.cpp; sourceTree = "<group>"; };
@@ -1906,8 +1908,12 @@
 		E4A0AD3C1A96253C00536DF6 /* WorkQueueCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WorkQueueCocoa.cpp; sourceTree = "<group>"; };
 		E4D2AE4D268A4C7F00DFEA02 /* SystemMalloc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SystemMalloc.h; sourceTree = "<group>"; };
 		EB2C86D8267B275C0052CB9A /* CPUTimePOSIX.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CPUTimePOSIX.cpp; sourceTree = "<group>"; };
+		EB33ED2C2D2DD91B00521B7B /* ContinuousTime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ContinuousTime.h; sourceTree = "<group>"; };
+		EB33ED2D2D2DD91B00521B7B /* ContinuousTime.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ContinuousTime.cpp; sourceTree = "<group>"; };
 		EB61EDC62409CCC0001EFE36 /* SystemTracingCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SystemTracingCocoa.cpp; sourceTree = "<group>"; };
 		EB95E1EF161A72410089A2F5 /* ByteOrder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ByteOrder.h; sourceTree = "<group>"; };
+		EBEE51112D2DF488004FEC23 /* ContinuousApproximateTime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ContinuousApproximateTime.h; sourceTree = "<group>"; };
+		EBEE51122D2DF488004FEC23 /* ContinuousApproximateTime.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ContinuousApproximateTime.cpp; sourceTree = "<group>"; };
 		EF7D6CD59D8642A8A0DA86AD /* StackTrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StackTrace.h; sourceTree = "<group>"; };
 		F6D67D3226F90142006E0349 /* Int128.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Int128.h; sourceTree = "<group>"; };
 		F72BBDB107FA424886178B9E /* SymbolImpl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SymbolImpl.cpp; sourceTree = "<group>"; };
@@ -2208,6 +2214,10 @@
 				0F30CB591FCDF133004B5323 /* ConcurrentPtrHashSet.h */,
 				0FB467831FDE282C003FCB09 /* ConcurrentVector.h */,
 				0FDB698D1B7C643A000C1078 /* Condition.h */,
+				EBEE51122D2DF488004FEC23 /* ContinuousApproximateTime.cpp */,
+				EBEE51112D2DF488004FEC23 /* ContinuousApproximateTime.h */,
+				EB33ED2D2D2DD91B00521B7B /* ContinuousTime.cpp */,
+				EB33ED2C2D2DD91B00521B7B /* ContinuousTime.h */,
 				0F8E85DA1FD485B000691889 /* CountingLock.cpp */,
 				0FFBCBFA1FD37E0F0072AAF0 /* CountingLock.h */,
 				E38C41261EB4E0680042957D /* CPUTime.cpp */,
@@ -2234,7 +2244,6 @@
 				996B17841EBA441C007E10EB /* DebugUtilities.h */,
 				0F2B66A417B6B4F700A7AE3F /* DeferrableRefCounted.h */,
 				A8A4727E151A825A004123FF /* Deque.h */,
-				A9A4727F151A825A004123FF /* DisallowCType.h */,
 				0F4570421BE5B58F0062A629 /* Dominators.h */,
 				A8A47280151A825A004123FF /* DoublyLinkedList.h */,
 				A8A47297151A825A004123FF /* dtoa.cpp */,
@@ -3304,6 +3313,8 @@
 				E306FE9B2A9600D40074D0E9 /* constexpr_feature_detect.h in Headers */,
 				1C867D782A254F08000DE93D /* ContextualizedCFString.h in Headers */,
 				1CA6FBAB2A1D75D8001D4402 /* ContextualizedNSString.h in Headers */,
+				EBEE51132D2DF488004FEC23 /* ContinuousApproximateTime.h in Headers */,
+				EB33ED2E2D2DD91B00521B7B /* ContinuousTime.h in Headers */,
 				DDF307C627C086DF006A526F /* ConversionMode.h in Headers */,
 				DD3DC8D127A4BF8E007E5B61 /* CountingLock.h in Headers */,
 				DD3DC92627A4BF8E007E5B61 /* CPUTime.h in Headers */,
@@ -3328,7 +3339,6 @@
 				DD3DC90627A4BF8E007E5B61 /* DeferrableRefCounted.h in Headers */,
 				DD3DC94B27A4BF8E007E5B61 /* Deque.h in Headers */,
 				E361DB68289115D000B2A2B8 /* digit_comparison.h in Headers */,
-				DD3DC8C327A4BF8E007E5B61 /* DisallowCType.h in Headers */,
 				DDF306E727C08654006A526F /* DispatchSPI.h in Headers */,
 				FFE39CB32B1D7472004972B0 /* div.h in Headers */,
 				DDF3079427C086CD006A526F /* diy-fp.h in Headers */,
@@ -4131,6 +4141,8 @@
 				0F30CB5A1FCDF134004B5323 /* ConcurrentPtrHashSet.cpp in Sources */,
 				1C867D772A254F08000DE93D /* ContextualizedCFString.mm in Sources */,
 				1CA6FBA92A1D75B9001D4402 /* ContextualizedNSString.mm in Sources */,
+				EBEE51142D2DF488004FEC23 /* ContinuousApproximateTime.cpp in Sources */,
+				EB33ED2F2D2DD91B00521B7B /* ContinuousTime.cpp in Sources */,
 				0F8E85DB1FD485B000691889 /* CountingLock.cpp in Sources */,
 				E38C41281EB4E0680042957D /* CPUTime.cpp in Sources */,
 				EB2C86D9267B275D0052CB9A /* CPUTimePOSIX.cpp in Sources */,

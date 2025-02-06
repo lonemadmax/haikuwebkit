@@ -3365,7 +3365,8 @@ class GenerateStyleBuilderGenerated:
 
     def _generate_font_property_inherit_value_setter(self, to, property):
         to.write(f"auto fontDescription = builderState.fontDescription();")
-        to.write(f"fontDescription.{property.codegen_properties.setter}(builderState.parentFontDescription().{property.codegen_properties.getter}());")
+        to.write(f"auto inheritedValue = builderState.parentFontDescription().{property.codegen_properties.getter}();")
+        to.write(f"fontDescription.{property.codegen_properties.setter}(WTFMove(inheritedValue));")
         to.write(f"builderState.setFontDescription(WTFMove(fontDescription));")
 
     def _generate_font_property_value_setter(self, to, property, value):
@@ -3758,7 +3759,7 @@ class GenerateStylePropertyShorthandFunctions:
                             to.write(f"{longhand.id},")
 
                 to.write(f"}};")
-                to.write(f"return StylePropertyShorthand({property.id}, {property.id_without_prefix_with_lowercase_first_letter}Properties);")
+                to.write(f"return StylePropertyShorthand({property.id}, std::span {{ {property.id_without_prefix_with_lowercase_first_letter}Properties }});")
             to.write(f"}}")
             to.newline()
 

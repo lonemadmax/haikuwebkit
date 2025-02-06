@@ -25,8 +25,11 @@
 #include "AppHighlight.h"
 #include "BarcodeDetectorInterface.h"
 #include "ChromeClient.h"
+#include "ColorChooser.h"
 #include "ContactInfo.h"
 #include "ContactsRequestData.h"
+#include "DataListSuggestionPicker.h"
+#include "DateTimeChooser.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentType.h"
@@ -63,18 +66,6 @@
 #include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
-
-#if ENABLE(INPUT_TYPE_COLOR)
-#include "ColorChooser.h"
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
-#include "DataListSuggestionPicker.h"
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
-#include "DateTimeChooser.h"
-#endif
 
 namespace WebCore {
 
@@ -122,6 +113,11 @@ void Chrome::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, con
 IntPoint Chrome::screenToRootView(const IntPoint& point) const
 {
     return m_client->screenToRootView(point);
+}
+
+IntPoint Chrome::rootViewToScreen(const IntPoint& point) const
+{
+    return m_client->rootViewToScreen(point);
 }
 
 IntRect Chrome::rootViewToScreen(const IntRect& rect) const
@@ -444,8 +440,6 @@ void Chrome::disableSuddenTermination()
     m_client->disableSuddenTermination();
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
-
 RefPtr<ColorChooser> Chrome::createColorChooser(ColorChooserClient& client, const Color& initialColor)
 {
 #if PLATFORM(IOS_FAMILY)
@@ -458,19 +452,11 @@ RefPtr<ColorChooser> Chrome::createColorChooser(ColorChooserClient& client, cons
 #endif
 }
 
-#endif
-
-#if ENABLE(DATALIST_ELEMENT)
-
 RefPtr<DataListSuggestionPicker> Chrome::createDataListSuggestionPicker(DataListSuggestionsClient& client)
 {
     notifyPopupOpeningObservers();
     return m_client->createDataListSuggestionPicker(client);
 }
-
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 
 RefPtr<DateTimeChooser> Chrome::createDateTimeChooser(DateTimeChooserClient& client)
 {
@@ -482,8 +468,6 @@ RefPtr<DateTimeChooser> Chrome::createDateTimeChooser(DateTimeChooserClient& cli
     return m_client->createDateTimeChooser(client);
 #endif
 }
-
-#endif
 
 void Chrome::runOpenPanel(LocalFrame& frame, FileChooser& fileChooser)
 {

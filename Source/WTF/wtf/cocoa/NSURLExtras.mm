@@ -51,6 +51,7 @@ static BOOL readIDNAllowedScriptListFile(NSString *filename)
     if (!file)
         return NO;
     
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     // Read a word at a time.
     // Allow comments, starting with # character to the end of the line.
     while (1) {
@@ -69,6 +70,8 @@ static BOOL readIDNAllowedScriptListFile(NSString *filename)
             URLHelpers::addScriptToIDNAllowedScriptList(word);
         }
     }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
     fclose(file);
     return YES;
 }
@@ -323,7 +326,7 @@ BOOL isUserVisibleURL(NSString *string)
 
     std::array<char, 1024> buffer;
     auto success = CFStringGetCString(bridge_cast(string), buffer.data(), buffer.size() - 1, kCFStringEncodingUTF8);
-    auto characters = success ? span(buffer.data()) : span([string UTF8String]);
+    auto characters = success ? unsafeSpan(buffer.data()) : unsafeSpan([string UTF8String]);
 
     // Check for control characters, %-escape sequences that are non-ASCII, and xn--: these
     // are the things that might lead the userVisibleString function to actually change the string.

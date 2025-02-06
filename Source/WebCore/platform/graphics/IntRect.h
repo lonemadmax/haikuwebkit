@@ -233,7 +233,7 @@ public:
 
 #if USE(SKIA)
     IntRect(const SkIRect&);
-    operator SkIRect() const;
+    WEBCORE_EXPORT operator SkIRect() const;
 #endif
 
 private:

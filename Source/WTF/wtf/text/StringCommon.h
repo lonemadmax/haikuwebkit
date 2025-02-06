@@ -50,33 +50,43 @@ inline std::span<const UChar> span(const UChar& character)
     return unsafeMakeSpan(&character, 1);
 }
 
-inline std::span<const LChar> span8(const char* string)
+inline std::span<const LChar> unsafeSpan8(const char* string)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return unsafeMakeSpan(byteCast<LChar>(string), string ? strlen(string) : 0);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-inline std::span<const LChar> span8IncludingNullTerminator(const char* string)
+inline std::span<const LChar> unsafeSpan8IncludingNullTerminator(const char* string)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return unsafeMakeSpan(byteCast<LChar>(string), string ? strlen(string) + 1 : 0);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-inline std::span<const char> span(const char* string)
+inline std::span<const char> unsafeSpan(const char* string)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return unsafeMakeSpan(string, string ? strlen(string) : 0);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-inline std::span<const char> spanIncludingNullTerminator(const char* string)
+inline std::span<const char> unsafeSpanIncludingNullTerminator(const char* string)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return unsafeMakeSpan(string, string ? strlen(string) + 1 : 0);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-inline std::span<const LChar> span(const LChar* string)
+inline std::span<const LChar> unsafeSpan(const LChar* string)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return unsafeMakeSpan(string, string ? strlen(byteCast<char>(string)) : 0);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-inline std::span<const UChar> span(const UChar* string)
+inline std::span<const UChar> unsafeSpan(const UChar* string)
 {
     if (!string)
         return { };
@@ -95,6 +105,15 @@ inline std::span<const char8_t> span(const std::u8string& string)
 #endif
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+
+template<typename T, std::size_t Extent>
+size_t strlenSpan(std::span<T, Extent> span) requires(sizeof(T) == 1)
+{
+    size_t i = 0;
+    while (span[i] != '\0')
+        ++i;
+    return i;
+}
 
 template<typename CharacterType> inline constexpr bool isLatin1(CharacterType character)
 {
@@ -516,6 +535,13 @@ template<typename CharacterTypeA, typename CharacterTypeB> inline bool equalIgno
     return true;
 }
 
+template<typename CharacterTypeA, typename CharacterTypeB> inline bool spanHasPrefixIgnoringASCIICase(std::span<const CharacterTypeA> span, std::span<const CharacterTypeB> prefix)
+{
+    if (span.size() < prefix.size())
+        return false;
+    return equalIgnoringASCIICaseWithLength(span, prefix, prefix.size());
+}
+
 template<typename CharacterTypeA, typename CharacterTypeB> inline bool equalIgnoringASCIICase(std::span<const CharacterTypeA> a, std::span<const CharacterTypeB> b)
 {
     return a.size() == b.size() && equalIgnoringASCIICaseWithLength(a, b, a.size());
@@ -539,7 +565,7 @@ bool equalIgnoringASCIICaseCommon(const StringClassA& a, const StringClassB& b)
 
 template<typename StringClassA> bool equalIgnoringASCIICaseCommon(const StringClassA& a, const char* b)
 {
-    auto bSpan = span8(b);
+    auto bSpan = unsafeSpan8(b);
     if (a.length() != bSpan.size())
         return false;
     if (a.is8Bit())
@@ -566,8 +592,8 @@ size_t findIgnoringASCIICase(std::span<const SearchCharacterType> source, std::s
 
 inline size_t findIgnoringASCIICaseWithoutLength(const char* source, const char* matchCharacters)
 {
-    auto searchSpan = span(source);
-    auto matchSpan = span(matchCharacters);
+    auto searchSpan = unsafeSpan(source);
+    auto matchSpan = unsafeSpan(matchCharacters);
 
     return matchSpan.size() <= searchSpan.size() ? findIgnoringASCIICase(searchSpan, matchSpan, 0) : notFound;
 }
@@ -777,23 +803,23 @@ ALWAYS_INLINE const UChar* find16NonASCII(std::span<const UChar> data)
 }
 #endif
 
-template<typename CharacterType, std::enable_if_t<std::is_integral_v<CharacterType>>* = nullptr>
-inline size_t find(std::span<const CharacterType> characters, CharacterType matchCharacter, size_t index = 0)
+template<typename CharacterType1, typename CharacterType2, std::enable_if_t<std::is_integral_v<CharacterType1> && std::is_integral_v<CharacterType2> && sizeof(CharacterType1) == sizeof(CharacterType2)>* = nullptr>
+inline size_t find(std::span<const CharacterType1> characters, CharacterType2 matchCharacter, size_t index = 0)
 {
-    if constexpr (sizeof(CharacterType) == 1) {
+    if constexpr (sizeof(CharacterType1) == 1) {
         if (index >= characters.size())
             return notFound;
-        auto* result = reinterpret_cast<const CharacterType*>(find8(std::bit_cast<const uint8_t*>(characters.data() + index), matchCharacter, characters.size() - index));
+        auto* result = reinterpret_cast<const CharacterType1*>(find8(std::bit_cast<const uint8_t*>(characters.data() + index), matchCharacter, characters.size() - index));
         ASSERT(!result || static_cast<unsigned>(result - characters.data()) >= index);
         if (result)
             return result - characters.data();
         return notFound;
     }
 
-    if constexpr (sizeof(CharacterType) == 2) {
+    if constexpr (sizeof(CharacterType1) == 2) {
         if (index >= characters.size())
             return notFound;
-        auto* result = reinterpret_cast<const CharacterType*>(find16(std::bit_cast<const uint16_t*>(characters.data() + index), matchCharacter, characters.size() - index));
+        auto* result = reinterpret_cast<const CharacterType1*>(find16(std::bit_cast<const uint16_t*>(characters.data() + index), matchCharacter, characters.size() - index));
         ASSERT(!result || static_cast<unsigned>(result - characters.data()) >= index);
         if (result)
             return result - characters.data();
@@ -818,6 +844,12 @@ inline size_t find(std::span<const LChar> characters, UChar matchCharacter, size
     if (!isLatin1(matchCharacter))
         return notFound;
     return find(characters, static_cast<LChar>(matchCharacter), index);
+}
+
+template<typename CharacterType1, typename CharacterType2, std::enable_if_t<std::is_integral_v<CharacterType1> && std::is_integral_v<CharacterType2>>* = nullptr>
+inline bool contains(std::span<const CharacterType1> characters, CharacterType2 matchCharacter, size_t index = 0)
+{
+    return find(characters, matchCharacter, index) != notFound;
 }
 
 template <typename SearchCharacterType, typename MatchCharacterType>
@@ -916,7 +948,7 @@ template<typename StringClass> inline bool startsWithLettersIgnoringASCIICaseCom
 
 inline bool equalIgnoringASCIICase(const char* a, const char* b)
 {
-    return equalIgnoringASCIICase(span8(a), span8(b));
+    return equalIgnoringASCIICase(unsafeSpan8(a), unsafeSpan8(b));
 }
 
 inline bool equalLettersIgnoringASCIICase(ASCIILiteral a, ASCIILiteral b)
@@ -926,7 +958,7 @@ inline bool equalLettersIgnoringASCIICase(ASCIILiteral a, ASCIILiteral b)
 
 inline bool equalIgnoringASCIICase(const char* string, ASCIILiteral literal)
 {
-    return equalIgnoringASCIICase(span8(string), literal.span8());
+    return equalIgnoringASCIICase(unsafeSpan8(string), literal.span8());
 }
 
 inline bool equalIgnoringASCIICase(ASCIILiteral a, ASCIILiteral b)
@@ -1215,13 +1247,17 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 }
 
+using WTF::charactersContain;
+using WTF::contains;
 using WTF::equalIgnoringASCIICase;
 using WTF::equalIgnoringASCIICaseWithLength;
 using WTF::equalLettersIgnoringASCIICase;
 using WTF::equalLettersIgnoringASCIICaseWithLength;
 using WTF::isLatin1;
 using WTF::span;
-using WTF::spanIncludingNullTerminator;
-using WTF::span8;
-using WTF::span8IncludingNullTerminator;
-using WTF::charactersContain;
+using WTF::spanHasPrefixIgnoringASCIICase;
+using WTF::strlenSpan;
+using WTF::unsafeSpan;
+using WTF::unsafeSpan8;
+using WTF::unsafeSpanIncludingNullTerminator;
+using WTF::unsafeSpan8IncludingNullTerminator;

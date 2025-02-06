@@ -337,12 +337,6 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 #endif
 }
 
-- (void)_setDefersLoadingForTesting:(BOOL)defersLoading
-{
-    if (RefPtr pageForTesting = _page->pageForTesting())
-        pageForTesting->setDefersLoading(defersLoading);
-}
-
 - (void)_setShareSheetCompletesImmediatelyWithResolutionForTesting:(BOOL)resolved
 {
     _resolutionForShareSheetImmediateCompletionForTesting = resolved;
@@ -896,6 +890,21 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     RefPtr networkProcess = store ? store->networkProcessIfExists() : nullptr;
     if (networkProcess)
         networkProcess->terminateIdleServiceWorkers(protectedProcessProxy->coreProcessIdentifier(), [] { });
+}
+
+- (void)_getNotifyStateForTesting:(NSString *)notificationName completionHandler:(void(^)(NSNumber *))completionHandler
+{
+#if ENABLE(NOTIFY_BLOCKING)
+    _page->protectedLegacyMainFrameProcess()->getNotifyStateForTesting(notificationName, [completionHandler = WTFMove(completionHandler)](std::optional<uint64_t> result) mutable {
+        if (!result) {
+            completionHandler(nil);
+            return;
+        }
+        completionHandler(@(result.value()));
+    });
+#else
+    completionHandler(nil);
+#endif
 }
 
 @end

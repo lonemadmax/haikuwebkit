@@ -984,7 +984,7 @@ class RunDashboardTests(RunWebKitTests):
     resultDirectory = os.path.join(RunWebKitTests.resultDirectory, "dashboard-layout-test-results")
 
     def run(self):
-        self.command += ["--layout-tests-directory", "Tools/CISupport/build-webkit-org/public_html/dashboard/Scripts/tests"]
+        self.command += ["--no-http-servers", "--layout-tests-directory", "Tools/CISupport/build-webkit-org/public_html/dashboard/Scripts/tests"]
         return super().run()
 
 
@@ -993,6 +993,14 @@ class RunWorldLeaksTests(RunWebKitTests):
     description = ["world-leaks-tests running"]
     descriptionDone = ["world-leaks-tests"]
     resultDirectory = os.path.join(RunWebKitTests.resultDirectory, "world-leaks-layout-test-results")
+    command = ["python3", "Tools/Scripts/run-webkit-tests",
+               "--no-build",
+               "--no-show-results",
+               "--no-new-test-results",
+               "--clobber-old-results",
+               "--exit-after-n-crashes-or-timeouts", "50",
+               "--exit-after-n-failures", "500",
+               WithProperties("--%(configuration)s")]
 
     def run(self):
         self.command += ["--world-leaks"]
@@ -1245,6 +1253,27 @@ class RunBuiltinsTests(shell.TestNewStyle):
     description = ["builtins-generator-tests running"]
     descriptionDone = ["builtins-generator-tests"]
     command = ["python3", "Tools/Scripts/run-builtins-generator-tests"]
+
+
+class RunMVTTests(shell.TestNewStyle):
+    command = ["Tools/Scripts/run-mvt-tests", WithProperties("--%(configuration)s"),
+               WithProperties("--%(fullPlatform)s"), "--headless"]
+    name = "MVT-tests"
+    description = ["MVT tests running"]
+    descriptionDone = ["MVT tests"]
+
+    def evaluateCommand(self, cmd):
+        self.totalUnexpectedFailures = cmd.rc
+        if self.totalUnexpectedFailures != 0:
+            self.commandFailed = True
+            return FAILURE
+        return SUCCESS
+
+    def getResultSummary(self):
+        if self.results != SUCCESS and self.totalUnexpectedFailures > 0:
+            s = "s" if self.totalUnexpectedFailures > 1 else ""
+            return {'step': f"MVT Tests: {self.totalUnexpectedFailures} unexpected failure{s}"}
+        return super().getResultSummary()
 
 
 class RunGLibAPITests(shell.TestNewStyle):

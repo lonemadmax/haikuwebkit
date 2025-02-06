@@ -65,10 +65,6 @@ public:
     WEBCORE_EXPORT static void setShouldDeactivateAudioSession(bool);
     WEBCORE_EXPORT static bool shouldDeactivateAudioSession();
 
-    WEBCORE_EXPORT static void setVorbisDecoderEnabled(bool);
-    WEBCORE_EXPORT static bool vorbisDecoderEnabled();
-    WEBCORE_EXPORT static void setOpusDecoderEnabled(bool);
-    WEBCORE_EXPORT static bool opusDecoderEnabled();
     WEBCORE_EXPORT static void setAlternateWebMPlayerEnabled(bool);
     WEBCORE_EXPORT static bool alternateWebMPlayerEnabled();
     WEBCORE_EXPORT static void setUseSCContentSharingPicker(bool);
@@ -242,6 +238,7 @@ private:
     virtual void updateSessionState() { }
 
     Vector<WeakPtr<PlatformMediaSession>> sessionsMatching(const Function<bool(const PlatformMediaSession&)>&) const;
+    WeakPtr<PlatformMediaSession> firstSessionMatching(const Function<bool(const PlatformMediaSession&)>&) const;
 
 #if !RELEASE_LOG_DISABLED
     void scheduleStateLog();
@@ -269,12 +266,6 @@ private:
     WeakHashSet<NowPlayingMetadataObserver> m_nowPlayingMetadataObservers;
     TaskCancellationGroup m_taskGroup;
 
-#if ENABLE(VORBIS)
-    static bool m_vorbisDecoderEnabled;
-#endif
-#if ENABLE(OPUS)
-    static bool m_opusDecoderEnabled;
-#endif
 #if ENABLE(ALTERNATE_WEBM_PLAYER)
     static bool m_alternateWebMPlayerEnabled;
 #endif

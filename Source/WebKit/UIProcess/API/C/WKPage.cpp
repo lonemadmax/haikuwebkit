@@ -81,6 +81,7 @@
 #include "WebBackForwardList.h"
 #include "WebFormClient.h"
 #include "WebFrameProxy.h"
+#include "WebFullScreenManagerProxy.h"
 #include "WebImage.h"
 #include "WebInspectorUIProxy.h"
 #include "WebOpenPanelResultListenerProxy.h"
@@ -148,6 +149,10 @@ template<> struct ClientTraits<WKPagePolicyClientBase> {
 
 template<> struct ClientTraits<WKPageUIClientBase> {
     typedef std::tuple<WKPageUIClientV0, WKPageUIClientV1, WKPageUIClientV2, WKPageUIClientV3, WKPageUIClientV4, WKPageUIClientV5, WKPageUIClientV6, WKPageUIClientV7, WKPageUIClientV8, WKPageUIClientV9, WKPageUIClientV10, WKPageUIClientV11, WKPageUIClientV12, WKPageUIClientV13, WKPageUIClientV14, WKPageUIClientV15, WKPageUIClientV16, WKPageUIClientV17, WKPageUIClientV18, WKPageUIClientV19> Versions;
+};
+
+template<> struct ClientTraits<WKPageFullScreenClientBase> {
+    typedef std::tuple<WKPageFullScreenClientV0> Versions;
 };
 
 #if ENABLE(CONTEXT_MENUS)
@@ -1168,6 +1173,116 @@ void WKPageSetPageInjectedBundleClient(WKPageRef pageRef, const WKPageInjectedBu
     toImpl(pageRef)->setInjectedBundleClient(wkClient);
 }
 
+void WKPageSetFullScreenClientForTesting(WKPageRef pageRef, const WKPageFullScreenClientBase* client)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(FULLSCREEN_API)
+    class FullScreenClientForTesting : public API::Client<WKPageFullScreenClientBase>, public WebKit::WebFullScreenManagerProxyClient {
+        WTF_MAKE_FAST_ALLOCATED;
+        WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FullScreenClientForTesting);
+    public:
+        FullScreenClientForTesting(const WKPageFullScreenClientBase* client, WebPageProxy* page)
+            : m_page(page)
+        {
+            initialize(client);
+        }
+
+    private:
+        void closeFullScreenManager() override { }
+        bool isFullScreen() override { return false; }
+
+        void enterFullScreen(
+#if PLATFORM(IOS_FAMILY)
+            WebCore::FloatSize,
+#endif
+            CompletionHandler<void(bool)>&& completionHandler) override
+        {
+            if (!m_client.willEnterFullScreen)
+                return completionHandler(false);
+            completionHandler(m_client.willEnterFullScreen(toAPI(m_page.get()), m_client.base.clientInfo));
+        }
+
+        void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override
+        {
+            if (!m_client.beganEnterFullScreen)
+                return;
+            m_client.beganEnterFullScreen(toAPI(m_page.get()), toAPI(initialFrame), toAPI(finalFrame), m_client.base.clientInfo);
+        }
+
+        void exitFullScreen() override
+        {
+            if (!m_client.exitFullScreen)
+                return;
+            m_client.exitFullScreen(toAPI(m_page.get()), m_client.base.clientInfo);
+        }
+
+        void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override
+        {
+            if (!m_client.beganExitFullScreen)
+                return;
+            m_client.beganExitFullScreen(toAPI(m_page.get()), toAPI(initialFrame), toAPI(finalFrame), m_client.base.clientInfo);
+        }
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+        void updateImageSource() override { }
+#endif
+
+        WeakPtr<WebPageProxy> m_page;
+    };
+    [[maybe_unused]] FullScreenClientForTesting::WTFDidOverrideDeleteForCheckedPtr makeGCCHappy { 0 };
+
+    auto fullscreenClient = client ? makeUnique<FullScreenClientForTesting>(client, toImpl(pageRef)) : nullptr;
+    toImpl(pageRef)->setFullScreenClientForTesting(WTFMove(fullscreenClient));
+#else
+    UNUSED_PARAM(client);
+#endif
+}
+
+void WKPageDidEnterFullScreen(WKPageRef pageRef)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(FULLSCREEN_API)
+    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
+        manager->didEnterFullScreen();
+#endif
+}
+
+void WKPageWillExitFullScreen(WKPageRef pageRef)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(FULLSCREEN_API)
+    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
+        manager->willExitFullScreen();
+#endif
+}
+
+void WKPageDidExitFullScreen(WKPageRef pageRef)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(FULLSCREEN_API)
+    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
+        manager->didExitFullScreen();
+#endif
+}
+
+void WKPageSaveScrollPositionForFullScreen(WKPageRef pageRef)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(FULLSCREEN_API)
+    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
+        manager->saveScrollPosition();
+#endif
+}
+
+void WKPageRestoreScrollPositionAfterFullScreen(WKPageRef pageRef)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(FULLSCREEN_API)
+    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
+        manager->restoreScrollPosition();
+#endif
+}
+
 void WKPageSetPageFormClient(WKPageRef pageRef, const WKPageFormClientBase* wkClient)
 {
     CRASH_IF_SUSPENDED;
@@ -1483,7 +1598,7 @@ private:
     {
     }
 
-    Function<void (bool)> m_completionHandler;
+    Function<void(bool)> m_completionHandler;
 };
 
 class RunJavaScriptPromptResultListener : public API::ObjectImpl<API::Object::Type::RunJavaScriptPromptResultListener> {
@@ -2844,15 +2959,21 @@ void WKPageSetMuted(WKPageRef pageRef, WKMediaMutedState mutedState)
     if (mutedState & kWKMediaCaptureDevicesMuted)
         coreState.add(WebCore::MediaProducer::AudioAndVideoCaptureIsMuted);
 
-    if (mutedState & kWKMediaScreenCaptureMuted)
+    if (mutedState & kWKMediaScreenCaptureMuted) {
         coreState.add(WebCore::MediaProducerMutedState::ScreenCaptureIsMuted);
+        coreState.add(WebCore::MediaProducerMutedState::WindowCaptureIsMuted);
+        coreState.add(WebCore::MediaProducerMutedState::SystemAudioCaptureIsMuted);
+    }
     if (mutedState & kWKMediaCameraCaptureMuted)
         coreState.add(WebCore::MediaProducerMutedState::VideoCaptureIsMuted);
     if (mutedState & kWKMediaMicrophoneCaptureMuted)
         coreState.add(WebCore::MediaProducerMutedState::AudioCaptureIsMuted);
 
-    if (mutedState & kWKMediaScreenCaptureUnmuted)
+    if (mutedState & kWKMediaScreenCaptureUnmuted) {
         coreState.remove(WebCore::MediaProducerMutedState::ScreenCaptureIsMuted);
+        coreState.remove(WebCore::MediaProducerMutedState::WindowCaptureIsMuted);
+        coreState.remove(WebCore::MediaProducerMutedState::SystemAudioCaptureIsMuted);
+    }
     if (mutedState & kWKMediaCameraCaptureUnmuted)
         coreState.remove(WebCore::MediaProducerMutedState::VideoCaptureIsMuted);
     if (mutedState & kWKMediaMicrophoneCaptureUnmuted)
@@ -3252,8 +3373,11 @@ void WKPageSetMockCaptureDevicesInterrupted(WKPageRef pageRef, bool isCameraInte
 {
     CRASH_IF_SUSPENDED;
 #if ENABLE(MEDIA_STREAM) && ENABLE(GPU_PROCESS)
-    auto& gpuProcess = toImpl(pageRef)->configuration().processPool().ensureGPUProcess();
-    gpuProcess.setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
+    auto preferences = toImpl(pageRef)->protectedPreferences();
+    if (preferences->useGPUProcessForMediaEnabled()) {
+        auto& gpuProcess = toImpl(pageRef)->configuration().processPool().ensureGPUProcess();
+        gpuProcess.setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
+    }
 #endif
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
     toImpl(pageRef)->setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
@@ -3267,6 +3391,10 @@ void WKPageTriggerMockCaptureConfigurationChange(WKPageRef pageRef, bool forMicr
     MockRealtimeMediaSourceCenter::singleton().triggerMockCaptureConfigurationChange(forMicrophone, forDisplay);
 
 #if ENABLE(GPU_PROCESS)
+    auto preferences = toImpl(pageRef)->protectedPreferences();
+    if (!preferences->useGPUProcessForMediaEnabled())
+        return;
+
     auto& gpuProcess = toImpl(pageRef)->configuration().processPool().ensureGPUProcess();
     gpuProcess.triggerMockCaptureConfigurationChange(forMicrophone, forDisplay);
 #endif // ENABLE(GPU_PROCESS)

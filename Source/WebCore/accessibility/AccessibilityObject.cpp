@@ -87,6 +87,7 @@
 #include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderTheme.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
@@ -165,7 +166,7 @@ void AccessibilityObject::detachRemoteParts(AccessibilityDetachmentType detachme
     // Menu close events need to notify the platform. No element is used in the notification because it's a destruction event.
     if (detachmentType == AccessibilityDetachmentType::ElementDestroyed && roleValue() == AccessibilityRole::Menu) {
         if (auto* cache = axObjectCache())
-            cache->postNotification(nullptr, &cache->document(), AXNotification::MenuClosed);
+            cache->postNotification(nullptr, cache->document(), AXNotification::MenuClosed);
     }
 
     // Clear any children and call detachFromParent on them so that
@@ -1050,11 +1051,14 @@ struct TextOperationRange {
 
 static std::optional<TextOperationRange> textOperationRangeFromRange(const SimpleRange& range)
 {
-    RefPtr rootEditableElement = range.start.container->rootEditableElement();
+    RefPtr<Element> rootEditableElement = range.startContainer().rootEditableElement();
     if (!rootEditableElement)
         return std::nullopt;
 
-    std::optional<SimpleRange> scope = makeRangeSelectingNode(*rootEditableElement);
+    auto scopeStart = firstPositionInNode(rootEditableElement.get());
+    auto scopeEnd = lastPositionInNode(rootEditableElement.get());
+
+    std::optional<SimpleRange> scope = makeSimpleRange(scopeStart, scopeEnd);
     if (!scope)
         return std::nullopt;
 
@@ -1417,7 +1421,7 @@ Document* AccessibilityObject::topDocument() const
 {
     if (!document())
         return nullptr;
-    return &document()->topDocument();
+    return document()->mainFrameDocument();
 }
 
 RenderView* AccessibilityObject::topRenderer() const
@@ -1770,7 +1774,7 @@ static RenderListItem* renderListItemContainer(Node* node)
 }
 
 // Returns the text representing a list marker taking into account the position of the text in the line of text.
-static StringView listMarkerText(RenderListItem* listItem, const VisiblePosition& startVisiblePosition, std::optional<StringView> markerText = std::nullopt)
+static StringView lineStartListMarkerText(RenderListItem* listItem, const VisiblePosition& startVisiblePosition, std::optional<StringView> markerText = std::nullopt)
 {
     if (!listItem)
         return { };
@@ -1796,7 +1800,7 @@ StringView AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, Pos
     auto markerText = listItem->markerTextWithSuffix();
     if (markerText.isEmpty())
         return { };
-    return listMarkerText(listItem, startPosition, markerText);
+    return lineStartListMarkerText(listItem, startPosition, markerText);
 }
 
 String AccessibilityObject::stringForRange(const SimpleRange& range) const
@@ -1837,7 +1841,7 @@ String AccessibilityObject::stringForVisiblePositionRange(const VisiblePositionR
         // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
         if (it.text().length()) {
             // Add a textual representation for list marker text.
-            builder.append(listMarkerText(renderListItemContainer(it.node()), visiblePositionRange.start));
+            builder.append(lineStartListMarkerText(renderListItemContainer(it.node()), visiblePositionRange.start));
             it.appendTextToStringBuilder(builder);
         } else {
             // locate the node and starting offset for this replaced range
@@ -2157,14 +2161,22 @@ Page* AccessibilityObject::page() const
 
 LocalFrameView* AccessibilityObject::documentFrameView() const 
 { 
-    const AccessibilityObject* object = this;
-    while (object && !object->isAccessibilityRenderObject()) 
+    RefPtr<const AccessibilityObject> object = this;
+    while (object) {
+        // Ascend until we find an ancestor with a valid renderer or node, from which we can
+        // actually get a frameview.
+        if (auto* axRenderObject = dynamicDowncast<AccessibilityRenderObject>(*object)) {
+            if (axRenderObject->renderer() || axRenderObject->node()) {
+                object = axRenderObject;
+                break;
+            }
+        } else if (auto* axNodeObject = dynamicDowncast<AccessibilityNodeObject>(*object); axNodeObject && axNodeObject->node()) {
+            object = axNodeObject;
+            break;
+        }
         object = object->parentObject();
-        
-    if (!object)
-        return nullptr;
-
-    return object->documentFrameView();
+    }
+    return object ? object->documentFrameView() : nullptr;
 }
 
 const AccessibilityObject::AccessibilityChildrenVector& AccessibilityObject::children(bool updateChildrenIfNeeded)
@@ -2744,11 +2756,21 @@ static ARIAReverseRoleMap& reverseAriaRoleMap()
 
 AccessibilityRole AccessibilityObject::ariaRoleToWebCoreRole(const String& value)
 {
+    return ariaRoleToWebCoreRole(value, [] (const AccessibilityRole&) {
+        return false;
+    });
+}
+
+AccessibilityRole AccessibilityObject::ariaRoleToWebCoreRole(const String& value, const Function<bool(const AccessibilityRole&)>& skipRole)
+{
     if (value.isNull() || value.isEmpty())
         return AccessibilityRole::Unknown;
     auto simplifiedValue = value.simplifyWhiteSpace(isASCIIWhitespace);
     for (auto roleName : StringView(simplifiedValue).split(' ')) {
         AccessibilityRole role = ariaRoleMap().get<ASCIICaseInsensitiveStringViewHashTranslator>(roleName);
+        if (skipRole(role))
+            continue;
+
         if (enumToUnderlyingType(role))
             return role;
     }
@@ -2923,17 +2945,12 @@ const RenderStyle* AccessibilityObject::style() const
     if (auto* renderer = this->renderer())
         return &renderer->style();
 
-    auto* element = this->element();
-    return element ? element->computedStyle() : nullptr;
-}
-
-const RenderStyle* AccessibilityObject::existingStyle() const
-{
-    if (auto* renderer = this->renderer())
-        return &renderer->style();
-
-    auto* element = this->element();
-    return element ? element->existingComputedStyle() : nullptr;
+    RefPtr element = this->element();
+    if (!element)
+        return nullptr;
+    // We cannot resolve style (as computedStyle() does) if we are downstream of an existing render tree
+    // update. Otherwise, a RELEASE_ASSERT preventing re-entrancy will be hit inside RenderTreeBuilder.
+    return RenderTreeBuilder::current() ? element->existingComputedStyle() : element->computedStyle();
 }
 
 bool AccessibilityObject::isValueAutofillAvailable() const
@@ -3213,7 +3230,7 @@ bool AccessibilityObject::supportsRangeValue() const
         || isScrollbar()
         || isSpinButton()
         || (isSplitter() && canSetFocusAttribute())
-        || isAttachmentElement();
+        || hasAttachmentTag();
 }
     
 bool AccessibilityObject::supportsHasPopup() const
@@ -3249,9 +3266,8 @@ String AccessibilityObject::popupValue() const
 
 bool AccessibilityObject::hasDatalist() const
 {
-#if ENABLE(DATALIST_ELEMENT)
     auto datalistId = getAttribute(listAttr);
-    if (datalistId.isNull() || datalistId.isEmpty())
+    if (datalistId.isEmpty())
         return false;
 
     auto element = this->element();
@@ -3260,9 +3276,6 @@ bool AccessibilityObject::hasDatalist() const
 
     auto datalist = element->treeScope().getElementById(datalistId);
     return is<HTMLDataListElement>(datalist);
-#else
-    return false;
-#endif
 }
 
 bool AccessibilityObject::supportsSetSize() const
@@ -3935,10 +3948,10 @@ String AccessibilityObject::validationMessage() const
 
 AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
 {
-    if (auto* style = this->style()) {
+    if (const auto* style = this->style()) {
         if (style->effectiveInert())
             return AccessibilityObjectInclusion::IgnoreObject;
-        if (style->usedVisibility() != Visibility::Visible)
+        if (isVisibilityHidden(*style))
             return AccessibilityObjectInclusion::IgnoreObject;
     }
 
@@ -3951,7 +3964,7 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
 
     bool ignoreARIAHidden = isFocused();
     if (Accessibility::findAncestor<AccessibilityObject>(*this, false, [&] (const auto& object) {
-        const auto* style = object.existingStyle();
+        const auto* style = object.style();
         if (style && WebCore::isRenderHidden(*style))
             return true;
 
@@ -3972,7 +3985,8 @@ bool AccessibilityObject::isWithinHiddenWebArea() const
     CheckedPtr renderView = webArea ? dynamicDowncast<RenderView>(webArea->renderer()) : nullptr;
     CheckedPtr frameRenderer = renderView ? renderView->frameView().frame().ownerRenderer() : nullptr;
     while (frameRenderer) {
-        if (frameRenderer->style().usedVisibility() != Visibility::Visible || frameRenderer->style().effectiveInert())
+        const auto& style = frameRenderer->style();
+        if (isVisibilityHidden(style) || style.effectiveInert())
             return true;
 
         renderView = frameRenderer->document().renderView();

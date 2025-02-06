@@ -99,7 +99,7 @@ static void strokeWavyTextDecoration(GraphicsContext& context, const FloatRect& 
     FloatPoint controlPoint1(0, yAxis + wavyStrokeParameters.controlPointDistance);
     FloatPoint controlPoint2(0, yAxis - wavyStrokeParameters.controlPointDistance);
 
-    for (float x = x1; x + 2 * wavyStrokeParameters.step <= x2;) {
+    for (double x = x1; x + 2 * wavyStrokeParameters.step <= x2;) {
         controlPoint1.setX(x + wavyStrokeParameters.step);
         controlPoint2.setX(x + wavyStrokeParameters.step);
         x += 2 * wavyStrokeParameters.step;
@@ -201,15 +201,6 @@ TextDecorationPainter::TextDecorationPainter(GraphicsContext& context, const Fon
     , m_shadowColorFilter(colorFilter)
     , m_font(font)
 {
-}
-
-static inline FloatSize convertShadowOffset(const LengthPoint& offset, WritingMode writingMode)
-{
-    if (writingMode.isHorizontal())
-        return { offset.x.value(), offset.y.value() };
-    if (writingMode.isLineOverLeft()) // sideways-lr
-        return { -offset.y.value(), offset.x.value() };
-    return { offset.y.value(), -offset.x.value() };
 }
 
 // Paint text-shadow, underline, overline

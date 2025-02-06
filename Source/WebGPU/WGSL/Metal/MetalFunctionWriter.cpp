@@ -527,6 +527,20 @@ void FunctionDefinitionWriter::emitNecessaryHelpers()
         m_stringBuilder.append(m_indent, "}\n\n"_s);
     }
 
+    if (m_shaderModule.usesFtoi()) {
+        m_stringBuilder.append(m_indent, "template <typename T, typename S>\n"_s,
+            m_indent, "static T __wgslFtoi(S value)\n"_s,
+            m_indent, "{\n"_s);
+        {
+            IndentationScope scope(m_indent);
+            m_stringBuilder.append(m_indent, "if constexpr (is_same_v<make_scalar_t<S>, half>)\n"_s);
+            m_stringBuilder.append(m_indent, "return T(select(clamp(value, max(S(numeric_limits<T>::min()), numeric_limits<S>::lowest()), numeric_limits<S>::max()), S(0), isnan(value)));\n"_s);
+            m_stringBuilder.append(m_indent, "else\n"_s);
+            m_stringBuilder.append(m_indent, "return T(select(clamp(value, S(numeric_limits<T>::min()), S(numeric_limits<T>::max() - ((128 << (!is_signed_v<T>)) - 1))), S(0), isnan(value)));\n"_s);
+        }
+        m_stringBuilder.append(m_indent, "}\n\n"_s);
+    }
+
     m_shaderModule.clearUsesPackedVec3();
 }
 
@@ -2031,7 +2045,12 @@ void FunctionDefinitionWriter::visit(const Type* type, AST::CallExpression& call
         };
         static constexpr SortedArrayMap mappedNames { directMappings };
         if (call.isConstructor()) {
-            visit(type);
+            if (call.isFloatToIntConversion()) {
+                m_stringBuilder.append("__wgslFtoi<"_s);
+                visit(type);
+                m_stringBuilder.append(">"_s);
+            } else
+                visit(type);
         } else if (auto mappedName = mappedNames.get(targetName))
             m_stringBuilder.append(mappedName);
         else

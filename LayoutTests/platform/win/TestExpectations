@@ -988,6 +988,8 @@ http/wpt/service-workers/fetch-service-worker-preload-changing-request.https.htm
 
 webkit.org/b/212532 http/wpt/service-workers/service-worker-crashing-while-fetching.https.html [ Pass Failure ]
 
+http/wpt/service-workers/service-worker-spinning-install.https.html [ Failure Pass ]
+
 http/tests/workers/service/registerServiceWorkerClient-after-network-process-crash.html [ Failure ]
 http/wpt/push-api [ Skip ]
 
@@ -1046,6 +1048,8 @@ webkit.org/b/263870 imported/w3c/web-platform-tests/scroll-animations/scroll-tim
 
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/progress-based-effect-delay.tentative.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/scroll-animations/css/animation-timeline-ignored.tentative.html [ Skip ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # Compositing
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -1082,6 +1086,9 @@ animations/no-style-recalc-during-accelerated-animation.html [ Pass Failure ]
 fast/css/view-transitions-nested-transparency-layers.html [ ImageOnlyFailure Pass ]
 http/wpt/css/css-view-transitions/navigation/old_vt_promises_bfcache.html [ Failure ]
 
+compositing/shared-backing/top-layer/backing-sharing-split-by-fullscreen-variant.html [ Skip ] # Timeout
+compositing/shared-backing/top-layer/backing-sharing-split-by-fullscreen.html [ Skip ] # Timeout
+
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # CSS
@@ -1104,7 +1111,6 @@ fast/css/outline-auto-empty-rects.html [ Failure ]
 fast/css/visibility-hit-test.html [ Failure ]
 
 webkit.org/b/136484 fast/css-generated-content/initial-letter-first-line-wrapping.html  [ ImageOnlyFailure ]
-webkit.org/b/140767 fast/css/read-only-read-write-input-basics.html [ ImageOnlyFailure ]
 
 # https://bugs.webkit.org/show_bug.cgi?id=138025
 # Larger text and as a result, larger elements containing said text (as compared to Mac port)
@@ -1175,8 +1181,6 @@ css3/filters/composited-during-animation-layertree.html [ Failure ]
 css3/filters/backdrop/backdrop-filter-with-border-radius-and-reflection-add.html [ ImageOnlyFailure ]
 css3/filters/backdrop/backdrop-filter-with-border-radius-and-reflection.html [ ImageOnlyFailure ]
 
-fast/css/pseudo-visited-background-color-on-input.html [ ImageOnlyFailure ]
-
 fast/css/accent-color/checkbox.html [ Pass ]
 fast/css/accent-color/progress.html [ Pass ]
 fast/css/accent-color/radio.html [ Pass ]
@@ -1200,6 +1204,11 @@ imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-t
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-010.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-to-sticky-003.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-to-sticky-004.html [ Pass ]
+
+# fullscreen isn't supported yet
+imported/w3c/web-platform-tests/css/selectors/invalidation/fullscreen-pseudo-class-in-has.html [ Skip ] # Failure
+imported/w3c/web-platform-tests/css/selectors/invalidation/modal-pseudo-class-in-has.html [ Skip ] # Failure
+imported/w3c/web-platform-tests/css/selectors/modal-pseudo-class.html [ Skip ] # Failure
 
 css3/blending/blend-mode-accelerated-parent-overflow-hidden.html [ Skip ] # ImageOnlyFailure
 css3/blending/blend-mode-body-child-isolate-html-background-color.html [ Skip ] # ImageOnlyFailure
@@ -1350,6 +1359,9 @@ imported/w3c/web-platform-tests/html/canvas/element/drawing-images-to-the-canvas
 imported/w3c/web-platform-tests/html/canvas/element/drawing-images-to-the-canvas/2d.drawImage.self.2.html [ Skip ] # Failure
 
 imported/w3c/web-platform-tests/html/semantics/rellist-feature-detection.html [ Skip ] # Failure
+
+fast/html/popover-with-fullscreen-crash.html [ Skip ] # Timeout
+
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # forms
@@ -1779,9 +1791,11 @@ streams/readable-stream-byob-reader-worker.html [ Skip ]
 streams/readable-stream-byob-request.html [ Skip ]
 streams/readable-stream-byob-request-worker.html [ Skip ]
 
-# The CookieStore API is not fully implemented on Windows port yet.
+# The Cookie Store API is not fully implemented on the Windows port yet.
 imported/w3c/web-platform-tests/cookie-store [ Skip ]
 imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.tentative.https.html [ Skip ]
+http/tests/cookies/cookie-store-get-secure.https.html [ Skip ]
+http/tests/cookies/cookie-store-set-secure.https.html [ Skip ]
 
 webkit.org/b/271132 [ Debug ] fast/text/crash-grapheme-cluster-spanning-adjacent-textitems.html [ Skip ] # Crash
 
@@ -1954,6 +1968,7 @@ fast/text/hangul-generic-font-families.html [ Skip ]
 fast/text/canvas-color-fonts [ Skip ]
 fast/text/glyph-display-lists [ Skip ]
 fast/text/international/system-language/navigator-language [ Skip ]
+fast/text/otsvg-spacing-canvas.html [ Skip ]
 fast/tokenizer [ Skip ]
 fast/writing-mode [ Skip ]
 fast/xmlhttprequest [ Skip ]
@@ -2093,6 +2108,7 @@ imported/w3c/web-platform-tests/css/selectors/user-valid.html [ Skip ] # Failure
 imported/w3c/web-platform-tests/css/support [ Skip ]
 imported/w3c/web-platform-tests/css/WOFF2 [ Skip ]
 
+imported/w3c/web-platform-tests/close-watcher [ Skip ]
 imported/w3c/web-platform-tests/custom-elements [ Skip ]
 imported/w3c/web-platform-tests/deprecation-reporting [ Skip ]
 imported/w3c/web-platform-tests/dom [ Skip ]
@@ -2415,9 +2431,8 @@ animations/remove-syncing-animation.html [ Pass Failure ]
 editing/execCommand/indent-input-in-image-crash.html [ Failure ]
 
 fast/box-shadow/hidpi-box-shadow-inset-on-subpixel-position.html [ ImageOnlyFailure ]
-fast/text/whitespace-with-zero-width-space-in-between.html [ ImageOnlyFailure ]
-
 fast/text/otsvg-canvas.html [ ImageOnlyFailure ]
+fast/text/whitespace/whitespace-with-zero-width-space-in-between.html [ ImageOnlyFailure ]
 
 fast/gradients/alpha-premultiplied-representable-by-unpremultiplied.html [ ImageOnlyFailure ]
 fast/gradients/alpha-premultiplied.html [ ImageOnlyFailure ]
@@ -4218,7 +4233,6 @@ fast/constructors/event-source-caching.html [ Failure ]
 fast/events/5056619.html [ Failure ]
 fast/events/keydown-leftright-keys.html [ Failure ]
 fast/events/mouse-cursor-change.html [ Failure ]
-fast/events/mouse-cursor-image-set.html [ Failure ]
 fast/events/mouse-cursor-no-mousemove.html [ Failure ]
 fast/events/mouse-cursor-udpate-during-raf.html [ Failure ]
 fast/events/selectstart-by-single-click-with-shift.html [ Failure ]
@@ -4338,8 +4352,8 @@ imported/w3c/web-platform-tests/cookies/ordering/ordering.sub.html [ Skip ]
 http/tests/navigation/keyboard-events-during-provisional-navigation.html [ Failure Pass ]
 
 # waitForCompositorReady().then(takeScreenshot) times out on the internal Buildbot
-imported/w3c/web-platform-tests/scroll-animations/css/animation-range-visual-test.html [ ImageOnlyFailure Timeout ]
-imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/custom-property.html [ Pass Timeout ]
+imported/w3c/web-platform-tests/scroll-animations/css/animation-range-visual-test.html [ Skip ] # Pass ImageOnlyFailure Timeout
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/custom-property.html [ Skip ] # Pass Timeout
 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-inactive-outside-range-test.html [ Skip ] # Timeout
 
 imported/w3c/web-platform-tests/scroll-animations/view-timelines/animation-events.html [ Failure Pass ]

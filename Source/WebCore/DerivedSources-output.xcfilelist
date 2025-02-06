@@ -609,6 +609,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSClipboardItem.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSClipboardItem.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCloseEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCloseEvent.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCloseWatcher.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCloseWatcher.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSColorGamut.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSColorGamut.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCommandEvent.cpp
@@ -869,6 +871,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeviceOrientationOrMotionPermissi
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeviceOrientationOrMotionPermissionState.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDigitalCredential.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDigitalCredential.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDigitalCredentialRequest.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDigitalCredentialRequest.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDigitalCredentialRequestOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDigitalCredentialRequestOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDistanceModelType.cpp
@@ -1691,8 +1695,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIIRFilterOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIIRFilterOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdentityCredentialProtocol.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdentityCredentialProtocol.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdentityRequestProvider.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdentityRequestProvider.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdleDeadline.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdleDeadline.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIdleRequestCallback.cpp
@@ -2008,8 +2010,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Gamepad.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Gamepad.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Geolocation.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Geolocation.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Identity.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Identity.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+LoginStatus.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+LoginStatus.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+MediaCapabilities.cpp
@@ -2139,6 +2139,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOverconstrainedError.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOverconstrainedError.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOverconstrainedErrorEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOverconstrainedErrorEvent.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOverflowEvent.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSOverflowEvent.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPageRevealEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPageRevealEvent.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPageSwapEvent.cpp
@@ -3584,8 +3586,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/Namespace.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/NodeName.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/NodeName.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/PaintWorkletGlobalScopeConstructors.idl
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/PlugInsResources.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/PlugInsResourcesData.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/ProcessSyncClient.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/ProcessSyncClient.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/ProcessSyncData.h

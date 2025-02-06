@@ -2437,12 +2437,16 @@ AffineTransform CanvasRenderingContext2DBase::baseTransform() const
 void CanvasRenderingContext2DBase::prepareForDisplay()
 {
     if (auto buffer = canvasBase().buffer())
-        buffer->flushDrawingContextAsync();
+        buffer->prepareForDisplay();
 }
 
 bool CanvasRenderingContext2DBase::needsPreparationForDisplay() const
 {
+#if USE(SKIA)
+    return isAccelerated();
+#else
     return false;
+#endif
 }
 
 ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::createImageData(ImageData& existingImageData) const
@@ -2500,12 +2504,12 @@ RefPtr<ByteArrayPixelBuffer> CanvasRenderingContext2DBase::cacheImageDataIfPossi
     ConstPixelBufferConversionView source {
         .format = { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, colorSpace },
         .bytesPerRow = bytesPerRow,
-        .rows = imageData.data().asUint8ClampedArray()->data(),
+        .rows = imageData.data().asUint8ClampedArray()->span(),
     };
     PixelBufferConversionView destination {
         .format = cachedFormat,
         .bytesPerRow = bytesPerRow,
-        .rows = cachedBuffer->data().data(),
+        .rows = cachedBuffer->data().mutableSpan(),
     };
     convertImagePixels(source, destination, size);
     m_cachedContents.emplace<CachedContentsImageData>(*this, *cachedBuffer);
@@ -2538,12 +2542,12 @@ RefPtr<ImageData> CanvasRenderingContext2DBase::makeImageDataIfContentsCached(co
     ConstPixelBufferConversionView source {
         .format = pixelBuffer->format(),
         .bytesPerRow = bytesPerRow,
-        .rows = data->data(),
+        .rows = data->span(),
     };
     PixelBufferConversionView destination {
         .format = { AlphaPremultiplication::Unpremultiplied, PixelFormat::RGBA8, pixelBuffer->format().colorSpace },
         .bytesPerRow = bytesPerRow,
-        .rows = data->data(),
+        .rows = data->mutableSpan(),
     };
     convertImagePixels(source, destination, size);
     return ImageData::create(size, WTFMove(data), m_settings.colorSpace);
@@ -3051,6 +3055,71 @@ std::optional<CanvasRenderingContext2DBase::RenderingMode> CanvasRenderingContex
     return std::nullopt;
 }
 
+// FIXME: The HTML spec currently doesn't define how <length> units should be resolved, so we only
+// allow units where the resolution is straightforward. See https://github.com/whatwg/html/issues/10893.
+static bool unitAllowedForSpacing(CSS::LengthUnit lenghtUnit)
+{
+    using enum CSS::LengthUnit;
+
+    switch (lenghtUnit) {
+    case Px:
+    case Cm:
+    case Mm:
+    case Q:
+    case In:
+    case Pt:
+    case Pc:
+    case Em:
+    case QuirkyEm:
+    case Ex:
+    case Cap:
+    case Ch:
+    case Ic:
+    case Rcap:
+    case Rch:
+    case Rem:
+    case Rex:
+    case Ric:
+        return true;
+
+    case Lh:
+    case Rlh:
+    case Vw:
+    case Vh:
+    case Vmin:
+    case Vmax:
+    case Vb:
+    case Vi:
+    case Svw:
+    case Svh:
+    case Svmin:
+    case Svmax:
+    case Svb:
+    case Svi:
+    case Lvw:
+    case Lvh:
+    case Lvmin:
+    case Lvmax:
+    case Lvb:
+    case Lvi:
+    case Dvw:
+    case Dvh:
+    case Dvmin:
+    case Dvmax:
+    case Dvb:
+    case Dvi:
+    case Cqw:
+    case Cqh:
+    case Cqi:
+    case Cqb:
+    case Cqmin:
+    case Cqmax:
+        return false;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
 void CanvasRenderingContext2DBase::setLetterSpacing(const String& letterSpacing)
 {
     if (state().letterSpacing == letterSpacing)
@@ -3066,8 +3135,8 @@ void CanvasRenderingContext2DBase::setLetterSpacing(const String& letterSpacing)
     auto rawLength = parsedValue->raw();
     if (!rawLength)
         return;
-
-    // FIXME: Ensure rawLength->unit is supported by `Style::computeUnzoomedNonCalcLengthDouble`.
+    if (!unitAllowedForSpacing(rawLength->unit))
+        return;
 
     auto& fontCascade = fontProxy()->fontCascade();
     double pixels = Style::computeUnzoomedNonCalcLengthDouble(rawLength->value, rawLength->unit, CSSPropertyLetterSpacing, &fontCascade);
@@ -3091,8 +3160,8 @@ void CanvasRenderingContext2DBase::setWordSpacing(const String& wordSpacing)
     auto rawLength = parsedValue->raw();
     if (!rawLength)
         return;
-
-    // FIXME: Ensure rawLength->unit is supported by `Style::computeUnzoomedNonCalcLengthDouble`.
+    if (!unitAllowedForSpacing(rawLength->unit))
+        return;
 
     auto& fontCascade = fontProxy()->fontCascade();
     double pixels = Style::computeUnzoomedNonCalcLengthDouble(rawLength->value, rawLength->unit, CSSPropertyWordSpacing, &fontCascade);

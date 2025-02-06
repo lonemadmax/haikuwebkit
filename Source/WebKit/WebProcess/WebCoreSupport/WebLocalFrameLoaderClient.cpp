@@ -438,6 +438,8 @@ void WebLocalFrameLoaderClient::dispatchDidChangeMainDocument()
     if (!webPage)
         return;
 
+    webPage->setMainFrameDocumentVisualUpdatesAllowed(true);
+
     std::optional<NavigationIdentifier> navigationID;
     if (RefPtr documentLoader = m_localFrame->loader().documentLoader())
         navigationID = documentLoader->navigationID();
@@ -558,7 +560,7 @@ void WebLocalFrameLoaderClient::dispatchDidStartProvisionalLoad()
 #if ENABLE(FULLSCREEN_API)
     auto* document = m_localFrame->document();
     if (document && document->fullscreenManager().fullscreenElement())
-        webPage->fullScreenManager()->exitFullScreenForElement(webPage->fullScreenManager()->element());
+        webPage->fullScreenManager().exitFullScreenForElement(webPage->fullScreenManager().element());
 #endif
 
     webPage->findController().hideFindUI();
@@ -778,6 +780,18 @@ void WebLocalFrameLoaderClient::completePageTransitionIfNeeded()
     webPage->didCompletePageTransition();
     m_didCompletePageTransition = true;
     WebLocalFrameLoaderClient_RELEASE_LOG(Layout, "completePageTransitionIfNeeded: dispatching didCompletePageTransition");
+}
+
+void WebLocalFrameLoaderClient::setDocumentVisualUpdatesAllowed(bool allowed)
+{
+    if (!m_frame->isMainFrame())
+        return;
+
+    RefPtr webPage = m_frame->page();
+    if (!webPage)
+        return;
+
+    webPage->setMainFrameDocumentVisualUpdatesAllowed(allowed);
 }
 
 void WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone> milestones)
@@ -1265,67 +1279,10 @@ void WebLocalFrameLoaderClient::didRunInsecureContent(SecurityOrigin&)
     webPage->send(Messages::WebPageProxy::DidRunInsecureContentForFrame(m_frame->frameID(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 }
 
-ResourceError WebLocalFrameLoaderClient::cancelledError(const ResourceRequest& request) const
-{
-    return WebKit::cancelledError(request);
-}
-
-ResourceError WebLocalFrameLoaderClient::blockedError(const ResourceRequest& request) const
-{
-    return WebKit::blockedError(request);
-}
-
-ResourceError WebLocalFrameLoaderClient::blockedByContentBlockerError(const ResourceRequest& request) const
-{
-    return WebKit::blockedByContentBlockerError(request);
-}
-
-ResourceError WebLocalFrameLoaderClient::cannotShowURLError(const ResourceRequest& request) const
-{
-    return WebKit::cannotShowURLError(request);
-}
-
-ResourceError WebLocalFrameLoaderClient::interruptedForPolicyChangeError(const ResourceRequest& request) const
-{
-    return WebKit::interruptedForPolicyChangeError(request);
-}
-
-#if ENABLE(CONTENT_FILTERING)
-ResourceError WebLocalFrameLoaderClient::blockedByContentFilterError(const ResourceRequest& request) const
-{
-    return WebKit::blockedByContentFilterError(request);
-}
-#endif
-
-ResourceError WebLocalFrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse& response) const
-{
-    return WebKit::cannotShowMIMETypeError(response);
-}
-
-ResourceError WebLocalFrameLoaderClient::fileDoesNotExistError(const ResourceResponse& response) const
-{
-    return WebKit::fileDoesNotExistError(response);
-}
-
-ResourceError WebLocalFrameLoaderClient::httpsUpgradeRedirectLoopError(const ResourceRequest& request) const
-{
-    return WebKit::httpsUpgradeRedirectLoopError(request);
-}
-
-ResourceError WebLocalFrameLoaderClient::httpNavigationWithHTTPSOnlyError(const ResourceRequest& request) const
-{
-    return WebKit::httpNavigationWithHTTPSOnlyError(request);
-}
-
-ResourceError WebLocalFrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse& response) const
-{
-    return WebKit::pluginWillHandleLoadError(response);
-}
-
 bool WebLocalFrameLoaderClient::shouldFallBack(const ResourceError& error) const
 {
-    static NeverDestroyed<const ResourceError> cancelledError(this->cancelledError(ResourceRequest()));
-    static NeverDestroyed<const ResourceError> pluginWillHandleLoadError(this->pluginWillHandleLoadError(ResourceResponse()));
+    static NeverDestroyed<const ResourceError> cancelledError(WebKit::cancelledError(ResourceRequest()));
+    static NeverDestroyed<const ResourceError> pluginWillHandleLoadError(WebKit::pluginWillHandleLoadError(ResourceResponse()));
 
     if (error.errorCode() == cancelledError.get().errorCode() && error.domain() == cancelledError.get().domain())
         return false;
@@ -2044,10 +2001,18 @@ void WebLocalFrameLoaderClient::didExceedNetworkUsageThreshold()
     if (url.isEmpty())
         return;
 
-    webPage->sendWithAsyncReply(Messages::WebPageProxy::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), [frame = m_frame->coreLocalFrame()] (bool wasGranted) {
+    auto action = [weakFrame = WeakPtr { m_frame->coreLocalFrame() }](bool wasGranted) {
+        RefPtr frame = weakFrame.get();
+        if (!frame)
+            return;
         if (wasGranted)
             frame->showResourceMonitoringError();
-    });
+    };
+
+    if (document->shouldSkipResourceMonitorThrottling())
+        action(true);
+    else
+        webPage->sendWithAsyncReply(Messages::WebPageProxy::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), WTFMove(action));
 }
 
 #endif

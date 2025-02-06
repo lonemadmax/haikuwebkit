@@ -28,6 +28,7 @@
 
 #import <algorithm>
 #import <limits>
+#import <sys/sysctl.h>
 #import <wtf/MathExtras.h>
 #import <wtf/PageBlock.h>
 #import <wtf/StdLibExtras.h>
@@ -109,14 +110,20 @@ static Vector<WGPUFeatureName> baseFeatures(id<MTLDevice> device, const Hardware
 {
     Vector<WGPUFeatureName> features;
 
+    features.append(WGPUFeatureName_Float16Renderable);
+    features.append(WGPUFeatureName_Float32Renderable);
+    features.append(WGPUFeatureName_Float32Blendable);
+
     features.append(WGPUFeatureName_DepthClipControl);
     features.append(WGPUFeatureName_Depth32FloatStencil8);
 
     UNUSED_PARAM(baseCapabilities);
 
-#if PLATFORM(MAC)
-    if (device.supportsBCTextureCompression)
+#if !PLATFORM(WATCHOS)
+    if (device.supportsBCTextureCompression) {
         features.append(WGPUFeatureName_TextureCompressionBC);
+        features.append(WGPUFeatureName_TextureCompressionBCSliced3D);
+    }
 #else
     UNUSED_PARAM(device);
 #endif
@@ -133,7 +140,19 @@ static Vector<WGPUFeatureName> baseFeatures(id<MTLDevice> device, const Hardware
         features.append(WGPUFeatureName_Float32Filterable);
 #endif
 
-    if (baseCapabilities.timestampCounterSet)
+    static dispatch_once_t onceToken;
+    static bool isDebugDevice = false;
+    dispatch_once(&onceToken, ^{
+        // Workaround for rdar://143905417
+        if ((isDebugDevice = [NSStringFromClass([device class]) containsString:@"Debug"]))
+            WTFLogAlways("WebGPU: Using DEBUG Metal device"); // NOLINT
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitWebGPUActAsNonDebugDevice"]) {
+            isDebugDevice = false;
+            WTFLogAlways("WebGPU: Avoiding workarounds to the Metal debug device - WebKit have not behave correctly"); // NOLINT
+        }
+    });
+
+    if (!isDebugDevice && baseCapabilities.timestampCounterSet)
         features.append(WGPUFeatureName_TimestampQuery);
 
     return features;
@@ -150,6 +169,7 @@ static HardwareCapabilities apple4(id<MTLDevice> device)
 
     features.append(WGPUFeatureName_TextureCompressionETC2);
     features.append(WGPUFeatureName_TextureCompressionASTC);
+    features.append(WGPUFeatureName_TextureCompressionASTCSliced3D);
 
     std::sort(features.begin(), features.end());
 
@@ -171,6 +191,7 @@ static HardwareCapabilities apple5(id<MTLDevice> device)
 
     features.append(WGPUFeatureName_TextureCompressionETC2);
     features.append(WGPUFeatureName_TextureCompressionASTC);
+    features.append(WGPUFeatureName_TextureCompressionASTCSliced3D);
 
     std::sort(features.begin(), features.end());
 
@@ -193,6 +214,7 @@ static HardwareCapabilities apple6(id<MTLDevice> device)
 
     features.append(WGPUFeatureName_TextureCompressionETC2);
     features.append(WGPUFeatureName_TextureCompressionASTC);
+    features.append(WGPUFeatureName_TextureCompressionASTCSliced3D);
 
     std::sort(features.begin(), features.end());
 
@@ -230,6 +252,8 @@ static HardwareCapabilities apple6(id<MTLDevice> device)
             .maxComputeWorkgroupSizeY =    1024,
             .maxComputeWorkgroupSizeZ =    1024,
             .maxComputeWorkgroupsPerDimension =    largeReasonableLimit(),
+            .maxStorageBuffersInFragmentStage = UINT32_MAX,
+            .maxStorageTexturesInFragmentStage = UINT32_MAX,
         },
         WTFMove(features),
         baseCapabilities,
@@ -247,6 +271,7 @@ static HardwareCapabilities apple7(id<MTLDevice> device)
 
     features.append(WGPUFeatureName_TextureCompressionETC2);
     features.append(WGPUFeatureName_TextureCompressionASTC);
+    features.append(WGPUFeatureName_TextureCompressionASTCSliced3D);
 
     std::sort(features.begin(), features.end());
 
@@ -284,6 +309,8 @@ static HardwareCapabilities apple7(id<MTLDevice> device)
             .maxComputeWorkgroupSizeY =    1024,
             .maxComputeWorkgroupSizeZ =    1024,
             .maxComputeWorkgroupsPerDimension =    largeReasonableLimit(),
+            .maxStorageBuffersInFragmentStage = UINT32_MAX,
+            .maxStorageTexturesInFragmentStage = UINT32_MAX,
         },
         WTFMove(features),
         baseCapabilities,
@@ -336,6 +363,8 @@ static HardwareCapabilities mac2(id<MTLDevice> device)
             .maxComputeWorkgroupSizeY =    1024,
             .maxComputeWorkgroupSizeZ =    1024,
             .maxComputeWorkgroupsPerDimension =    largeReasonableLimit(),
+            .maxStorageBuffersInFragmentStage = UINT32_MAX,
+            .maxStorageTexturesInFragmentStage = UINT32_MAX,
         },
         WTFMove(features),
         baseCapabilities,
@@ -391,6 +420,8 @@ static WGPULimits mergeLimits(const WGPULimits& previous, const WGPULimits& next
         .maxComputeWorkgroupSizeY = mergeMaximum(previous.maxComputeWorkgroupSizeY, next.maxComputeWorkgroupSizeY),
         .maxComputeWorkgroupSizeZ = mergeMaximum(previous.maxComputeWorkgroupSizeZ, next.maxComputeWorkgroupSizeZ),
         .maxComputeWorkgroupsPerDimension = mergeMaximum(previous.maxComputeWorkgroupsPerDimension, next.maxComputeWorkgroupsPerDimension),
+        .maxStorageBuffersInFragmentStage = mergeMaximum(previous.maxStorageBuffersInFragmentStage, next.maxStorageBuffersInFragmentStage),
+        .maxStorageTexturesInFragmentStage = mergeMaximum(previous.maxStorageTexturesInFragmentStage, next.maxStorageTexturesInFragmentStage),
     };
 };
 
@@ -419,8 +450,28 @@ static HardwareCapabilities::BaseCapabilities mergeBaseCapabilities(const Hardwa
     };
 }
 
+static bool isPhysicalHardware()
+{
+#if PLATFORM(IOS_FAMILY_SIMULATOR)
+    return false;
+#else
+    static bool result = true;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        uint32_t isVM = 0;
+        size_t size = sizeof(isVM);
+        if (!sysctlbyname("kern.hv_vmm_present", &isVM, &size, NULL, 0))
+            result = isVM ? [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitAllowWebGPUOnVMs"] : true;
+    });
+    return result;
+#endif
+}
+
 static std::optional<HardwareCapabilities> rawHardwareCapabilities(id<MTLDevice> device)
 {
+    if (!isPhysicalHardware())
+        return std::nullopt;
+
     std::optional<HardwareCapabilities> result;
 
     auto merge = [&](const HardwareCapabilities& capabilities) {
@@ -521,6 +572,10 @@ bool anyLimitIsBetterThan(const WGPULimits& target, const WGPULimits& reference)
         return true;
     if (target.maxComputeWorkgroupsPerDimension > reference.maxComputeWorkgroupsPerDimension)
         return true;
+    if (target.maxStorageBuffersInFragmentStage > reference.maxStorageBuffersInFragmentStage)
+        return true;
+    if (target.maxStorageTexturesInFragmentStage > reference.maxStorageTexturesInFragmentStage)
+        return true;
 
     return false;
 }
@@ -572,6 +627,8 @@ WGPULimits defaultLimits()
         .maxComputeWorkgroupSizeY =    256,
         .maxComputeWorkgroupSizeZ =    64,
         .maxComputeWorkgroupsPerDimension =    65535,
+        .maxStorageBuffersInFragmentStage = UINT32_MAX,
+        .maxStorageTexturesInFragmentStage = UINT32_MAX,
     };
 }
 

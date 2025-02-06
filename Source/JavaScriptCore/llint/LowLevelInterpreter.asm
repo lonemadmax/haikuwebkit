@@ -584,7 +584,7 @@ const NumberOfTypedArrayTypesExcludingBigIntArraysAndDataView = constexpr Number
 # Type flags constants.
 const MasqueradesAsUndefined = constexpr MasqueradesAsUndefined
 const ImplementsDefaultHasInstance = constexpr ImplementsDefaultHasInstance
-const OverridesGetPrototypeOutOfLine = constexpr OverridesGetPrototypeOutOfLine
+const OverridesGetPrototype = constexpr OverridesGetPrototype
 
 # Bytecode operand constants.
 const FirstConstantRegisterIndexNarrow = constexpr FirstConstantRegisterIndex8
@@ -2880,6 +2880,10 @@ op(js_to_wasm_wrapper_entry, macro ()
 end)
 
 op(wasm_to_wasm_wrapper_entry, macro ()
+    crash()
+end)
+
+op(wasm_to_wasm_ipint_wrapper_entry, macro ()
     crash()
 end)
 

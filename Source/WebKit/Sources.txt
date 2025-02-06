@@ -302,6 +302,10 @@ Shared/API/c/WKUserContentURLPattern.cpp
 Shared/Databases/IndexedDB/IDBUtilities.cpp
 
 Shared/Extensions/WebExtensionFrameIdentifier.cpp
+Shared/Extensions/WebExtensionSQLiteDatabase.cpp
+Shared/Extensions/WebExtensionSQLiteStatement.cpp
+Shared/Extensions/WebExtensionSQLiteRow.cpp
+Shared/Extensions/WebExtensionSQLiteStore.cpp
 Shared/Extensions/WebExtensionLocalization.cpp
 Shared/Extensions/WebExtensionPermission.cpp
 Shared/Extensions/WebExtensionUtilities.cpp
@@ -404,6 +408,7 @@ UIProcess/ProcessThrottler.cpp
 UIProcess/ProvisionalFrameProxy.cpp
 UIProcess/ProvisionalPageProxy.cpp
 UIProcess/RemotePageDrawingAreaProxy.cpp
+UIProcess/RemotePageFullscreenManagerProxy.cpp
 UIProcess/RemotePageProxy.cpp
 UIProcess/ResponsivenessTimer.cpp
 UIProcess/SpeechRecognitionRemoteRealtimeMediaSource.cpp
@@ -567,6 +572,9 @@ UIProcess/Extensions/WebExtensionController.cpp
 UIProcess/Extensions/WebExtensionControllerConfiguration.cpp
 UIProcess/Extensions/WebExtensionDataRecord.cpp
 UIProcess/Extensions/WebExtensionMatchPattern.cpp
+UIProcess/Extensions/WebExtensionStorageSQLiteStore.cpp
+
+UIProcess/Extensions/API/WebExtensionContextAPIStorage.cpp
 
 UIProcess/Gamepad/UIGamepad.cpp
 UIProcess/Gamepad/UIGamepadProvider.cpp
@@ -663,7 +671,6 @@ WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp
 WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.cpp
 WebProcess/InjectedBundle/InjectedBundlePageEditorClient.cpp
 WebProcess/InjectedBundle/InjectedBundlePageFormClient.cpp
-WebProcess/InjectedBundle/InjectedBundlePageFullScreenClient.cpp
 WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp
 WebProcess/InjectedBundle/InjectedBundlePageResourceLoadClient.cpp
 WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp

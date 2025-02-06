@@ -1058,6 +1058,7 @@ void FrameLoader::loadURLIntoChildFrame(const URL& url, const String& referer, L
     if (parentItem && parentItem->children().size() && isBackForwardLoadType(loadType()) && !m_frame->document()->loadEventFinished()) {
         if (RefPtr childItem = parentItem->childItemWithTarget(childFrame.tree().uniqueName())) {
             Ref childLoader = childFrame.loader();
+            childItem->setFrameID(childFrame.frameID());
             childLoader->m_requestedHistoryItem = childItem;
             childLoader->loadDifferentDocumentItem(*childItem, nullptr, loadType(), MayAttemptCacheOnlyLoadForFormSubmissionItem, ShouldTreatAsContinuingLoad::No);
             return;
@@ -1823,6 +1824,9 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     if (!isNavigationAllowed())
         return;
+
+    if (RefPtr page = frame->page(); page && page->isInSwipeAnimation())
+        loader->setLoadStartedDuringSwipeAnimation();
 
     if (frame->document())
         m_previousURL = frame->document()->url();
@@ -2654,7 +2658,7 @@ void FrameLoader::open(CachedFrameBase& cachedFrame)
     // When navigating to a CachedFrame its FrameView should never be null.  If it is we'll crash in creative ways downstream.
     ASSERT(view);
     if (RefPtr localView = dynamicDowncast<LocalFrameView>(view.get()))
-        localView->setWasScrolledByUser(false);
+        localView->setLastUserScrollType(std::nullopt);
 
     Ref frame = m_frame.get();
     std::optional<IntRect> previousViewFrameRect = frame->view() ?  frame->view()->frameRect() : std::optional<IntRect>(std::nullopt);
@@ -2998,7 +3002,7 @@ void FrameLoader::setOriginalURLForDownloadRequest(ResourceRequest& request)
         request.setFirstPartyForCookies(URL());
     else
         request.setFirstPartyForCookies(originalURL);
-    addSameSiteInfoToRequestIfNeeded(request, initiator.get(), protectedFrame()->protectedPage().get());
+    addSameSiteInfoToRequestIfNeeded(request, initiator.get());
 }
 
 void FrameLoader::didReachLayoutMilestone(OptionSet<LayoutMilestone> milestones)
@@ -3325,7 +3329,7 @@ void FrameLoader::updateRequestAndAddExtraFields(Frame& targetFrame, ResourceReq
                 ASSERT(ownerFrame || localFrame->isMainFrame() || localFrame->settings().siteIsolationEnabled());
             }
         }
-        addSameSiteInfoToRequestIfNeeded(request, initiator, page.get());
+        addSameSiteInfoToRequestIfNeeded(request, initiator);
     }
 
     // In case of service worker navigation load, we inherit isTopSite from the FetchEvent request directly.
@@ -3433,7 +3437,7 @@ void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, const String& 
 // Implements the "'Same-site' and 'cross-site' Requests" algorithm from <https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00#section-2.1>.
 // The algorithm is ammended to treat URLs that inherit their security origin from their owner (e.g. about:blank)
 // as same-site. This matches the behavior of Chrome and Firefox.
-void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, const Document* initiator, const Page* page)
+void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, const Document* initiator)
 {
     if (!request.isSameSiteUnspecified())
         return;
@@ -3445,23 +3449,6 @@ void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, con
         request.setIsSameSite(true);
         return;
     }
-    if (page && page->shouldAssumeSameSiteForRequestTo(request.url())) {
-        request.setIsSameSite(true);
-        return;
-    }
-#if PLATFORM(COCOA)
-    bool isFullBrowser { true };
-    if (auto frame = initiator->frame())
-        isFullBrowser = frame->loader().client().isParentProcessAFullWebBrowser();
-    if (initiator->url().protocolIsFile() && !isFullBrowser && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::LaxCookieSameSiteAttribute)) {
-        request.setIsSameSite(true);
-        return;
-    }
-    if (initiator->quirks().needsLaxSameSiteCookieQuirk(request.url())) {
-        request.setIsSameSite(true);
-        return;
-    }
-#endif
 
     request.setIsSameSite(initiator->isSameSiteForCookies(request.url()));
 }
@@ -3963,6 +3950,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
 
     bool urlIsDisallowed = allowNavigationToInvalidURL == AllowNavigationToInvalidURL::No && !request.url().isValid();
     bool canContinue = navigationPolicyDecision == NavigationPolicyDecision::ContinueLoad && shouldClose() && !urlIsDisallowed;
+    bool isTargetItem = frame->loader().checkedHistory()->provisionalItem() ? frame->loader().checkedHistory()->provisionalItem()->isTargetItem() : false;
 
     if (!canContinue) {
         FRAMELOADER_RELEASE_LOG_FORWARDABLE(FRAMELOADER_CONTINUELOADAFTERNAVIGATIONPOLICY_CANNOT_CONTINUE, static_cast<int>(allowNavigationToInvalidURL), request.url().isValid(), static_cast<int>(navigationPolicyDecision));
@@ -3991,10 +3979,8 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest& reque
         if (navigationPolicyDecision != NavigationPolicyDecision::LoadWillContinueInAnotherProcess)
             checkLoadComplete();
 
-        if (RefPtr provisionalItem = history().provisionalItem(); provisionalItem && isBackForwardLoadType(policyChecker().loadType())) {
-            if (RefPtr page = frame->page())
-                page->checkedBackForward()->clearProvisionalItem(*provisionalItem);
-        }
+        if ((isTargetItem || frame->isMainFrame()) && isBackForwardLoadType(policyChecker().loadType()))
+            history().clearProvisionalItem();
         return;
     }
 
@@ -4299,7 +4285,7 @@ void FrameLoader::loadSameDocumentItem(HistoryItem& item)
     // FIXME: Does form state need to be saved here too?
     history->saveScrollPositionAndViewStateToItem(history->protectedCurrentItem().get());
     if (RefPtr view = frame->view())
-        view->setWasScrolledByUser(false);
+        view->setLastUserScrollType(std::nullopt);
 
     history->setCurrentItem(item);
         
@@ -4489,29 +4475,29 @@ void FrameLoader::retryAfterFailedCacheOnlyMainResourceLoad()
     }
 }
 
-ResourceError FrameLoader::cancelledError(const ResourceRequest& request) const
+ResourceError FrameLoader::cancelledError(const ResourceRequest& request)
 {
-    ResourceError error = m_client->cancelledError(request);
+    ResourceError error = platformStrategies()->loaderStrategy()->cancelledError(request);
     error.setType(ResourceError::Type::Cancellation);
     return error;
 }
 
-ResourceError FrameLoader::blockedByContentBlockerError(const ResourceRequest& request) const
+ResourceError FrameLoader::blockedByContentBlockerError(const ResourceRequest& request)
 {
-    return m_client->blockedByContentBlockerError(request);
+    return platformStrategies()->loaderStrategy()->blockedByContentBlockerError(request);
 }
 
-ResourceError FrameLoader::blockedError(const ResourceRequest& request) const
+ResourceError FrameLoader::blockedError(const ResourceRequest& request)
 {
-    ResourceError error = m_client->blockedError(request);
+    ResourceError error = platformStrategies()->loaderStrategy()->blockedError(request);
     error.setType(ResourceError::Type::Cancellation);
     return error;
 }
 
 #if ENABLE(CONTENT_FILTERING)
-ResourceError FrameLoader::blockedByContentFilterError(const ResourceRequest& request) const
+ResourceError FrameLoader::blockedByContentFilterError(const ResourceRequest& request)
 {
-    ResourceError error = m_client->blockedByContentFilterError(request);
+    ResourceError error = platformStrategies()->loaderStrategy()->blockedByContentFilterError(request);
     error.setType(ResourceError::Type::General);
     return error;
 }
@@ -4656,6 +4642,11 @@ void FrameLoader::loadProgressingStatusChanged()
 void FrameLoader::completePageTransitionIfNeeded()
 {
     m_client->completePageTransitionIfNeeded();
+}
+
+void FrameLoader::setDocumentVisualUpdatesAllowed(bool allowed)
+{
+    m_client->setDocumentVisualUpdatesAllowed(allowed);
 }
 
 void FrameLoader::clearTestingOverrides()

@@ -341,6 +341,20 @@ void Queue::submit(Vector<Ref<WebGPU::CommandBuffer>>&& commands)
         [[MTLCaptureManager sharedCaptureManager] stopCapture];
 }
 
+uint32_t Queue::retainEncoder(CommandEncoder& encoder)
+{
+    auto encoderHandle = m_retainedEncoders.size();
+    m_retainedEncoders.add(encoderHandle, RefPtr { &encoder });
+    return encoderHandle;
+}
+
+void Queue::releaseEncoder(uint32_t encoderHandle)
+{
+    scheduleWork([protectedThis = Ref { *this }, encoderHandle]() {
+        protectedThis->m_retainedEncoders.remove(encoderHandle);
+    });
+}
+
 bool Queue::validateWriteBuffer(const Buffer& buffer, uint64_t bufferOffset, size_t size) const
 {
     if (!isValidToUseWith(buffer, *this))
@@ -478,8 +492,8 @@ NSString* Queue::errorValidatingWriteTexture(const WGPUImageCopyTexture& destina
         aspectSpecificFormat = Texture::aspectSpecificFormat(texture.format(), destination.aspect);
     }
 
-    if (!Texture::validateLinearTextureData(dataLayout, dataByteSize, aspectSpecificFormat, size))
-        return ERROR_STRING(@"validateLinearTextureData failed");
+    if (NSString* errorString = Texture::errorValidatingLinearTextureData(dataLayout, dataByteSize, aspectSpecificFormat, size))
+        return ERROR_STRING(errorString);
 
 #undef ERROR_STRING
     return nil;

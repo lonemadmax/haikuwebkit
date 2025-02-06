@@ -61,7 +61,7 @@ class WebExtension : public API::ObjectImpl<API::Object::Type::WebExtension>, pu
 public:
     using IconCacheEntry = std::variant<RefPtr<WebCore::Icon>, Vector<double>>;
     using IconsCache = HashMap<String, IconCacheEntry>;
-    using Resources = HashMap<String, Ref<API::Data>>;
+    using Resources = HashMap<String, std::variant<String, Ref<API::Data>>>;
 
     template<typename... Args>
     static Ref<WebExtension> create(Args&&... args)
@@ -76,7 +76,7 @@ public:
 
     explicit WebExtension(Resources&& = { });
 
-    ~WebExtension() { }
+    ~WebExtension();
 
     enum class CacheResult : bool { No, Yes };
     enum class SuppressNotFoundErrors : bool { No, Yes };
@@ -276,7 +276,7 @@ public:
     const String& sidebarTitle();
 #endif
 
-    RefPtr<WebCore::Icon> iconForPath(const String&, RefPtr<API::Error>&, WebCore::FloatSize sizeForResizing = { });
+    RefPtr<WebCore::Icon> iconForPath(const String&, RefPtr<API::Error>&, WebCore::FloatSize sizeForResizing = { }, std::optional<double> displayScale = std::nullopt);
 
     size_t bestIconSize(const JSON::Object&, size_t idealPixelSize);
     String pathForBestImage(const JSON::Object&, size_t idealPixelSize);
@@ -352,6 +352,8 @@ public:
 #endif
 
 private:
+    static String processFileAndExtractZipArchive(const String&);
+
     bool parseManifest(StringView);
 
     void parseWebAccessibleResourcesVersion3();
@@ -398,6 +400,7 @@ private:
 #endif
 
     URL m_resourceBaseURL;
+    bool m_resourcesAreTemporary { false };
     Ref<const JSON::Value> m_manifestJSON;
     Resources m_resources;
 

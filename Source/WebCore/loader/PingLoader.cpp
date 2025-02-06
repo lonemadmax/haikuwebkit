@@ -151,7 +151,7 @@ void PingLoader::sendPing(LocalFrame& frame, const URL& pingURL, const URL& dest
     frame.protectedLoader()->updateRequestAndAddExtraFields(request, IsMainResource::No);
 
     // https://html.spec.whatwg.org/multipage/links.html#hyperlink-auditing
-    if (document->securityOrigin().isSameOriginAs(SecurityOrigin::create(pingURL).get())
+    if (document->protectedSecurityOrigin()->isSameOriginAs(SecurityOrigin::create(pingURL).get())
         || !document->url().protocolIs("https"_s))
         request.setHTTPHeaderField(HTTPHeaderName::PingFrom, document->url().string());
     request.setHTTPHeaderField(HTTPHeaderName::PingTo, destinationURL.string());
@@ -185,6 +185,7 @@ void PingLoader::sendViolationReport(LocalFrame& frame, const URL& reportURL, Re
         break;
     case ViolationReportType::COEPInheritenceViolation:
     case ViolationReportType::CORPViolation:
+    case ViolationReportType::CSPHashReport:
     case ViolationReportType::CrossOriginOpenerPolicy:
     case ViolationReportType::Deprecation:
     case ViolationReportType::StandardReportingAPIViolation:

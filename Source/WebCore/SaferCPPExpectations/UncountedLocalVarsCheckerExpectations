@@ -6,7 +6,6 @@ Modules/WebGPU/Implementation/WebGPUImpl.cpp
 Modules/applepay-ams-ui/ApplePayAMSUIPaymentHandler.cpp
 Modules/applepay/ApplePaySession.cpp
 Modules/applepay/ApplePaySetup.cpp
-Modules/applepay/PaymentSession.cpp
 Modules/applepay/paymentrequest/ApplePayPaymentHandler.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/async-clipboard/ClipboardItemBindingsDataSource.cpp
@@ -84,7 +83,6 @@ Modules/webaudio/WaveShaperDSPKernel.cpp
 Modules/webaudio/WaveShaperNode.cpp
 Modules/webauthn/AuthenticatorCoordinator.cpp
 Modules/webauthn/PublicKeyCredential.cpp
-Modules/webcodecs/WebCodecsAudioData.cpp
 Modules/webcodecs/WebCodecsUtilities.h
 Modules/webcodecs/WebCodecsVideoFrameAlgorithms.cpp
 Modules/webdatabase/ChangeVersionWrapper.cpp
@@ -298,7 +296,6 @@ dom/ElementIteratorInlines.h
 dom/ElementTextDirection.cpp
 dom/ElementTraversal.h
 dom/Event.cpp
-dom/EventContext.cpp
 dom/EventDispatcher.cpp
 dom/EventLoop.cpp
 dom/EventLoop.h
@@ -507,8 +504,6 @@ inspector/agents/WebConsoleAgent.cpp
 inspector/agents/page/PageCanvasAgent.cpp
 inspector/agents/page/PageDOMDebuggerAgent.cpp
 inspector/agents/page/PageNetworkAgent.cpp
-inspector/agents/page/PageWorkerAgent.cpp
-inspector/agents/worker/WorkerWorkerAgent.cpp
 layout/formattingContexts/inline/InlineItemsBuilder.cpp
 layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
 layout/formattingContexts/inline/text/TextUtil.cpp
@@ -596,8 +591,6 @@ page/VisitedLinkStore.cpp
 page/VisualViewport.cpp
 page/WindowOrWorkerGlobalScope.cpp
 page/WorkerNavigator.cpp
-page/cocoa/PageCocoa.mm
-page/cocoa/ResourceUsageOverlayCocoa.mm
 page/cocoa/ResourceUsageThreadCocoa.mm
 page/cocoa/WebTextIndicatorLayer.mm
 page/csp/ContentSecurityPolicy.cpp

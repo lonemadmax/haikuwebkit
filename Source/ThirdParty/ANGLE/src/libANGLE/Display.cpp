@@ -2266,6 +2266,9 @@ void Display::initDisplayExtensions()
     // All backends support specific context versions
     mDisplayExtensions.createContextBackwardsCompatible = true;
 
+    // EGL_ANGLE_memory_usage_report is implemented on front end.
+    mDisplayExtensions.memoryUsageReportANGLE = true;
+
     mDisplayExtensionString = GenerateExtensionsString(mDisplayExtensions);
 }
 
@@ -2663,6 +2666,18 @@ Error Display::queryDmaBufModifiers(EGLint format,
 {
     ANGLE_TRY(mImplementation->queryDmaBufModifiers(format, max_modifiers, modifiers, external_only,
                                                     num_modifiers));
+    return NoError();
+}
+
+Error Display::querySupportedCompressionRates(const Config *configuration,
+                                              const AttributeMap &attributes,
+                                              EGLint *rates,
+                                              EGLint rate_size,
+                                              EGLint *num_rates) const
+{
+    ANGLE_TRY(mImplementation->querySupportedCompressionRates(configuration, attributes, rates,
+                                                              rate_size, num_rates));
+
     return NoError();
 }
 

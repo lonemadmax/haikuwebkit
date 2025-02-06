@@ -403,7 +403,7 @@ AcceleratedSurfaceDMABuf::SwapChain::SwapChain(uint64_t surfaceID)
     auto& display = WebCore::PlatformDisplay::sharedDisplay();
     switch (display.type()) {
     case WebCore::PlatformDisplay::Type::Surfaceless:
-        if (display.eglExtensions().MESA_image_dma_buf_export && WebProcess::singleton().dmaBufRendererBufferMode().contains(DMABufRendererBufferMode::Hardware))
+        if (display.eglExtensions().MESA_image_dma_buf_export && WebProcess::singleton().rendererBufferTransportMode().contains(RendererBufferTransportMode::Hardware))
             m_type = Type::Texture;
         else
             m_type = Type::SharedMemory;
@@ -649,9 +649,13 @@ uint64_t AcceleratedSurfaceDMABuf::surfaceID() const
     return m_id;
 }
 
-void AcceleratedSurfaceDMABuf::clientResize(const WebCore::IntSize& size)
+bool AcceleratedSurfaceDMABuf::resize(const WebCore::IntSize& size)
 {
-    m_swapChain.resize(size);
+    if (!AcceleratedSurface::resize(size))
+        return false;
+
+    m_swapChain.resize(m_size);
+    return true;
 }
 
 void AcceleratedSurfaceDMABuf::willRenderFrame()

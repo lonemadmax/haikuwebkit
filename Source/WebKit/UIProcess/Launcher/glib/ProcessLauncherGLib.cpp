@@ -181,7 +181,9 @@ void ProcessLauncher::launchProcess()
     argv[i++] = const_cast<char*>(realExecutablePath.data());
     argv[i++] = processIdentifier.get();
     argv[i++] = webkitSocket.get();
+#if OS(LINUX)
     argv[i++] = pidSocketString.get();
+#endif
 #if ENABLE(DEVELOPER_MODE)
     if (configureJSCForTesting)
         argv[i++] = const_cast<char*>("--configure-jsc-for-testing");
@@ -211,7 +213,7 @@ void ProcessLauncher::launchProcess()
     UnixFileDescriptor sysprofFd;
 
     if (const char* sysprofFdStr = getenv("SYSPROF_CONTROL_FD"))
-        sysprofFd = UnixFileDescriptor(parseInteger<int>(StringView(span(sysprofFdStr))).value_or(-1), UnixFileDescriptor::Duplicate);
+        sysprofFd = UnixFileDescriptor(parseInteger<int>(StringView(unsafeSpan(sysprofFdStr))).value_or(-1), UnixFileDescriptor::Duplicate);
 
     if (sysprofFd) {
         int fd = sysprofFd.release();

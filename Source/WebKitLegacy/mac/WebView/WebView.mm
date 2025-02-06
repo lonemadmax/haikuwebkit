@@ -161,6 +161,7 @@
 #import <WebCore/EmptyBadgeClient.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventHandler.h>
+#import <WebCore/FloatConversion.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FontAttributes.h>
 #import <WebCore/FontCache.h>
@@ -712,10 +713,8 @@ WebDragSourceAction kit(std::optional<WebCore::DragSourceAction> action)
     case WebCore::DragSourceAction::Attachment:
         break;
 #endif
-#if ENABLE(INPUT_TYPE_COLOR)
     case WebCore::DragSourceAction::Color:
         break;
-#endif
 #if ENABLE(MODEL_ELEMENT)
     case WebCore::DragSourceAction::Model:
         break;
@@ -2944,7 +2943,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if PLATFORM(IOS_FAMILY)
     WebCore::DeprecatedGlobalSettings::setAudioSessionCategoryOverride([preferences audioSessionCategoryOverride]);
-    WebCore::DeprecatedGlobalSettings::setNetworkDataUsageTrackingEnabled([preferences networkDataUsageTrackingEnabled]);
     WebCore::DeprecatedGlobalSettings::setNetworkInterfaceName([preferences networkInterfaceName]);
 #endif
 
@@ -4793,7 +4791,7 @@ IGNORE_WARNINGS_END
 - (void)_setUnobscuredSafeAreaInsets:(WebEdgeInsets)insets
 {
     if (auto page = _private->page)
-        page->setUnobscuredSafeAreaInsets(WebCore::FloatBoxExtent(insets.top, insets.right, insets.bottom, insets.left));
+        page->setUnobscuredSafeAreaInsets({ WebCore::narrowPrecisionToFloatFromCGFloat(insets.top), WebCore::narrowPrecisionToFloatFromCGFloat(insets.right), WebCore::narrowPrecisionToFloatFromCGFloat(insets.bottom), WebCore::narrowPrecisionToFloatFromCGFloat(insets.left) });
 }
 
 - (WebEdgeInsets)_unobscuredSafeAreaInsets

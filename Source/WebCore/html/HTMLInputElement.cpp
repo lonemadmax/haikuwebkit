@@ -96,21 +96,19 @@ WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLInputElement);
 
 using namespace HTMLNames;
 
-#if ENABLE(DATALIST_ELEMENT)
 class ListAttributeTargetObserver final : public IdTargetObserver {
     WTF_MAKE_TZONE_ALLOCATED(ListAttributeTargetObserver);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ListAttributeTargetObserver);
 public:
     ListAttributeTargetObserver(const AtomString& id, HTMLInputElement&);
 
-    void idTargetChanged() override;
+    void idTargetChanged(Element&) override;
 
 private:
     WeakPtr<HTMLInputElement, WeakPtrImplWithEventTargetData> m_element;
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ListAttributeTargetObserver);
-#endif
 
 static constexpr int maxSavedResults = 256;
 
@@ -231,12 +229,10 @@ HTMLElement* HTMLInputElement::placeholderElement() const
     return m_inputType->placeholderElement();
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 HTMLElement* HTMLInputElement::dataListButtonElement() const
 {
     return m_inputType->dataListButtonElement();
 }
-#endif
 
 bool HTMLInputElement::shouldAutocomplete() const
 {
@@ -373,7 +369,6 @@ StepRange HTMLInputElement::createStepRange(AnyStepHandling anyStepHandling) con
     return m_inputType->createStepRange(anyStepHandling);
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 std::optional<Decimal> HTMLInputElement::findClosestTickMarkValue(const Decimal& value)
 {
     return m_inputType->findClosestTickMarkValue(value);
@@ -387,7 +382,6 @@ std::optional<double> HTMLInputElement::listOptionValueAsDouble(const HTMLOption
 
     return parseToDoubleForNumberType(sanitizeValue(optionValue));
 }
-#endif
 
 ExceptionOr<void> HTMLInputElement::stepUp(int n)
 {
@@ -876,7 +870,6 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
     case AttributeNames::stepAttr:
         updateValidity();
         break;
-#if ENABLE(DATALIST_ELEMENT)
     case AttributeNames::listAttr:
         m_hasNonEmptyList = !newValue.isEmpty();
         if (m_hasNonEmptyList) {
@@ -884,7 +877,6 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
             dataListMayHaveChanged();
         }
         break;
-#endif
     case AttributeNames::switchAttr:
         if (document().settings().switchControlEnabled()) {
             auto hasSwitchAttribute = !newValue.isNull();
@@ -902,7 +894,6 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
 #endif
         }
         break;
-#if ENABLE(INPUT_TYPE_COLOR)
     case AttributeNames::alphaAttr:
     case AttributeNames::colorspaceAttr:
         if (isColorControl() && document().settings().inputTypeColorEnhancementsEnabled()) {
@@ -910,7 +901,6 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
             updateValidity();
         }
         break;
-#endif
     default:
         break;
     }
@@ -1159,7 +1149,7 @@ void HTMLInputElement::copyNonAttributePropertiesFromElement(const Element& sour
 
 String HTMLInputElement::value() const
 {
-    if (document().requiresScriptExecutionTelemetry(ScriptTelemetryCategory::FormControls))
+    if (protectedDocument()->requiresScriptExecutionTelemetry(ScriptTelemetryCategory::FormControls))
         return m_inputType->defaultValue();
     if (auto* fileInput = dynamicDowncast<FileInputType>(*m_inputType))
         return fileInput->firstElementPathForInputValue();
@@ -1367,10 +1357,7 @@ void HTMLInputElement::defaultEventHandler(Event& event)
     // must dispatch a DOMActivate event - a click event will not do the job.
     if (event.type() == eventNames().DOMActivateEvent) {
         m_inputType->handleDOMActivateEvent(event);
-        if (commandForElement())
-            handleCommand();
-        else
-            handlePopoverTargetAction(event.target());
+        handlePopoverTargetAction(event.target());
         if (event.defaultHandled())
             return;
     }
@@ -1440,7 +1427,7 @@ ExceptionOr<void> HTMLInputElement::showPicker()
     // https://github.com/whatwg/html/issues/6909#issuecomment-917138991
     if (!m_inputType->allowsShowPickerAcrossFrames()) {
         auto* localTopFrame = dynamicDowncast<LocalFrame>(frame->tree().top());
-        if (!localTopFrame || !frame->document()->protectedSecurityOrigin()->isSameOriginAs(localTopFrame->document()->protectedSecurityOrigin()))
+        if (!localTopFrame || !frame->protectedDocument()->protectedSecurityOrigin()->isSameOriginAs(localTopFrame->protectedDocument()->protectedSecurityOrigin()))
             return Exception { ExceptionCode::SecurityError, "Input showPicker() called from cross-origin iframe."_s };
     }
 
@@ -1616,7 +1603,6 @@ void HTMLInputElement::setAutofillVisibility(AutofillVisibility state)
     }
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
 bool HTMLInputElement::alpha()
 {
     return document().settings().inputTypeColorEnhancementsEnabled() && hasAttributeWithoutSynchronization(alphaAttr);
@@ -1638,7 +1624,6 @@ void HTMLInputElement::setColorSpace(const AtomString& value)
     ASSERT(document().settings().inputTypeColorEnhancementsEnabled());
     setAttributeWithoutSynchronization(colorspaceAttr, value);
 }
-#endif // ENABLE(INPUT_TYPE_COLOR)
 
 FileList* HTMLInputElement::files()
 {
@@ -1757,23 +1742,19 @@ void HTMLInputElement::resumeFromDocumentSuspension()
 {
     ASSERT(needsSuspensionCallback());
 
-#if ENABLE(INPUT_TYPE_COLOR)
     // <input type=color> uses prepareForDocumentSuspension to detach the color picker UI,
     // so it should not be reset when being loaded from page cache.
     if (isColorControl())
         return;
-#endif // ENABLE(INPUT_TYPE_COLOR)
     document().postTask([inputElement = Ref { *this }] (ScriptExecutionContext&) {
         inputElement->reset();
     });
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
 void HTMLInputElement::prepareForDocumentSuspension()
 {
     m_inputType->detach();
 }
-#endif // ENABLE(INPUT_TYPE_COLOR)
 
 void HTMLInputElement::willChangeForm()
 {
@@ -1790,9 +1771,7 @@ void HTMLInputElement::didChangeForm()
 Node::InsertedIntoAncestorResult HTMLInputElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
     auto result = HTMLTextFormControlElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-#if ENABLE(DATALIST_ELEMENT)
     resetListAttributeTargetObserver();
-#endif
     if (isRadioButton())
         updateValidity();
     if (insertionType.connectedToDocument && m_inputType->needsShadowSubtree() && !m_inputType->hasCreatedShadowSubtree() && !m_hasPendingUserAgentShadowTreeUpdate) {
@@ -1835,9 +1814,7 @@ void HTMLInputElement::removedFromAncestor(RemovalType removalType, ContainerNod
     ASSERT(!isConnected());
     if (removalType.disconnectedFromDocument && !form() && isRadioButton())
         updateValidity();
-#if ENABLE(DATALIST_ELEMENT)
     resetListAttributeTargetObserver();
-#endif
 }
 
 void HTMLInputElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
@@ -1888,33 +1865,23 @@ void HTMLInputElement::requiredStateChanged()
 
 Color HTMLInputElement::valueAsColor() const
 {
-#if ENABLE(INPUT_TYPE_COLOR)
     if (auto* colorInputType = dynamicDowncast<ColorInputType>(*m_inputType))
         return colorInputType->valueAsColor();
-#endif
     return Color::black;
 }
 
 void HTMLInputElement::selectColor(StringView color)
 {
-#if ENABLE(INPUT_TYPE_COLOR)
     if (auto* colorInputType = dynamicDowncast<ColorInputType>(*m_inputType))
         colorInputType->selectColor(color);
-#else
-    UNUSED_PARAM(color);
-#endif
 }
 
 Vector<Color> HTMLInputElement::suggestedColors() const
 {
-#if ENABLE(INPUT_TYPE_COLOR)
     if (auto* colorInputType = dynamicDowncast<ColorInputType>(*m_inputType))
         return colorInputType->suggestedColors();
-#endif
     return { };
 }
-
-#if ENABLE(DATALIST_ELEMENT)
 
 RefPtr<HTMLElement> HTMLInputElement::list() const
 {
@@ -1951,8 +1918,6 @@ bool HTMLInputElement::isFocusingWithDataListDropdown() const
 {
     return m_inputType->isFocusingWithDataListDropdown();
 }
-
-#endif // ENABLE(DATALIST_ELEMENT)
 
 bool HTMLInputElement::isPresentingAttachedView() const
 {
@@ -2009,12 +1974,10 @@ bool HTMLInputElement::isRangeControl() const
     return m_inputType->isRangeControl();
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
 bool HTMLInputElement::isColorControl() const
 {
     return m_inputType->isColorControl();
 }
-#endif
 
 bool HTMLInputElement::isText() const
 {
@@ -2263,21 +2226,19 @@ void HTMLInputElement::setWidth(unsigned width)
     setUnsignedIntegralAttribute(widthAttr, width);
 }
 
-#if ENABLE(DATALIST_ELEMENT)
 ListAttributeTargetObserver::ListAttributeTargetObserver(const AtomString& id, HTMLInputElement& element)
     : IdTargetObserver(element.treeScope().idTargetObserverRegistry(), id)
     , m_element(element)
 {
 }
 
-void ListAttributeTargetObserver::idTargetChanged()
+void ListAttributeTargetObserver::idTargetChanged(Element&)
 {
     m_element->document().eventLoop().queueTask(TaskSource::DOMManipulation, [element = m_element] {
         if (element)
             element->dataListMayHaveChanged();
     });
 }
-#endif
 
 ExceptionOr<void> HTMLInputElement::setRangeText(StringView replacement, unsigned start, unsigned end, const String& selectionMode)
 {
@@ -2371,8 +2332,8 @@ static Ref<StyleGradientImage> autoFillStrongPasswordMaskImage()
                 .colorInterpolationMethod = Style::GradientColorInterpolationMethod::legacyMethod(AlphaPremultiplication::Unpremultiplied),
                 .gradientLine = { Style::Angle<> { 90 } },
                 .stops = {
-                    { Style::Color { Color::black },            Style::LengthPercentage<> { Style::Percentage<> { 50 } } },
-                    { Style::Color { Color::transparentBlack }, Style::LengthPercentage<> { Style::Percentage<> { 100 } } }
+                    { Style::Color { Color::black },            Style::LengthPercentage<>::Percentage { 50 } },
+                    { Style::Color { Color::transparentBlack }, Style::LengthPercentage<>::Percentage { 100 } }
                 }
             }
         }

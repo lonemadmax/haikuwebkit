@@ -145,8 +145,6 @@ void RemoteMediaPlayerProxy::getConfiguration(RemoteMediaPlayerConfiguration& co
 {
     RefPtr player = m_player;
     configuration.engineDescription = player->engineDescription();
-    auto maxDuration = player->maximumDurationToCacheMediaTime();
-    configuration.maximumDurationToCacheMediaTime = maxDuration ? maxDuration : 0.2;
     configuration.supportsScanning = player->supportsScanning();
     configuration.supportsFullscreen = player->supportsFullscreen();
     configuration.supportsPictureInPicture = player->supportsPictureInPicture();
@@ -184,7 +182,7 @@ void RemoteMediaPlayerProxy::load(URL&& url, std::optional<SandboxExtension::Han
 }
 
 #if ENABLE(MEDIA_SOURCE)
-void RemoteMediaPlayerProxy::loadMediaSource(URL&& url, const WebCore::ContentType& contentType, bool webMParserEnabled, RemoteMediaSourceIdentifier mediaSourceIdentifier, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&& completionHandler)
+void RemoteMediaPlayerProxy::loadMediaSource(URL&& url, const WebCore::ContentType& contentType, RemoteMediaSourceIdentifier mediaSourceIdentifier, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&& completionHandler)
 {
     RefPtr manager = m_manager.get();
     ASSERT(manager && manager->gpuConnectionToWebProcess());
@@ -199,7 +197,7 @@ void RemoteMediaPlayerProxy::loadMediaSource(URL&& url, const WebCore::ContentTy
         m_mediaSourceProxy = WTFMove(mediaSourceProxy);
         reattached = true;
     } else
-        m_mediaSourceProxy = adoptRef(*new RemoteMediaSourceProxy(*manager, mediaSourceIdentifier, webMParserEnabled, *this));
+        m_mediaSourceProxy = adoptRef(*new RemoteMediaSourceProxy(*manager, mediaSourceIdentifier, *this));
 
     RefPtr player = m_player;
 #if USE(AVFOUNDATION) && ENABLE(MEDIA_SOURCE)

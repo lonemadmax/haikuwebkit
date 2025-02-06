@@ -809,9 +809,9 @@ void WebPageProxy::potentialTapAtPosition(const WebCore::FloatPoint& position, b
     legacyMainFrameProcess().send(Messages::WebPage::PotentialTapAtPosition(requestID, position, shouldRequestMagnificationInformation), webPageIDInMainFrameProcess());
 }
 
-void WebPageProxy::commitPotentialTap(OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID pointerId)
+void WebPageProxy::commitPotentialTap(OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart, WebCore::PointerID pointerId, const String& pointerType)
 {
-    legacyMainFrameProcess().send(Messages::WebPage::CommitPotentialTap(modifiers, layerTreeTransactionIdAtLastTouchStart, pointerId), webPageIDInMainFrameProcess());
+    legacyMainFrameProcess().send(Messages::WebPage::CommitPotentialTap(modifiers, layerTreeTransactionIdAtLastTouchStart, pointerId, pointerType), webPageIDInMainFrameProcess());
 }
 
 void WebPageProxy::cancelPotentialTap()
@@ -1736,13 +1736,13 @@ void WebPageProxy::setPromisedDataForImage(IPC::Connection&, const String&, Shar
     notImplemented();
 }
 
+#endif
+
 #if ENABLE(PDF_PLUGIN)
 void WebPageProxy::pluginDidInstallPDFDocument(double initialScale)
 {
     protectedPageClient()->pluginDidInstallPDFDocument(initialScale);
 }
-#endif
-
 #endif
 
 #if PLATFORM(IOS_FAMILY)

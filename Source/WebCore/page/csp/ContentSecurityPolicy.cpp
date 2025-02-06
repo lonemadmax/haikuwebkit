@@ -1179,14 +1179,26 @@ void ContentSecurityPolicy::inheritInsecureNavigationRequestsToUpgradeFromOpener
     m_insecureNavigationRequestsToUpgrade.add(other.m_insecureNavigationRequestsToUpgrade.begin(), other.m_insecureNavigationRequestsToUpgrade.end());
 }
 
-HashSet<SecurityOriginData> ContentSecurityPolicy::takeNavigationRequestsToUpgrade()
+UncheckedKeyHashSet<SecurityOriginData> ContentSecurityPolicy::takeNavigationRequestsToUpgrade()
 {
     return WTFMove(m_insecureNavigationRequestsToUpgrade);
 }
 
-void ContentSecurityPolicy::setInsecureNavigationRequestsToUpgrade(HashSet<SecurityOriginData>&& insecureNavigationRequests)
+void ContentSecurityPolicy::setInsecureNavigationRequestsToUpgrade(UncheckedKeyHashSet<SecurityOriginData>&& insecureNavigationRequests)
 {
     m_insecureNavigationRequestsToUpgrade = WTFMove(insecureNavigationRequests);
 }
 
+const HashAlgorithmSetCollection& ContentSecurityPolicy::hashesToReport()
+{
+    if (m_hashesToReport.isEmpty()) {
+        Vector<std::pair<HashAlgorithmSet, FixedVector<String>>> hashesToReport;
+        for (auto& policy : m_policies) {
+            if (auto hash = policy->reportHash())
+                hashesToReport.append(std::make_pair(hash, policy->reportToTokens()));
+        }
+        m_hashesToReport = WTFMove(hashesToReport);
+    }
+    return m_hashesToReport;
+}
 }

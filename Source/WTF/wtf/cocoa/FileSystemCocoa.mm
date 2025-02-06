@@ -139,7 +139,7 @@ std::pair<String, PlatformFileHandle> openTemporaryFile(StringView prefix, Strin
         return { String(), invalidPlatformFileHandle };
 
     // Shrink the vector.
-    temporaryFilePath.shrink(strlen(temporaryFilePath.data()));
+    temporaryFilePath.shrink(strlenSpan(temporaryFilePath.span()));
 
     ASSERT(temporaryFilePath.last() == '/');
 
@@ -149,7 +149,7 @@ std::pair<String, PlatformFileHandle> openTemporaryFile(StringView prefix, Strin
     
     // Append the file name suffix.
     CString suffixUTF8 = suffix.utf8();
-    temporaryFilePath.append(suffixUTF8.spanIncludingNullTerminator());
+    temporaryFilePath.append(suffixUTF8.unsafeSpanIncludingNullTerminator());
 
     platformFileHandle = mkostemps(temporaryFilePath.data(), suffixUTF8.length(), O_CLOEXEC);
     if (platformFileHandle == invalidPlatformFileHandle)
@@ -168,7 +168,7 @@ NSString *createTemporaryDirectory(NSString *directoryPrefix)
         return nil;
 
     NSString *tempDirectoryComponent = [directoryPrefix stringByAppendingString:@"-XXXXXXXX"];
-    auto tempDirectorySpanIncludingNullTerminator = spanIncludingNullTerminator([[tempDirectory stringByAppendingPathComponent:tempDirectoryComponent] fileSystemRepresentation]);
+    auto tempDirectorySpanIncludingNullTerminator = unsafeSpanIncludingNullTerminator([[tempDirectory stringByAppendingPathComponent:tempDirectoryComponent] fileSystemRepresentation]);
     if (tempDirectorySpanIncludingNullTerminator.empty())
         return nil;
 

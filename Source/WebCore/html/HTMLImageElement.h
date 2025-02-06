@@ -82,8 +82,6 @@ public:
 
     const AtomString& altText() const;
 
-    CompositeOperator compositeOperator() const { return m_compositeOperator; }
-
     WEBCORE_EXPORT CachedImage* cachedImage() const;
 
     void setLoadManually(bool);
@@ -181,7 +179,7 @@ public:
 
     void setFetchPriorityForBindings(const AtomString&);
     String fetchPriorityForBindings() const;
-    RequestPriority fetchPriorityHint() const;
+    RequestPriority fetchPriority() const;
 
     bool originClean(const SecurityOrigin&) const;
 
@@ -270,7 +268,6 @@ private:
     URL m_currentURL;
     AtomString m_currentSrc;
     AtomString m_parsedUsemap;
-    CompositeOperator m_compositeOperator;
     float m_imageDevicePixelRatio;
 #if ENABLE(SERVICE_CONTROLS)
     bool m_isImageMenuEnabled { false };

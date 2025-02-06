@@ -44,6 +44,7 @@
 #include "EditorClient.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "FloatRect.h"
+#include "FocusOptions.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "HTMLAreaElement.h"
@@ -1115,17 +1116,8 @@ bool AccessibilityRenderObject::computeIsIgnored() const
     if (!m_renderer)
         return true;
 
-    if (m_renderer->isBR()) {
-#if ENABLE(AX_THREAD_TEXT_APIS)
-        // We need to preserve BRs within editable contexts (e.g. inside contenteditable) for serving
-        // text APIs off the main-thread because this allows them to be part of the AX tree, which is
-        // traversed to compute text markers.
-        auto* node = this->node();
-        return !node;
-#else
+    if (m_renderer->isBR())
         return true;
-#endif
-    }
 
     if (WeakPtr renderText = dynamicDowncast<RenderText>(m_renderer.get())) {
         // Text elements with no rendered text, or only whitespace should not be part of the AX tree.
@@ -1135,18 +1127,8 @@ bool AccessibilityRenderObject::computeIsIgnored() const
             return true;
         }
 
-        if (renderText->text().containsOnly<isASCIIWhitespace>()) {
-#if ENABLE(AX_THREAD_TEXT_APIS)
-            // Preserve whitespace-only text within editable contexts because ignoring it would cause
-            // accessibility's representation of text to be different than what is actually rendered.
-            // FIXME: This actually isn't enough — we likely need _all_ whitespace RenderTexts (within an editable or not) to compute StringForTextMarkerRange correctly.
-            // e.g. This is necessary for ax-thread-text-apis/display-contents-end-text-marker.html.
-            auto* node = this->node();
-            return !node || !node->hasEditableStyle();
-#else
+        if (renderText->text().containsOnly<isASCIIWhitespace>())
             return true;
-#endif
-        }
 
         if (renderText->parent()->isFirstLetter())
             return true;
@@ -1422,19 +1404,7 @@ AXTextRuns AccessibilityRenderObject::textRuns()
 {
     if (auto* renderLineBreak = dynamicDowncast<RenderLineBreak>(renderer())) {
         auto box = InlineIterator::boxFor(*renderLineBreak);
-        return { renderLineBreak->containingBlock(), { AXTextRun(box->lineIndex(), makeString('\n').isolatedCopy()) } };
-    }
-
-    if (RefPtr inputElement = dynamicDowncast<HTMLInputElement>(node())) {
-        // The text within input elements is not actually part of the accessibility tree, meaning we need to do a bit of extra work to expose that text here.
-        for (const auto& node : composedTreeDescendants(*inputElement)) {
-            if (!node.isTextNode())
-                continue;
-            auto* renderer = node.renderer();
-            auto* containingBlock = renderer ? renderer->containingBlock() : nullptr;
-            return containingBlock ? AXTextRuns(containingBlock, { AXTextRun(0, inputElement->value().isolatedCopy()) }) : AXTextRuns();
-        }
-        return { };
+        return { renderLineBreak->containingBlock(), { AXTextRun(box ? box->lineIndex() : 0, makeString('\n').isolatedCopy()) } };
     }
 
     if (is<HTMLImageElement>(node()) || is<HTMLMediaElement>(node())) {
@@ -1477,7 +1447,7 @@ AXTextRuns AccessibilityRenderObject::textRuns()
         }
     };
 
-    auto textBox = InlineIterator::firstTextBoxFor(*renderText);
+    auto textBox = InlineIterator::lineLeftmostTextBoxFor(*renderText);
     size_t currentLineIndex = textBox ? textBox->lineIndex() : 0;
     for (; textBox; textBox.traverseNextTextBox()) {
         size_t newLineIndex = textBox->lineIndex();
@@ -1494,6 +1464,18 @@ AXTextRuns AccessibilityRenderObject::textRuns()
     if (!lineString.isEmpty())
         runs.append({ currentLineIndex, lineString.toString().isolatedCopy() });
     return { renderText->containingBlock(), WTFMove(runs) };
+}
+
+AXTextRunLineID AccessibilityRenderObject::listMarkerLineID() const
+{
+    ASSERT(roleValue() == AccessibilityRole::ListMarker);
+    return { renderer() ? renderer()->containingBlock() : nullptr, 0 };
+}
+
+String AccessibilityRenderObject::listMarkerText() const
+{
+    CheckedPtr marker = dynamicDowncast<RenderListMarker>(renderer());
+    return marker ? marker->textWithSuffix() : String();
 }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
@@ -1554,6 +1536,8 @@ void AccessibilityRenderObject::setSelectedTextRange(CharacterRange&& range)
 
     if (isNativeTextControl()) {
         auto& textControl = uncheckedDowncast<RenderTextControl>(*m_renderer).textFormControlElement();
+        FocusOptions focusOptions { .preventScroll = true };
+        textControl.focus(focusOptions);
         textControl.setSelectionRange(range.location, range.location + range.length);
     } else if (m_renderer) {
         ASSERT(node());
@@ -1810,6 +1794,7 @@ void AccessibilityRenderObject::setSelectedVisiblePositionRange(const VisiblePos
         }
 
         setTextSelectionIntent(axObjectCache(), start == end ? AXTextStateChangeTypeSelectionMove : AXTextStateChangeTypeSelectionExtend);
+        textControl->focus();
         textControl->setSelectionRange(start, end);
     } else if (m_renderer) {
         // Make selection and tell the document to use it. If it's zero length, then move to that position.
@@ -1908,16 +1893,16 @@ CharacterRange AccessibilityRenderObject::doAXRangeForLine(unsigned lineNumber) 
     // Get the end of the line based on the starting position.
     auto lineEnd = endOfLine(lineStart);
 
-    int index1 = indexForVisiblePosition(lineStart);
-    int index2 = indexForVisiblePosition(lineEnd);
+    int lineStartIndex = indexForVisiblePosition(lineStart);
+    int lineEndIndex = indexForVisiblePosition(lineEnd);
 
     if (isHardLineBreak(lineEnd))
-        ++index2;
+        ++lineEndIndex;
 
-    if (index1 < 0 || index2 < 0 || index2 <= index1)
+    if (lineStartIndex < 0 || lineEndIndex < 0 || lineEndIndex <= lineStartIndex)
         return { };
 
-    return { static_cast<unsigned>(index1), static_cast<unsigned>(index2 - index1) };
+    return { static_cast<unsigned>(lineStartIndex), static_cast<unsigned>(lineEndIndex - lineStartIndex) };
 }
 
 // The composed character range in the text associated with this accessibility object that

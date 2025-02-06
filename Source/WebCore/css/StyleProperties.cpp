@@ -432,7 +432,7 @@ static_assert(sizeof(StyleProperties) == sizeof(SameSizeAsStyleProperties), "sty
 #ifndef NDEBUG
 void StyleProperties::showStyle()
 {
-    fprintf(stderr, "%s\n", asText().ascii().data());
+    SAFE_FPRINTF(stderr, "%s\n", asText().ascii());
 }
 #endif
 

@@ -109,10 +109,19 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
         setProperty(AXProperty::HasClickHandler, object.hasClickHandler());
         auto tag = object.tagName();
         if (tag == bodyTag)
-            setProperty(AXProperty::HasBodyTag, true);
+            setProperty(AXProperty::TagName, TagName::body);
 #if ENABLE(AX_THREAD_TEXT_APIS)
         else if (tag == markTag)
-            setProperty(AXProperty::HasMarkTag, true);
+            setProperty(AXProperty::TagName, TagName::mark);
+        else if (tag == attachmentTag)
+            setProperty(AXProperty::TagName, TagName::attachment);
+
+        setProperty(AXProperty::TextRuns, object.textRuns());
+        setProperty(AXProperty::EmitTextAfterBehavior, object.emitTextAfterBehavior());
+        if (roleValue() == AccessibilityRole::ListMarker) {
+            setProperty(AXProperty::ListMarkerText, object.listMarkerText().isolatedCopy());
+            setProperty(AXProperty::ListMarkerLineID, object.listMarkerLineID());
+        }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
     };
 
@@ -437,11 +446,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
         setProperty(AXProperty::CanBeMultilineTextField, canBeMultilineTextField(object));
     }
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    setProperty(AXProperty::TextRuns, object.textRuns());
-    setProperty(AXProperty::EmitTextAfterBehavior, object.emitTextAfterBehavior());
-#endif
-
     // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
     // so only cache them for ATSPI.
 #if USE(ATSPI)
@@ -626,8 +630,10 @@ void AXIsolatedObject::setProperty(AXProperty propertyName, AXPropertyValueVaria
         [](AXTextRuns& runs) { return !runs.size(); },
         [](RetainPtr<CTFontRef>& typedValue) { return !typedValue; },
         [](TextEmissionBehavior typedValue) { return typedValue == TextEmissionBehavior::None; },
+        [](AXTextRunLineID typedValue) { return !typedValue; },
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
         [] (WallTime& time) { return !time; },
+        [] (TagName& tag) { return tag == TagName::Unknown; },
         [] (DateComponentsType& typedValue) { return typedValue == DateComponentsType::Invalid; },
         [](auto&) {
             ASSERT_NOT_REACHED();
@@ -1413,7 +1419,7 @@ FloatRect AXIsolatedObject::relativeFrame() const
 {
     FloatRect relativeFrame;
 
-    if (auto cachedRelativeFrame = optionalAttributeValue<IntRect>(AXProperty::RelativeFrame)) {
+    if (std::optional cachedRelativeFrame = this->cachedRelativeFrame()) {
         // We should not have cached a relative frame for elements that get their geometry from their children.
         ASSERT(!m_getsGeometryFromChildren);
         relativeFrame = *cachedRelativeFrame;
@@ -1440,15 +1446,45 @@ FloatRect AXIsolatedObject::relativeFrame() const
 
     // Having an empty relative frame at this point means a frame hasn't been cached yet.
     if (relativeFrame.isEmpty()) {
-        // InitialFrameRect stores the correct size, but not position, of the element before it is painted.
-        // We find the position of the nearest painted ancestor to use as the position until the object's frame
-        // is cached during painting.
-        auto* ancestor = Accessibility::findAncestor<AXIsolatedObject>(*this, false, [] (const auto& object) {
-            return object.hasCachedRelativeFrame();
-        });
-        relativeFrame = rectAttributeValue<FloatRect>(AXProperty::InitialFrameRect);
-        if (ancestor && relativeFrame.location() == FloatPoint())
-            relativeFrame.setLocation(ancestor->relativeFrame().location());
+        std::optional<IntRect> rectFromLabels;
+        if (isControl()) {
+            // For controls, we can try to use the frame of any associated labels.
+            auto labels = labeledByObjects();
+            for (const auto& label : labels) {
+                std::optional frame = downcast<AXIsolatedObject>(label)->cachedRelativeFrame();
+                if (!frame)
+                    continue;
+                if (!rectFromLabels)
+                    rectFromLabels = *frame;
+                else if (rectFromLabels->intersects(*frame))
+                    rectFromLabels->unite(*frame);
+            }
+        }
+
+        if (rectFromLabels && !rectFromLabels->isEmpty())
+            relativeFrame = *rectFromLabels;
+        else {
+            // InitialFrameRect stores the correct size, but not position, of the element before it is painted.
+            // We find the position of the nearest painted ancestor to use as the position until the object's frame
+            // is cached during painting.
+            relativeFrame = rectAttributeValue<FloatRect>(AXProperty::InitialFrameRect);
+
+            std::optional<IntRect> ancestorRelativeFrame;
+            Accessibility::findAncestor<AXIsolatedObject>(*this, false, [&] (const auto& object) {
+                ancestorRelativeFrame = object.cachedRelativeFrame();
+                return ancestorRelativeFrame;
+            });
+
+            if (ancestorRelativeFrame)
+                relativeFrame.setLocation(ancestorRelativeFrame->location());
+        }
+
+        // If an assistive technology is requesting the frame for something,
+        // chances are it's on-screen, so clamp to 0,0 if necessary.
+        if (relativeFrame.x() < 0)
+            relativeFrame.setX(0);
+        if (relativeFrame.y() < 0)
+            relativeFrame.setY(0);
     }
 
     relativeFrame.moveBy({ remoteFrameOffset() });

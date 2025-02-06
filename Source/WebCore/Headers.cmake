@@ -412,9 +412,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/identity/CredentialRequestCoordinator.h
     Modules/identity/CredentialRequestCoordinatorClient.h
+    Modules/identity/DigitalCredentialRequest.h
     Modules/identity/DigitalCredentialRequestOptions.h
     Modules/identity/IdentityCredentialsContainer.h
-    Modules/identity/IdentityRequestProvider.h
     Modules/identity/OpenID4VPRequest.h
 
     Modules/indexeddb/IDBActiveDOMObject.h
@@ -991,7 +991,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/values/motion/CSSRayFunction.h
 
-    css/values/primitives/CSSNone.h
     css/values/primitives/CSSPosition.h
     css/values/primitives/CSSPrimitiveNumericConcepts.h
     css/values/primitives/CSSPrimitiveNumericRange.h
@@ -1021,6 +1020,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ActiveDOMCallback.h
     dom/ActiveDOMObject.h
     dom/AddEventListenerOptions.h
+    dom/AsyncNodeDeletionQueue.h
     dom/Attr.h
     dom/Attribute.h
     dom/BoundaryPoint.h
@@ -1128,6 +1128,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/NodeList.h
     dom/NodeRenderStyle.h
     dom/NodeTraversal.h
+    dom/OverflowEvent.h
     dom/ParserContentPolicy.h
     dom/PointerEvent.h
     dom/PointerEventTypeNames.h
@@ -1137,6 +1138,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/Position.h
     dom/ProcessingInstruction.h
     dom/ProgressEvent.h
+    dom/PseudoElement.h
     dom/QualifiedName.h
     dom/RadioButtonGroups.h
     dom/Range.h
@@ -1982,6 +1984,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/calc/CalculationCategory.h
     platform/calc/CalculationOperator.h
+    platform/calc/CalculationRandomKey.h
+    platform/calc/CalculationRandomKeyMap.h
+    platform/calc/CalculationRange.h
     platform/calc/CalculationTree.h
     platform/calc/CalculationValue.h
 
@@ -2666,7 +2671,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/motion/StyleRayFunction.h
 
-    style/values/primitives/StyleNone.h
     style/values/primitives/StylePosition.h
     style/values/primitives/StylePrimitiveNumericConcepts.h
     style/values/primitives/StylePrimitiveNumericTypes.h
@@ -2856,7 +2860,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/JSXPathResult.h
     ${WebCore_DERIVED_SOURCES_DIR}/Namespace.h
     ${WebCore_DERIVED_SOURCES_DIR}/NodeName.h
-    ${WebCore_DERIVED_SOURCES_DIR}/PlugInsResources.h
     ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h
     ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableByteStreamInternalsBuiltins.h

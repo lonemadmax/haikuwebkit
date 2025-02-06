@@ -41,6 +41,7 @@ struct WebTransportBidirectionalStreamConstructionParameters {
     WEBCORE_EXPORT WebTransportBidirectionalStreamConstructionParameters(WebTransportBidirectionalStreamConstructionParameters&&);
     WEBCORE_EXPORT WebTransportBidirectionalStreamConstructionParameters& operator=(WebTransportBidirectionalStreamConstructionParameters&&);
     WEBCORE_EXPORT ~WebTransportBidirectionalStreamConstructionParameters();
+    WEBCORE_EXPORT WebTransportBidirectionalStreamConstructionParameters isolatedCopy() &&;
 
     WebTransportStreamIdentifier identifier;
     Ref<WritableStreamSink> sink;

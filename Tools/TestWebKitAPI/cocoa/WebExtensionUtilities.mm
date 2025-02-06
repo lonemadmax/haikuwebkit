@@ -60,7 +60,6 @@
     if (!(self = [super init]))
         return nil;
 
-    _yieldMessage = @"";
     _extension = extension;
     _context = [[WKWebExtensionContext alloc] initForExtension:extension];
     _controller = [[WKWebExtensionController alloc] initWithConfiguration:configuration ?: WKWebExtensionControllerConfiguration.nonPersistentConfiguration];
@@ -91,7 +90,7 @@
 #if PLATFORM(MAC)
     __weak TestWebExtensionManager *weakSelf = self;
 
-    _internalDelegate.openNewWindow = ^(WKWebExtensionWindowConfiguration *configuration, WKWebExtensionContext *, void (^completionHandler)(id<WKWebExtensionWindow>, NSError *)) {
+    _internalDelegate.openNewWindow = ^(WKWebExtensionWindowConfiguration *configuration, WKWebExtensionContext *context, void (^completionHandler)(id<WKWebExtensionWindow>, NSError *)) {
         auto *newWindow = [weakSelf openNewWindowUsingPrivateBrowsing:configuration.shouldBePrivate];
 
         newWindow.windowType = configuration.windowType;
@@ -118,6 +117,14 @@
         }
 
         newWindow.frame = desiredFrame;
+
+        bool isFirstURL = true;
+        for (NSURL *url in configuration.tabURLs) {
+            auto *targetTab = isFirstURL ? newWindow.tabs.firstObject : [newWindow openNewTab];
+            [targetTab changeWebViewIfNeededForURL:url forExtensionContext:context];
+            [targetTab.webView loadRequest:[NSURLRequest requestWithURL:url]];
+            isFirstURL = false;
+        }
 
         completionHandler(newWindow, nil);
     };
@@ -150,6 +157,11 @@
     _controllerDelegate = _internalDelegate;
 
     return self;
+}
+
+- (void)dealloc
+{
+    [self unload];
 }
 
 - (BOOL)respondsToSelector:(SEL)selector
@@ -227,10 +239,16 @@
     EXPECT_NULL(error);
 }
 
+- (void)unload
+{
+    NSError *error;
+    EXPECT_TRUE([_controller unloadExtensionContext:_context error:&error]);
+    EXPECT_NULL(error);
+}
+
 - (void)run
 {
     _done = false;
-    _yieldMessage = @"";
 
     TestWebKitAPI::Util::run(&_done);
 }
@@ -238,7 +256,6 @@
 - (void)runForTimeInterval:(NSTimeInterval)interval
 {
     _done = false;
-    _yieldMessage = @"";
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(interval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         self->_done = true;
@@ -309,15 +326,9 @@
         << "Expected: " << expectedValue.UTF8String;
 }
 
-- (void)_webExtensionController:(WKWebExtensionController *)controller recordTestMessage:(NSString *)message andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber
+- (void)_webExtensionController:(WKWebExtensionController *)controller logTestMessage:(NSString *)message andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber
 {
     printf("\n%s:%u\n%s\n\n", sourceURL.UTF8String, lineNumber, message.UTF8String);
-}
-
-- (void)_webExtensionController:(WKWebExtensionController *)controller recordTestYieldedWithMessage:(NSString *)message andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber
-{
-    _done = true;
-    _yieldMessage = [message copy] ?: @"";
 }
 
 - (void)_webExtensionController:(WKWebExtensionController *)controller receivedTestMessage:(NSString *)message withArgument:(id)argument andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber
@@ -916,26 +927,22 @@ static WKUserContentController *userContentController(BOOL usingPrivateBrowsing)
 namespace TestWebKitAPI {
 namespace Util {
 
-RetainPtr<TestWebExtensionManager> loadAndRunExtension(WKWebExtension *extension, WKWebExtensionControllerConfiguration *configuration)
+RetainPtr<TestWebExtensionManager> parseExtension(NSDictionary *manifest, NSDictionary *resources, WKWebExtensionControllerConfiguration *configuration)
 {
-    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension extensionControllerConfiguration:configuration]);
-    [manager loadAndRun];
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:manifest resources:resources]);
+    return adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get() extensionControllerConfiguration:configuration]);
+}
+
+RetainPtr<TestWebExtensionManager> loadExtension(NSDictionary *manifest, NSDictionary *resources, WKWebExtensionControllerConfiguration *configuration)
+{
+    auto manager = parseExtension(manifest, resources, configuration);
+    [manager load];
     return manager;
 }
 
-RetainPtr<TestWebExtensionManager> loadAndRunExtension(NSDictionary *manifest, NSDictionary *resources, WKWebExtensionControllerConfiguration *configuration)
+void loadAndRunExtension(NSDictionary *manifest, NSDictionary *resources, WKWebExtensionControllerConfiguration *configuration)
 {
-    return loadAndRunExtension([[WKWebExtension alloc] _initWithManifestDictionary:manifest resources:resources], configuration);
-}
-
-RetainPtr<TestWebExtensionManager> loadAndRunExtension(NSDictionary *resources, WKWebExtensionControllerConfiguration *configuration)
-{
-    return loadAndRunExtension([[WKWebExtension alloc] _initWithResources:resources], configuration);
-}
-
-RetainPtr<TestWebExtensionManager> loadAndRunExtension(NSURL *baseURL, WKWebExtensionControllerConfiguration *configuration)
-{
-    return loadAndRunExtension([[WKWebExtension alloc] initWithResourceBaseURL:baseURL error:nullptr], configuration);
+    [loadExtension(manifest, resources, configuration) run];
 }
 
 NSData *makePNGData(CGSize size, SEL colorSelector)

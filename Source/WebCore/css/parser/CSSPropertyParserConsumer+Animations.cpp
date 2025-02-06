@@ -31,6 +31,7 @@
 #include "CSSParserIdioms.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPrimitiveValue.h"
+#include "CSSPropertyParser.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSPropertyParser.h"
 
