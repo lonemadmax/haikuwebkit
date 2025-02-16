@@ -32,6 +32,7 @@
 
 #include <WebCore/CookieConsentDecisionResult.h>
 #include <WebCore/Cursor.h>
+#include <WebCore/DataListSuggestionPicker.h>
 #include "WebCore/FileChooser.h"
 #include <WebCore/FileIconLoader.h>
 #include "WebCore/Frame.h"
@@ -337,6 +338,26 @@ IntRect ChromeClientHaiku::rootViewToScreen(const IntRect& rect) const
         m_webView->UnlockLooper();
     }
     return screenRect;
+}
+
+IntPoint ChromeClientHaiku::rootViewToScreen(const IntPoint& point) const
+{
+    IntPoint screenPoint(point);
+    if (m_webView->LockLooperWithTimeout(5000) == B_OK) {
+        screenPoint = IntPoint(m_webView->ConvertToScreen(BPoint(point)));
+        m_webView->UnlockLooper();
+    }
+    return screenPoint;
+}
+
+bool ChromeClientHaiku::canShowDataListSuggestionLabels() const
+{
+    return false;
+}
+
+WTF::RefPtr<WebCore::DataListSuggestionPicker> ChromeClientHaiku::createDataListSuggestionPicker(WebCore::DataListSuggestionsClient&)
+{
+    return nullptr;
 }
 
 PlatformPageClient ChromeClientHaiku::platformPageClient() const

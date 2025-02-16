@@ -200,6 +200,9 @@ namespace WebCore {
             completionHandler(true);
         }
 
+        virtual IntPoint rootViewToScreen(const IntPoint&) const final;
+        virtual bool canShowDataListSuggestionLabels() const final;
+        RefPtr<DataListSuggestionPicker> createDataListSuggestionPicker(DataListSuggestionsClient&) final;
     private:
         void EnterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
         void ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);

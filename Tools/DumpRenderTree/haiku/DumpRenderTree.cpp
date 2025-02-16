@@ -163,7 +163,7 @@ static void dumpFrameScrollPosition(BWebFrame* frame)
 static void adjustOutputTypeByMimeType(BWebFrame* frame)
 {
     const String responseMimeType(WebCore::DumpRenderTreeClient::responseMimeType(frame));
-    if (responseMimeType == "text/plain") {
+    if (responseMimeType == ASCIILiteral::fromLiteralUnsafe("text/plain")) {
         gTestRunner->setDumpAsText(true);
         gTestRunner->setGeneratePixelResults(false);
     }

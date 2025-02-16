@@ -73,8 +73,6 @@ protected:
     int sliderTickOffsetFromTrackCenter() const override;
 #endif
 
-    bool supportsDataListUI(const AtomString&) const override;
-
     bool paintSliderThumb(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const override;
@@ -88,7 +86,7 @@ private:
     rgb_color colorForControl(const RenderObject&) const;
     rgb_color colorForValue(color_which, bool useDarkAppearance) const;
 
-#if ENABLE(VIDEO) && ENABLE(MODERN_MEDIA_CONTROLS)
+#if ENABLE(VIDEO)
     String mediaControlsBase64StringForIconNameAndType(const String&, const String&) final;
     String mediaControlsFormattedStringForDuration(double) final;
 

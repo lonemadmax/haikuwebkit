@@ -166,15 +166,6 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 
     void didRunInsecureContent(SecurityOrigin&) override;
 
-    ResourceError cancelledError(const ResourceRequest&) const override;
-    ResourceError blockedError(const ResourceRequest&) const override;
-    ResourceError blockedByContentBlockerError(const ResourceRequest&) const override;
-    ResourceError cannotShowURLError(const ResourceRequest&) const override;
-    ResourceError interruptedForPolicyChangeError(const ResourceRequest&) const override;
-    ResourceError cannotShowMIMETypeError(const ResourceResponse&) const override;
-    ResourceError fileDoesNotExistError(const ResourceResponse&) const override;
-    ResourceError pluginWillHandleLoadError(const ResourceResponse&) const override;
-
     bool shouldFallBack(const ResourceError&) const override;
 
     String userAgent(const URL&) const override;
@@ -219,8 +210,6 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void didRestoreFromBackForwardCache() final {}
 
     void sendH2Ping(const WTF::URL&, WTF::CompletionHandler<void(std::experimental::fundamentals_v3::expected<WTF::Seconds, WebCore::ResourceError>&&)>&&) final { notImplemented(); }
-    ResourceError httpsUpgradeRedirectLoopError(const ResourceRequest&) const final { notImplemented(); }
-    ResourceError httpNavigationWithHTTPSOnlyError(const ResourceRequest&) const final { notImplemented(); }
  private:
     bool isTertiaryMouseButton(const NavigationAction& action) const;
 

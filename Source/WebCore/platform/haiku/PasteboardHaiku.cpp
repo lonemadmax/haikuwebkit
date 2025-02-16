@@ -122,7 +122,7 @@ void Pasteboard::writeString(const String& type, const String& data)
     }
 }
 
-void Pasteboard::writeSelection(const SimpleRange& selectedRange, bool canSmartCopyOrDelete, LocalFrame& frame, ShouldSerializeSelectedTextForDataTransfer)
+void Pasteboard::writeSelection(const std::optional<SimpleRange>& selectedRange, bool canSmartCopyOrDelete, LocalFrame& frame, ShouldSerializeSelectedTextForDataTransfer)
 {
     AutoClipboardLocker locker(be_clipboard);
     if (!locker.isLocked())
@@ -141,7 +141,7 @@ void Pasteboard::writeSelection(const SimpleRange& selectedRange, bool canSmartC
 
     data->AddData("text/plain", B_MIME_TYPE, string.String(), string.Length());
 
-    BString markupString(serializePreservingVisualAppearance(selectedRange, nullptr, AnnotateForInterchange::Yes));
+    BString markupString(serializePreservingVisualAppearance(*selectedRange, nullptr, AnnotateForInterchange::Yes));
     data->AddData("text/html", B_MIME_TYPE, markupString.String(), markupString.Length());
 
     be_clipboard->Commit();

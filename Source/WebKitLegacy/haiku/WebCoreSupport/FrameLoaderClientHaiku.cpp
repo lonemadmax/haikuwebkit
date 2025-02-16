@@ -727,60 +727,6 @@ void FrameLoaderClientHaiku::convertMainResourceLoadToDownload(DocumentLoader*,
     startDownload(request, {}, FromDownloadAttribute::No);
 }
 
-WebCore::ResourceError FrameLoaderClientHaiku::cancelledError(const WebCore::ResourceRequest& request) const
-{
-    ResourceError error = ResourceError(String(), WebKitErrorCannotShowURL,
-        request.url(), ASCIILiteral::fromLiteralUnsafe("Load request cancelled"), ResourceError::Type::Cancellation);
-    return error;
-}
-
-WebCore::ResourceError FrameLoaderClientHaiku::blockedError(const ResourceRequest& request) const
-{
-    return ResourceError(String(), WebKitErrorCannotUseRestrictedPort,
-                         request.url(), ASCIILiteral::fromLiteralUnsafe("Not allowed to use restricted network port"));
-}
-
-WebCore::ResourceError FrameLoaderClientHaiku::blockedByContentBlockerError(const ResourceRequest& request) const
-{
-    return ResourceError(String(), WebKitErrorCannotShowURL,
-        request.url(), ASCIILiteral::fromLiteralUnsafe("Blocked by content blocker"));
-}
-
-WebCore::ResourceError FrameLoaderClientHaiku::cannotShowURLError(const WebCore::ResourceRequest& request) const
-{
-    return ResourceError(String(), WebKitErrorCannotShowURL,
-                         request.url(), ASCIILiteral::fromLiteralUnsafe("URL cannot be shown"));
-}
-
-WebCore::ResourceError FrameLoaderClientHaiku::interruptedForPolicyChangeError(const WebCore::ResourceRequest& request) const
-{
-    ResourceError error = ResourceError(String(), WebKitErrorFrameLoadInterruptedByPolicyChange,
-        request.url(), ASCIILiteral::fromLiteralUnsafe("Frame load was interrupted"), ResourceError::Type::Cancellation);
-    return error;
-}
-
-WebCore::ResourceError FrameLoaderClientHaiku::cannotShowMIMETypeError(const WebCore::ResourceResponse& response) const
-{
-    // FIXME: This can probably be used to automatically close pages that have no content,
-    // but only triggered a download. Since BWebPage is used for initiating a BWebDownload,
-    // it could remember doing so and then we could ask here if we are the main frame,
-    // have no content, but did download something -- then we could asked to be closed.
-    return ResourceError(String(), WebKitErrorCannotShowMIMEType,
-                         response.url(), ASCIILiteral::fromLiteralUnsafe("Content with the specified MIME type cannot be shown"));
-}
-
-WebCore::ResourceError FrameLoaderClientHaiku::fileDoesNotExistError(const WebCore::ResourceResponse& response) const
-{
-    return ResourceError(String(), WebKitErrorCannotShowURL,
-                         response.url(), ASCIILiteral::fromLiteralUnsafe("File does not exist"));
-}
-
-ResourceError FrameLoaderClientHaiku::pluginWillHandleLoadError(const ResourceResponse& response) const
-{
-    return ResourceError(String(), WebKitErrorPlugInWillHandleLoad,
-                         response.url(), ASCIILiteral::fromLiteralUnsafe("Plugin will handle load"));
-}
-
 bool FrameLoaderClientHaiku::shouldFallBack(const WebCore::ResourceError& error) const
 {
     return !(error.isCancellation()

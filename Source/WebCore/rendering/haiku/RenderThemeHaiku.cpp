@@ -125,21 +125,6 @@ int RenderThemeHaiku::sliderTickOffsetFromTrackCenter() const
 
 #endif
 
-bool RenderThemeHaiku::supportsDataListUI(const AtomString& type) const
-{
-#if ENABLE(DATALIST_ELEMENT)
-    // FIXME: We need to support other types.
-    return type == InputTypeNames::email()
-        || type == InputTypeNames::range()
-        || type == InputTypeNames::color()
-        || type == InputTypeNames::search()
-        || type == InputTypeNames::url();
-#else
-    UNUSED_PARAM(type);
-    return false;
-#endif
-}
-
 bool RenderThemeHaiku::paintSliderThumb(const RenderObject& object, const PaintInfo& info, const IntRect& intRect)
 {
     rgb_color base = colorForValue(B_CONTROL_BACKGROUND_COLOR, object.useDarkAppearance());

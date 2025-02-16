@@ -40,34 +40,19 @@ public:
     virtual ~BackForwardList();
 
     void addItem(Ref<WebCore::HistoryItem>&&) override;
-    //void goBack() override;
-    //void goForward() override;
     void goToItem(WebCore::HistoryItem&) override;
     void goToProvisionalItem(const WebCore::HistoryItem&) final;
     void clearProvisionalItem(const WebCore::HistoryItem&) final;
+    void commitProvisionalItem(const WebCore::HistoryItem&) final {};
 
-    //WebCore::HistoryItem& backItem() override;
-    //WebCore::HistoryItem& currentItem() override;
-    //WebCore::HistoryItem& forwardItem() override;
     RefPtr<WebCore::HistoryItem> itemAtIndex(int, WebCore::FrameIdentifier) override;
     void setChildItem(WebCore::BackForwardFrameItemIdentifier, WTF::Ref<WebCore::HistoryItem>&&) override {};
 
-    //void backListWithLimit(int, HistoryItemVector&) override;
-    //void forwardListWithLimit(int, HistoryItemVector&) override;
-
-    //int capacity() override;
-    //void setCapacity(int) override;
-    //bool enabled() override;
-    //void setEnabled(bool) override;
     unsigned int backListCount(void) const override;
     unsigned int forwardListCount(void) const override;
     bool containsItem(const WebCore::HistoryItem&) const override;
 
     void close() override;
-    //bool closed() override;
-
-    //void removeItem(WebCore::HistoryItem&) override;
-    //HistoryItemVector& entries() override;
 
 private:
     explicit BackForwardList();

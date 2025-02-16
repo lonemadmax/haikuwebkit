@@ -62,11 +62,12 @@ LIST(APPEND WebKitLegacy_SOURCES
     haiku/WebCoreSupport/ProgressTrackerHaiku.cpp
     haiku/WebCoreSupport/SocketStreamHandleHaiku.cpp
     haiku/WebCoreSupport/WebApplicationCache.cpp
-	haiku/WebCoreSupport/WebCryptoClient.cpp
+    haiku/WebCoreSupport/WebCryptoClient.cpp
     haiku/WebCoreSupport/WebDatabaseProvider.cpp
     haiku/WebCoreSupport/WebDiagnosticLoggingClient.cpp
     haiku/WebCoreSupport/WebKitLogging.cpp
     haiku/WebCoreSupport/WebPreferencesDefaultValues.cpp
+    haiku/WebCoreSupport/WebResourceLoadScheduler.cpp
     haiku/WebCoreSupport/WebVisitedLinkStore.cpp
 
     haiku/API/WebDownload.cpp

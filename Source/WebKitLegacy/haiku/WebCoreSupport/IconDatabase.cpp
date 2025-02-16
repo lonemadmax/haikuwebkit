@@ -1080,7 +1080,7 @@ bool IconDatabase::checkIntegrity()
     String resultText = integrity->columnText(0);
 
     // A successful, no-error integrity check will be "ok" - all other strings imply failure
-    if (resultText == "ok")
+    if (resultText == ASCIILiteral::fromLiteralUnsafe("ok"))
         return true;
 
     LOG_ERROR("Icon database integrity check failed - \n%s", resultText.ascii().data());
